@@ -22,7 +22,6 @@ export function LoginPage() {
     setLoading(true);
     setError(null);
 
-    // Check if preload bridge is available
     if (typeof window === "undefined" || !(window as any).mms) {
       setError(
         "MMS bridge not available. The preload script failed to load. This usually means the app was not installed correctly. Please reinstall the app or contact support."
@@ -55,7 +54,7 @@ export function LoginPage() {
   return (
     <div className="flex h-screen bg-canvas">
       {/* ===== Left panel — animated gradient mesh ===== */}
-      <div className="hidden lg:flex relative w-1/2 overflow-hidden bg-gradient-to-br from-brand-900 via-brand-800 to-accent-900">
+      <div className="hidden lg:flex relative w-1/2 overflow-hidden bg-gradient-to-br from-brand-700 via-brand-800 to-accent-900">
         {/* Animated gradient blobs */}
         <motion.div
           animate={{
@@ -142,7 +141,6 @@ export function LoginPage() {
 
       {/* ===== Right panel — form ===== */}
       <div className="flex-1 flex items-center justify-center p-8 relative">
-        {/* Subtle background mesh for light mode */}
         <div className="absolute inset-0 bg-mesh-light opacity-50 pointer-events-none" />
 
         <motion.div

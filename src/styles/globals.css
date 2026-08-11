@@ -34,30 +34,35 @@
   }
 
   .light {
-    /* ===== LIGHT THEME ===== */
-    --canvas: 0 0% 100%;
+    /* ===== LIGHT THEME — warm, colorful, NOT plain white ===== */
+    /* Soft warm canvas — very subtle indigo tint, like premium stationery */
+    --canvas: 250 38% 97%;
     --surface: 0 0% 100%;
-    --surface-hover: 240 5% 96%;
-    --surface-subtle: 240 5% 98%;
+    --surface-hover: 250 40% 95%;
+    --surface-subtle: 250 30% 96%;
     --surface-glass: 0 0% 100%;
 
-    --border: 240 6% 90%;
-    --border-subtle: 240 6% 94%;
-    --border-hover: 240 6% 82%;
+    /* Borders with subtle indigo tint */
+    --border: 250 20% 88%;
+    --border-subtle: 250 15% 92%;
+    --border-hover: 250 20% 80%;
 
-    --text-primary: 240 10% 4%;
-    --text-secondary: 240 4% 46%;
-    --text-tertiary: 240 5% 60%;
-    --text-muted: 240 5% 75%;
+    /* Warm, slightly tinted text */
+    --text-primary: 250 15% 12%;
+    --text-secondary: 250 8% 42%;
+    --text-tertiary: 250 6% 55%;
+    --text-muted: 250 5% 70%;
 
+    /* Vibrant indigo primary */
     --primary: 243 75% 59%;
     --primary-hover: 243 75% 52%;
-    --primary-subtle: 243 75% 96%;
+    --primary-subtle: 243 85% 95%;
 
-    --success: 160 84% 39%;
-    --warning: 32 95% 50%;
-    --danger: 347 77% 55%;
-    --info: 199 89% 48%;
+    /* More saturated semantic colors in light mode */
+    --success: 160 70% 36%;
+    --warning: 32 90% 48%;
+    --danger: 347 75% 52%;
+    --info: 199 85% 44%;
   }
 
   /* Apply dark by default */
