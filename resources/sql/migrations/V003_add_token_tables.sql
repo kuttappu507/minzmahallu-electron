@@ -1,4 +1,6 @@
 -- V003: Add token distribution tables
+-- Note: schema_version insert is handled by the migration runner
+-- (Database.applyMigrations in connection.ts), NOT by this file.
 CREATE TABLE IF NOT EXISTS token_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     event_name TEXT NOT NULL,
@@ -24,5 +26,3 @@ CREATE TABLE IF NOT EXISTS token_assignments (
 CREATE INDEX IF NOT EXISTS idx_token_assignments_event ON token_assignments(event_id);
 CREATE INDEX IF NOT EXISTS idx_token_assignments_family ON token_assignments(family_id);
 CREATE INDEX IF NOT EXISTS idx_token_assignments_code ON token_assignments(token_code);
-
-INSERT INTO schema_version (version, description) VALUES (3, 'V003_add_token_tables');
