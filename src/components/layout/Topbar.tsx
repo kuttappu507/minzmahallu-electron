@@ -1,92 +1,103 @@
 import { useLocation } from "react-router-dom";
-import { Search, Moon, Sun, Globe, Command } from "lucide-react";
+import { Search, Moon, Sun, Bell, Database } from "lucide-react";
 import { useTheme } from "@/lib/theme";
 import { useI18n } from "@/i18n";
-import { Input } from "@/components/ui";
+import { useAuth } from "@/lib/auth";
 
-const pageLabels: Record<string, string> = {
-  "/": "nav_dashboard",
-  "/families": "nav_families",
-  "/members": "nav_members",
-  "/subscriptions": "nav_subscriptions",
-  "/donations": "nav_donations",
-  "/accounting": "nav_accounting",
-  "/marriages": "nav_marriage",
-  "/deaths": "nav_death",
-  "/welfare": "nav_welfare",
-  "/certificates": "nav_certificates",
-  "/tokens": "nav_tokens",
-  "/reports": "nav_reports",
-  "/settings": "nav_settings",
-  "/users": "nav_users",
-  "/audit": "nav_audit",
-  "/backup": "nav_backup",
+const PAGE_TITLES: Record<string, string> = {
+  "/": "Dashboard",
+  "/families": "Families",
+  "/members": "Members",
+  "/subscriptions": "Subscriptions",
+  "/donations": "Donations",
+  "/accounting": "Accounting",
+  "/marriages": "Marriage",
+  "/deaths": "Death",
+  "/welfare": "Welfare",
+  "/certificates": "Certificates",
+  "/tokens": "Tokens",
+  "/reports": "Reports",
+  "/settings": "Settings",
+  "/users": "Users",
+  "/audit": "Audit Log",
+  "/backup": "Backup",
 };
 
 export function Topbar() {
   const { theme, toggle } = useTheme();
-  const { t, toggleLang, isMalayalam } = useI18n();
+  const { toggleLang, isMalayalam } = useI18n();
+  const { user } = useAuth();
   const { pathname } = useLocation();
 
-  const pageTitle = pageLabels[pathname] || "nav_dashboard";
+  const pageTitle = PAGE_TITLES[pathname] || "Dashboard";
+  const initials = user?.initials ?? "?";
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-6 glass border-b border-border/50">
+    <header className="topbar">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-3">
-        <h1 className="text-lg font-semibold tracking-tight text-text-primary">
-          {t(pageTitle)}
-        </h1>
-        <span className="text-xs text-text-muted">·</span>
-        <span className="text-xs text-text-tertiary font-medium">
-          {isMalayalam() ? "മലയാളം" : "English"}
-        </span>
+      <div className="crumb">
+        <small>Minz Mahallu /</small>
+        <b>{pageTitle}</b>
+      </div>
+
+      {/* Search */}
+      <div className="qwrap" style={{ marginLeft: 8 }}>
+        <Search size={16} strokeWidth={2} />
+        <input placeholder="Search records…" />
+        <kbd>Ctrl K</kbd>
       </div>
 
       {/* Right side */}
-      <div className="flex items-center gap-2">
-        {/* Search */}
-        <div className="relative group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary transition-colors group-focus-within:text-primary" />
-          <Input
-            placeholder={t("search_placeholder")}
-            className="pl-9 pr-12 w-64 text-sm"
-            onChange={() => {/* Search implementation varies per page */}}
-          />
-          <kbd className="absolute right-2 top-1/2 -translate-y-1/2 hidden md:flex items-center gap-0.5 px-1.5 h-5 text-[10px] font-mono text-text-muted bg-surface-hover border border-border rounded">
-            <Command className="h-2.5 w-2.5" />K
-          </kbd>
-        </div>
+      <div className="tb-right">
+        {/* DB status chip */}
+        <span className="tb-chip t-em">
+          <i />
+          mms.db · connected
+        </span>
 
-        {/* Language toggle */}
-        <button
-          onClick={toggleLang}
-          title={t("set_language")}
-          className="flex items-center justify-center w-9 h-9 rounded-lg border border-border bg-surface hover:bg-surface-hover hover:border-border-hover transition-all duration-200 group"
-        >
-          <Globe className="h-4 w-4 text-text-secondary group-hover:text-primary transition-colors" />
-        </button>
+        {/* Language segment */}
+        <div className="langseg">
+          <button
+            type="button"
+            className={!isMalayalam() ? "on" : ""}
+            onClick={() => !isMalayalam() && toggleLang()}
+          >
+            EN
+          </button>
+          <button
+            type="button"
+            className={isMalayalam() ? "on" : ""}
+            onClick={() => isMalayalam() && toggleLang()}
+          >
+            മല
+          </button>
+        </div>
 
         {/* Theme toggle */}
         <button
+          className="ibtn"
           onClick={toggle}
-          title={t("set_theme")}
-          className="relative flex items-center justify-center w-9 h-9 rounded-lg border border-border bg-surface hover:bg-surface-hover hover:border-border-hover transition-all duration-200 group overflow-hidden"
+          title="Toggle dark mode"
         >
-          <Sun
-            className={`absolute h-4 w-4 transition-all duration-300 ${
-              theme === "dark"
-                ? "opacity-0 rotate-90 scale-0"
-                : "opacity-100 rotate-0 scale-100 text-amber-500"
-            }`}
-          />
-          <Moon
-            className={`absolute h-4 w-4 transition-all duration-300 ${
-              theme === "dark"
-                ? "opacity-100 rotate-0 scale-100 text-brand-300"
-                : "opacity-0 -rotate-90 scale-0"
-            }`}
-          />
+          {theme === "dark" ? <Sun size={17} strokeWidth={2} /> : <Moon size={17} strokeWidth={2} />}
+        </button>
+
+        {/* Notifications */}
+        <button className="ibtn" title="Notifications">
+          <Bell size={17} strokeWidth={2} />
+        </button>
+
+        {/* Quick backup */}
+        <button className="ibtn" title="Quick backup">
+          <Database size={17} strokeWidth={2} />
+        </button>
+
+        <div className="tbdiv" />
+
+        {/* Avatar */}
+        <button className="avbtn">
+          <span className="av">{initials}</span>
+          <b>{user?.username ?? "—"}</b>
         </button>
       </div>
     </header>

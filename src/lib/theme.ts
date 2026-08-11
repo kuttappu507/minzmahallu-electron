@@ -13,7 +13,7 @@ interface ThemeState {
 export const useTheme = create<ThemeState>()(
   persist(
     (set, get) => ({
-      theme: "dark",
+      theme: "light",  // Design is light-first
       setTheme: (t) => {
         set({ theme: t });
         get().apply();
@@ -26,13 +26,12 @@ export const useTheme = create<ThemeState>()(
       apply: () => {
         const t = get().theme;
         const root = document.documentElement;
-        // Default is dark (no class). Light adds .light class.
-        if (t === "light") {
-          root.classList.add("light");
-          root.classList.remove("dark");
-        } else {
-          root.classList.remove("light");
+        if (t === "dark") {
           root.classList.add("dark");
+          root.classList.remove("light");
+        } else {
+          root.classList.remove("dark");
+          root.classList.add("light");
         }
         root.style.colorScheme = t;
       },
