@@ -25,7 +25,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
 
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
@@ -35,7 +34,7 @@ jobs:
         shell: bash
 
       - name: Install npm packages
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Build renderer
         run: npm run build
