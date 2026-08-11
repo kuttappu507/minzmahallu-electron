@@ -15,5 +15,5 @@
     "types": ["node"],
     "lib": ["ES2022"]
   },
-  "include": ["./**/*.ts"]
+  "include": ["./**/*.ts", "./**/*.mts"]
 }

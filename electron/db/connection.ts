@@ -10,12 +10,7 @@
  * `asarUnpack` so Node's `require()` can load it.
  *
  * Migration strategy:
- *  - Fresh install: load schema.sql (creates all tables + initial v1
- *    record in schema_version), load seed.sql, then run any migrations
- *    whose version > 1. Each migration SQL is idempotent (uses
- *    CREATE TABLE IF NOT EXISTS, ALTER TABLE ADD COLUMN with error
- *    tolerance, etc.) so re-running on a schema that already has the
- *    objects is safe.
+ *  - Fresh install: load schema.sql + seed.sql, then run migrations.
  *  - Existing install: just run pending migrations.
  *  - Each migration is wrapped in a transaction. If the SQL fails
  *    with a benign error (duplicate column / already exists), we
@@ -23,11 +18,13 @@
  *  - Version record uses INSERT OR IGNORE so migration files that
  *    contain their own INSERT INTO schema_version (legacy pattern)
  *    don't cause UNIQUE constraint failures.
+ *  - If init fails, we attempt to delete the corrupted DB and retry
+ *    once with a fresh install.
  */
 import Database from "better-sqlite3";
 import path from "node:path";
 import fs from "node:fs";
-import { app } from "electron";
+import { app, dialog } from "electron";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -37,10 +34,6 @@ export type DB = Database.Database;
 let db: DB | null = null;
 
 function resourcesDir(): string {
-  // Try multiple paths in order:
-  // 1. Packaged: process.resourcesPath/resources (extraResources destination)
-  // 2. Dev:      ../resources (relative to dist-electron/)
-  // 3. Dev fallback: process.cwd()/resources
   const candidates: string[] = [];
 
   if (app.isPackaged) {
@@ -68,25 +61,92 @@ function userDataDir(): string {
   return dir;
 }
 
+function dbPath(): string {
+  return path.join(userDataDir(), "mms.db");
+}
+
+/** Delete the DB file + WAL + SHM. Use when the DB is corrupted. */
+function deleteDb() {
+  const p = dbPath();
+  for (const f of [p, p + "-wal", p + "-shm"]) {
+    if (fs.existsSync(f)) {
+      try { fs.unlinkSync(f); } catch (e) { console.warn(`[db] Could not delete ${f}:`, e); }
+    }
+  }
+}
+
 export function getDB(): DB {
   if (db) return db;
 
-  const dbPath = path.join(userDataDir(), "mms.db");
-  console.log(`[db] Opening database at: ${dbPath}`);
+  const p = dbPath();
+  console.log(`[db] Opening database at: ${p}`);
 
-  db = new Database(dbPath);
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
+  try {
+    db = new Database(p);
+    db.pragma("journal_mode = WAL");
+    db.pragma("foreign_keys = ON");
+    initializeSchema(db);
+  } catch (err) {
+    console.error("[db] First init attempt failed:", err);
 
-  // Initialize schema if needed
-  initializeSchema(db);
+    // Close the failed connection
+    if (db) { try { db.close(); } catch {} db = null; }
+
+    // Ask the user if they want to reset the database
+    const choice = dialog.showMessageBoxSync({
+      type: "question",
+      title: "MMS — Database Error",
+      message: "Failed to initialize the database.",
+      detail: `Error: ${err instanceof Error ? err.message : String(err)}\n\n` +
+        `This may be due to a corrupted database from a previous build.\n\n` +
+        `Click "Yes" to delete the old database and create a fresh one. ` +
+        `Your existing data will be lost but the app will work.\n\n` +
+        `Click "No" to continue with the broken database (login may fail).`,
+      buttons: ["Yes — Reset Database", "No — Continue Anyway"],
+      defaultId: 0,
+      cancelId: 1,
+    });
+
+    if (choice === 0) {
+      console.log("[db] User chose to reset database. Deleting old DB...");
+      deleteDb();
+      try {
+        db = new Database(p);
+        db.pragma("journal_mode = WAL");
+        db.pragma("foreign_keys = ON");
+        initializeSchema(db);
+        console.log("[db] Database reset successful — fresh install created");
+        dialog.showMessageBoxSync({
+          type: "info",
+          title: "MMS — Database Reset",
+          message: "The database has been reset successfully.",
+          detail: "A fresh database was created with seed data. You can now log in with admin / admin123.",
+          buttons: ["OK"],
+        });
+      } catch (retryErr) {
+        console.error("[db] Reset also failed:", retryErr);
+        dialog.showErrorBox(
+          "MMS — Fatal Database Error",
+          `Could not create a fresh database either:\n\n${retryErr instanceof Error ? retryErr.message : String(retryErr)}\n\n` +
+          `Please check write permissions for:\n${p}`
+        );
+        // Create an in-memory dummy DB so the app doesn't crash on startup
+        // (login will still fail, but at least the UI loads)
+        db = new Database(":memory:");
+      }
+    } else {
+      console.log("[db] User chose to continue with broken DB — creating in-memory fallback");
+      // Create an in-memory dummy so the app doesn't crash
+      // Login will fail but the UI will load
+      db = new Database(":memory:");
+    }
+  }
 
   return db;
 }
 
 function initializeSchema(database: DB) {
   try {
-    // Check if schema_version table exists
     const hasSchemaVersion = database
       .prepare(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_version'"
@@ -120,11 +180,6 @@ function initializeSchema(database: DB) {
     }
 
     // ===== ALWAYS run pending migrations (works for both fresh + existing) =====
-    // On fresh install, schema.sql creates the schema_version table with
-    // version=1 recorded. Migrations V002+ will then run on top.
-    // Even if schema.sql already has some of the migration changes baked in
-    // (e.g. the `language` column from V002), the migration SQL is
-    // idempotent and will fail benignly, then we record the version.
     applyMigrations(database);
 
     // Verify users table exists and has at least one row
@@ -153,7 +208,6 @@ function applyMigrations(database: DB) {
     .filter((f) => /^V\d+.*\.sql$/i.test(f))
     .sort();
 
-  // Get current schema version
   const current = (
     database
       .prepare("SELECT MAX(version) AS v FROM schema_version")
@@ -176,15 +230,11 @@ function applyMigrations(database: DB) {
     console.log(`[db] Applying migration ${f} (v${v})...`);
 
     try {
-      // Wrap migration + version-insert in a transaction.
       database.exec("BEGIN");
       try {
         database.exec(sql);
       } catch (sqlErr) {
         const msg = String(sqlErr);
-        // Benign errors: the schema.sql already had this change baked in.
-        // Rollback the SQL execution but still record the version so we
-        // don't retry forever.
         if (/duplicate column|already exists/i.test(msg)) {
           console.warn(`[db] Migration ${f}: SQL had benign error (${msg.split("\n")[0].slice(0, 100)}), recording version anyway`);
           database.exec("ROLLBACK");
@@ -194,9 +244,6 @@ function applyMigrations(database: DB) {
           throw sqlErr;
         }
       }
-      // Use INSERT OR IGNORE so migration files that contain their own
-      // INSERT INTO schema_version (legacy pattern, e.g. V003_add_token_tables
-      // before fix) don't cause UNIQUE constraint failures.
       database
         .prepare(
           "INSERT OR IGNORE INTO schema_version (version, description) VALUES (?, ?)"
@@ -207,7 +254,6 @@ function applyMigrations(database: DB) {
     } catch (err) {
       try { database.exec("ROLLBACK"); } catch {}
       console.error(`[db] Migration ${f} failed:`, err);
-      // Don't rethrow — let other migrations try. The error is logged.
     }
   }
 }

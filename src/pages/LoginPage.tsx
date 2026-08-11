@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogIn, Loader2, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { LogIn, Loader2, Eye, EyeOff, ShieldCheck, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/i18n";
 import { Button, Input, Label } from "@/components/ui";
@@ -15,21 +15,38 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
+
+    // Check if preload bridge is available
+    if (typeof window === "undefined" || !(window as any).mms) {
+      setError(
+        "MMS bridge not available. The preload script failed to load. This usually means the app was not installed correctly. Please reinstall the app or contact support."
+      );
+      setLoading(false);
+      return;
+    }
+
     try {
-      const result = await window.mms.auth.login(username, password);
-      if (result.success) {
+      const result = await (window as any).mms.auth.login(username, password);
+      if (result.success && result.user) {
         setUser(result.user);
         toast.success(`${t("app_name")} ✓`);
         navigate("/");
       } else {
-        toast.error(result.error || "Login failed");
+        const errMsg = result.error || "Login failed. Please check your credentials.";
+        setError(errMsg);
+        toast.error(errMsg);
       }
     } catch (err: any) {
-      toast.error(err.message || "Login failed");
+      const errMsg = err?.message || "An unexpected error occurred during login.";
+      setError(errMsg);
+      toast.error(errMsg);
+      console.error("[Login] Error:", err);
     } finally {
       setLoading(false);
     }
@@ -153,6 +170,18 @@ export function LoginPage() {
               Welcome back. Sign in to continue to your dashboard.
             </p>
           </div>
+
+          {/* Error banner */}
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 flex items-start gap-2"
+            >
+              <AlertTriangle className="h-4 w-4 text-danger mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-danger flex-1">{error}</p>
+            </motion.div>
+          )}
 
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
