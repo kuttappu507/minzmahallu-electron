@@ -47,48 +47,31 @@ function StatusBar() {
 
 function ProtectedLayout() {
   return (
-    <div className="app-window">
-      {/* Title bar */}
-      <div className="tbar">
-        <span className="logo">
-          <b>M</b>
-        </span>
-        <span className="ttl">MMS</span>
-        <span className="tsu">· Minz Mahallu Management System</span>
-        <span className="tb-chip t-em">
-          <i />
-          mms.db · connected
-        </span>
-        <span className="tb-chip t-gold">v3.0.0</span>
-      </div>
-
-      {/* App body */}
-      <div id="app" style={{ flex: 1, display: "flex", minHeight: 0 }}>
-        <Sidebar />
-        <div className="maincol">
-          <Topbar />
-          <div id="content">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/families" element={<Families />} />
-              <Route path="/members" element={<Members />} />
-              <Route path="/subscriptions" element={<Subscriptions />} />
-              <Route path="/donations" element={<Donations />} />
-              <Route path="/accounting" element={<Accounting />} />
-              <Route path="/marriages" element={<Marriages />} />
-              <Route path="/deaths" element={<Deaths />} />
-              <Route path="/welfare" element={<Welfare />} />
-              <Route path="/certificates" element={<Certificates />} />
-              <Route path="/tokens" element={<Tokens />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/users" element={<Users />} />
-              <Route path="/audit" element={<AuditLog />} />
-              <Route path="/backup" element={<Backup />} />
-            </Routes>
-          </div>
-          <StatusBar />
+    <div id="app" style={{ height: "100vh", display: "flex", overflow: "hidden" }}>
+      <Sidebar />
+      <div className="maincol">
+        <Topbar />
+        <div id="content">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/families" element={<Families />} />
+            <Route path="/members" element={<Members />} />
+            <Route path="/subscriptions" element={<Subscriptions />} />
+            <Route path="/donations" element={<Donations />} />
+            <Route path="/accounting" element={<Accounting />} />
+            <Route path="/marriages" element={<Marriages />} />
+            <Route path="/deaths" element={<Deaths />} />
+            <Route path="/welfare" element={<Welfare />} />
+            <Route path="/certificates" element={<Certificates />} />
+            <Route path="/tokens" element={<Tokens />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/users" element={<Users />} />
+            <Route path="/audit" element={<AuditLog />} />
+            <Route path="/backup" element={<Backup />} />
+          </Routes>
         </div>
+        <StatusBar />
       </div>
     </div>
   );

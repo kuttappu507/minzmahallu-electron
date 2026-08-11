@@ -1,10 +1,11 @@
 /*
- * UI components — Modern, gradient-aware, glass-capable.
- * Button, Card, Input, Label, Textarea, Select, Switch, Badge,
- * Dialog, Table, EmptyState, Pagination, SectionLabel.
+ * UI components — matching the reference design system exactly.
+ * Uses CSS classes from globals.css: .btn .bp .bg .bd .bgd .bs
+ * .card .inp .lbl .pill .tbl .modal .toast etc.
  */
 import React from "react";
 import { cn } from "@/lib/utils";
+import { X } from "lucide-react";
 
 // ============ Button ============
 export function Button({
@@ -18,22 +19,19 @@ export function Button({
   size?: "default" | "sm" | "lg" | "icon";
 }) {
   const variants = {
-    primary: "btn-primary",
-    secondary: "btn-secondary",
-    danger: "btn-danger",
-    ghost: "btn-ghost",
+    primary: "btn bp",
+    secondary: "btn bg",
+    danger: "btn bd",
+    ghost: "btn bgd",
   };
   const sizes = {
-    default: "h-9 px-4 text-sm",
-    sm: "h-8 px-3 text-xs",
-    lg: "h-11 px-6 text-base",
-    icon: "h-9 w-9",
+    default: "",
+    sm: " bs",
+    lg: "",
+    icon: "",
   };
   return (
-    <button
-      className={cn(variants[variant], sizes[size], className)}
-      {...props}
-    >
+    <button className={cn(variants[variant], sizes[size], className)} {...props}>
       {children}
     </button>
   );
@@ -50,7 +48,7 @@ export function Card({ className, children, ...props }: React.HTMLAttributes<HTM
 
 export function CardHeader({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("px-5 py-4 border-b border-border-subtle", className)} {...props}>
+    <div className={cn("m-h", className)} style={{ padding: "17px 20px", borderBottom: "1px solid var(--line)" }} {...props}>
       {children}
     </div>
   );
@@ -58,7 +56,7 @@ export function CardHeader({ className, children, ...props }: React.HTMLAttribut
 
 export function CardTitle({ className, children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
-    <h3 className={cn("text-base font-semibold tracking-tight text-text-primary", className)} {...props}>
+    <h3 className={cn("", className)} style={{ font: "700 16px 'Space Grotesk'" }} {...props}>
       {children}
     </h3>
   );
@@ -66,7 +64,7 @@ export function CardTitle({ className, children, ...props }: React.HTMLAttribute
 
 export function CardContent({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("p-5", className)} {...props}>
+    <div className={cn("m-b", className)} style={{ padding: "18px 20px" }} {...props}>
       {children}
     </div>
   );
@@ -75,7 +73,7 @@ export function CardContent({ className, children, ...props }: React.HTMLAttribu
 // ============ Label ============
 export function Label({ className, children, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
   return (
-    <label className={cn("label", className)} {...props}>
+    <label className={cn("lbl", className)} {...props}>
       {children}
     </label>
   );
@@ -84,7 +82,7 @@ export function Label({ className, children, ...props }: React.LabelHTMLAttribut
 // ============ Input ============
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ className, ...props }, ref) => (
-    <input ref={ref} className={cn("input", className)} {...props} />
+    <input ref={ref} className={cn("inp", className)} {...props} />
   )
 );
 Input.displayName = "Input";
@@ -94,12 +92,8 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTML
   ({ className, ...props }, ref) => (
     <textarea
       ref={ref}
-      className={cn(
-        "w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg",
-        "text-text-primary placeholder:text-text-muted resize-y",
-        "focus:outline-none focus:border-primary focus:bg-surface focus:ring-2 focus:ring-primary/15 transition-all duration-200",
-        className
-      )}
+      className={cn("inp", className)}
+      style={{ resize: "vertical", minHeight: 60 }}
       {...props}
     />
   )
@@ -109,15 +103,7 @@ Textarea.displayName = "Textarea";
 // ============ Select ============
 export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
   ({ className, children, ...props }, ref) => (
-    <select
-      ref={ref}
-      className={cn(
-        "w-full h-10 px-3 text-sm bg-surface-hover border border-border rounded-lg cursor-pointer",
-        "text-text-primary focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all duration-200",
-        className
-      )}
-      {...props}
-    >
+    <select ref={ref} className={cn("inp", className)} {...props}>
       {children}
     </select>
   )
@@ -140,62 +126,47 @@ export function Switch({
       role="switch"
       aria-checked={checked}
       onClick={() => onCheckedChange(!checked)}
-      className={cn(
-        "relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 ease-smooth",
-        checked
-          ? "bg-gradient-to-r from-brand-500 to-accent-500 shadow-glow"
-          : "bg-surface-hover border border-border",
-        className
-      )}
-    >
-      <span
-        className={cn(
-          "inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform duration-300 ease-smooth",
-          checked ? "translate-x-6" : "translate-x-1"
-        )}
-      />
-    </button>
+      className={cn("sw", checked && "on", className)}
+    />
   );
 }
 
-// ============ Badge ============
+// ============ Badge / Pill ============
 export function Badge({
   variant = "default",
   children,
   className,
 }: {
-  variant?: "default" | "success" | "warning" | "danger" | "info" | "muted" | "active" | "inactive" | "overdue" | "paid" | "pending" | "partial";
+  variant?: string;
   children: React.ReactNode;
   className?: string;
 }) {
-  const variants = {
-    default: "bg-primary-subtle text-primary",
-    success: "bg-success/10 text-success border border-success/20",
-    active: "bg-success/10 text-success border border-success/20",
-    paid: "bg-success/10 text-success border border-success/20",
-    warning: "bg-warning/10 text-warning border border-warning/20",
-    pending: "bg-warning/10 text-warning border border-warning/20",
-    partial: "bg-warning/10 text-warning border border-warning/20",
-    danger: "bg-danger/10 text-danger border border-danger/20",
-    overdue: "bg-danger/10 text-danger border border-danger/20",
-    inactive: "bg-surface-hover text-text-secondary border border-border",
-    info: "bg-info/10 text-info border border-info/20",
-    muted: "bg-surface-hover text-text-secondary border border-border",
+  // Map to design's tint classes
+  const tintMap: Record<string, string> = {
+    default: "t-em",
+    success: "t-em",
+    active: "t-em",
+    paid: "t-em",
+    warning: "t-gold",
+    pending: "t-gold",
+    partial: "t-gold",
+    danger: "t-rose",
+    overdue: "t-rose",
+    inactive: "t-slate",
+    archived: "t-slate",
+    info: "t-sky",
+    muted: "t-slate",
   };
+  const tint = tintMap[variant] || "t-slate";
   return (
-    <span
-      className={cn(
-        "inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full",
-        variants[variant],
-        className
-      )}
-    >
+    <span className={cn("pill", tint, className)}>
+      {(variant === "overdue" || variant === "danger") && <i />}
       {children}
     </span>
   );
 }
 
-// ============ Dialog ============
+// ============ Dialog / Modal ============
 export function Dialog({
   open,
   onClose,
@@ -214,23 +185,23 @@ export function Dialog({
   if (!open) return null;
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      className={cn("modal-root", open && "open")}
       onClick={onClose}
+      style={{ position: "fixed", inset: 0 }}
     >
       <div
-        className={cn(
-          "bg-surface border border-border rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col animate-scale-in",
-          className
-        )}
+        className={cn("modal", className)}
         onClick={(e) => e.stopPropagation()}
       >
-        {(title || description) && (
-          <div className="px-6 py-4 border-b border-border-subtle">
-            {title && <h2 className="text-lg font-semibold tracking-tight text-text-primary">{title}</h2>}
-            {description && <p className="text-sm text-text-secondary mt-1">{description}</p>}
+        {title && (
+          <div className="m-h">
+            <b>{title}</b>
+            <button className="ibtn" onClick={onClose} style={{ marginLeft: "auto" }}>
+              <X size={16} />
+            </button>
           </div>
         )}
-        <div className="flex-1 overflow-auto">{children}</div>
+        <div className="m-b">{children}</div>
       </div>
     </div>
   );
@@ -239,14 +210,12 @@ export function Dialog({
 // ============ Table ============
 export function Table({ headers, children, className }: { headers: string[]; children: React.ReactNode; className?: string }) {
   return (
-    <div className="overflow-x-auto">
-      <table className={cn("w-full text-sm", className)}>
+    <div className={cn("tbl", className)}>
+      <table>
         <thead>
-          <tr className="border-b border-border bg-surface-subtle/50">
+          <tr>
             {headers.map((h, i) => (
-              <th key={i} className="text-left px-4 py-3 text-xs font-semibold text-text-tertiary uppercase tracking-wider">
-                {h}
-              </th>
+              <th key={i}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -257,38 +226,20 @@ export function Table({ headers, children, className }: { headers: string[]; chi
 }
 
 export function Td({ className, children, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) {
-  return (
-    <td className={cn("px-4 py-3 text-text-primary", className)} {...props}>
-      {children}
-    </td>
-  );
+  return <td className={className} {...props}>{children}</td>;
 }
 
 export function Tr({ className, children, ...props }: React.HTMLAttributes<HTMLTableRowElement>) {
-  return (
-    <tr
-      className={cn(
-        "border-b border-border-subtle transition-colors hover:bg-surface-hover/50",
-        className
-      )}
-      {...props}
-    >
-      {children}
-    </tr>
-  );
+  return <tr className={className} {...props}>{children}</tr>;
 }
 
 // ============ EmptyState ============
 export function EmptyState({ icon, title, description }: { icon?: React.ReactNode; title: string; description?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center animate-fade-in">
-      {icon && (
-        <div className="mb-4 flex items-center justify-center w-14 h-14 rounded-2xl bg-surface-hover text-text-muted">
-          {icon}
-        </div>
-      )}
-      <h3 className="text-base font-semibold text-text-primary">{title}</h3>
-      {description && <p className="text-sm text-text-tertiary mt-1 max-w-sm">{description}</p>}
+    <div className="tempty" style={{ padding: 40, textAlign: "center" }}>
+      {icon && <div style={{ marginBottom: 10, color: "var(--fnt)" }}>{icon}</div>}
+      <div style={{ font: "700 13px Manrope", color: "var(--fnt)" }}>{title}</div>
+      {description && <div style={{ font: "600 11px Manrope", color: "var(--fnt)", marginTop: 4 }}>{description}</div>}
     </div>
   );
 }
@@ -309,22 +260,14 @@ export function Pagination({
 }) {
   if (total === 0) return null;
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-t border-border-subtle bg-surface-subtle/30">
-      <p className="text-xs text-text-tertiary tabular-nums">
-        Showing <span className="font-medium text-text-secondary">{(page - 1) * pageSize + 1}</span>–
-        <span className="font-medium text-text-secondary">{Math.min(page * pageSize, total)}</span> of{" "}
-        <span className="font-medium text-text-secondary">{total}</span>
-      </p>
-      <div className="flex items-center gap-2">
-        <Button variant="secondary" size="sm" onClick={() => onPageChange(page - 1)} disabled={page <= 1}>
-          ← Prev
-        </Button>
-        <span className="text-xs text-text-tertiary tabular-nums">
-          Page {page} of {Math.max(totalPages, 1)}
-        </span>
-        <Button variant="secondary" size="sm" onClick={() => onPageChange(page + 1)} disabled={page >= totalPages}>
-          Next →
-        </Button>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderTop: "1px solid var(--line)", background: "var(--panel2)" }}>
+      <span className="count-chip">
+        {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
+      </span>
+      <div style={{ display: "flex", gap: 6 }}>
+        <button className="btn bs bg" onClick={() => onPageChange(page - 1)} disabled={page <= 1}>← Prev</button>
+        <span className="count-chip">Page {page} / {Math.max(totalPages, 1)}</span>
+        <button className="btn bs bg" onClick={() => onPageChange(page + 1)} disabled={page >= totalPages}>Next →</button>
       </div>
     </div>
   );
@@ -333,7 +276,7 @@ export function Pagination({
 // ============ SectionLabel ============
 export function SectionLabel({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <p className={cn("text-xs font-semibold text-text-muted uppercase tracking-wider mb-3", className)}>
+    <p className={cn("navsec", className)} style={{ padding: "0 0 8px" }}>
       {children}
     </p>
   );

@@ -101,15 +101,13 @@
     font-family: Manrope, system-ui, sans-serif;
     font-size: 13.5px;
     color: var(--tx);
-    background: var(--bodybg);
-    background-image: var(--dot);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    background: var(--bg);
     overflow: hidden;
     transition: background 0.3s, color 0.3s;
     user-select: none;
     -webkit-font-smoothing: antialiased;
+    margin: 0;
+    padding: 0;
   }
 
   html.lang-ml body,
@@ -143,49 +141,8 @@
 }
 
 @layer components {
-  /* ===== App window ===== */
-  .app-window {
-    position: relative;
-    width: min(1580px, calc(100vw - 28px));
-    height: calc(100vh - 28px);
-    min-height: 580px;
-    background: var(--bg);
-    border-radius: 22px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 0 0 1px var(--line), var(--shl);
-  }
-
-  /* ===== Title bar ===== */
-  .tbar {
-    height: 48px;
-    flex: none;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 0 12px 0 18px;
-    background: var(--panel);
-    border-bottom: 1px solid var(--line);
-    user-select: none;
-    position: relative;
-    z-index: 60;
-  }
-  .tbar .ttl { font: 700 12.5px "Space Grotesk"; letter-spacing: 0.01em; }
-  .tbar .tsu { font: 600 11px Manrope; color: var(--fnt); }
-  .tb-chip {
-    display: flex; align-items: center; gap: 6px;
-    font: 700 10px Manrope; letter-spacing: 0.06em;
-    color: var(--st); background: var(--sb); border: 1px solid var(--sl);
-    padding: 5px 11px; border-radius: 99px;
-  }
-  .tb-chip i { width: 6px; height: 6px; border-radius: 50%; background: var(--sc); animation: pl 2.4s infinite; }
-  .logo {
-    width: 26px; height: 26px; border-radius: 9px;
-    background: var(--em); display: grid; place-items: center;
-    box-shadow: 0 2px 0 var(--emdd); flex: none;
-  }
-  .logo b { font: 800 14px "Space Grotesk"; color: #fff; }
+  /* ===== Content ===== */
+  #content { flex: 1; overflow-y: auto; padding: 20px 22px 26px; background-image: var(--dot); scrollbar-width: thin; scrollbar-color: var(--line2) transparent; }
 
   /* ===== Sidebar ===== */
   .sidebar {
@@ -277,9 +234,6 @@
   .avbtn:hover { border-color: var(--em); background: var(--selbg); }
   .avbtn .av { width: 28px; height: 28px; border-radius: 99px; display: grid; place-items: center; font: 800 11px "Space Grotesk"; color: #fff; background: var(--em); }
   .avbtn b { font: 700 12px Manrope; }
-
-  /* ===== Content ===== */
-  #content { flex: 1; overflow-y: auto; padding: 20px 22px 26px; background-image: var(--dot); scrollbar-width: thin; scrollbar-color: var(--line2) transparent; }
 
   /* ===== Status bar ===== */
   .statusbar { height: 28px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; background: var(--panel2); border-top: 1px solid var(--line); font: 700 11px Manrope; color: var(--mut); }
@@ -411,6 +365,14 @@
   @keyframes tIn { from { transform: translateY(14px); opacity: 0; } }
   @keyframes tOut { to { transform: translateY(14px); opacity: 0; } }
 
+  /* ===== Switch ===== */
+  .sw { position: relative; width: 40px; height: 22px; flex: none; border-radius: 99px; background: var(--line2); transition: 0.18s; border: 0; cursor: pointer; }
+  .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: 0.18s; box-shadow: 0 1px 3px rgba(23, 43, 32, 0.25); }
+  .sw.on { background: var(--em); }
+  .sw.on::after { left: 21px; }
+
+  /* ===== View ===== */
+  .view { animation: viewIn 0.32s cubic-bezier(0.2, 0.8, 0.3, 1); }
   .view-enter { animation: viewIn 0.32s cubic-bezier(0.2, 0.8, 0.3, 1); }
 
   /* ===== Toast ===== */
@@ -443,4 +405,40 @@
     .qwrap { width: 150px; }
     .sess { display: none; }
   }
+}
+
+@layer utilities {
+  /* ===== Compatibility utilities — map old Tailwind names to new design tokens ===== */
+  .text-text-primary { color: var(--tx) !important; }
+  .text-text-secondary { color: var(--mut) !important; }
+  .text-text-tertiary { color: var(--fnt) !important; }
+  .text-text-muted { color: var(--fnt) !important; opacity: 0.7; }
+  .text-primary { color: var(--em) !important; }
+  .text-success { color: var(--c-em) !important; }
+  .text-warning { color: var(--c-gold) !important; }
+  .text-danger { color: var(--c-rose) !important; }
+  .text-info { color: var(--c-sky) !important; }
+  .text-white { color: #fff !important; }
+
+  .bg-canvas { background: var(--bg) !important; }
+  .bg-surface { background: var(--panel) !important; }
+  .bg-surface-hover { background: var(--panel2) !important; }
+  .bg-surface-subtle { background: var(--panel2) !important; }
+  .bg-primary { background: var(--em) !important; }
+  .bg-primary-subtle { background: var(--selbg) !important; }
+  .bg-danger { background: var(--c-rose) !important; }
+  .bg-danger\/10 { background: rgba(232, 85, 110, 0.1) !important; }
+  .bg-warning\/10 { background: rgba(224, 165, 13, 0.1) !important; }
+  .bg-success\/10 { background: rgba(14, 171, 127, 0.1) !important; }
+
+  .border-border { border-color: var(--line) !important; }
+  .border-border-subtle { border-color: var(--line) !important; }
+  .border-border-hover { border-color: var(--line2) !important; }
+  .border-primary { border-color: var(--em) !important; }
+  .border-danger { border-color: var(--c-rose) !important; }
+  .border-danger\/30 { border-color: rgba(232, 85, 110, 0.3) !important; }
+  .border-primary\/20 { border-color: rgba(14, 171, 127, 0.2) !important; }
+
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
 }
