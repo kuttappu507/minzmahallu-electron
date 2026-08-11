@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { font-family: Georgia, serif; margin: 0; padding: 0; }
+  .cert { padding: 60px; text-align: center; }
+  .header { color: #1a4a8a; font-size: 24pt; font-weight: bold; margin-bottom: 6px; }
+  .sub { color: #555; font-size: 14pt; margin-bottom: 20px; }
+  .body { text-align: justify; font-size: 12pt; line-height: 1.6; margin: 40px 0; }
+  .footer { color: #888; font-size: 9pt; margin-top: 40px; }
+  .seal { color: #8a1a1a; font-weight: bold; border: 2px solid #8a1a1a; border-radius: 50%; padding: 16px; display: inline-block; margin-top: 20px; }
+</style>
+</head>
+<body>
+<div class="cert">
+  <div class="header">{{MAHALLU_NAME}}</div>
+  <div class="sub">MEMBERSHIP CERTIFICATE</div>
+  <hr/>
+  <div class="body">
+    <p>Certificate No: <b>{{CERT_NO}}</b> &nbsp;&nbsp; Date: <b>{{DATE}}</b></p>
+    <p>This is to certify that <b>{{MEMBER_NAME}}</b>
+       (Member Code: {{MEMBER_CODE}}, Gender: {{GENDER}}, Age: {{AGE}})
+       is a registered member of this Mahallu, residing at {{HOUSE_NAME}}, {{ADDRESS}}.</p>
+  </div>
+  <div class="seal">MAHALLU SEAL</div>
+  <div class="footer">Authorized Signature: {{ISSUED_BY}}<br/>Scan QR to verify</div>
+</div>
+</body>
+</html>
