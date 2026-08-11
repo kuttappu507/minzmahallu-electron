@@ -1,90 +1,210 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    /* Light theme */
-    --canvas: 144 38% 93%;
-    --surface: 0 0% 100%;
-    --surface-hover: 144 38% 96%;
-    --surface-subtle: 144 38% 96%;
-    --border: 144 24% 84%;
-    --border-hover: 144 18% 75%;
-    --text-primary: 144 33% 12%;
-    --text-secondary: 144 14% 35%;
-    --text-tertiary: 144 9% 53%;
-    --text-muted: 144 12% 70%;
-    --primary: 160 95% 30%;
-    --primary-hover: 162 92% 26%;
-    --primary-subtle: 160 95% 95%;
-    --success: 160 95% 30%;
-    --warning: 32 95% 50%;
-    --danger: 0 84% 60%;
+    /* ===== DARK THEME (default) ===== */
+    /* Sophisticated near-black with subtle blue undertone */
+    --canvas: 240 10% 4%;
+    --surface: 240 8% 7%;
+    --surface-hover: 240 8% 11%;
+    --surface-subtle: 240 8% 9%;
+    --surface-glass: 240 8% 10%;
+
+    --border: 240 6% 18%;
+    --border-subtle: 240 6% 14%;
+    --border-hover: 240 6% 25%;
+
+    --text-primary: 0 0% 98%;
+    --text-secondary: 240 5% 65%;
+    --text-tertiary: 240 5% 50%;
+    --text-muted: 240 5% 38%;
+
+    --primary: 243 75% 59%;          /* indigo-500 */
+    --primary-hover: 243 75% 56%;    /* indigo-600 */
+    --primary-subtle: 243 75% 12%;    /* indigo-tinted dark */
+
+    --success: 160 84% 39%;
+    --warning: 32 95% 56%;
+    --danger: 347 77% 60%;
+    --info: 199 89% 48%;
   }
 
-  .dark {
-    --canvas: 144 38% 8%;
-    --surface: 144 28% 11%;
-    --surface-hover: 144 24% 15%;
-    --surface-subtle: 144 22% 11%;
-    --border: 144 28% 20%;
-    --border-hover: 144 28% 30%;
-    --text-primary: 144 25% 92%;
-    --text-secondary: 144 12% 70%;
-    --text-tertiary: 144 10% 50%;
-    --text-muted: 144 10% 35%;
-    --primary: 160 95% 40%;
-    --primary-hover: 162 92% 35%;
-    --primary-subtle: 160 95% 12%;
-    --success: 160 95% 40%;
-    --warning: 32 95% 55%;
-    --danger: 0 84% 65%;
+  .light {
+    /* ===== LIGHT THEME ===== */
+    --canvas: 0 0% 100%;
+    --surface: 0 0% 100%;
+    --surface-hover: 240 5% 96%;
+    --surface-subtle: 240 5% 98%;
+    --surface-glass: 0 0% 100%;
+
+    --border: 240 6% 90%;
+    --border-subtle: 240 6% 94%;
+    --border-hover: 240 6% 82%;
+
+    --text-primary: 240 10% 4%;
+    --text-secondary: 240 4% 46%;
+    --text-tertiary: 240 5% 60%;
+    --text-muted: 240 5% 75%;
+
+    --primary: 243 75% 59%;
+    --primary-hover: 243 75% 52%;
+    --primary-subtle: 243 75% 96%;
+
+    --success: 160 84% 39%;
+    --warning: 32 95% 50%;
+    --danger: 347 77% 55%;
+    --info: 199 89% 48%;
   }
+
+  /* Apply dark by default */
+  html { color-scheme: dark; }
+  html.light { color-scheme: light; }
 
   html, body, #root {
     height: 100%;
     overflow: hidden;
   }
+
   body {
     @apply bg-canvas text-text-primary font-sans antialiased;
+    font-feature-settings: "cv11", "ss01";
+    font-variation-settings: "opsz" 32;
     user-select: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
+
   /* Allow text selection in inputs and contenteditable */
   input, textarea, [contenteditable="true"] {
     user-select: text;
   }
 
-  /* Custom scrollbar */
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  /* Tabular numbers for financial data */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* Custom scrollbar — subtle and modern */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 5px; }
-  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--border-hover)); }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--border-hover));
+    background-clip: padding-box;
+    border: 2px solid transparent;
+  }
+
+  /* Selection */
+  ::selection {
+    background: hsl(var(--primary) / 0.3);
+    color: hsl(var(--text-primary));
+  }
+
+  /* Focus ring */
+  *:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--canvas)), 0 0 0 4px hsl(var(--primary) / 0.5);
+    border-radius: 8px;
+  }
 }
 
 @layer components {
-  .card {
-    @apply bg-surface border border-border rounded-xl;
+  /* ===== Glass card ===== */
+  .glass {
+    background: hsl(var(--surface-glass) / 0.6);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid hsl(var(--border) / 0.5);
   }
+
+  /* ===== Card ===== */
+  .card {
+    @apply bg-surface border border-border rounded-xl shadow-card transition-all duration-200 ease-smooth;
+  }
+  .card-hover:hover {
+    @apply shadow-card-hover -translate-y-0.5;
+    border-color: hsl(var(--border-hover));
+  }
+
+  /* ===== Buttons ===== */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 h-9 px-4 text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 h-9 px-4 text-sm font-semibold rounded-lg
+           transition-all duration-200 ease-smooth disabled:opacity-40 disabled:cursor-not-allowed
+           active:scale-[0.98];
   }
   .btn-primary {
-    @apply btn bg-primary text-white hover:bg-primary-hover;
+    @apply btn text-white;
+    background-image: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(265 80% 60%) 100%);
+    box-shadow: 0 1px 2px 0 hsl(var(--primary) / 0.3), 0 4px 12px -2px hsl(var(--primary) / 0.25);
+  }
+  .btn-primary:hover {
+    background-image: linear-gradient(135deg, hsl(var(--primary-hover)) 0%, hsl(265 80% 58%) 100%);
+    box-shadow: 0 1px 2px 0 hsl(var(--primary) / 0.4), 0 6px 16px -2px hsl(var(--primary) / 0.35);
   }
   .btn-secondary {
-    @apply btn bg-surface border border-border text-text-primary hover:bg-surface-hover;
+    @apply btn bg-surface-hover text-text-primary border border-border hover:bg-surface-subtle hover:border-border-hover;
   }
   .btn-danger {
-    @apply btn bg-danger text-white hover:bg-danger/90;
+    @apply btn text-white;
+    background-image: linear-gradient(135deg, hsl(347 77% 60%) 0%, hsl(347 77% 50%) 100%);
+    box-shadow: 0 1px 2px 0 hsl(347 77% 60% / 0.3), 0 4px 12px -2px hsl(347 77% 60% / 0.25);
   }
   .btn-ghost {
-    @apply btn text-text-secondary hover:bg-surface-hover;
+    @apply btn text-text-secondary hover:text-text-primary hover:bg-surface-hover;
   }
+
+  /* ===== Inputs ===== */
   .input {
-    @apply w-full h-10 px-3 text-sm bg-surface-hover border border-border rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all;
+    @apply w-full h-10 px-3 text-sm bg-surface-hover border border-border rounded-lg
+           text-text-primary placeholder:text-text-muted
+           transition-all duration-200 ease-smooth;
+  }
+  .input:focus {
+    @apply border-primary bg-surface;
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15);
   }
   .label {
     @apply block text-xs font-medium text-text-tertiary mb-1.5;
+    letter-spacing: 0.01em;
   }
+
+  /* ===== Gradient text ===== */
+  .text-gradient {
+    background: linear-gradient(135deg, #818cf8 0%, #c084fc 50%, #f0abfc 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  /* ===== Skeleton shimmer ===== */
+  .skeleton {
+    @apply relative overflow-hidden bg-surface-hover rounded;
+  }
+  .skeleton::after {
+    @apply absolute inset-0;
+    background: linear-gradient(90deg, transparent, hsl(var(--text-primary) / 0.04), transparent);
+    transform: translateX(-100%);
+    animation: shimmer 1.5s infinite;
+    content: "";
+  }
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
+  .backface-hidden { backface-visibility: hidden; }
+  .perspective-1000 { perspective: 1000px; }
+  .preserve-3d { transform-style: preserve-3d; }
 }

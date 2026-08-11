@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-type Theme = "light" | "dark";
+type Theme = "dark" | "light";
 
 interface ThemeState {
   theme: Theme;
@@ -13,28 +13,33 @@ interface ThemeState {
 export const useTheme = create<ThemeState>()(
   persist(
     (set, get) => ({
-      theme: "light",
+      theme: "dark",
       setTheme: (t) => {
         set({ theme: t });
         get().apply();
       },
       toggle: () => {
-        const next = get().theme === "light" ? "dark" : "light";
+        const next = get().theme === "dark" ? "light" : "dark";
         set({ theme: next });
         get().apply();
       },
       apply: () => {
         const t = get().theme;
         const root = document.documentElement;
-        if (t === "dark") root.classList.add("dark");
-        else root.classList.remove("dark");
+        // Default is dark (no class). Light adds .light class.
+        if (t === "light") {
+          root.classList.add("light");
+          root.classList.remove("dark");
+        } else {
+          root.classList.remove("light");
+          root.classList.add("dark");
+        }
         root.style.colorScheme = t;
       },
     }),
     {
       name: "mms-theme",
       onRehydrateStorage: () => (state) => {
-        // Apply theme as soon as persisted state is loaded
         if (state) state.apply();
       },
     }

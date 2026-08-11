@@ -28,9 +28,11 @@ function ProtectedLayout() {
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        {/* Subtle background mesh */}
+        <div className="absolute inset-0 bg-mesh-dark opacity-30 pointer-events-none" />
         <Topbar />
-        <main className="flex-1 overflow-auto bg-canvas">
+        <main className="flex-1 overflow-auto bg-canvas relative">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/families" element={<Families />} />
