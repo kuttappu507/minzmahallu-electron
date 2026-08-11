@@ -30,8 +30,14 @@ export interface AuthUser {
 function parseStoredHash(stored: string): { iter: number; salt: Buffer; hash: Buffer } | null {
   // pbkdf2_sha256$200000$c2FsdC1mb3ItbW1zLWFkbWluLXVzZXI=$dJvtGdhlhx7H/9KuwAZs4U/j/DjiiDA88txKk9SnqTU=
   const parts = stored.split("$");
-  if (parts.length !== 4) return null;
-  if (parts[0] !== "pbkdf2_sha256") return null;
+  if (parts.length !== 4) {
+    console.error(`[auth] Invalid hash format (parts: ${parts.length})`);
+    return null;
+  }
+  if (parts[0] !== "pbkdf2_sha256") {
+    console.error(`[auth] Unknown hash algorithm: ${parts[0]}`);
+    return null;
+  }
   const iter = parseInt(parts[1], 10);
   const salt = Buffer.from(parts[2], "base64");
   const hash = Buffer.from(parts[3], "base64");
@@ -42,9 +48,17 @@ function verifyPassword(plainPassword: string, storedHash: string): boolean {
   const parsed = parseStoredHash(storedHash);
   if (!parsed) return false;
   const { iter, salt, hash } = parsed;
-  const derived = crypto.pbkdf2Sync(plainPassword, salt, iter, hash.length, "sha256");
-  // Constant-time compare
-  return crypto.timingSafeEqual(derived, hash);
+  try {
+    const derived = crypto.pbkdf2Sync(plainPassword, salt, iter, hash.length, "sha256");
+    if (derived.length !== hash.length) {
+      console.error(`[auth] Hash length mismatch: derived=${derived.length} stored=${hash.length}`);
+      return false;
+    }
+    return crypto.timingSafeEqual(derived, hash);
+  } catch (err) {
+    console.error("[auth] Password verification failed:", err);
+    return false;
+  }
 }
 
 function makeInitials(name: string): string {
@@ -57,19 +71,36 @@ function makeInitials(name: string): string {
 export function login(username: string, password: string): AuthUser {
   if (!username || !password) throw new Error("Username and password are required");
 
+  console.log(`[auth] Login attempt for user: "${username}"`);
+
   const user = one<UserRow>(
     "SELECT id, username, full_name, password_hash, password_salt, role, is_active, must_change_pwd FROM users WHERE username = ?",
     [username]
   );
-  if (!user) throw new Error("User not found");
-  if (!user.is_active) throw new Error("Account is inactive — contact administrator");
+  if (!user) {
+    console.log(`[auth] User "${username}" not found in database`);
+    throw new Error("Invalid username or password");
+  }
+  console.log(`[auth] User found: id=${user.id}, role=${user.role}, active=${user.is_active}`);
 
-  if (!verifyPassword(password, user.password_hash)) {
-    throw new Error("Invalid password");
+  if (!user.is_active) {
+    console.log(`[auth] User "${username}" is inactive`);
+    throw new Error("Account is inactive — contact administrator");
   }
 
+  if (!verifyPassword(password, user.password_hash)) {
+    console.log(`[auth] Password verification failed for user "${username}"`);
+    throw new Error("Invalid username or password");
+  }
+
+  console.log(`[auth] Login successful for user "${username}"`);
+
   // Update last_login
-  run("UPDATE users SET last_login = datetime('now') WHERE id = ?", [user.id]);
+  try {
+    run("UPDATE users SET last_login = datetime('now') WHERE id = ?", [user.id]);
+  } catch (err) {
+    console.warn("[auth] Could not update last_login:", err);
+  }
 
   return {
     id: user.id,

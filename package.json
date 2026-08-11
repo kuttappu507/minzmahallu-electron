@@ -11,8 +11,11 @@
     "dev:vite": "vite",
     "build": "tsc -b && vite build && tsc -p electron/tsconfig.json",
     "preview": "vite preview",
+    "postinstall": "electron-builder install-app-deps",
+    "rebuild:native": "electron-builder install-app-deps",
     "package": "npm run build && electron-builder --publish never",
-    "package:win": "npm run build && electron-builder --win --publish never",
+    "package:win": "npm run build && electron-builder --win nsis portable --publish never",
+    "package:portable": "npm run build && electron-builder --win portable --publish never",
     "lint": "eslint ."
   },
   "dependencies": {
@@ -73,13 +76,36 @@
       "dist-electron/**/*",
       "resources/**/*"
     ],
+    "extraResources": [
+      {
+        "from": "resources",
+        "to": "resources"
+      }
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "**/*.node",
+      "node_modules/better-sqlite3/**",
+      "node_modules/bindings/**",
+      "node_modules/file-uri-to-path/**"
+    ],
+    "npmRebuild": true,
+    "nodeGypRebuild": false,
+    "buildDependenciesFromSource": false,
     "win": {
-      "target": "nsis",
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "icon": "public/icon.png"
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    },
+    "portable": {
+      "artifactName": "MMS-React-Portable-${version}.exe"
     }
   }
 }

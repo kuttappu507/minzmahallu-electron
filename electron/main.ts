@@ -1,20 +1,40 @@
 /*
  * Electron main process — window creation + IPC handlers
  */
-import { app, BrowserWindow, ipcMain, nativeTheme } from "electron";
+import { app, BrowserWindow, ipcMain, nativeTheme, dialog } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { login, changePassword } from "./services/auth.service.js";
 import * as data from "./services/data.service.js";
-import { closeDB } from "./db/connection.js";
+import { closeDB, getDB } from "./db/connection.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let mainWindow: BrowserWindow | null = null;
-const currentUser: { id: number; username: string; fullName: string; role: string } | null = null;
 
 // Track logged-in user (in-memory only — no persistent session token)
 const session = { user: null as null | { id: number; username: string; fullName: string; role: string } };
+
+// ===== Global error handlers — show error dialog so user can see what went wrong =====
+process.on("uncaughtException", (err) => {
+  console.error("[FATAL] Uncaught exception:", err);
+  try {
+    dialog.showErrorBox(
+      "MMS — Unexpected Error",
+      `The application encountered an error:\n\n${err.message}\n\nStack: ${err.stack || "(no stack)"}`
+    );
+  } catch {}
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[FATAL] Unhandled rejection:", reason);
+  try {
+    dialog.showErrorBox(
+      "MMS — Unexpected Error",
+      `An async operation failed:\n\n${String(reason)}`
+    );
+  } catch {}
+});
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -48,8 +68,20 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  // Initialize DB
-  // (connection.ts getDB() will do this lazily on first call)
+  // ===== Force DB initialization early so we surface errors before login =====
+  try {
+    console.log("[main] Initializing database...");
+    getDB();
+    console.log("[main] Database ready");
+  } catch (err: any) {
+    console.error("[main] Database initialization FAILED:", err);
+    dialog.showErrorBox(
+      "MMS — Database Error",
+      `Failed to initialize the database:\n\n${err.message}\n\n` +
+      `The app will continue but most operations will fail. ` +
+      `Please check that the app has write permission to its data directory.`
+    );
+  }
 
   // ===== IPC: Auth =====
   ipcMain.handle("auth:login", (_e, username: string, password: string) => {
