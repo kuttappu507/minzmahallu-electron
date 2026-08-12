@@ -67,7 +67,7 @@ export function Sidebar() {
   const initials = user?.initials ?? "?";
 
   return (
-    <aside className={cn("sidebar", collapsed && "min")}>
+    <aside className={cn("sidebar islamic-pattern", collapsed && "min")}>
       {/* Logo */}
       <div className="sb-logo">
         <span className="logo">

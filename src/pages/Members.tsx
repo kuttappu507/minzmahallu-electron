@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
 import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
-import { statusVariant } from "@/lib/utils";
+import { statusVariant, formatDate } from "@/lib/utils";
 
 interface Member {
   id: number;
@@ -20,6 +20,7 @@ interface Member {
   marital_status: string;
   mobile: string;
   email: string;
+  emergency_contact?: string;
   relationship: string;
   status: string;
   nationality: string;
@@ -32,7 +33,13 @@ interface Member {
 const emptyForm: Partial<Member> = {
   code: "", name: "", gender: "Male", dob: "", age: 0, blood_group: "",
   occupation: "", education: "", marital_status: "Single", mobile: "", email: "",
-  relationship: "Head", status: "Active", nationality: "", address: "", family_id: 0,
+  emergency_contact: "", relationship: "Head", status: "Active", nationality: "", address: "", family_id: 0,
+};
+
+const codeFontStyle: React.CSSProperties = {
+  fontFamily: "'Space Grotesk', sans-serif",
+  fontWeight: 700,
+  letterSpacing: "0.04em",
 };
 
 export function Members() {
@@ -45,6 +52,10 @@ export function Members() {
   const [form, setForm] = useState<Partial<Member>>(emptyForm);
   const [families, setFamilies] = useState<any[]>([]);
   const [relationships] = useState<string[]>(["Head", "Spouse", "Son", "Daughter", "Parent", "Sibling", "Other"]);
+
+  // Preview dialog state
+  const [previewMember, setPreviewMember] = useState<Member | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const { rows, total, totalPages, loading, refetch } = useList(
     (filter) => window.mms.members.list(filter),
@@ -95,8 +106,31 @@ export function Members() {
     }
   };
 
+  // Double-click row → open read-only preview
+  const handleRowDoubleClick = (row: Member) => {
+    setPreviewMember(row);
+    setPreviewOpen(true);
+  };
+
+  // Switch from preview to edit mode
+  const switchToEdit = async () => {
+    if (!previewMember) return;
+    const id = previewMember.id;
+    setPreviewOpen(false);
+    setPreviewMember(null);
+    await handleEdit(id);
+  };
+
   const columns: Column<Member>[] = [
-    { header: t("member_code"), accessor: (r) => <span className="font-semibold">{r.code}</span> },
+    {
+      header: t("member_code"),
+      accessor: (r) => (
+        <span style={codeFontStyle} className="text-primary">
+          {r.code || "—"}
+        </span>
+      ),
+      width: "120px",
+    },
     { header: t("member_name"), accessor: (r) => <span className="font-semibold">{r.name}</span> },
     { header: t("member_gender"), accessor: (r) => r.gender },
     { header: t("member_age"), accessor: (r) => r.age || "—" },
@@ -110,10 +144,10 @@ export function Members() {
       header: "",
       accessor: (r) => (
         <div className="flex items-center gap-1 justify-end">
-          <Button variant="ghost" size="icon" onClick={() => handleEdit(r.id)}>
+          <Button variant="ghost" size="icon" onClick={() => handleEdit(r.id)} title={t("action_edit")}>
             <Edit2 className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => handleDelete(r.id)}>
+          <Button variant="ghost" size="icon" onClick={() => handleDelete(r.id)} title={t("action_delete")}>
             <Trash2 className="h-4 w-4 text-danger" />
           </Button>
         </div>
@@ -122,17 +156,45 @@ export function Members() {
     },
   ];
 
+  // Preview detail rows
+  const previewDetails = previewMember
+    ? [
+        { k: t("member_code"), v: previewMember.code },
+        { k: t("member_name"), v: previewMember.name },
+        { k: t("member_family"), v: previewMember.house_name || previewMember.family_number || "—" },
+        { k: t("member_gender"), v: previewMember.gender },
+        { k: t("member_age"), v: previewMember.age ? String(previewMember.age) : "—" },
+        { k: t("member_dob"), v: formatDate(previewMember.dob) },
+        { k: t("member_blood_group"), v: previewMember.blood_group || "—" },
+        { k: t("member_occupation"), v: previewMember.occupation || "—" },
+        { k: t("member_education"), v: previewMember.education || "—" },
+        { k: t("member_marital_status"), v: previewMember.marital_status || "—" },
+        { k: t("member_mobile"), v: previewMember.mobile || "—" },
+        { k: t("member_email"), v: previewMember.email || "—" },
+        { k: t("member_emergency_contact"), v: previewMember.emergency_contact || "—" },
+        { k: t("member_relationship"), v: previewMember.relationship || "—" },
+        { k: t("member_nationality"), v: previewMember.nationality || "—" },
+        { k: t("family_status"), v: previewMember.status },
+        { k: t("family_address"), v: previewMember.address || "—", full: true },
+      ]
+    : [];
+
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">{t("member_title")}</h1>
-          <p className="text-sm text-text-secondary mt-1">{t("member_subtitle")}</p>
+    <div className="view view-enter">
+      <div className="vhead">
+        <div className="modic t-em">
+          <Eye size={20} />
         </div>
-        <Button onClick={() => { setForm(emptyForm); setEditingId(null); setDialogOpen(true); }}>
-          <Plus className="h-4 w-4" />
-          {t("add_member")}
-        </Button>
+        <div>
+          <h1>{t("member_title")}</h1>
+          <div className="vs">{t("member_subtitle")}</div>
+        </div>
+        <div className="vr">
+          <Button onClick={() => { setForm(emptyForm); setEditingId(null); setDialogOpen(true); }}>
+            <Plus className="h-4 w-4" />
+            {t("add_member")}
+          </Button>
+        </div>
       </div>
 
       <DataTable
@@ -147,6 +209,7 @@ export function Members() {
         searchValue={search}
         onSearchChange={setSearch}
         rowKey={(r) => r.id}
+        onRowDoubleClick={handleRowDoubleClick}
         toolbar={
           <Select value={familyFilter} onChange={(e) => setFamilyFilter(e.target.value)} className="w-48">
             <option value="All">All Families</option>
@@ -157,6 +220,67 @@ export function Members() {
         }
       />
 
+      {/* Preview dialog (read-only) */}
+      <Dialog
+        open={previewOpen}
+        onClose={() => { setPreviewOpen(false); setPreviewMember(null); }}
+        title={t("member_title")}
+      >
+        <div style={{ padding: "4px 0" }}>
+          {previewMember && (
+            <>
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                padding: "12px 14px",
+                marginBottom: 14,
+                background: "var(--sb)",
+                border: "1.5px solid var(--sl)",
+                borderRadius: 14,
+              }} className="t-em">
+                <div style={{
+                  width: 52, height: 52, borderRadius: 14, flex: "none",
+                  background: "var(--sc)", color: "#fff",
+                  display: "grid", placeItems: "center",
+                  font: "700 18px 'Space Grotesk'",
+                  boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
+                }}>
+                  {(previewMember.name || "?").charAt(0).toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ font: "700 17px 'Space Grotesk'", color: "var(--st)" }}>{previewMember.name}</div>
+                  <div style={{ font: "700 11px 'Space Grotesk'", color: "var(--st)", letterSpacing: "0.08em", marginTop: 2 }}>
+                    {previewMember.code}
+                  </div>
+                </div>
+                <Badge variant={statusVariant(previewMember.status)}>{previewMember.status}</Badge>
+              </div>
+
+              <div className="det-grid">
+                {previewDetails.map((d, i) => (
+                  <div key={i} className={`det${d.full ? " full" : ""}`}>
+                    <span className="k">{d.k}</span>
+                    <span className="v">{d.v}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+            <Button variant="secondary" onClick={() => { setPreviewOpen(false); setPreviewMember(null); }}>
+              {t("ui_close")}
+            </Button>
+            <Button onClick={switchToEdit}>
+              <Edit2 size={14} />
+              {t("action_edit")}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Add/Edit dialog */}
       <Dialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
@@ -228,6 +352,10 @@ export function Members() {
             <div>
               <Label>{t("member_email")}</Label>
               <Input type="email" value={form.email || ""} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            </div>
+            <div>
+              <Label>{t("member_emergency_contact")}</Label>
+              <Input value={form.emergency_contact || ""} onChange={(e) => setForm({ ...form, emergency_contact: e.target.value })} />
             </div>
             <div>
               <Label>{t("member_relationship")}</Label>

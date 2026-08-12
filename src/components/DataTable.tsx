@@ -31,6 +31,7 @@ interface DataTableProps<T> {
   emptyTitle?: string;
   emptyDescription?: string;
   rowKey: (row: T, index: number) => string | number;
+  onRowDoubleClick?: (row: T) => void;
 }
 
 export function DataTable<T>({
@@ -49,6 +50,7 @@ export function DataTable<T>({
   emptyTitle,
   emptyDescription,
   rowKey,
+  onRowDoubleClick,
 }: DataTableProps<T>) {
   const { t } = useI18n();
 
@@ -103,6 +105,8 @@ export function DataTable<T>({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.15, delay: Math.min(i * 0.02, 0.3) }}
                 className="border-b border-border-subtle transition-colors hover:bg-surface-hover/50"
+                onDoubleClick={onRowDoubleClick ? () => onRowDoubleClick(row) : undefined}
+                style={onRowDoubleClick ? { cursor: "pointer" } : undefined}
               >
                 {columns.map((col, ci) => (
                   <td

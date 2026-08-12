@@ -187,11 +187,12 @@ export function Dialog({
     <div
       className={cn("modal-root", open && "open")}
       onClick={onClose}
-      style={{ position: "fixed", inset: 0 }}
+      style={{ position: "fixed", inset: 0, animation: "backdropIn 0.2s ease-out" }}
     >
       <div
         className={cn("modal", className)}
         onClick={(e) => e.stopPropagation()}
+        style={{ animation: "modalIn 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2)" }}
       >
         {title && (
           <div className="m-h">

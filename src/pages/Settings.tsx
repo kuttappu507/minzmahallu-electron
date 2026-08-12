@@ -41,13 +41,15 @@ export function Settings() {
   useEffect(() => {
     window.mms.settings.load().then((s) => {
       if (s) {
-        setSettings({ ...emptySettings, ...s });
-        if (s.language === "ml" || s.language === "en") {
-          setLang(s.language);
-        }
+        // Sync the settings DB language field with the current i18n store
+        // language — but do NOT override the i18n store (which the user
+        // may have changed via the topbar toggle). The i18n store is the
+        // source of truth for the current session's language.
+        setSettings({ ...emptySettings, ...s, language: lang });
       }
       setLoading(false);
     }).catch(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSave = async () => {

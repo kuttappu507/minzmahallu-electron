@@ -358,6 +358,67 @@
   .fchip.on { background: var(--sc); border-color: var(--sc); color: #fff; box-shadow: 0 2px 0 rgba(23, 43, 32, 0.18); }
   .count-chip { font: 700 11.5px Manrope; color: var(--mut); background: var(--panel2); border: 1.5px solid var(--line); padding: 7px 13px; border-radius: 99px; }
 
+  /* ===== Reports grid ===== */
+  .rep-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px; margin-bottom: 14px; }
+  .rep-card { padding: 18px 18px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--sh); display: flex; flex-direction: column; gap: 11px; position: relative; transition: 0.16s; overflow: hidden; }
+  .rep-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--sc); opacity: 0.85; }
+  .rep-card:hover { transform: translateY(-4px); box-shadow: 0 16px 30px -18px var(--sc); border-color: var(--sl); }
+  .rep-card .ric { width: 42px; height: 42px; border-radius: 12px; background: var(--sb); color: var(--st); border: 1.5px solid var(--sl); display: grid; place-items: center; transition: 0.16s; }
+  .rep-card:hover .ric { background: var(--sc); color: #fff; transform: scale(1.06) rotate(-4deg); }
+  .rep-card .rtitle { font: 700 15px "Space Grotesk"; color: var(--tx); }
+  .rep-card .rdesc { font: 600 11.5px Manrope; color: var(--mut); line-height: 1.45; min-height: 32px; }
+  .rep-card .rexps { display: flex; gap: 7px; flex-wrap: wrap; margin-top: auto; }
+  .rep-sec { display: flex; align-items: center; gap: 10px; margin: 4px 0 12px; }
+  .rep-sec::before { content: ""; width: 4px; height: 16px; border-radius: 4px; background: var(--em); }
+  .rep-sec b { font: 800 11px Manrope; letter-spacing: 0.16em; text-transform: uppercase; color: var(--mut); }
+  @media (max-width: 1100px) { .rep-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 760px) { .rep-grid { grid-template-columns: 1fr; } }
+
+  /* ===== Token board ===== */
+  .tok-strip { display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--sh); margin-bottom: 14px; flex-wrap: wrap; }
+  .tok-strip .ts-ic { width: 44px; height: 44px; flex: none; border-radius: 12px; background: var(--sb); color: var(--st); border: 1.5px solid var(--sl); display: grid; place-items: center; }
+  .tok-strip .ts-meta b { font: 700 16px "Space Grotesk"; display: block; }
+  .tok-strip .ts-meta small { font: 700 10px Manrope; letter-spacing: 0.16em; text-transform: uppercase; color: var(--fnt); }
+  .tok-strip .ts-prog { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 6px; }
+  .tok-strip .ts-bar { height: 8px; border-radius: 99px; background: var(--panel2); border: 1px solid var(--line); overflow: hidden; }
+  .tok-strip .ts-bar i { display: block; height: 100%; background: var(--sc); border-radius: 99px; transition: width 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+  .tok-strip .ts-stats { display: flex; gap: 8px; flex-wrap: wrap; }
+  .tok-main { display: grid; grid-template-columns: 1fr; gap: 13px; }
+  .tok-board { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--sh); padding: 16px 17px 18px; }
+  .tok-board .tb-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .tok-board .tb-head b { font: 800 13px Manrope; letter-spacing: 0.1em; text-transform: uppercase; color: var(--st); }
+  .tok-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 11px; max-height: 540px; overflow-y: auto; padding-right: 4px; }
+  .tok { background: var(--panel2); border: 1.5px solid var(--line); border-radius: 14px; padding: 12px 13px; cursor: pointer; transition: 0.16s; position: relative; user-select: none; }
+  .tok:hover { border-color: var(--sc); transform: translateY(-2px); box-shadow: 0 10px 22px -14px var(--sc); }
+  .tok .tcode { font: 700 18px "Space Grotesk"; color: var(--tx); letter-spacing: 0.04em; }
+  .tok .tfam { font: 700 11px Manrope; color: var(--mut); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tok .tstat { display: flex; align-items: center; gap: 6px; margin-top: 9px; font: 800 9.5px Manrope; letter-spacing: 0.12em; text-transform: uppercase; }
+  .tok .tstat .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--fnt); transition: 0.16s; }
+  .tok.collected { background: var(--sb); border-color: var(--sl); }
+  .tok.collected .tcode { color: var(--st); }
+  .tok.collected .tstat { color: var(--st); }
+  .tok.collected .tstat .dot { background: var(--sc); box-shadow: 0 0 0 3px rgba(14, 171, 127, 0.18); }
+  .tok.popping { animation: tokPop 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+
+  /* ===== Pick list (certificate dialogs) ===== */
+  .picklist { border: 1px solid var(--line); border-radius: 12px; background: var(--panel2); max-height: 320px; overflow-y: auto; margin-top: 8px; }
+  .picklist .pl-row { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--line); cursor: pointer; transition: 0.13s; }
+  .picklist .pl-row:last-child { border-bottom: 0; }
+  .picklist .pl-row:hover { background: var(--selbg); }
+  .picklist .pl-row.sel { background: var(--sb); box-shadow: inset 3px 0 0 var(--sc); }
+  .picklist .pl-row .pl-code { font: 700 12px "Space Grotesk"; color: var(--st); background: var(--panel); border: 1px solid var(--sl); padding: 4px 9px; border-radius: 8px; flex: none; min-width: 78px; text-align: center; }
+  .picklist .pl-row .pl-name { font: 700 13px Manrope; color: var(--tx); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .picklist .pl-row .pl-sub { font: 700 11px Manrope; color: var(--fnt); }
+  .picklist .pl-empty { padding: 24px; text-align: center; color: var(--fnt); font: 700 12px Manrope; }
+
+  /* ===== Detail rows in preview dialog ===== */
+  .det-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; }
+  .det-grid .det { display: flex; flex-direction: column; gap: 3px; }
+  .det-grid .det .k { font: 800 9.5px Manrope; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fnt); }
+  .det-grid .det .v { font: 700 13px Manrope; color: var(--tx); word-break: break-word; }
+  .det-grid .det.full { grid-column: 1 / -1; }
+  @media (max-width: 560px) { .det-grid { grid-template-columns: 1fr; } }
+
   /* ===== Animations ===== */
   @keyframes pl { 50% { opacity: 0.3; } }
   @keyframes viewIn { from { opacity: 0; transform: translateY(12px); } }
@@ -374,6 +435,36 @@
   /* ===== View ===== */
   .view { animation: viewIn 0.32s cubic-bezier(0.2, 0.8, 0.3, 1); }
   .view-enter { animation: viewIn 0.32s cubic-bezier(0.2, 0.8, 0.3, 1); }
+
+  /* ===== Dropdown animation ===== */
+  @keyframes dropdownIn {
+    from { opacity: 0; transform: translateY(-8px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* ===== Modal animation ===== */
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(0.92) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  @keyframes modalOut {
+    from { opacity: 1; transform: scale(1); }
+    to { opacity: 0; transform: scale(0.95); }
+  }
+  @keyframes backdropIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* ===== Islamic pattern for sidebar ===== */
+  .islamic-pattern {
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Cg fill='none' stroke='%230eab7f' stroke-width='0.8' stroke-opacity='0.06'%3E%3Cpath d='M20 0 L40 20 L20 40 L0 20 Z'/%3E%3Ccircle cx='20' cy='20' r='8'/%3E%3Cpath d='M20 12 L28 20 L20 28 L12 20 Z'/%3E%3C/g%3E%3C/svg%3E");
+  }
+  .dark .islamic-pattern {
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Cg fill='none' stroke='%232cc497' stroke-width='0.8' stroke-opacity='0.05'%3E%3Cpath d='M20 0 L40 20 L20 40 L0 20 Z'/%3E%3Ccircle cx='20' cy='20' r='8'/%3E%3Cpath d='M20 12 L28 20 L20 28 L12 20 Z'/%3E%3C/g%3E%3C/svg%3E");
+  }
 
   /* ===== Toast ===== */
   .toast { display: flex; align-items: center; gap: 11px; background: var(--panel); color: var(--tx); border: 1.5px solid var(--line); border-left: 6px solid var(--em); border-radius: 14px; padding: 12px 16px; font: 700 12.5px Manrope; box-shadow: var(--shl); animation: tIn 0.3s; max-width: 340px; }

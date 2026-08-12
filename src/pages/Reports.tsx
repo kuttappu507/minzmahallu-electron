@@ -1,42 +1,251 @@
 import { useState } from "react";
-import { Download, FileSpreadsheet, FileText } from "lucide-react";
+import {
+  Download, FileSpreadsheet, FileText, Home, Users, Wallet, Gift,
+  Gem, Flower, Heart, Skull, ScrollText, ShieldCheck, BarChart3, Loader2,
+} from "lucide-react";
 import { useI18n } from "@/i18n";
-import { Card, CardContent, Button, Label, Select, Input } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { toast } from "@/lib/toast";
 
-const REPORT_TYPES = [
-  { value: "families", label: "Families" },
-  { value: "members", label: "Members" },
-  { value: "subscriptions", label: "Subscriptions" },
-  { value: "donations", label: "Donations" },
-  { value: "accounting", label: "Accounting" },
-  { value: "marriages", label: "Marriages" },
-  { value: "deaths", label: "Deaths" },
-  { value: "welfare", label: "Welfare" },
-  { value: "certificates", label: "Certificates" },
-];
+type Tint =
+  | "t-em" | "t-gold" | "t-sky" | "t-rose" | "t-vio"
+  | "t-pink" | "t-orange" | "t-teal" | "t-blue" | "t-slate";
 
-function escapeCsv(value: any): string {
-  if (value === null || value === undefined) return "";
-  const str = String(value);
-  if (str.includes(",") || str.includes("\n") || str.includes('"')) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
+interface ReportType {
+  id: string;
+  title: string;
+  description: string;
+  tint: Tint;
+  icon: typeof Home;
+  // fetcher returns a flat array of row objects
+  fetch: () => Promise<any[]>;
+  // optional pretty column ordering (keys to keep, in display order)
+  columns?: string[];
 }
 
-function downloadCsv(rows: any[], filename: string) {
-  if (!rows.length) {
-    toast.warning("No data to export");
-    return;
+const REPORTS: ReportType[] = [
+  {
+    id: "families",
+    title: "Family Register",
+    description: "All registered families with house, ward, contact and member count.",
+    tint: "t-em",
+    icon: Home,
+    fetch: async () => (await window.mms.families.list({ pageSize: 100000 })).rows || [],
+    columns: ["family_number", "house_name", "house_number", "ward", "area", "phone", "alt_phone", "status", "member_count"],
+  },
+  {
+    id: "members",
+    title: "Member Directory",
+    description: "Complete member roster with code, family, demographics and contact.",
+    tint: "t-teal",
+    icon: Users,
+    fetch: async () => (await window.mms.members.list({ pageSize: 100000 })).rows || [],
+    columns: ["code", "name", "gender", "age", "blood_group", "mobile", "email", "house_name", "family_number", "status"],
+  },
+  {
+    id: "subscriptions",
+    title: "Subscription Summary",
+    description: "All subscription receipts with plan, amount, period and payment status.",
+    tint: "t-gold",
+    icon: Wallet,
+    fetch: async () => (await window.mms.subscriptions.list({ pageSize: 100000 })).rows || [],
+  },
+  {
+    id: "donations",
+    title: "Donation Report",
+    description: "Donations by category, donor, date and purpose — includes totals.",
+    tint: "t-pink",
+    icon: Gift,
+    fetch: async () => (await window.mms.donations.list({ pageSize: 100000 })).rows || [],
+  },
+  {
+    id: "accounting",
+    title: "Financial Statement",
+    description: "Income & expense ledger transactions with running balance summary.",
+    tint: "t-sky",
+    icon: BarChart3,
+    fetch: async () => {
+      const [listRes, inc, exp, bal] = await Promise.all([
+        window.mms.accounting.list({ pageSize: 100000 }),
+        window.mms.accounting.totalIncome(),
+        window.mms.accounting.totalExpense(),
+        window.mms.accounting.balance(),
+      ]);
+      const rows = (listRes?.rows || []).map((r: any) => ({
+        date: r.date || r.transaction_date || "",
+        type: r.type,
+        description: r.description,
+        amount: r.amount,
+        method: r.method || "",
+      }));
+      rows.push({
+        date: "—", type: "SUMMARY", description: "TOTAL INCOME", amount: inc ?? 0, method: "",
+      });
+      rows.push({
+        date: "—", type: "SUMMARY", description: "TOTAL EXPENSE", amount: exp ?? 0, method: "",
+      });
+      rows.push({
+        date: "—", type: "SUMMARY", description: "NET BALANCE", amount: bal ?? 0, method: "",
+      });
+      return rows;
+    },
+  },
+  {
+    id: "marriages",
+    title: "Marriage Register",
+    description: "Nikah registrations — bride, groom, witnesses, mahar and dates.",
+    tint: "t-vio",
+    icon: Gem,
+    fetch: async () => (await window.mms.marriages.list({ pageSize: 100000 })).rows || [],
+    columns: ["marriage_number", "nikah_date", "bride_name", "bride_father", "groom_name", "groom_father", "place", "mahar"],
+  },
+  {
+    id: "deaths",
+    title: "Death Register",
+    description: "Death and burial records with deceased, date and burial place.",
+    tint: "t-slate",
+    icon: Flower,
+    fetch: async () => (await window.mms.deaths.list({ pageSize: 100000 })).rows || [],
+    columns: ["death_number", "deceased_name", "father_name", "gender", "date_of_death", "burial_date", "burial_place"],
+  },
+  {
+    id: "welfare",
+    title: "Welfare Report",
+    description: "Welfare assistance requests with approved amounts and disbursement status.",
+    tint: "t-orange",
+    icon: ShieldCheck,
+    fetch: async () => (await window.mms.welfare.list({ pageSize: 100000 })).rows || [],
+  },
+  {
+    id: "certificates",
+    title: "Certificate Log",
+    description: "Issued certificates (membership, residence, marriage, death) with dates.",
+    tint: "t-blue",
+    icon: ScrollText,
+    fetch: async () => (await window.mms.certificates.list({ pageSize: 100000 })).rows || [],
+    columns: ["certificate_number", "type", "issued_to", "issued_date", "issued_by"],
+  },
+  {
+    id: "audit",
+    title: "Audit Log",
+    description: "All user actions across modules — full tamper-evident trail.",
+    tint: "t-rose",
+    icon: ShieldCheck,
+    fetch: async () => (await window.mms.audit.list({ pageSize: 100000 })).rows || [],
+    columns: ["created_at", "username", "action", "module", "description"],
+  },
+  {
+    id: "deaths_extra",
+    title: "Burial Sites Index",
+    description: "Quick index of burial places referenced in the death register.",
+    tint: "t-teal",
+    icon: Skull,
+    fetch: async () => {
+      const rows = (await window.mms.deaths.list({ pageSize: 100000 })).rows || [];
+      const seen = new Map<string, { place: string; count: number; latest: string }>();
+      for (const r of rows as any[]) {
+        const p = (r.burial_place || "Unknown").trim();
+        const cur = seen.get(p) || { place: p, count: 0, latest: "" };
+        cur.count += 1;
+        if (!cur.latest || (r.burial_date || "") > cur.latest) cur.latest = r.burial_date || "";
+        seen.set(p, cur);
+      }
+      return Array.from(seen.values()).sort((a, b) => b.count - a.count);
+    },
+  },
+  {
+    id: "marriages_extra",
+    title: "Nikah Officiant Index",
+    description: "Marriage events grouped by place with annual counts.",
+    tint: "t-pink",
+    icon: Heart,
+    fetch: async () => {
+      const rows = (await window.mms.marriages.list({ pageSize: 100000 })).rows || [];
+      const seen = new Map<string, { place: string; count: number; latest: string }>();
+      for (const r of rows as any[]) {
+        const p = (r.place || "Unknown").trim();
+        const cur = seen.get(p) || { place: p, count: 0, latest: "" };
+        cur.count += 1;
+        if (!cur.latest || (r.nikah_date || "") > cur.latest) cur.latest = r.nikah_date || "";
+        seen.set(p, cur);
+      }
+      return Array.from(seen.values()).sort((a, b) => b.count - a.count);
+    },
+  },
+];
+
+// ===== CSV / Excel / PDF helpers =====
+
+function escapeCsv(v: any): string {
+  if (v === null || v === undefined) return "";
+  const s = String(v);
+  if (s.includes(",") || s.includes("\n") || s.includes('"')) {
+    return `"${s.replace(/"/g, '""')}"`;
   }
-  const headers = Object.keys(rows[0]);
-  const csvLines = [
-    headers.join(","),
-    ...rows.map((row) => headers.map((h) => escapeCsv(row[h])).join(",")),
-  ];
-  const csv = csvLines.join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  return s;
+}
+
+function pickColumns(rows: any[], preferred?: string[]): string[] {
+  if (!rows.length) return [];
+  if (preferred && preferred.length) {
+    const present = preferred.filter((c) => Object.prototype.hasOwnProperty.call(rows[0], c));
+    if (present.length) return present;
+  }
+  return Object.keys(rows[0]);
+}
+
+function buildCsv(rows: any[], columns: string[]): string {
+  const lines = [columns.join(",")];
+  for (const r of rows) {
+    lines.push(columns.map((c) => escapeCsv(r[c])).join(","));
+  }
+  return lines.join("\n");
+}
+
+function buildExcelHtml(rows: any[], columns: string[]): string {
+  const head = columns.map((c) => `<th>${escapeHtml(c)}</th>`).join("");
+  const body = rows
+    .map((r) => `<tr>${columns.map((c) => `<td>${escapeHtml(r[c])}</td>`).join("")}</tr>`)
+    .join("");
+  return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><table border="1"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></body></html>`;
+}
+
+function escapeHtml(v: any): string {
+  if (v === null || v === undefined) return "";
+  return String(v)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function buildPrintableHtml(title: string, rows: any[], columns: string[]): string {
+  const head = columns.map((c) => `<th>${escapeHtml(c)}</th>`).join("");
+  const body = rows
+    .map((r) => `<tr>${columns.map((c) => `<td>${escapeHtml(r[c])}</td>`).join("")}</tr>`)
+    .join("");
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
+<style>
+  body { font: 700 12px Manrope, system-ui, sans-serif; color: #1e2b25; margin: 24px; }
+  h1 { font: 700 20px 'Space Grotesk', sans-serif; margin: 0 0 4px; }
+  .sub { color: #5f7268; font-size: 11px; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { background: #f6f9f6; text-align: left; padding: 8px 10px; border: 1px solid #e6ede7; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.1em; color: #5f7268; }
+  td { padding: 7px 10px; border: 1px solid #e6ede7; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8faf8; }
+  .foot { margin-top: 18px; color: #8ba096; font-size: 10px; }
+  @media print { body { margin: 12px; } }
+</style></head><body>
+  <h1>${escapeHtml(title)}</h1>
+  <div class="sub">Generated ${new Date().toLocaleString("en-IN")} · ${rows.length} records</div>
+  <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+  <div class="foot">Minz Mahallu Management System · Printed report</div>
+  <script>window.onload = function(){ setTimeout(function(){ window.print(); }, 250); };</script>
+</body></html>`;
+}
+
+function downloadBlob(content: string, mime: string, filename: string) {
+  const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -47,87 +256,133 @@ function downloadCsv(rows: any[], filename: string) {
   URL.revokeObjectURL(url);
 }
 
+function openPrintWindow(html: string) {
+  const w = window.open("", "_blank");
+  if (!w) {
+    toast.error("Pop-up blocked — allow pop-ups for PDF printing");
+    return;
+  }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
+
+function stamp(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function Reports() {
   const { t } = useI18n();
-  const [reportType, setReportType] = useState("families");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [busyFmt, setBusyFmt] = useState<"csv" | "excel" | "pdf" | null>(null);
 
-  const handleGenerate = async (format: "csv" | "excel" | "pdf") => {
-    setLoading(true);
+  const handleExport = async (rpt: ReportType, fmt: "csv" | "excel" | "pdf") => {
+    setBusyId(rpt.id);
+    setBusyFmt(fmt);
     try {
-      const filter: any = { pageSize: 100000 };
-      if (from) filter.from = from;
-      if (to) filter.to = to;
-      const result = await (window.mms as any)[reportType].list(filter);
-      const rows = result?.rows || result || [];
-      const filename = `${reportType}_report_${new Date().toISOString().slice(0, 10)}.${format === "csv" ? "csv" : format === "excel" ? "xls" : "csv"}`;
-      if (format === "pdf") {
-        toast.info("PDF export coming soon. Generating CSV instead.");
+      const rows = await rpt.fetch();
+      if (!rows.length) {
+        toast.warning(`No records found for “${rpt.title}”`);
+        return;
       }
-      downloadCsv(rows, filename);
-      toast.success(`${rows.length} records exported`);
+      const columns = pickColumns(rows, rpt.columns);
+      const baseName = `${rpt.id}_${stamp()}`;
+      if (fmt === "csv") {
+        downloadBlob(buildCsv(rows, columns), "text/csv;charset=utf-8;", `${baseName}.csv`);
+      } else if (fmt === "excel") {
+        downloadBlob(buildExcelHtml(rows, columns), "application/vnd.ms-excel", `${baseName}.xls`);
+      } else {
+        openPrintWindow(buildPrintableHtml(rpt.title, rows, columns));
+      }
+      toast.success(`${rpt.title}: ${rows.length} records exported as ${fmt.toUpperCase()}`);
     } catch (err: any) {
-      toast.error(err.message || "Failed to generate report");
+      toast.error(err.message || `Failed to export ${rpt.title}`);
     } finally {
-      setLoading(false);
+      setBusyId(null);
+      setBusyFmt(null);
     }
   };
 
   return (
-    <div className="p-6 space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-text-primary">{t("rpt_title")}</h1>
-        <p className="text-sm text-text-secondary mt-1">Generate reports for any module</p>
+    <div className="view view-enter">
+      <div className="vhead">
+        <div className="modic t-em">
+          <BarChart3 size={20} />
+        </div>
+        <div>
+          <h1>{t("rpt_title")}</h1>
+          <div className="vs">Export any module to CSV, Excel or print-ready PDF.</div>
+        </div>
       </div>
 
-      <Card className="max-w-2xl">
-        <CardContent className="p-6 space-y-5">
-          <div>
-            <Label>Report Type</Label>
-            <Select value={reportType} onChange={(e) => setReportType(e.target.value)}>
-              {REPORT_TYPES.map((r) => (
-                <option key={r.value} value={r.value}>{r.label}</option>
-              ))}
-            </Select>
-          </div>
+      <div className="rep-sec">
+        <b>Reports Catalogue</b>
+      </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>From Date</Label>
-              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+      <div className="rep-grid">
+        {REPORTS.map((rpt) => {
+          const Icon = rpt.icon;
+          const isBusy = busyId === rpt.id;
+          return (
+            <div key={rpt.id} className={`rep-card ${rpt.tint}`}>
+              <div className="ric">
+                <Icon size={20} />
+              </div>
+              <div className="rtitle">{rpt.title}</div>
+              <div className="rdesc">{rpt.description}</div>
+              <div className="rexps">
+                <button
+                  className="btn bs bg"
+                  onClick={() => handleExport(rpt, "csv")}
+                  disabled={isBusy}
+                  title="Export as CSV"
+                >
+                  {isBusy && busyFmt === "csv" ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                  CSV
+                </button>
+                <button
+                  className="btn bs bg"
+                  onClick={() => handleExport(rpt, "excel")}
+                  disabled={isBusy}
+                  title="Export as Excel"
+                >
+                  {isBusy && busyFmt === "excel" ? <Loader2 size={12} className="animate-spin" /> : <FileSpreadsheet size={12} />}
+                  Excel
+                </button>
+                <button
+                  className="btn bs bp"
+                  onClick={() => handleExport(rpt, "pdf")}
+                  disabled={isBusy}
+                  title="Print / Save as PDF"
+                >
+                  {isBusy && busyFmt === "pdf" ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />}
+                  PDF
+                </button>
+              </div>
             </div>
-            <div>
-              <Label>To Date</Label>
-              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-            </div>
-          </div>
+          );
+        })}
+      </div>
 
-          <div>
-            <Label>Export Format</Label>
-            <div className="flex flex-wrap gap-2 mt-2">
-              <Button variant="secondary" onClick={() => handleGenerate("csv")} disabled={loading}>
-                <Download className="h-4 w-4" />
-                CSV
-              </Button>
-              <Button variant="secondary" onClick={() => handleGenerate("excel")} disabled={loading}>
-                <FileSpreadsheet className="h-4 w-4" />
-                Excel
-              </Button>
-              <Button variant="secondary" onClick={() => handleGenerate("pdf")} disabled={loading}>
-                <FileText className="h-4 w-4" />
-                PDF
-              </Button>
-            </div>
-          </div>
-
-          <div className="bg-surface-hover rounded-lg p-4 text-xs text-text-tertiary">
-            <p className="font-semibold mb-1">Tip:</p>
-            <p>Select a date range to filter records by their relevant date field. PDF export will be available in a future release.</p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="rep-sec" style={{ marginTop: 18 }}>
+        <b>How exports work</b>
+      </div>
+      <div className="card" style={{ padding: "16px 18px" }}>
+        <div style={{ font: "600 12.5px Manrope", color: "var(--mut)", lineHeight: 1.6 }}>
+          <p style={{ margin: "0 0 8px" }}>
+            <b style={{ color: "var(--tx)" }}>CSV</b> — plain comma-separated values, opens in any spreadsheet or text editor.
+          </p>
+          <p style={{ margin: "0 0 8px" }}>
+            <b style={{ color: "var(--tx)" }}>Excel</b> — generates a <code style={{ font: "700 11px monospace", color: "var(--st)", background: "var(--sb)", padding: "2px 6px", borderRadius: 6 }}>.xls</code> HTML-table file that opens directly in Microsoft Excel and LibreOffice Calc.
+          </p>
+          <p style={{ margin: "0 0 8px" }}>
+            <b style={{ color: "var(--tx)" }}>PDF</b> — opens a print-ready preview window. Use <b>Ctrl+P</b> (or <b>⌘+P</b>) and choose <i>“Save as PDF”</i> as the destination.
+          </p>
+          <p style={{ margin: 0, color: "var(--fnt)", fontSize: 11.5 }}>
+            All exports are generated client-side from live data via <code style={{ font: "700 11px monospace" }}>window.mms.*.list()</code>. No data leaves your machine.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
