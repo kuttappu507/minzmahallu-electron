@@ -1,11 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogIn, Loader2, Eye, EyeOff, ShieldCheck, AlertTriangle } from "lucide-react";
+import { LogIn, Loader2, Eye, EyeOff, ShieldCheck, AlertTriangle, Database } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/i18n";
-import { Button, Input, Label } from "@/components/ui";
 import { toast } from "@/lib/toast";
-import { motion } from "framer-motion";
 
 export function LoginPage() {
   const { t } = useI18n();
@@ -23,9 +21,7 @@ export function LoginPage() {
     setError(null);
 
     if (typeof window === "undefined" || !(window as any).mms) {
-      setError(
-        "MMS bridge not available. The preload script failed to load. This usually means the app was not installed correctly. Please reinstall the app or contact support."
-      );
+      setError("MMS bridge not available. The preload script failed to load.");
       setLoading(false);
       return;
     }
@@ -34,7 +30,7 @@ export function LoginPage() {
       const result = await (window as any).mms.auth.login(username, password);
       if (result.success && result.user) {
         setUser(result.user);
-        toast.success(`${t("app_name")} ✓`);
+        toast.success(`Welcome, ${result.user.fullName}`);
         navigate("/");
       } else {
         const errMsg = result.error || "Login failed. Please check your credentials.";
@@ -45,205 +41,200 @@ export function LoginPage() {
       const errMsg = err?.message || "An unexpected error occurred during login.";
       setError(errMsg);
       toast.error(errMsg);
-      console.error("[Login] Error:", err);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex h-screen bg-canvas">
-      {/* ===== Left panel — animated gradient mesh ===== */}
-      <div className="hidden lg:flex relative w-1/2 overflow-hidden bg-gradient-to-br from-brand-700 via-brand-800 to-accent-900">
-        {/* Animated gradient blobs */}
-        <motion.div
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [0.3, 0.5, 0.3],
-          }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-gradient-to-br from-brand-400 to-accent-400 blur-3xl"
-        />
-        <motion.div
-          animate={{
-            scale: [1.2, 1, 1.2],
-            opacity: [0.4, 0.6, 0.4],
-          }}
-          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute bottom-0 right-0 w-[28rem] h-[28rem] rounded-full bg-gradient-to-tl from-accent-500 to-brand-500 blur-3xl"
-        />
-        <motion.div
-          animate={{
-            rotate: [0, 180, 360],
-            opacity: [0.2, 0.3, 0.2],
-          }}
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          className="absolute top-1/4 right-1/4 w-72 h-72 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 blur-3xl"
-        />
+    <div style={{ height: "100vh", display: "flex", background: "var(--bg)", backgroundImage: "var(--dot)" }}>
+      {/* ===== Left panel — emerald gradient with logo ===== */}
+      <div style={{
+        flex: "0 0 45%", position: "relative", overflow: "hidden",
+        background: "linear-gradient(135deg, #0eab7f 0%, #0b916c 40%, #08755a 100%)",
+      }}>
+        {/* Decorative circles */}
+        <div style={{
+          position: "absolute", top: -60, left: -60, width: 280, height: 280,
+          borderRadius: "50%", background: "rgba(255,255,255,0.08)", filter: "blur(40px)",
+        }} />
+        <div style={{
+          position: "absolute", bottom: -80, right: -40, width: 320, height: 320,
+          borderRadius: "50%", border: "30px solid rgba(255,255,255,0.06)",
+        }} />
+        <div style={{
+          position: "absolute", top: "30%", right: "10%", width: 180, height: 180,
+          borderRadius: "50%", background: "rgba(255,255,255,0.05)", filter: "blur(30px)",
+        }} />
 
-        {/* Subtle grid overlay */}
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage:
-              "linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)",
-            backgroundSize: "40px 40px",
-          }}
-        />
+        {/* Grid overlay */}
+        <div style={{
+          position: "absolute", inset: 0, opacity: 0.04,
+          backgroundImage: "linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)",
+          backgroundSize: "40px 40px",
+        }} />
 
         {/* Content */}
-        <div className="relative z-10 flex flex-col justify-between p-12 text-white">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20">
-              <span className="text-2xl font-bold">M</span>
+        <div style={{
+          position: "relative", zIndex: 10, height: "100%", display: "flex",
+          flexDirection: "column", justifyContent: "space-between", padding: "48px 48px",
+          color: "#fff",
+        }}>
+          {/* Logo header */}
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: 16,
+              background: "rgba(255,255,255,0.15)", backdropFilter: "blur(20px)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              display: "grid", placeItems: "center",
+            }}>
+              <span style={{ font: "800 28px 'Space Grotesk'", color: "#fff" }}>M</span>
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight">MMS</h1>
-              <p className="text-xs text-white/70 font-medium">Minz Mahallu Management</p>
+              <h1 style={{ font: "800 20px 'Space Grotesk'", letterSpacing: "-0.01em" }}>MMS</h1>
+              <p style={{ font: "700 11px Manrope", color: "rgba(255,255,255,0.7)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Minz Mahallu</p>
             </div>
           </div>
 
+          {/* Hero text */}
           <div>
-            <motion.h2
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-5xl font-bold tracking-tight mb-4 text-balance"
-            >
-              Manage your mahallu with{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-300 to-purple-300">
-                clarity.
-              </span>
-            </motion.h2>
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-              className="text-lg text-white/70 max-w-md leading-relaxed"
-            >
-              {t("app_subtitle")}. A modern desktop app for families, members, donations,
-              certificates, and more — all in one place.
-            </motion.p>
+            <h2 style={{ font: "700 32px/1.2 'Space Grotesk'", letterSpacing: "-0.02em", marginBottom: 14 }}>
+              Manage your mahallu<br />with clarity.
+            </h2>
+            <p style={{ font: "600 15px Manrope", color: "rgba(255,255,255,0.75)", maxWidth: 380, lineHeight: 1.6 }}>
+              {t("app_subtitle")}. A modern desktop app for families, members, donations, certificates, and more — all in one place.
+            </p>
           </div>
 
-          <div className="flex items-center gap-6 text-sm text-white/60">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4" />
-              <span>PBKDF2-SHA256 secured</span>
+          {/* Feature badges */}
+          <div style={{ display: "flex", gap: 20, fontSize: 13, color: "rgba(255,255,255,0.6)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <ShieldCheck size={16} />
+              <span style={{ font: "700 12px Manrope" }}>PBKDF2 secured</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Offline-first SQLite</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Database size={16} />
+              <span style={{ font: "700 12px Manrope" }}>Offline SQLite</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ===== Right panel — form ===== */}
-      <div className="flex-1 flex items-center justify-center p-8 relative">
-        <div className="absolute inset-0 bg-mesh-light opacity-50 pointer-events-none" />
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="relative w-full max-w-md"
-        >
-          {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-3 mb-8">
-            <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-brand shadow-glow">
-              <span className="text-2xl font-bold text-white">M</span>
+      {/* ===== Right panel — login form ===== */}
+      <div style={{
+        flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 40, position: "relative",
+      }}>
+        <div style={{ width: "100%", maxWidth: 380 }}>
+          {/* Logo for mobile */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 32, justifyContent: "center" }}
+            className="lg:hidden">
+            <div style={{
+              width: 44, height: 44, borderRadius: 14,
+              background: "var(--em)", boxShadow: "0 2px 0 var(--emdd)",
+              display: "grid", placeItems: "center",
+            }}>
+              <span style={{ font: "800 22px 'Space Grotesk'", color: "#fff" }}>M</span>
             </div>
             <div>
-              <h1 className="text-lg font-bold tracking-tight">MMS</h1>
-              <p className="text-xs text-text-tertiary">{t("app_name")}</p>
+              <h1 style={{ font: "800 16px 'Space Grotesk'" }}>MMS</h1>
+              <p style={{ font: "700 9px Manrope", color: "var(--fnt)", letterSpacing: "0.14em", textTransform: "uppercase" }}>Minz Mahallu</p>
             </div>
           </div>
 
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold tracking-tight text-text-primary">
+          <div style={{ marginBottom: 28 }}>
+            <h2 style={{ font: "700 26px 'Space Grotesk'", letterSpacing: "-0.01em", color: "var(--tx)" }}>
               {t("login_title")}
             </h2>
-            <p className="text-sm text-text-secondary mt-2">
+            <p style={{ font: "600 13px Manrope", color: "var(--mut)", marginTop: 6 }}>
               Welcome back. Sign in to continue to your dashboard.
             </p>
           </div>
 
           {/* Error banner */}
           {error && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 flex items-start gap-2"
-            >
-              <AlertTriangle className="h-4 w-4 text-danger mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-danger flex-1">{error}</p>
-            </motion.div>
+            <div style={{
+              marginBottom: 16, padding: "12px 14px", borderRadius: 12,
+              background: "var(--rose-bg)", border: "1.5px solid var(--rose-line)",
+              display: "flex", alignItems: "flex-start", gap: 10,
+            }}>
+              <AlertTriangle size={16} style={{ color: "var(--c-rose)", flexShrink: 0, marginTop: 1 }} />
+              <p style={{ font: "600 12.5px Manrope", color: "var(--c-rose)", flex: 1 }}>{error}</p>
+            </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-5">
+          <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
-              <Label htmlFor="username">{t("login_username")}</Label>
-              <Input
+              <label className="lbl" htmlFor="username">{t("login_username")}</label>
+              <input
                 id="username"
+                className="inp"
+                style={{ height: 44 }}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="admin"
                 autoFocus
                 autoComplete="username"
-                className="h-11"
                 required
               />
             </div>
 
             <div>
-              <Label htmlFor="password">{t("login_password")}</Label>
-              <div className="relative">
-                <Input
+              <label className="lbl" htmlFor="password">{t("login_password")}</label>
+              <div style={{ position: "relative" }}>
+                <input
                   id="password"
+                  className="inp"
+                  style={{ height: 44, paddingRight: 42 }}
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="admin123"
                   autoComplete="current-password"
-                  className="h-11 pr-10"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary transition-colors"
+                  style={{
+                    position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+                    background: "none", border: 0, color: "var(--fnt)", cursor: "pointer", padding: 4,
+                  }}
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
 
-            <Button type="submit" className="w-full h-11 text-base" disabled={loading}>
+            <button type="submit" className="btn bp bblock" style={{ height: 44, fontSize: 14, marginTop: 4 }} disabled={loading}>
               {loading ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 size={16} className="animate-spin" />
                   Signing in...
                 </>
               ) : (
                 <>
-                  <LogIn className="h-4 w-4" />
+                  <LogIn size={16} />
                   {t("login_button")}
                 </>
               )}
-            </Button>
+            </button>
           </form>
 
-          <div className="mt-6 px-4 py-3 rounded-lg bg-primary-subtle border border-primary/20">
-            <p className="text-xs text-text-secondary text-center">
-              <span className="font-semibold text-primary">{t("login_default_hint")}</span>
+          {/* Default credentials hint */}
+          <div style={{
+            marginTop: 20, padding: "12px 16px", borderRadius: 12,
+            background: "var(--selbg)", border: "1px solid var(--line)",
+          }}>
+            <p style={{ font: "600 12px Manrope", color: "var(--mut)", textAlign: "center" }}>
+              <span style={{ fontWeight: 800, color: "var(--em)" }}>{t("login_default_hint")}</span>
             </p>
           </div>
 
-          <p className="mt-6 text-center text-xs text-text-muted">
-            {t("app_name")} · v2.0.0 · React + Electron
+          <p style={{ marginTop: 24, textAlign: "center", font: "700 11px Manrope", color: "var(--fnt)" }}>
+            {t("app_name")} · v3.0.0 · React + Electron
           </p>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

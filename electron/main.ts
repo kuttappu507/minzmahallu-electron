@@ -44,7 +44,9 @@ function createWindow() {
     minHeight: 640,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: "#0a1a12",
+    backgroundColor: "#f3f6f3",
+    icon: path.join(__dirname, "..", "public", "icon.png"),
+    title: "MMS — Minz Mahallu Management System",
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),
       contextIsolation: true,

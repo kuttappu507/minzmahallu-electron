@@ -278,8 +278,20 @@ export const useI18n = create<I18nState>()(
   persist(
     (set, get) => ({
       lang: "en",
-      setLang: (l) => set({ lang: l }),
-      toggleLang: () => set({ lang: get().lang === "en" ? "ml" : "en" }),
+      setLang: (l) => {
+        set({ lang: l });
+        // Apply lang-ml class to <html> so Malayalam font kicks in
+        if (typeof document !== "undefined") {
+          document.documentElement.classList.toggle("lang-ml", l === "ml");
+        }
+      },
+      toggleLang: () => {
+        const next = get().lang === "en" ? "ml" : "en";
+        set({ lang: next });
+        if (typeof document !== "undefined") {
+          document.documentElement.classList.toggle("lang-ml", next === "ml");
+        }
+      },
       t: (key: string) => {
         const entry = translations[key];
         if (!entry) return key;
@@ -287,6 +299,13 @@ export const useI18n = create<I18nState>()(
       },
       isMalayalam: () => get().lang === "ml",
     }),
-    { name: "mms-i18n" }
+    {
+      name: "mms-i18n",
+      onRehydrateStorage: () => (state) => {
+        if (state && typeof document !== "undefined") {
+          document.documentElement.classList.toggle("lang-ml", state.lang === "ml");
+        }
+      },
+    }
   )
 );

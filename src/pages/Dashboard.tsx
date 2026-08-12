@@ -2,6 +2,7 @@ import { useAsync } from "@/hooks/useList";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/lib/auth";
 import { formatCurrency } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 import {
   Home, Users, UserCheck, Wallet, AlertCircle,
   Gift, Activity, Gem, Flower, TrendingUp,
@@ -21,13 +22,14 @@ const TINTS = {
 export function Dashboard() {
   const { t } = useI18n();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
-  const { data: summary } = useAsync(() => window.mms.dashboard.summary(), []);
+  const { data: summary, refresh: refreshSummary } = useAsync(() => window.mms.dashboard.summary(), []);
   const { data: incomeThisMonth } = useAsync(() => window.mms.dashboard.incomeThisMonth(), []);
   const { data: expenseThisMonth } = useAsync(() => window.mms.dashboard.expenseThisMonth(), []);
   const { data: collections } = useAsync(() => window.mms.dashboard.monthlyCollections(6), []);
   const { data: incomeExpense } = useAsync(() => window.mms.dashboard.incomeVsExpense(6), []);
-  const { data: recentActivity } = useAsync(() => window.mms.dashboard.recentActivity(8), []);
+  const { data: recentActivity, refresh: refreshActivity } = useAsync(() => window.mms.dashboard.recentActivity(8), []);
 
   const stats = [
     { label: "Total Families", value: summary?.total_families ?? 0, icon: Home, tint: "t-em", delta: "▲ +6 this month" },
@@ -68,7 +70,7 @@ export function Dashboard() {
             {quickActions.map((qa, i) => {
               const Icon = qa.icon;
               return (
-                <button key={i} className="qa">
+                <button key={i} className="qa" onClick={() => navigate(`/${qa.action}`)}>
                   <span className="qic"><Icon size={15} /></span>
                   <b>{qa.label}</b>
                 </button>
@@ -86,7 +88,7 @@ export function Dashboard() {
             <b>Subscriptions overdue</b>
             <p>Review & collect pending dues across wards.</p>
             <div className="bx">
-              <button className="btn bs bd">Review now</button>
+              <button className="btn bs bd" onClick={() => navigate("/subscriptions")}>Review now</button>
             </div>
           </div>
 
@@ -181,7 +183,7 @@ export function Dashboard() {
             <div className="ch-title">Recent Activity</div>
             <div className="ch-sub">Last audit log entries</div>
           </div>
-          <button className="btn bs bg">
+          <button className="btn bs bg" onClick={() => { refreshSummary(); refreshActivity(); }}>
             <RefreshCw size={13} /> Refresh
           </button>
         </div>
