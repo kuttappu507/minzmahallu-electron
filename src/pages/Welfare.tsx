@@ -202,12 +202,12 @@ export function Welfare() {
               <Send className="h-4 w-4 text-emerald-600" />
             </Button>
           )}
-          <Button variant="ghost" size="icon" onClick={() => handleEdit(r.id)}>
+          <button className="act-btn act-edit" onClick={() => handleEdit(r.id)}>
             <Edit2 className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(r.id)}>
+          </button>
+          <button className="act-btn act-del" onClick={() => handleDeleteClick(r.id)}>
             <Trash2 className="h-4 w-4 text-danger" />
-          </Button>
+          </button>
         </div>
       ),
       align: "right",

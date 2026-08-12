@@ -267,12 +267,12 @@ export function Certificates() {
       header: "",
       accessor: (r) => (
         <div className="flex items-center gap-1 justify-end">
-          <Button variant="ghost" size="icon" onClick={() => handleGeneratePdf(r)} title={t("cert_generate_pdf_btn")} disabled={pdfLoadingId === r.id}>
+          <button className="act-btn act-view" onClick={() => handleGeneratePdf(r)} title={t("cert_generate_pdf_btn")} disabled={pdfLoadingId === r.id}>
             {pdfLoadingId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(r.id)} title={t("action_delete")}>
+          </button>
+          <button className="act-btn act-del" onClick={() => handleDeleteClick(r.id)} title={t("action_delete")}>
             <Trash2 className="h-4 w-4 text-danger" />
-          </Button>
+          </button>
         </div>
       ),
       align: "right",

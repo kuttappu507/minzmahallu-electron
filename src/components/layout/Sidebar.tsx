@@ -71,7 +71,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="sb-logo">
         <span className="logo">
-          <img src="/logo.svg" alt="MMS" />
+          <b>M</b>
         </span>
         {!collapsed && (
           <div className="nm">

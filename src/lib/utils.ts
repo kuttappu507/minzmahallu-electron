@@ -11,23 +11,24 @@ export function formatCurrency(amount: number): string {
 
 export function formatDate(date: string | null | undefined): string {
   if (!date) return "—";
-  // Assume ISO yyyy-mm-dd
   const d = new Date(date);
   if (isNaN(d.getTime())) return date;
-  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
 }
 
 export function formatDateTime(date: string | null | undefined): string {
   if (!date) return "—";
   const d = new Date(date);
   if (isNaN(d.getTime())) return date;
-  return d.toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${dd}-${mm}-${yyyy} ${hh}:${min}`;
 }
 
 export function classNames(...classes: (string | false | null | undefined)[]) {

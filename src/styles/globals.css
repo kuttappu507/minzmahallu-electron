@@ -123,7 +123,8 @@
 
   body {
     font-family: Poppins, system-ui, sans-serif;
-    font-size: 14.5px;
+    font-size: 15px;
+    font-weight: 500;
     color: var(--tx);
     background: var(--bg);
     overflow: hidden;
@@ -139,6 +140,8 @@
   html.lang-ml button,
   html.lang-ml select {
     font-family: Gayathri, Poppins, sans-serif;
+    font-weight: 500;
+    font-size: 15.5px;
   }
 
   input, textarea, [contenteditable="true"] { user-select: text; }
@@ -164,8 +167,8 @@
   ::-webkit-scrollbar-thumb:hover { background: var(--fnt); background-clip: padding-box; }
 
   /* Narrow scrollbar inside modal/dialog */
-  .modal::-webkit-scrollbar { width: 5px; }
-  .modal::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 3px; border: none; }
+  .modal::-webkit-scrollbar { width: 3px; }
+  .modal::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 2px; border: none; }
   .modal::-webkit-scrollbar-track { background: transparent; }
 
   ::selection { background: var(--selbg); color: var(--tx); }
@@ -229,9 +232,12 @@
     display: grid; place-items: center; box-shadow: var(--sh); z-index: 50; transition: 0.13s;
     cursor: pointer;
   }
-  .flap:hover { color: var(--em); border-color: var(--em); }
+  .flap:hover { color: var(--c-gold); border-color: var(--c-gold); background: var(--selbg); }
   .flap .ic { transition: transform 0.28s; }
-  .sidebar.min .flap .ic { transform: rotate(180deg); }
+  /* When sidebar is collapsed, chevron points right (to expand) */
+  /* When sidebar is expanded, chevron points left (to collapse) */
+  .sidebar.min .flap .ic { transform: rotate(0deg); }
+  .flap .ic { transform: rotate(180deg); }
 
   .sb-user { border-top: 1px solid var(--line); padding: 13px 14px; display: flex; align-items: center; gap: 10px; }
   .sb-user .av { width: 36px; height: 36px; flex: none; border-radius: 12px; display: grid; place-items: center; font: 500 12px Poppins; color: #fff; background: var(--em); box-shadow: 0 2px 0 var(--emdd); }
@@ -257,7 +263,7 @@
     border-radius: 99px; padding: 0 14px; height: 38px; width: 250px;
     transition: 0.22s; color: var(--fnt);
   }
-  .qwrap:focus-within { width: 330px; border-color: var(--em); color: var(--em); background: var(--panel); box-shadow: 0 0 0 4px rgba(14, 171, 127, 0.12); }
+  .qwrap:focus-within { width: 330px; border-color: var(--em); color: var(--em); background: var(--panel); box-shadow: 0 0 0 2px rgba(14, 171, 127, 0.08); }
   .qwrap input { flex: 1; border: 0; background: none; outline: none; color: var(--tx); font: 500 13px Poppins; min-width: 0; }
   .qwrap kbd { font: 500 9px Poppins; color: var(--fnt); border: 1.5px solid var(--line2); border-radius: 6px; padding: 2px 6px; background: var(--panel); }
   .tb-right { margin-left: auto; display: flex; align-items: center; gap: 9px; }
@@ -383,6 +389,18 @@
   .inp { width: 100%; padding: 10px 13px; border: 1.5px solid var(--line2); border-radius: 10px; background: var(--panel); color: var(--tx); font: 500 14px Poppins; transition: 0.15s; outline: none; }
   .inp:focus { border-color: var(--em); box-shadow: 0 0 0 3px rgba(14, 171, 127, 0.1); }
   select.inp { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238ba096' stroke-width='2.4'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 34px; cursor: pointer; }
+
+  /* ===== Table row action buttons (edit/delete) ===== */
+  .rowact { display: flex; gap: 4px; justify-content: flex-end; }
+  .act-btn {
+    width: 28px; height: 28px; border-radius: 8px; border: 1px solid transparent;
+    background: none; color: var(--fnt); display: grid; place-items: center;
+    cursor: pointer; transition: all 0.15s ease;
+  }
+  .act-btn:hover { transform: translateY(-1px); }
+  .act-edit:hover { background: var(--selbg); color: var(--em); border-color: var(--em); }
+  .act-del:hover { background: var(--rose-bg); color: var(--c-rose); border-color: var(--rose-line); }
+  .act-view:hover { background: var(--panel2); color: var(--c-sky); border-color: var(--c-sky); }
 
   /* ===== Avatar mini ===== */
   .avmini { border-radius: 10px; display: inline-grid; place-items: center; font: 500 11px Poppins; color: #fff; margin-right: 9px; vertical-align: -10px; box-shadow: 0 2px 0 rgba(23, 43, 32, 0.15); }
@@ -1107,3 +1125,4 @@
   .pagination .pg-right { display: flex; gap: 6px; }
 }
 
+.tok-prog-bar { display: block; height: 100%; background: var(--em); transition: width 0.6s; border-radius: 99px; }

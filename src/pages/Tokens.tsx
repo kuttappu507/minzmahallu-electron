@@ -367,7 +367,7 @@ export function Tokens() {
         </div>
         <div className="ts-prog">
           <div className="ts-bar">
-            <i style={{ width: `${stats.pct}%` }} />
+            <i className="tok-prog-bar" style={{ width: stats.pct + "%" }} />
           </div>
           <div className="tok-progress-label">
             <span>{stats.pct}% {t("tok_collected_pct")}</span>
