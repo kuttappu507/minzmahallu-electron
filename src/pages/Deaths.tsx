@@ -129,7 +129,7 @@ export function Deaths() {
         </span>
       ),
     },
-    { header: t("dth_deceased"), accessor: (r) => <span className="font-semibold">{r.deceased_name}</span> },
+    { header: t("dth_deceased"), accessor: (r) => <span className="font-medium">{r.deceased_name}</span> },
     { header: t("member_gender"), accessor: (r) => r.gender },
     { header: t("dth_date_of_death"), accessor: (r) => formatDate(r.date_of_death) },
     { header: t("dth_burial_date"), accessor: (r) => formatDate(r.burial_date) },

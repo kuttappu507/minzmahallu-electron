@@ -134,7 +134,7 @@ function buildTokensPdfHtml(eventName: string, tokens: TokenRow[]): string {
   h1 { font: 600 20px Poppins, sans-serif; margin: 0 0 4px; }
   .sub { color: #5f7268; font-size: 11px; margin-bottom: 16px; }
   table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  th { background: #f6f9f6; text-align: left; padding: 8px 10px; border: 1px solid #e6ede7; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.1em; color: #5f7268; font-weight: 600; }
+  th { background: #f6f9f6; text-align: left; padding: 8px 10px; border: 1px solid #e6ede7; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.1em; color: #5f7268; font-weight: 500; }
   td { padding: 7px 10px; border: 1px solid #e6ede7; vertical-align: top; }
   tr:nth-child(even) td { background: #f8faf8; }
   .foot { margin-top: 18px; color: #8ba096; font-size: 10px; }
@@ -158,7 +158,7 @@ function buildReceivedSheetPdfHtml(eventName: string, tokens: TokenRow[]): strin
   h1 { font: 600 20px Poppins, sans-serif; margin: 0 0 4px; }
   .sub { color: #5f7268; font-size: 11px; margin-bottom: 16px; }
   table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  th { background: #f6f9f6; text-align: left; padding: 10px 10px; border: 1px solid #e6ede7; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.1em; color: #5f7268; font-weight: 600; }
+  th { background: #f6f9f6; text-align: left; padding: 10px 10px; border: 1px solid #e6ede7; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.1em; color: #5f7268; font-weight: 500; }
   td { padding: 14px 10px; border: 1px solid #e6ede7; vertical-align: top; min-height: 30px; }
   tr:nth-child(even) td { background: #f8faf8; }
   .foot { margin-top: 18px; color: #8ba096; font-size: 10px; }

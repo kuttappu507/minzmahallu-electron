@@ -185,7 +185,7 @@ export function Welfare() {
         </span>
       ),
     },
-    { header: t("wel_applicant"), accessor: (r) => <span className="font-semibold">{r.applicant_name}</span> },
+    { header: t("wel_applicant"), accessor: (r) => <span className="font-medium">{r.applicant_name}</span> },
     { header: t("don_category"), accessor: (r) => <Badge variant="muted">{r.category}</Badge> },
     { header: t("wel_amount_requested"), accessor: (r) => formatCurrency(r.amount_requested) },
     { header: t("wel_amount_approved"), accessor: (r) => formatCurrency(r.amount_approved) },

@@ -144,7 +144,7 @@ export function Donations() {
         </span>
       ),
     },
-    { header: t("don_donor_name"), accessor: (r) => <span className="font-semibold">{r.donor_name}</span> },
+    { header: t("don_donor_name"), accessor: (r) => <span className="font-medium">{r.donor_name}</span> },
     { header: t("don_donor_phone"), accessor: (r) => r.donor_phone || "—" },
     { header: t("don_category"), accessor: (r) => <Badge variant="muted">{r.category_name}</Badge> },
     { header: t("sub_amount"), accessor: (r) => formatCurrency(r.amount) },

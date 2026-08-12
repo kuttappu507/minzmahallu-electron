@@ -158,7 +158,7 @@ export function Members() {
       ),
       width: "120px",
     },
-    { header: t("member_name"), accessor: (r) => <span className="font-semibold">{r.name}</span> },
+    { header: t("member_name"), accessor: (r) => <span className="font-medium">{r.name}</span> },
     { header: t("member_gender"), accessor: (r) => r.gender },
     { header: t("member_age"), accessor: (r) => r.age || "—" },
     { header: t("member_mobile"), accessor: (r) => r.mobile || "—" },

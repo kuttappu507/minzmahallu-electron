@@ -144,8 +144,8 @@ export function Marriages() {
       ),
     },
     { header: t("mrg_nikah_date"), accessor: (r) => formatDate(r.nikah_date) },
-    { header: t("mrg_bride"), accessor: (r) => <span className="font-semibold">{r.bride_name}</span> },
-    { header: t("mrg_groom"), accessor: (r) => <span className="font-semibold">{r.groom_name}</span> },
+    { header: t("mrg_bride"), accessor: (r) => <span className="font-medium">{r.bride_name}</span> },
+    { header: t("mrg_groom"), accessor: (r) => <span className="font-medium">{r.groom_name}</span> },
     { header: t("mrg_place"), accessor: (r) => r.place || "—" },
     {
       header: "",

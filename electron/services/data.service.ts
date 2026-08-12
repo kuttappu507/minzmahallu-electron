@@ -697,6 +697,7 @@ export const dashboard = {
   },
   incomeThisMonth: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM transactions WHERE type='Income' AND strftime('%Y-%m', txn_date) = strftime('%Y-%m','now')"),
   expenseThisMonth: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM transactions WHERE type='Expense' AND strftime('%Y-%m', txn_date) = strftime('%Y-%m','now')"),
+  balance: () => scalar<number>("SELECT (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Income') - (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Expense') AS v"),
   monthlyCollections: (months: number = 6) => all<any>(
     `SELECT strftime('%Y-%m', payment_date) AS month, COALESCE(SUM(amount_paid),0) AS amount
      FROM subscriptions WHERE payment_date >= date('now', '-${months} months')

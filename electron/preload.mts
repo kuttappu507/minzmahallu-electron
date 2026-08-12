@@ -129,6 +129,7 @@ const api = {
     summary: () => ipcRenderer.invoke("dashboard:summary"),
     incomeThisMonth: () => ipcRenderer.invoke("dashboard:incomeThisMonth"),
     expenseThisMonth: () => ipcRenderer.invoke("dashboard:expenseThisMonth"),
+    balance: () => ipcRenderer.invoke("dashboard:balance"),
     monthlyCollections: (months?: number) => ipcRenderer.invoke("dashboard:monthlyCollections", months),
     monthlyDonations: (months?: number) => ipcRenderer.invoke("dashboard:monthlyDonations", months),
     incomeVsExpense: (months?: number) => ipcRenderer.invoke("dashboard:incomeVsExpense", months),

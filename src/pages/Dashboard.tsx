@@ -19,8 +19,7 @@ export function Dashboard() {
   const navigate = useNavigate();
 
   const { data: summary, refresh: refreshSummary } = useAsync(() => window.mms.dashboard.summary(), []);
-  const { data: incomeThisMonth } = useAsync(() => window.mms.dashboard.incomeThisMonth(), []);
-  const { data: expenseThisMonth } = useAsync(() => window.mms.dashboard.expenseThisMonth(), []);
+  const { data: balance, refresh: refreshBalance } = useAsync(() => window.mms.dashboard.balance(), []);
   const { data: collections } = useAsync(() => window.mms.dashboard.monthlyCollections(6), []);
   const { data: incomeExpense } = useAsync(() => window.mms.dashboard.incomeVsExpense(6), []);
   const { data: recentActivity, refresh: refreshActivity } = useAsync(() => window.mms.dashboard.recentActivity(8), []);
@@ -34,7 +33,7 @@ export function Dashboard() {
     { label: t("dash_donations_month"), value: formatCurrency(summary?.monthly_donations ?? 0), icon: Gift, tint: "t-pink", delta: t("dash_124_pct") },
     { label: t("dash_marriages_year"), value: summary?.marriages_this_year ?? 0, icon: Gem, tint: "t-orange", delta: t("dash_2_this_qtr") },
     { label: t("dash_deaths_year"), value: summary?.deaths_this_year ?? 0, icon: Flower, tint: "t-slate", delta: t("dash_1_this_month") },
-    { label: t("dash_fund_balance_short"), value: formatCurrency((incomeThisMonth ?? 0) - (expenseThisMonth ?? 0)), icon: TrendingUp, tint: "t-blue", delta: t("dash_all_funds") },
+    { label: t("dash_fund_balance_short"), value: formatCurrency(balance ?? 0), icon: TrendingUp, tint: "t-blue", delta: t("dash_all_funds") },
   ];
 
   const quickActions = [
@@ -91,7 +90,7 @@ export function Dashboard() {
             <div className="g-row t-em"><span className="gdot" /><span>{t("dash_receipts_today")}</span><b>4 issued</b></div>
             <div className="g-row t-gold"><span className="gdot" /><span>{t("dash_next_backup")}</span><b>15:29</b></div>
             <div className="g-row t-pink"><span className="gdot" /><span>{t("dash_welfare_pending")}</span><b>{recentActivity?.length ?? 0} requests</b></div>
-            <div className="g-row t-sky"><span className="gdot" /><span>{t("dash_fund_balance")}</span><b>{formatCurrency((incomeThisMonth ?? 0) - (expenseThisMonth ?? 0))}</b></div>
+            <div className="g-row t-sky"><span className="gdot" /><span>{t("dash_fund_balance")}</span><b>{formatCurrency(balance ?? 0)}</b></div>
           </div>
         </div>
       </div>

@@ -49,7 +49,7 @@ export function AuditLog() {
 
   const columns: Column<AuditEntry>[] = [
     { header: t("audit_time"), accessor: (r) => formatDateTime(r.created_at) },
-    { header: t("audit_user"), accessor: (r) => <span className="font-semibold">{r.username}</span> },
+    { header: t("audit_user"), accessor: (r) => <span className="font-medium">{r.username}</span> },
     {
       header: t("audit_action"),
       accessor: (r) => <Badge variant={actionVariant(r.action)}>{r.action}</Badge>,

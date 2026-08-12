@@ -350,6 +350,7 @@ app.whenReady().then(() => {
   ipcMain.handle("dashboard:summary", () => data.dashboard.summary());
   ipcMain.handle("dashboard:incomeThisMonth", () => data.dashboard.incomeThisMonth());
   ipcMain.handle("dashboard:expenseThisMonth", () => data.dashboard.expenseThisMonth());
+  ipcMain.handle("dashboard:balance", () => data.dashboard.balance());
   ipcMain.handle("dashboard:monthlyCollections", (_e, months) => data.dashboard.monthlyCollections(months || 6));
   ipcMain.handle("dashboard:monthlyDonations", (_e, months) => data.dashboard.monthlyDonations(months || 6));
   ipcMain.handle("dashboard:incomeVsExpense", (_e, months) => data.dashboard.incomeVsExpense(months || 6));

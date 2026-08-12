@@ -86,7 +86,7 @@ export function Settings() {
     <div className="p-6 max-w-4xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">{t("set_title")}</h1>
+          <h1 className="text-2xl font-medium text-text-primary">{t("set_title")}</h1>
           <p className="text-sm text-text-secondary mt-1">{t("set_subtitle")}</p>
         </div>
         <Button onClick={handleSave} disabled={saving}>

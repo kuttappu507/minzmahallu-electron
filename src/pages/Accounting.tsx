@@ -160,7 +160,7 @@ export function Accounting() {
     {
       header: t("sub_amount"),
       accessor: (r) => (
-        <span className={r.type === "Income" ? "text-emerald-600 font-semibold" : "text-rose-600 font-semibold"}>
+        <span className={r.type === "Income" ? "text-emerald-600 font-medium" : "text-rose-600 font-medium"}>
           {r.type === "Income" ? "+" : "−"}{formatCurrency(r.amount)}
         </span>
       ),
