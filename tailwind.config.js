@@ -28,9 +28,9 @@ export default {
         "c-rose": "var(--c-rose)",
       },
       fontFamily: {
-        sans: ["Manrope", "system-ui", "sans-serif"],
-        display: ["'Space Grotesk'", "Manrope", "sans-serif"],
-        malayalam: ["'Anek Malayalam'", "Manrope", "sans-serif"],
+        sans: ["Poppins", "system-ui", "sans-serif"],
+        display: ["Poppins", "system-ui", "sans-serif"],
+        malayalam: ["Gayathri", "Poppins", "sans-serif"],
       },
       fontSize: {
         "2xs": ["0.6875rem", { lineHeight: "1rem" }],

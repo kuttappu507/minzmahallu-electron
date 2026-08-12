@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Plus, Edit2, Trash2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, Flower2 } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
-import { Button, Dialog, Input, Label, Select, Textarea } from "@/components/ui";
+import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
 import { formatDate } from "@/lib/utils";
@@ -17,11 +18,20 @@ interface Death {
   burial_date: string;
   cause_of_death: string;
   burial_place: string;
+  family_id: number;
+  remarks: string;
 }
 
 const emptyForm: Partial<Death> = {
   death_number: "", deceased_name: "", father_name: "", gender: "Male",
   date_of_death: "", burial_date: "", cause_of_death: "", burial_place: "",
+  remarks: "",
+};
+
+const codeFontStyle: React.CSSProperties = {
+  fontFamily: "'Space Grotesk', sans-serif",
+  fontWeight: 700,
+  letterSpacing: "0.03em",
 };
 
 export function Deaths() {
@@ -31,6 +41,10 @@ export function Deaths() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<Partial<Death>>(emptyForm);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewRow, setPreviewRow] = useState<Death | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
 
   const { rows, total, totalPages, loading, refetch } = useList(
     (filter) => window.mms.deaths.list(filter),
@@ -43,11 +57,23 @@ export function Deaths() {
       return;
     }
     try {
+      const payload: any = {
+        deceasedName: form.deceased_name,
+        fatherName: form.father_name || "",
+        gender: form.gender || "Male",
+        dateOfDeath: form.date_of_death,
+        burialDate: form.burial_date || "",
+        causeOfDeath: form.cause_of_death || "",
+        burialPlace: form.burial_place || "",
+        familyId: form.family_id || null,
+        remarks: form.remarks || "",
+        createdBy: 1,
+      };
       if (editingId) {
-        await window.mms.deaths.update(editingId, form);
+        await window.mms.deaths.update(editingId, payload);
         toast.success(t("ui_save_changes"));
       } else {
-        await window.mms.deaths.create(form);
+        await window.mms.deaths.create(payload);
         toast.success("Death record added");
       }
       setDialogOpen(false);
@@ -66,19 +92,47 @@ export function Deaths() {
     setDialogOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Delete this death record?")) return;
+  const handleDeleteClick = (id: number) => {
+    setPendingDeleteId(id);
+    setConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (pendingDeleteId == null) return;
     try {
-      await window.mms.deaths.remove(id);
+      await window.mms.deaths.remove(pendingDeleteId);
       toast.success("Deleted");
       refetch();
     } catch (err: any) {
       toast.error(err.message);
+    } finally {
+      setConfirmOpen(false);
+      setPendingDeleteId(null);
     }
   };
 
+  const handleRowDoubleClick = (row: Death) => {
+    setPreviewRow(row);
+    setPreviewOpen(true);
+  };
+
+  const switchToEdit = async () => {
+    if (!previewRow) return;
+    const id = previewRow.id;
+    setPreviewOpen(false);
+    setPreviewRow(null);
+    await handleEdit(id);
+  };
+
   const columns: Column<Death>[] = [
-    { header: t("dth_number"), accessor: (r) => <span className="font-semibold">{r.death_number}</span> },
+    {
+      header: t("dth_number"),
+      accessor: (r) => (
+        <span style={codeFontStyle} className="text-primary">
+          {r.death_number}
+        </span>
+      ),
+    },
     { header: t("dth_deceased"), accessor: (r) => <span className="font-semibold">{r.deceased_name}</span> },
     { header: t("member_gender"), accessor: (r) => r.gender },
     { header: t("dth_date_of_death"), accessor: (r) => formatDate(r.date_of_death) },
@@ -91,7 +145,7 @@ export function Deaths() {
           <Button variant="ghost" size="icon" onClick={() => handleEdit(r.id)}>
             <Edit2 className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => handleDelete(r.id)}>
+          <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(r.id)}>
             <Trash2 className="h-4 w-4 text-danger" />
           </Button>
         </div>
@@ -100,17 +154,36 @@ export function Deaths() {
     },
   ];
 
+  const previewDetails = previewRow
+    ? [
+        { k: t("dth_number"), v: previewRow.death_number },
+        { k: t("dth_deceased"), v: previewRow.deceased_name },
+        { k: t("dth_father"), v: previewRow.father_name || "—" },
+        { k: t("member_gender"), v: previewRow.gender || "—" },
+        { k: t("dth_date_of_death"), v: formatDate(previewRow.date_of_death) },
+        { k: t("dth_burial_date"), v: formatDate(previewRow.burial_date) },
+        { k: t("dth_burial_place"), v: previewRow.burial_place || "—" },
+        { k: t("dth_cause"), v: previewRow.cause_of_death || "—", full: true },
+        { k: "Remarks", v: previewRow.remarks || "—", full: true },
+      ]
+    : [];
+
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">{t("dth_title")}</h1>
-          <p className="text-sm text-text-secondary mt-1">{t("dth_subtitle")}</p>
+    <div className="view view-enter">
+      <div className="vhead">
+        <div className="modic t-em">
+          <Flower2 size={20} />
         </div>
-        <Button onClick={() => { setForm(emptyForm); setEditingId(null); setDialogOpen(true); }}>
-          <Plus className="h-4 w-4" />
-          {t("ui_add_record")}
-        </Button>
+        <div>
+          <h1>{t("dth_title")}</h1>
+          <div className="vs">{t("dth_subtitle")}</div>
+        </div>
+        <div className="vr">
+          <Button onClick={() => { setForm(emptyForm); setEditingId(null); setDialogOpen(true); }}>
+            <Plus className="h-4 w-4" />
+            {t("ui_add_record")}
+          </Button>
+        </div>
       </div>
 
       <DataTable
@@ -125,7 +198,72 @@ export function Deaths() {
         searchValue={search}
         onSearchChange={setSearch}
         rowKey={(r) => r.id}
+        onRowDoubleClick={handleRowDoubleClick}
       />
+
+      {/* Preview Dialog */}
+      <Dialog
+        open={previewOpen}
+        onClose={() => { setPreviewOpen(false); setPreviewRow(null); }}
+        title={t("dth_title")}
+      >
+        <div style={{ padding: "2px 0" }}>
+          {previewRow && (
+            <>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "12px 14px",
+                  marginBottom: 14,
+                  background: "var(--sb)",
+                  border: "1.5px solid var(--sl)",
+                  borderRadius: 14,
+                }}
+                className="t-em"
+              >
+                <div
+                  style={{
+                    width: 48, height: 48, borderRadius: 14, flex: "none",
+                    background: "var(--sc)", color: "#fff",
+                    display: "grid", placeItems: "center",
+                    boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
+                  }}
+                >
+                  <Eye size={20} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ font: "700 16px 'Space Grotesk'", color: "var(--st)" }}>
+                    {previewRow.deceased_name}
+                  </div>
+                  <div style={{ font: "700 11px Poppins", color: "var(--st)", marginTop: 2 }}>
+                    {previewRow.death_number} · {formatDate(previewRow.date_of_death)}
+                  </div>
+                </div>
+                <Badge variant="muted">{previewRow.gender || "—"}</Badge>
+              </div>
+              <div className="det-grid">
+                {previewDetails.map((d, i) => (
+                  <div key={i} className={`det${d.full ? " full" : ""}`}>
+                    <span className="k">{d.k}</span>
+                    <span className="v">{d.v}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+            <Button variant="secondary" onClick={() => { setPreviewOpen(false); setPreviewRow(null); }}>
+              {t("ui_close")}
+            </Button>
+            <Button onClick={switchToEdit}>
+              <Edit2 size={14} />
+              {t("action_edit")}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
 
       <Dialog
         open={dialogOpen}
@@ -174,6 +312,15 @@ export function Deaths() {
           </div>
         </div>
       </Dialog>
+
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
+        onConfirm={handleDeleteConfirm}
+        title="Confirm Delete"
+        confirmLabel="Delete Record"
+      />
     </div>
   );
 }

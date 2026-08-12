@@ -1,15 +1,16 @@
 import { useState } from "react";
-import { Plus, Edit2, Trash2, TrendingUp, TrendingDown, Scale } from "lucide-react";
+import { Plus, Edit2, Trash2, TrendingUp, TrendingDown, Scale, Eye } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useList, useAsync } from "@/hooks/useList";
-import { Card, CardContent, Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
+import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 interface Transaction {
   id: number;
-  receipt: string;
+  receipt_number: string;
   txn_date: string;
   type: string;
   amount: number;
@@ -17,11 +18,20 @@ interface Transaction {
   description: string;
   account_id: number;
   transaction_ref: string;
+  linked_module: string;
+  linked_id: number;
+  created_by_name?: string;
 }
 
 const emptyForm: Partial<Transaction> = {
-  receipt: "", txn_date: "", type: "Income", amount: 0, payment_method: "Cash",
-  description: "", account_id: 1, transaction_ref: "",
+  receipt_number: "", txn_date: "", type: "Income", amount: 0, payment_method: "Cash",
+  description: "", account_id: 1, transaction_ref: "", linked_module: "", linked_id: 0,
+};
+
+const codeFontStyle: React.CSSProperties = {
+  fontFamily: "'Space Grotesk', sans-serif",
+  fontWeight: 700,
+  letterSpacing: "0.03em",
 };
 
 export function Accounting() {
@@ -32,6 +42,10 @@ export function Accounting() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<Partial<Transaction>>(emptyForm);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewRow, setPreviewRow] = useState<Transaction | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
 
   const { rows, total, totalPages, loading, refetch } = useList(
     (filter) => window.mms.accounting.list(filter),
@@ -60,11 +74,24 @@ export function Accounting() {
       return;
     }
     try {
+      const payload: any = {
+        txnDate: form.txn_date,
+        accountId: form.account_id || 1,
+        type: form.type,
+        amount: form.amount,
+        paymentMethod: form.payment_method || "Cash",
+        description: form.description || "",
+        linkedModule: form.linked_module || "",
+        linkedId: form.linked_id || null,
+        receiptNumber: form.receipt_number || "",
+        transactionRef: form.transaction_ref || "",
+        createdBy: 1,
+      };
       if (editingId) {
-        await window.mms.accounting.update(editingId, form);
+        await window.mms.accounting.update(editingId, payload);
         toast.success(t("ui_save_changes"));
       } else {
-        await window.mms.accounting.create(form);
+        await window.mms.accounting.create(payload);
         toast.success(t("add_transaction"));
       }
       setDialogOpen(false);
@@ -84,20 +111,48 @@ export function Accounting() {
     setDialogOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Delete this transaction?")) return;
+  const handleDeleteClick = (id: number) => {
+    setPendingDeleteId(id);
+    setConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (pendingDeleteId == null) return;
     try {
-      await window.mms.accounting.remove(id);
+      await window.mms.accounting.remove(pendingDeleteId);
       toast.success("Deleted");
       refetch();
       refreshSummary();
     } catch (err: any) {
       toast.error(err.message);
+    } finally {
+      setConfirmOpen(false);
+      setPendingDeleteId(null);
     }
   };
 
+  const handleRowDoubleClick = (row: Transaction) => {
+    setPreviewRow(row);
+    setPreviewOpen(true);
+  };
+
+  const switchToEdit = async () => {
+    if (!previewRow) return;
+    const id = previewRow.id;
+    setPreviewOpen(false);
+    setPreviewRow(null);
+    await handleEdit(id);
+  };
+
   const columns: Column<Transaction>[] = [
-    { header: t("sub_receipt"), accessor: (r) => <span className="font-semibold">{r.receipt}</span> },
+    {
+      header: t("sub_receipt"),
+      accessor: (r) => (
+        <span style={codeFontStyle} className="text-primary">
+          {r.receipt_number || "—"}
+        </span>
+      ),
+    },
     { header: t("don_date"), accessor: (r) => formatDate(r.txn_date) },
     {
       header: t("acc_type"),
@@ -121,7 +176,7 @@ export function Accounting() {
           <Button variant="ghost" size="icon" onClick={() => handleEdit(r.id)}>
             <Edit2 className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => handleDelete(r.id)}>
+          <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(r.id)}>
             <Trash2 className="h-4 w-4 text-danger" />
           </Button>
         </div>
@@ -130,15 +185,33 @@ export function Accounting() {
     },
   ];
 
+  const previewDetails = previewRow
+    ? [
+        { k: t("sub_receipt"), v: previewRow.receipt_number || "—" },
+        { k: t("don_date"), v: formatDate(previewRow.txn_date) },
+        { k: t("acc_type"), v: previewRow.type },
+        { k: t("sub_amount"), v: formatCurrency(previewRow.amount) },
+        { k: t("sub_method"), v: previewRow.payment_method || "—" },
+        { k: "Account ID", v: String(previewRow.account_id ?? "—") },
+        { k: "Transaction Ref", v: previewRow.transaction_ref || "—" },
+        { k: "Linked Module", v: previewRow.linked_module || "—" },
+        { k: "Created By", v: previewRow.created_by_name || "—" },
+        { k: t("acc_description"), v: previewRow.description || "—", full: true },
+      ]
+    : [];
+
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">{t("acc_title")}</h1>
-          <p className="text-sm text-text-secondary mt-1">{t("acc_subtitle")}</p>
+    <div className="view view-enter">
+      <div className="vhead">
+        <div className="modic t-em">
+          <Scale size={20} />
         </div>
-        <div className="flex items-center gap-2">
-          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => openAdd("Income")}>
+        <div>
+          <h1>{t("acc_title")}</h1>
+          <div className="vs">{t("acc_subtitle")}</div>
+        </div>
+        <div className="vr">
+          <Button onClick={() => openAdd("Income")}>
             <Plus className="h-4 w-4" />
             {t("acc_add_income")}
           </Button>
@@ -150,40 +223,31 @@ export function Accounting() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-text-tertiary font-medium">{t("acc_income")}</p>
-              <p className="text-2xl font-bold text-emerald-600 mt-1">{formatCurrency(totalIncome ?? 0)}</p>
-            </div>
-            <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600">
-              <TrendingUp className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-text-tertiary font-medium">{t("acc_expense")}</p>
-              <p className="text-2xl font-bold text-rose-600 mt-1">{formatCurrency(totalExpense ?? 0)}</p>
-            </div>
-            <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-rose-50 text-rose-600">
-              <TrendingDown className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-text-tertiary font-medium">{t("acc_balance")}</p>
-              <p className="text-2xl font-bold text-text-primary mt-1">{formatCurrency(balance ?? 0)}</p>
-            </div>
-            <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-blue-50 text-blue-600">
-              <Scale className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+      <div className="stat-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+        <div className="stat t-em">
+          <div className="srow">
+            <span className="sic"><TrendingUp size={18} /></span>
+            <span className="delta">income</span>
+          </div>
+          <div className="val">{formatCurrency(totalIncome ?? 0)}</div>
+          <div className="slab">{t("acc_income")}</div>
+        </div>
+        <div className="stat t-rose">
+          <div className="srow">
+            <span className="sic"><TrendingDown size={18} /></span>
+            <span className="delta">expense</span>
+          </div>
+          <div className="val">{formatCurrency(totalExpense ?? 0)}</div>
+          <div className="slab">{t("acc_expense")}</div>
+        </div>
+        <div className="stat t-sky">
+          <div className="srow">
+            <span className="sic"><Scale size={18} /></span>
+            <span className="delta">balance</span>
+          </div>
+          <div className="val">{formatCurrency(balance ?? 0)}</div>
+          <div className="slab">{t("acc_balance")}</div>
+        </div>
       </div>
 
       <DataTable
@@ -198,6 +262,7 @@ export function Accounting() {
         searchValue={search}
         onSearchChange={setSearch}
         rowKey={(r) => r.id}
+        onRowDoubleClick={handleRowDoubleClick}
         toolbar={
           <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-40">
             <option>All</option>
@@ -206,6 +271,71 @@ export function Accounting() {
           </Select>
         }
       />
+
+      {/* Preview Dialog */}
+      <Dialog
+        open={previewOpen}
+        onClose={() => { setPreviewOpen(false); setPreviewRow(null); }}
+        title={t("acc_title")}
+      >
+        <div style={{ padding: "2px 0" }}>
+          {previewRow && (
+            <>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "12px 14px",
+                  marginBottom: 14,
+                  background: previewRow.type === "Income" ? "var(--sb)" : "var(--rose-bg)",
+                  border: `1.5px solid ${previewRow.type === "Income" ? "var(--sl)" : "var(--rose-line)"}`,
+                  borderRadius: 14,
+                }}
+                className={previewRow.type === "Income" ? "t-em" : "t-rose"}
+              >
+                <div
+                  style={{
+                    width: 48, height: 48, borderRadius: 14, flex: "none",
+                    background: previewRow.type === "Income" ? "var(--sc)" : "var(--c-rose)",
+                    color: "#fff",
+                    display: "grid", placeItems: "center",
+                    boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
+                  }}
+                >
+                  <Eye size={20} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ font: "700 16px 'Space Grotesk'", color: "var(--st)" }}>
+                    {previewRow.receipt_number || previewRow.description || "Transaction"}
+                  </div>
+                  <div style={{ font: "700 11px Poppins", color: "var(--st)", marginTop: 2 }}>
+                    {previewRow.type} · {formatDate(previewRow.txn_date)} · {formatCurrency(previewRow.amount)}
+                  </div>
+                </div>
+                <Badge variant={previewRow.type === "Income" ? "success" : "danger"}>{previewRow.type}</Badge>
+              </div>
+              <div className="det-grid">
+                {previewDetails.map((d, i) => (
+                  <div key={i} className={`det${d.full ? " full" : ""}`}>
+                    <span className="k">{d.k}</span>
+                    <span className="v">{d.v}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+            <Button variant="secondary" onClick={() => { setPreviewOpen(false); setPreviewRow(null); }}>
+              {t("ui_close")}
+            </Button>
+            <Button onClick={switchToEdit}>
+              <Edit2 size={14} />
+              {t("action_edit")}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
 
       <Dialog
         open={dialogOpen}
@@ -256,6 +386,15 @@ export function Accounting() {
           </div>
         </div>
       </Dialog>
+
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
+        onConfirm={handleDeleteConfirm}
+        title="Confirm Delete"
+        confirmLabel="Delete Transaction"
+      />
     </div>
   );
 }

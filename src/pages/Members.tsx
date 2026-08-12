@@ -3,16 +3,17 @@ import { Plus, Edit2, Trash2, Eye } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
 import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
 import { statusVariant, formatDate } from "@/lib/utils";
 
 interface Member {
   id: number;
-  code: string;
+  member_code: string;
   name: string;
   gender: string;
-  dob: string;
+  date_of_birth: string;
   age: number;
   blood_group: string;
   occupation: string;
@@ -31,7 +32,7 @@ interface Member {
 }
 
 const emptyForm: Partial<Member> = {
-  code: "", name: "", gender: "Male", dob: "", age: 0, blood_group: "",
+  name: "", gender: "Male", date_of_birth: "", age: 0, blood_group: "",
   occupation: "", education: "", marital_status: "Single", mobile: "", email: "",
   emergency_contact: "", relationship: "Head", status: "Active", nationality: "", address: "", family_id: 0,
 };
@@ -56,6 +57,8 @@ export function Members() {
   // Preview dialog state
   const [previewMember, setPreviewMember] = useState<Member | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
 
   const { rows, total, totalPages, loading, refetch } = useList(
     (filter) => window.mms.members.list(filter),
@@ -72,11 +75,31 @@ export function Members() {
       return;
     }
     try {
+      // Map snake_case form fields → camelCase expected by the IPC service.
+      const payload: any = {
+        familyId: form.family_id,
+        name: form.name,
+        arabicName: "",
+        gender: form.gender,
+        dateOfBirth: form.date_of_birth,
+        age: form.age,
+        bloodGroup: form.blood_group,
+        occupation: form.occupation,
+        education: form.education,
+        maritalStatus: form.marital_status,
+        mobile: form.mobile,
+        email: form.email,
+        emergencyContact: form.emergency_contact,
+        relationship: form.relationship,
+        status: form.status,
+        nationality: form.nationality,
+        address: form.address,
+      };
       if (editingId) {
-        await window.mms.members.update(editingId, form);
+        await window.mms.members.update(editingId, payload);
         toast.success(t("ui_save_changes"));
       } else {
-        await window.mms.members.create(form);
+        await window.mms.members.create(payload);
         toast.success(t("add_member"));
       }
       setDialogOpen(false);
@@ -95,14 +118,22 @@ export function Members() {
     setDialogOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Delete this member?")) return;
+  const handleDeleteClick = (id: number) => {
+    setPendingDeleteId(id);
+    setConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (pendingDeleteId == null) return;
     try {
-      await window.mms.members.remove(id);
+      await window.mms.members.remove(pendingDeleteId);
       toast.success("Deleted");
       refetch();
     } catch (err: any) {
       toast.error(err.message);
+    } finally {
+      setConfirmOpen(false);
+      setPendingDeleteId(null);
     }
   };
 
@@ -126,7 +157,7 @@ export function Members() {
       header: t("member_code"),
       accessor: (r) => (
         <span style={codeFontStyle} className="text-primary">
-          {r.code || "—"}
+          {r.member_code || "—"}
         </span>
       ),
       width: "120px",
@@ -147,7 +178,7 @@ export function Members() {
           <Button variant="ghost" size="icon" onClick={() => handleEdit(r.id)} title={t("action_edit")}>
             <Edit2 className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => handleDelete(r.id)} title={t("action_delete")}>
+          <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(r.id)} title={t("action_delete")}>
             <Trash2 className="h-4 w-4 text-danger" />
           </Button>
         </div>
@@ -159,12 +190,12 @@ export function Members() {
   // Preview detail rows
   const previewDetails = previewMember
     ? [
-        { k: t("member_code"), v: previewMember.code },
+        { k: t("member_code"), v: previewMember.member_code },
         { k: t("member_name"), v: previewMember.name },
         { k: t("member_family"), v: previewMember.house_name || previewMember.family_number || "—" },
         { k: t("member_gender"), v: previewMember.gender },
         { k: t("member_age"), v: previewMember.age ? String(previewMember.age) : "—" },
-        { k: t("member_dob"), v: formatDate(previewMember.dob) },
+        { k: t("member_dob"), v: formatDate(previewMember.date_of_birth) },
         { k: t("member_blood_group"), v: previewMember.blood_group || "—" },
         { k: t("member_occupation"), v: previewMember.occupation || "—" },
         { k: t("member_education"), v: previewMember.education || "—" },
@@ -251,7 +282,7 @@ export function Members() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ font: "700 17px 'Space Grotesk'", color: "var(--st)" }}>{previewMember.name}</div>
                   <div style={{ font: "700 11px 'Space Grotesk'", color: "var(--st)", letterSpacing: "0.08em", marginTop: 2 }}>
-                    {previewMember.code}
+                    {previewMember.member_code}
                   </div>
                 </div>
                 <Badge variant={statusVariant(previewMember.status)}>{previewMember.status}</Badge>
@@ -312,7 +343,7 @@ export function Members() {
             </div>
             <div>
               <Label>{t("member_dob")}</Label>
-              <Input type="date" value={form.dob || ""} onChange={(e) => setForm({ ...form, dob: e.target.value })} />
+              <Input type="date" value={form.date_of_birth || ""} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} />
             </div>
             <div>
               <Label>{t("member_age")}</Label>
@@ -386,6 +417,15 @@ export function Members() {
           </div>
         </div>
       </Dialog>
+
+      {/* Delete confirmation dialog (themed, no native confirm()) */}
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
+        onConfirm={handleDeleteConfirm}
+        title="Confirm Delete"
+        confirmLabel="Delete Member"
+      />
     </div>
   );
 }

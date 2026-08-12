@@ -1,26 +1,25 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
-  Ticket, CalendarDays, CheckCircle2, RefreshCw, Plus, Eye, EyeOff,
+  Ticket, CalendarDays, CheckCircle2, RefreshCw, Eye, EyeOff,
 } from "lucide-react";
 import { useI18n } from "@/i18n";
-import { Button, Select } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { toast } from "@/lib/toast";
-import { formatDateTime, formatDate } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 
 /*
  * Tokens page — community token distribution management.
  *
- * The preload bridge does not yet expose token CRUD methods, so this page
- * uses local mock state (24 four-digit tokens bound to real families via
- * window.mms.families.list). When a token API is added later, the mock
- * state can be replaced with useList + window.mms.tokens.* calls without
- * touching the UI.
+ * Mirrors the Qt implementation: events (e.g. "Eid Milad 2026",
+ * "Ramadan Kit 2026") each have a set of 4-digit token codes assigned
+ * to families. Clicking a token toggles its collected state.
+ *
+ * Uses local mock state (no API needed). Two events with 24 tokens each.
  */
 
 interface TokenRow {
   id: number;
   code: string; // 4-digit code, e.g. "0421"
-  familyId: number;
   familyName: string;
   familyNumber: string;
   collected: boolean;
@@ -33,81 +32,102 @@ interface TokenEvent {
   type: string;
   date: string;
   status: "active" | "completed" | "cancelled";
+  tokens: TokenRow[];
 }
 
-// Stable mock generator — deterministic 24-token board
-function buildMockTokens(families: any[]): TokenRow[] {
-  const used = new Set<string>();
+// Stable family pool — used to assign tokens deterministically.
+const FAMILY_POOL: { name: string; number: string }[] = [
+  { name: "Kunjammu Hse", number: "F-001" },
+  { name: "Rahman Hse", number: "F-002" },
+  { name: "Abdul Khader Hse", number: "F-003" },
+  { name: "Mammu Hse", number: "F-004" },
+  { name: "Sainaba Hse", number: "F-005" },
+  { name: "Jaleel Hse", number: "F-006" },
+  { name: "Haleema Hse", number: "F-007" },
+  { name: "Imbichi Hse", number: "F-008" },
+  { name: "Moidu Hse", number: "F-009" },
+  { name: "Suhara Hse", number: "F-010" },
+  { name: "Ummu Hse", number: "F-011" },
+  { name: "Nasar Hse", number: "F-012" },
+  { name: "Khadeeja Hse", number: "F-013" },
+  { name: "Aboobacker Hse", number: "F-014" },
+  { name: "Fathima Hs", number: "F-015" },
+  { name: "Yusuf Hse", number: "F-016" },
+  { name: "Zainaba Hse", number: "F-017" },
+  { name: "Savad Hse", number: "F-018" },
+  { name: "Mariyam Hse", number: "F-019" },
+  { name: "Ibrahim Hse", number: "F-020" },
+  { name: "Rafeeque Hse", number: "F-021" },
+  { name: "Hafsah Hse", number: "F-022" },
+  { name: "Anvar Hse", number: "F-023" },
+  { name: "Kadeeja Hse", number: "F-024" },
+];
+
+// Deterministic 4-digit code generator — same input → same codes each render.
+function buildTokensForEvent(eventId: number, preCollectedCount = 0): TokenRow[] {
   const tokens: TokenRow[] = [];
+  const used = new Set<string>();
+  // Seed the PRNG with the eventId so each event has a different but stable set.
+  let seed = eventId * 9973;
+  const rand = () => {
+    seed = (seed * 9301 + 49297) % 233280;
+    return seed / 233280;
+  };
   for (let i = 0; i < 24; i++) {
     let code = "";
     do {
-      code = String(1000 + Math.floor(Math.random() * 9000));
+      code = String(1000 + Math.floor(rand() * 9000));
     } while (used.has(code));
     used.add(code);
-    const fam = families[i % Math.max(1, families.length)] || {
-      id: 0,
-      house_name: "Unassigned Family",
-      family_number: "F000",
-    };
+    const fam = FAMILY_POOL[i % FAMILY_POOL.length];
     tokens.push({
       id: i + 1,
       code,
-      familyId: fam.id,
-      familyName: fam.house_name || "—",
-      familyNumber: fam.family_number || "—",
-      collected: false,
-      collectedAt: null,
+      familyName: fam.name,
+      familyNumber: fam.number,
+      collected: i < preCollectedCount,
+      collectedAt: i < preCollectedCount ? new Date().toISOString() : null,
     });
   }
   return tokens;
 }
 
-const MOCK_EVENTS: TokenEvent[] = [
-  { id: 1, name: "Ramadan Ration Distribution 1446H", type: "ramadan", date: new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10), status: "active" },
-  { id: 2, name: "Eid-ul-Fitr Gift Pack", type: "eid", date: new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10), status: "active" },
-  { id: 3, name: "Annual Welfare Kit", type: "welfare", date: new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10), status: "completed" },
-];
+function makeInitialEvents(): TokenEvent[] {
+  return [
+    {
+      id: 1,
+      name: "Eid Milad 2026",
+      type: "eid-milad",
+      date: "2026-09-04",
+      status: "active",
+      tokens: buildTokensForEvent(1, 8),
+    },
+    {
+      id: 2,
+      name: "Ramadan Kit 2026",
+      type: "ramadan-kit",
+      date: "2026-02-18",
+      status: "active",
+      tokens: buildTokensForEvent(2, 3),
+    },
+  ];
+}
 
 export function Tokens() {
   const { t } = useI18n();
 
-  const [events] = useState<TokenEvent[]>(MOCK_EVENTS);
-  const [activeEventId, setActiveEventId] = useState<number>(MOCK_EVENTS[0].id);
-  const [tokens, setTokens] = useState<TokenRow[]>([]);
-  const [families, setFamilies] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState<TokenEvent[]>(makeInitialEvents);
+  const [activeEventId, setActiveEventId] = useState<number>(1);
   const [filter, setFilter] = useState<"all" | "collected" | "pending">("all");
   const [search, setSearch] = useState("");
   const [poppingId, setPoppingId] = useState<number | null>(null);
-
-  // Load families once, then build mock tokens
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const r = await window.mms.families.list({ pageSize: 100 });
-        const fams = r?.rows || [];
-        if (cancelled) return;
-        setFamilies(fams);
-        setTokens(buildMockTokens(fams));
-      } catch {
-        if (cancelled) return;
-        setFamilies([]);
-        setTokens(buildMockTokens([]));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const activeEvent = useMemo(
     () => events.find((e) => e.id === activeEventId) || events[0],
     [events, activeEventId]
   );
+
+  const tokens = activeEvent?.tokens || [];
 
   const stats = useMemo(() => {
     const total = tokens.length;
@@ -131,38 +151,63 @@ export function Tokens() {
     });
   }, [tokens, filter, search]);
 
-  const toggleToken = useCallback((id: number) => {
-    setTokens((prev) =>
-      prev.map((tk) =>
-        tk.id === id
-          ? {
-              ...tk,
-              collected: !tk.collected,
-              collectedAt: !tk.collected ? new Date().toISOString() : null,
-            }
-          : tk
-      )
-    );
-    setPoppingId(id);
-    window.setTimeout(() => setPoppingId((cur) => (cur === id ? null : cur)), 320);
-  }, []);
+  const toggleToken = useCallback(
+    (id: number) => {
+      setEvents((prev) =>
+        prev.map((ev) =>
+          ev.id !== activeEventId
+            ? ev
+            : {
+                ...ev,
+                tokens: ev.tokens.map((tk) =>
+                  tk.id === id
+                    ? {
+                        ...tk,
+                        collected: !tk.collected,
+                        collectedAt: !tk.collected ? new Date().toISOString() : null,
+                      }
+                    : tk
+                ),
+              }
+        )
+      );
+      setPoppingId(id);
+      window.setTimeout(() => setPoppingId((cur) => (cur === id ? null : cur)), 320);
+    },
+    [activeEventId]
+  );
 
   const handleReset = useCallback(() => {
-    if (!confirm("Reset all token collection states for this event?")) return;
-    setTokens((prev) => prev.map((tk) => ({ ...tk, collected: false, collectedAt: null })));
-    toast.info("Token board reset");
-  }, []);
+    setEvents((prev) =>
+      prev.map((ev) =>
+        ev.id !== activeEventId
+          ? ev
+          : {
+              ...ev,
+              tokens: ev.tokens.map((tk) => ({ ...tk, collected: false, collectedAt: null })),
+            }
+      )
+    );
+    toast.info(`Token board reset for ${activeEvent?.name}`);
+  }, [activeEventId, activeEvent]);
 
   const handleMarkAllCollected = useCallback(() => {
-    setTokens((prev) =>
-      prev.map((tk) => ({
-        ...tk,
-        collected: true,
-        collectedAt: tk.collectedAt || new Date().toISOString(),
-      }))
+    setEvents((prev) =>
+      prev.map((ev) =>
+        ev.id !== activeEventId
+          ? ev
+          : {
+              ...ev,
+              tokens: ev.tokens.map((tk) => ({
+                ...tk,
+                collected: true,
+                collectedAt: tk.collectedAt || new Date().toISOString(),
+              })),
+            }
+      )
     );
-    toast.success("All tokens marked collected");
-  }, []);
+    toast.success(`All tokens collected for ${activeEvent?.name}`);
+  }, [activeEventId, activeEvent]);
 
   return (
     <div className="view view-enter">
@@ -188,24 +233,31 @@ export function Tokens() {
 
       {/* Event selector strip */}
       <div className="toolbar">
-        <Select
-          value={String(activeEventId)}
-          onChange={(e) => setActiveEventId(Number(e.target.value))}
-          className="w-72"
-        >
-          {events.map((ev) => (
-            <option key={ev.id} value={ev.id}>
-              {ev.name} — {formatDate(ev.date)}
-            </option>
-          ))}
-        </Select>
         <span className="count-chip" style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
           <CalendarDays size={12} />
-          {activeEvent?.date}
+          {activeEvent?.date ? formatDate(activeEvent.date) : "—"}
         </span>
-        <span className={`pill ${activeEvent?.status === "active" ? "t-em" : activeEvent?.status === "completed" ? "t-slate" : "t-rose"}`}>
+        <span
+          className={`pill ${activeEvent?.status === "active" ? "t-em" : activeEvent?.status === "completed" ? "t-slate" : "t-rose"}`}
+        >
           {activeEvent?.status?.toUpperCase()}
         </span>
+        <div className="chiprow" style={{ marginLeft: 8 }}>
+          {events.map((ev) => (
+            <button
+              key={ev.id}
+              className={`fchip ${ev.id === activeEventId ? "on" : ""}`}
+              onClick={() => {
+                setActiveEventId(ev.id);
+                setFilter("all");
+                setSearch("");
+              }}
+            >
+              <Ticket size={12} style={{ display: "inline", marginRight: 5, verticalAlign: -1 }} />
+              {ev.name}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Stat strip with progress bar */}
@@ -221,15 +273,29 @@ export function Tokens() {
           <div className="ts-bar">
             <i style={{ width: `${stats.pct}%` }} />
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", font: "700 10.5px Manrope", color: "var(--fnt)", letterSpacing: "0.1em" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              font: "700 10.5px Poppins",
+              color: "var(--fnt)",
+              letterSpacing: "0.1em",
+            }}
+          >
             <span>{stats.pct}% COLLECTED</span>
-            <span>{stats.collected} / {stats.total}</span>
+            <span>
+              {stats.collected} / {stats.total}
+            </span>
           </div>
         </div>
         <div className="ts-stats">
           <span className="count-chip">Total · {stats.total}</span>
-          <span className="count-chip" style={{ color: "var(--c-em)", borderColor: "var(--c-em)" }}>Collected · {stats.collected}</span>
-          <span className="count-chip" style={{ color: "var(--c-gold)", borderColor: "var(--c-gold)" }}>Pending · {stats.pending}</span>
+          <span className="count-chip" style={{ color: "var(--c-em)", borderColor: "var(--c-em)" }}>
+            Collected · {stats.collected}
+          </span>
+          <span className="count-chip" style={{ color: "var(--c-gold)", borderColor: "var(--c-gold)" }}>
+            Pending · {stats.pending}
+          </span>
         </div>
       </div>
 
@@ -271,12 +337,7 @@ export function Tokens() {
             </div>
           </div>
 
-          {loading ? (
-            <div className="tempty" style={{ padding: 50 }}>
-              <RefreshCw size={20} className="animate-spin" style={{ margin: "0 auto 10px", display: "block" }} />
-              Loading token board…
-            </div>
-          ) : visibleTokens.length === 0 ? (
+          {visibleTokens.length === 0 ? (
             <div className="tempty" style={{ padding: 50 }}>
               No tokens match the current filter.
             </div>
@@ -311,10 +372,6 @@ export function Tokens() {
             <div className="ch-title">Token Events</div>
             <div className="ch-sub">Upcoming & past distribution events</div>
           </div>
-          <Button variant="secondary" size="sm" onClick={() => toast.info("Create-event form coming soon")}>
-            <Plus size={12} />
-            New Event
-          </Button>
         </div>
         <div className="tbl" style={{ boxShadow: "none" }}>
           <table>
@@ -323,36 +380,60 @@ export function Tokens() {
                 <th>Event</th>
                 <th>Type</th>
                 <th>Date</th>
+                <th>Tokens</th>
+                <th>Collected</th>
                 <th>Status</th>
                 <th style={{ width: 120 }}></th>
               </tr>
             </thead>
             <tbody>
-              {events.map((ev) => (
-                <tr key={ev.id}>
-                  <td>
-                    <span style={{ font: "700 13px Manrope", color: "var(--tx)" }}>{ev.name}</span>
-                  </td>
-                  <td>
-                    <span className="pill t-slate" style={{ textTransform: "capitalize" }}>{ev.type}</span>
-                  </td>
-                  <td>{formatDate(ev.date)}</td>
-                  <td>
-                    <span className={`pill ${ev.status === "active" ? "t-em" : ev.status === "completed" ? "t-slate" : "t-rose"}`}>
-                      {ev.status.charAt(0).toUpperCase() + ev.status.slice(1)}
-                    </span>
-                  </td>
-                  <td style={{ textAlign: "right" }}>
-                    <Button
-                      variant={ev.id === activeEventId ? "primary" : "secondary"}
-                      size="sm"
-                      onClick={() => setActiveEventId(ev.id)}
-                    >
-                      {ev.id === activeEventId ? "Selected" : "Open"}
-                    </Button>
-                  </td>
-                </tr>
-              ))}
+              {events.map((ev) => {
+                const collected = ev.tokens.filter((tk) => tk.collected).length;
+                return (
+                  <tr key={ev.id}>
+                    <td>
+                      <span style={{ font: "700 13px Poppins", color: "var(--tx)" }}>{ev.name}</span>
+                    </td>
+                    <td>
+                      <span className="pill t-slate" style={{ textTransform: "capitalize" }}>
+                        {ev.type}
+                      </span>
+                    </td>
+                    <td>{formatDate(ev.date)}</td>
+                    <td>
+                      <span className="count-chip">{ev.tokens.length}</span>
+                    </td>
+                    <td>
+                      <span
+                        className="count-chip"
+                        style={{ color: "var(--c-em)", borderColor: "var(--c-em)" }}
+                      >
+                        {collected}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        className={`pill ${ev.status === "active" ? "t-em" : ev.status === "completed" ? "t-slate" : "t-rose"}`}
+                      >
+                        {ev.status.charAt(0).toUpperCase() + ev.status.slice(1)}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <Button
+                        variant={ev.id === activeEventId ? "primary" : "secondary"}
+                        size="sm"
+                        onClick={() => {
+                          setActiveEventId(ev.id);
+                          setFilter("all");
+                          setSearch("");
+                        }}
+                      >
+                        {ev.id === activeEventId ? "Selected" : "Open"}
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

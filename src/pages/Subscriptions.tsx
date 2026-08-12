@@ -1,33 +1,45 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, AlertCircle, Wallet } from "lucide-react";
+import { Plus, Edit2, Trash2, AlertCircle, Wallet, Eye } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useList, useAsync } from "@/hooks/useList";
 import { Card, CardContent, Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
 import { formatCurrency, formatDate, statusVariant } from "@/lib/utils";
 
 interface Subscription {
   id: number;
-  receipt: string;
+  receipt_number: string;
   family_id: number;
   family_number: string;
+  house_name?: string;
+  member_id: number;
   member_name: string;
-  plan_name: string;
+  plan_id: number;
+  plan_name?: string;
   amount: number;
   amount_paid: number;
   period_start: string;
   period_end: string;
   payment_date: string;
   payment_method: string;
+  transaction_ref: string;
   status: string;
+  collected_by: number;
   remarks: string;
 }
 
 const emptyForm: Partial<Subscription> = {
-  receipt: "", family_id: 0, member_name: "", plan_name: "", amount: 0, amount_paid: 0,
-  period_start: "", period_end: "", payment_date: "", payment_method: "Cash",
-  status: "Pending", remarks: "",
+  receipt_number: "", family_id: 0, member_name: "", plan_id: 1, plan_name: "",
+  amount: 0, amount_paid: 0, period_start: "", period_end: "", payment_date: "",
+  payment_method: "Cash", transaction_ref: "", status: "Pending", remarks: "",
+};
+
+const codeFontStyle: React.CSSProperties = {
+  fontFamily: "'Space Grotesk', sans-serif",
+  fontWeight: 700,
+  letterSpacing: "0.03em",
 };
 
 export function Subscriptions() {
@@ -40,6 +52,10 @@ export function Subscriptions() {
   const [form, setForm] = useState<Partial<Subscription>>(emptyForm);
   const [families, setFamilies] = useState<any[]>([]);
   const [plans, setPlans] = useState<any[]>([]);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewRow, setPreviewRow] = useState<Subscription | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
 
   const { rows, total, totalPages, loading, refetch } = useList(
     (filter) => window.mms.subscriptions.list(filter),
@@ -67,11 +83,27 @@ export function Subscriptions() {
       return;
     }
     try {
+      const payload: any = {
+        familyId: form.family_id,
+        memberId: form.member_id || null,
+        planId: form.plan_id || 1,
+        periodStart: form.period_start,
+        periodEnd: form.period_end,
+        amount: form.amount,
+        amountPaid: form.amount_paid ?? 0,
+        paymentDate: form.payment_date,
+        receiptNumber: form.receipt_number || "",
+        paymentMethod: form.payment_method,
+        transactionRef: form.transaction_ref || "",
+        status: form.status,
+        collectedBy: 1,
+        remarks: form.remarks || "",
+      };
       if (editingId) {
-        await window.mms.subscriptions.update(editingId, form);
+        await window.mms.subscriptions.update(editingId, payload);
         toast.success(t("ui_save_changes"));
       } else {
-        await window.mms.subscriptions.create(form);
+        await window.mms.subscriptions.create(payload);
         toast.success(t("add_subscription"));
       }
       setDialogOpen(false);
@@ -90,15 +122,36 @@ export function Subscriptions() {
     setDialogOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Delete this subscription?")) return;
+  const handleDeleteClick = (id: number) => {
+    setPendingDeleteId(id);
+    setConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (pendingDeleteId == null) return;
     try {
-      await window.mms.subscriptions.remove(id);
+      await window.mms.subscriptions.remove(pendingDeleteId);
       toast.success("Deleted");
       refetch();
     } catch (err: any) {
       toast.error(err.message);
+    } finally {
+      setConfirmOpen(false);
+      setPendingDeleteId(null);
     }
+  };
+
+  const handleRowDoubleClick = (row: Subscription) => {
+    setPreviewRow(row);
+    setPreviewOpen(true);
+  };
+
+  const switchToEdit = async () => {
+    if (!previewRow) return;
+    const id = previewRow.id;
+    setPreviewOpen(false);
+    setPreviewRow(null);
+    await handleEdit(id);
   };
 
   const handleMarkOverdue = async () => {
@@ -112,8 +165,15 @@ export function Subscriptions() {
   };
 
   const columns: Column<Subscription>[] = [
-    { header: t("sub_receipt"), accessor: (r) => <span className="font-semibold">{r.receipt}</span> },
-    { header: t("member_family"), accessor: (r) => r.family_number || "—" },
+    {
+      header: t("sub_receipt"),
+      accessor: (r) => (
+        <span style={codeFontStyle} className="text-primary">
+          {r.receipt_number || "—"}
+        </span>
+      ),
+    },
+    { header: t("member_family"), accessor: (r) => r.house_name || r.family_number || "—" },
     { header: t("member_name"), accessor: (r) => r.member_name || "—" },
     { header: t("sub_plan"), accessor: (r) => r.plan_name || "—" },
     { header: t("sub_amount"), accessor: (r) => formatCurrency(r.amount) },
@@ -130,7 +190,7 @@ export function Subscriptions() {
           <Button variant="ghost" size="icon" onClick={() => handleEdit(r.id)}>
             <Edit2 className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => handleDelete(r.id)}>
+          <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(r.id)}>
             <Trash2 className="h-4 w-4 text-danger" />
           </Button>
         </div>
@@ -139,14 +199,35 @@ export function Subscriptions() {
     },
   ];
 
+  const previewDetails = previewRow
+    ? [
+        { k: t("sub_receipt"), v: previewRow.receipt_number },
+        { k: t("member_family"), v: previewRow.house_name || previewRow.family_number || "—" },
+        { k: t("member_name"), v: previewRow.member_name || "—" },
+        { k: t("sub_plan"), v: previewRow.plan_name || "—" },
+        { k: t("sub_amount"), v: formatCurrency(previewRow.amount) },
+        { k: t("sub_amount_paid"), v: formatCurrency(previewRow.amount_paid) },
+        { k: t("sub_period_start"), v: formatDate(previewRow.period_start) },
+        { k: t("sub_period_end"), v: formatDate(previewRow.period_end) },
+        { k: t("sub_payment_date"), v: formatDate(previewRow.payment_date) },
+        { k: t("sub_method"), v: previewRow.payment_method || "—" },
+        { k: "Transaction Ref", v: previewRow.transaction_ref || "—" },
+        { k: t("family_status"), v: previewRow.status },
+        { k: "Remarks", v: previewRow.remarks || "—", full: true },
+      ]
+    : [];
+
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">{t("sub_title")}</h1>
-          <p className="text-sm text-text-secondary mt-1">{t("sub_subtitle")}</p>
+    <div className="view view-enter">
+      <div className="vhead">
+        <div className="modic t-em">
+          <Wallet size={20} />
         </div>
-        <div className="flex items-center gap-2">
+        <div>
+          <h1>{t("sub_title")}</h1>
+          <div className="vs">{t("sub_subtitle")}</div>
+        </div>
+        <div className="vr">
           <Button variant="secondary" onClick={handleMarkOverdue}>
             <AlertCircle className="h-4 w-4" />
             {t("sub_mark_overdue")}
@@ -159,29 +240,23 @@ export function Subscriptions() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Card>
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-text-tertiary font-medium">Total Collected</p>
-              <p className="text-2xl font-bold text-emerald-600 mt-1">{formatCurrency(totalCollected ?? 0)}</p>
-            </div>
-            <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600">
-              <Wallet className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-text-tertiary font-medium">Pending Dues</p>
-              <p className="text-2xl font-bold text-rose-600 mt-1">{formatCurrency(totalPending ?? 0)}</p>
-            </div>
-            <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-rose-50 text-rose-600">
-              <AlertCircle className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+      <div className="stat-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+        <div className="stat t-em">
+          <div className="srow">
+            <span className="sic"><Wallet size={18} /></span>
+            <span className="delta">collected</span>
+          </div>
+          <div className="val">{formatCurrency(totalCollected ?? 0)}</div>
+          <div className="slab">Total Collected</div>
+        </div>
+        <div className="stat t-rose">
+          <div className="srow">
+            <span className="sic"><AlertCircle size={18} /></span>
+            <span className="delta">dues</span>
+          </div>
+          <div className="val">{formatCurrency(totalPending ?? 0)}</div>
+          <div className="slab">Pending Dues</div>
+        </div>
       </div>
 
       <DataTable
@@ -196,6 +271,7 @@ export function Subscriptions() {
         searchValue={search}
         onSearchChange={setSearch}
         rowKey={(r) => r.id}
+        onRowDoubleClick={handleRowDoubleClick}
         toolbar={
           <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-40">
             <option>All</option>
@@ -206,6 +282,70 @@ export function Subscriptions() {
           </Select>
         }
       />
+
+      {/* Preview Dialog (read-only) */}
+      <Dialog
+        open={previewOpen}
+        onClose={() => { setPreviewOpen(false); setPreviewRow(null); }}
+        title={t("sub_title")}
+      >
+        <div style={{ padding: "2px 0" }}>
+          {previewRow && (
+            <>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "12px 14px",
+                  marginBottom: 14,
+                  background: "var(--sb)",
+                  border: "1.5px solid var(--sl)",
+                  borderRadius: 14,
+                }}
+                className="t-em"
+              >
+                <div
+                  style={{
+                    width: 48, height: 48, borderRadius: 14, flex: "none",
+                    background: "var(--sc)", color: "#fff",
+                    display: "grid", placeItems: "center",
+                    boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
+                  }}
+                >
+                  <Eye size={20} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ font: "700 16px 'Space Grotesk'", color: "var(--st)" }}>
+                    {previewRow.receipt_number}
+                  </div>
+                  <div style={{ font: "700 11px Poppins", color: "var(--st)", marginTop: 2 }}>
+                    {previewRow.member_name || previewRow.family_number || "—"}
+                  </div>
+                </div>
+                <Badge variant={statusVariant(previewRow.status)}>{previewRow.status}</Badge>
+              </div>
+              <div className="det-grid">
+                {previewDetails.map((d, i) => (
+                  <div key={i} className={`det${d.full ? " full" : ""}`}>
+                    <span className="k">{d.k}</span>
+                    <span className="v">{d.v}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+            <Button variant="secondary" onClick={() => { setPreviewOpen(false); setPreviewRow(null); }}>
+              {t("ui_close")}
+            </Button>
+            <Button onClick={switchToEdit}>
+              <Edit2 size={14} />
+              {t("action_edit")}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
 
       <Dialog
         open={dialogOpen}
@@ -230,9 +370,16 @@ export function Subscriptions() {
             </div>
             <div>
               <Label>{t("sub_plan")}</Label>
-              <Select value={form.plan_name || ""} onChange={(e) => setForm({ ...form, plan_name: e.target.value })}>
+              <Select
+                value={form.plan_id || ""}
+                onChange={(e) => {
+                  const pid = Number(e.target.value);
+                  const p = plans.find((x) => x.id === pid);
+                  setForm({ ...form, plan_id: pid, plan_name: p?.name || "" });
+                }}
+              >
                 <option value="">—</option>
-                {plans.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+                {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </Select>
             </div>
             <div>
@@ -286,6 +433,15 @@ export function Subscriptions() {
           </div>
         </div>
       </Dialog>
+
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
+        onConfirm={handleDeleteConfirm}
+        title="Confirm Delete"
+        confirmLabel="Delete Subscription"
+      />
     </div>
   );
 }

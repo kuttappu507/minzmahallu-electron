@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Plus, Edit2, Trash2, Eye } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, Home } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
-import { Card, CardContent, Button, Dialog, Label, Input, Textarea, Select, Badge } from "@/components/ui";
+import { Button, Dialog, Label, Input, Textarea, Select, Badge } from "@/components/ui";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
-import { formatCurrency, statusVariant } from "@/lib/utils";
+import { statusVariant } from "@/lib/utils";
 
 interface Family {
   id: number;
@@ -36,6 +37,10 @@ export function Families() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<Partial<Family>>(emptyForm);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewRow, setPreviewRow] = useState<Family | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
 
   const { rows, total, totalPages, loading, refetch } = useList(
     (filter) => window.mms.families.list(filter),
@@ -48,11 +53,23 @@ export function Families() {
       return;
     }
     try {
+      const payload: any = {
+        houseName: form.house_name,
+        houseNumber: form.house_number || "",
+        ward: form.ward || "",
+        area: form.area || "",
+        address: form.address || "",
+        pincode: form.pincode || "",
+        phone: form.phone,
+        altPhone: form.alt_phone || "",
+        status: form.status || "Active",
+        notes: form.notes || "",
+      };
       if (editingId) {
-        await window.mms.families.update(editingId, form);
+        await window.mms.families.update(editingId, payload);
         toast.success(t("ui_save_changes"));
       } else {
-        await window.mms.families.create(form);
+        await window.mms.families.create(payload);
         toast.success(t("add_family"));
       }
       setDialogOpen(false);
@@ -71,19 +88,47 @@ export function Families() {
     setDialogOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Delete this family? This action cannot be undone.")) return;
+  const handleDeleteClick = (id: number) => {
+    setPendingDeleteId(id);
+    setConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (pendingDeleteId == null) return;
     try {
-      await window.mms.families.remove(id);
+      await window.mms.families.remove(pendingDeleteId);
       toast.success("Deleted");
       refetch();
     } catch (err: any) {
       toast.error(err.message);
+    } finally {
+      setConfirmOpen(false);
+      setPendingDeleteId(null);
     }
   };
 
+  const handleRowDoubleClick = (row: Family) => {
+    setPreviewRow(row);
+    setPreviewOpen(true);
+  };
+
+  const switchToEdit = async () => {
+    if (!previewRow) return;
+    const id = previewRow.id;
+    setPreviewOpen(false);
+    setPreviewRow(null);
+    await handleEdit(id);
+  };
+
   const columns: Column<Family>[] = [
-    { header: t("family_number"), accessor: (r) => <span className="font-semibold">{r.family_number}</span> },
+    {
+      header: t("family_number"),
+      accessor: (r) => (
+        <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700 }} className="text-primary">
+          {r.family_number}
+        </span>
+      ),
+    },
     { header: t("family_house_name"), accessor: (r) => r.house_name },
     { header: t("family_ward"), accessor: (r) => r.ward || "—" },
     { header: t("family_area"), accessor: (r) => r.area || "—" },
@@ -100,7 +145,7 @@ export function Families() {
           <Button variant="ghost" size="icon" onClick={() => handleEdit(r.id)}>
             <Edit2 className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => handleDelete(r.id)}>
+          <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(r.id)}>
             <Trash2 className="h-4 w-4 text-danger" />
           </Button>
         </div>
@@ -109,17 +154,39 @@ export function Families() {
     },
   ];
 
+  const previewDetails = previewRow
+    ? [
+        { k: t("family_number"), v: previewRow.family_number },
+        { k: t("family_house_name"), v: previewRow.house_name },
+        { k: t("family_house_number"), v: previewRow.house_number || "—" },
+        { k: t("family_ward"), v: previewRow.ward || "—" },
+        { k: t("family_area"), v: previewRow.area || "—" },
+        { k: t("family_phone"), v: previewRow.phone },
+        { k: t("family_alt_phone"), v: previewRow.alt_phone || "—" },
+        { k: t("family_pincode"), v: previewRow.pincode || "—" },
+        { k: t("family_members_count"), v: String(previewRow.member_count ?? 0) },
+        { k: t("family_status"), v: previewRow.status },
+        { k: t("family_address"), v: previewRow.address || "—", full: true },
+        { k: t("family_notes"), v: previewRow.notes || "—", full: true },
+      ]
+    : [];
+
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">{t("family_title")}</h1>
-          <p className="text-sm text-text-secondary mt-1">{t("family_subtitle")}</p>
+    <div className="view view-enter">
+      <div className="vhead">
+        <div className="modic t-em">
+          <Home size={20} />
         </div>
-        <Button onClick={() => { setForm(emptyForm); setEditingId(null); setDialogOpen(true); }}>
-          <Plus className="h-4 w-4" />
-          {t("add_family")}
-        </Button>
+        <div>
+          <h1>{t("family_title")}</h1>
+          <div className="vs">{t("family_subtitle")}</div>
+        </div>
+        <div className="vr">
+          <Button onClick={() => { setForm(emptyForm); setEditingId(null); setDialogOpen(true); }}>
+            <Plus className="h-4 w-4" />
+            {t("add_family")}
+          </Button>
+        </div>
       </div>
 
       <DataTable
@@ -134,6 +201,7 @@ export function Families() {
         searchValue={search}
         onSearchChange={setSearch}
         rowKey={(r) => r.id}
+        onRowDoubleClick={handleRowDoubleClick}
         toolbar={
           <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-40">
             <option>All</option>
@@ -143,6 +211,70 @@ export function Families() {
           </Select>
         }
       />
+
+      {/* Preview Dialog */}
+      <Dialog
+        open={previewOpen}
+        onClose={() => { setPreviewOpen(false); setPreviewRow(null); }}
+        title={t("family_title")}
+      >
+        <div style={{ padding: "2px 0" }}>
+          {previewRow && (
+            <>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "12px 14px",
+                  marginBottom: 14,
+                  background: "var(--sb)",
+                  border: "1.5px solid var(--sl)",
+                  borderRadius: 14,
+                }}
+                className="t-em"
+              >
+                <div
+                  style={{
+                    width: 48, height: 48, borderRadius: 14, flex: "none",
+                    background: "var(--sc)", color: "#fff",
+                    display: "grid", placeItems: "center",
+                    boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
+                  }}
+                >
+                  <Eye size={20} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ font: "700 16px 'Space Grotesk'", color: "var(--st)" }}>
+                    {previewRow.house_name}
+                  </div>
+                  <div style={{ font: "700 11px Poppins", color: "var(--st)", marginTop: 2 }}>
+                    {previewRow.family_number} · {previewRow.ward || previewRow.area || "—"}
+                  </div>
+                </div>
+                <Badge variant={statusVariant(previewRow.status)}>{previewRow.status}</Badge>
+              </div>
+              <div className="det-grid">
+                {previewDetails.map((d, i) => (
+                  <div key={i} className={`det${d.full ? " full" : ""}`}>
+                    <span className="k">{d.k}</span>
+                    <span className="v">{d.v}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+            <Button variant="secondary" onClick={() => { setPreviewOpen(false); setPreviewRow(null); }}>
+              {t("ui_close")}
+            </Button>
+            <Button onClick={switchToEdit}>
+              <Edit2 size={14} />
+              {t("action_edit")}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
 
       {/* Add/Edit Dialog */}
       <Dialog
@@ -204,6 +336,15 @@ export function Families() {
           </div>
         </div>
       </Dialog>
+
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
+        onConfirm={handleDeleteConfirm}
+        title="Confirm Delete"
+        confirmLabel="Delete Family"
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { ToastContainer } from "@/components/ToastContainer";
+import { Splash } from "@/components/Splash";
 
 import { LoginPage } from "@/pages/LoginPage";
 import { Dashboard } from "@/pages/Dashboard";
@@ -80,10 +81,15 @@ function ProtectedLayout() {
 export default function App() {
   const { apply } = useTheme();
   const { user } = useAuth();
+  const [splashDone, setSplashDone] = useState(false);
 
   useEffect(() => {
     apply();
   }, [apply]);
+
+  if (!splashDone) {
+    return <Splash onDone={() => setSplashDone(true)} />;
+  }
 
   return (
     <>

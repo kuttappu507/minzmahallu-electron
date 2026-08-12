@@ -3,6 +3,7 @@
  */
 import { app, BrowserWindow, ipcMain, nativeTheme, dialog } from "electron";
 import path from "node:path";
+import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { login, changePassword } from "./services/auth.service.js";
 import * as data from "./services/data.service.js";
@@ -47,11 +48,16 @@ function createWindow() {
     backgroundColor: "#f3f6f3",
     icon: path.join(__dirname, "..", "public", "icon.png"),
     title: "MMS — Minz Mahallu Management System",
+    transparent: false,
+    frame: true,
+    thickFrame: true,
+    hasShadow: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      zoomFactor: 1.0,
     },
   });
 
@@ -222,14 +228,58 @@ app.whenReady().then(() => {
   ipcMain.handle("dashboard:recentActivity", (_e, limit) => data.dashboard.recentActivity(limit || 10));
 
   // ===== IPC: Backup =====
-  ipcMain.handle("backup:create", () => {
+  ipcMain.handle("backup:create", async () => {
     try {
-      const backupPath = path.join(app.getPath("userData"), `backup-${Date.now()}.db`);
-      // Use better-sqlite3's backup API via the connection
+      // Ask user where to save the backup
+      const defaultName = `mms-backup-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.db`;
+      const result = await dialog.showSaveDialog(mainWindow!, {
+        title: "Save Backup",
+        defaultPath: defaultName,
+        filters: [{ name: "SQLite Database", extensions: ["db"] }],
+      });
+      if (result.canceled || !result.filePath) {
+        return { success: false, error: "cancelled" };
+      }
+      const backupPath = result.filePath;
       const { getDB } = require("./db/connection.js");
       const db = getDB();
       db.backup(backupPath);
-      return { success: true, path: backupPath };
+      const stats = fs.statSync(backupPath);
+      return { success: true, path: backupPath, size: stats.size };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle("backup:list", () => {
+    try {
+      const userData = app.getPath("userData");
+      const files = fs.readdirSync(userData)
+        .filter(f => f.startsWith("backup-") && f.endsWith(".db"))
+        .map(f => {
+          const fullPath = path.join(userData, f);
+          const stats = fs.statSync(fullPath);
+          return { name: f, path: fullPath, size: stats.size, time: stats.mtime.toISOString() };
+        })
+        .sort((a, b) => b.time.localeCompare(a.time));
+      return { success: true, backups: files };
+    } catch (err: any) {
+      return { success: false, error: err.message, backups: [] };
+    }
+  });
+
+  // ===== IPC: File save dialog (for exports) =====
+  ipcMain.handle("dialog:showSave", async (_e, defaultName: string, filters: any[]) => {
+    try {
+      const result = await dialog.showSaveDialog(mainWindow!, {
+        title: "Save File",
+        defaultPath: defaultName,
+        filters: filters || [{ name: "All Files", extensions: ["*"] }],
+      });
+      if (result.canceled || !result.filePath) {
+        return { success: false, cancelled: true };
+      }
+      return { success: true, path: result.filePath };
     } catch (err: any) {
       return { success: false, error: err.message };
     }

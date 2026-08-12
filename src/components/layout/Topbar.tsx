@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Search, Moon, Sun, Bell, Database, ChevronDown, User, Settings, LogOut, X } from "lucide-react";
+import { Search, Moon, Sun, Bell, Database, ChevronDown, User, Settings, LogOut, X, KeyRound, ShieldCheck } from "lucide-react";
 import { useTheme } from "@/lib/theme";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/lib/auth";
 import { toast } from "@/lib/toast";
+import { Dialog, Button, Input, Label, Badge } from "@/components/ui";
 
 const PAGE_TITLES: Record<string, string> = {
   "/": "Dashboard",
@@ -38,6 +39,10 @@ export function Topbar() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [avatarOpen, setAvatarOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [newPwd, setNewPwd] = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
+  const [savingPwd, setSavingPwd] = useState(false);
 
   // Load notifications on mount + page change
   useEffect(() => {
@@ -77,13 +82,55 @@ export function Topbar() {
     try {
       toast.info("Creating backup...");
       const result = await window.mms.backup.create();
-      if (result.success) {
-        toast.success("Backup created: " + result.path.split(/[\\/]/).pop());
+      if (result && result.success === false) {
+        if (result.error !== "cancelled") {
+          toast.error(result.error || "Backup failed");
+        }
+        return;
+      }
+      const path: string | undefined =
+        typeof result === "string" ? result : result?.path;
+      if (path) {
+        toast.success("Backup saved: " + path.split(/[\\/]/).pop());
       } else {
-        toast.error(result.error || "Backup failed");
+        toast.success("Backup created");
       }
     } catch (e: any) {
       toast.error(e.message || "Backup failed");
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!user?.id) {
+      toast.error("No user session found");
+      return;
+    }
+    if (!newPwd) {
+      toast.error("New password is required");
+      return;
+    }
+    if (newPwd.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    if (newPwd !== confirmPwd) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    setSavingPwd(true);
+    try {
+      const result: any = await window.mms.auth.changePassword(user.id, newPwd);
+      if (result && result.success === false) {
+        throw new Error(result.error || "Failed to change password");
+      }
+      toast.success("Password updated successfully");
+      setNewPwd("");
+      setConfirmPwd("");
+      setProfileOpen(false);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to change password");
+    } finally {
+      setSavingPwd(false);
     }
   };
 
@@ -239,7 +286,7 @@ export function Topbar() {
                 <button className="menuit" style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", border: 0, background: "none", font: "700 12.8px Manrope", color: "var(--tx)", textAlign: "left", cursor: "pointer" }}
                   onMouseEnter={(e) => { e.currentTarget.style.background = "var(--selbg)"; e.currentTarget.style.color = "var(--em)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--tx)"; }}
-                  onClick={() => { setAvatarOpen(false); toast.info("Profile page coming soon"); }}
+                  onClick={() => { setAvatarOpen(false); setProfileOpen(true); }}
                 >
                   <User size={15} /> Profile
                 </button>
@@ -271,6 +318,118 @@ export function Topbar() {
           style={{ position: "fixed", inset: 0, zIndex: 9998, background: "transparent" }}
         />
       )}
+
+      {/* Profile dialog with Change Password */}
+      <Dialog
+        open={profileOpen}
+        onClose={() => { setProfileOpen(false); setNewPwd(""); setConfirmPwd(""); }}
+        title="My Profile"
+      >
+        <div style={{ padding: "2px 0" }}>
+          {user && (
+            <>
+              {/* User details card */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "12px 14px",
+                  marginBottom: 14,
+                  background: "var(--sb)",
+                  border: "1.5px solid var(--sl)",
+                  borderRadius: 14,
+                }}
+                className="t-em"
+              >
+                <div
+                  style={{
+                    width: 48, height: 48, borderRadius: 14, flex: "none",
+                    background: "var(--sc)", color: "#fff",
+                    display: "grid", placeItems: "center",
+                    font: "700 18px 'Space Grotesk'",
+                    boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
+                  }}
+                >
+                  {user.initials || user.username?.charAt(0).toUpperCase() || "?"}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ font: "700 16px 'Space Grotesk'", color: "var(--st)" }}>
+                    {user.fullName}
+                  </div>
+                  <div style={{ font: "700 11px Poppins", color: "var(--st)", marginTop: 2 }}>
+                    @{user.username}
+                  </div>
+                </div>
+                <Badge variant={user.role === "Administrator" ? "default" : "muted"}>{user.role}</Badge>
+              </div>
+
+              {/* Profile details grid */}
+              <div className="det-grid" style={{ marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid var(--line)" }}>
+                <div className="det">
+                  <span className="k">Full Name</span>
+                  <span className="v">{user.fullName || "—"}</span>
+                </div>
+                <div className="det">
+                  <span className="k">Username</span>
+                  <span className="v">{user.username}</span>
+                </div>
+                <div className="det">
+                  <span className="k">Role</span>
+                  <span className="v">{user.role}</span>
+                </div>
+                <div className="det">
+                  <span className="k">Status</span>
+                  <span className="v">{user.isActive ? "Active" : "Inactive"}</span>
+                </div>
+              </div>
+
+              {/* Change Password section */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <KeyRound size={14} style={{ color: "var(--em)" }} />
+                <b style={{ font: "800 11px Poppins", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--st)" }} className="t-em">
+                  Change Password
+                </b>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div>
+                  <Label>New Password</Label>
+                  <Input
+                    type="password"
+                    value={newPwd}
+                    onChange={(e) => setNewPwd(e.target.value)}
+                    placeholder="Enter new password"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <Label>Confirm Password</Label>
+                  <Input
+                    type="password"
+                    value={confirmPwd}
+                    onChange={(e) => setConfirmPwd(e.target.value)}
+                    placeholder="Re-enter new password"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+                <Button variant="secondary" onClick={() => { setProfileOpen(false); setNewPwd(""); setConfirmPwd(""); }} disabled={savingPwd}>
+                  Close
+                </Button>
+                <Button onClick={handleChangePassword} disabled={savingPwd}>
+                  {savingPwd ? "Saving…" : (
+                    <>
+                      <ShieldCheck size={14} />
+                      Save Password
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Dialog>
     </>
   );
 }

@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Plus, Edit2, Trash2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, Heart } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
-import { Button, Dialog, Input, Label, Textarea, SectionLabel } from "@/components/ui";
+import { Button, Dialog, Input, Label, Textarea, SectionLabel, Badge } from "@/components/ui";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -35,6 +36,12 @@ const emptyForm: Partial<Marriage> = {
   mahar: "", place: "", remarks: "",
 };
 
+const codeFontStyle: React.CSSProperties = {
+  fontFamily: "'Space Grotesk', sans-serif",
+  fontWeight: 700,
+  letterSpacing: "0.03em",
+};
+
 export function Marriages() {
   const { t } = useI18n();
   const [search, setSearch] = useState("");
@@ -42,6 +49,10 @@ export function Marriages() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<Partial<Marriage>>(emptyForm);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewRow, setPreviewRow] = useState<Marriage | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
 
   const { rows, total, totalPages, loading, refetch } = useList(
     (filter) => window.mms.marriages.list(filter),
@@ -54,11 +65,29 @@ export function Marriages() {
       return;
     }
     try {
+      const payload: any = {
+        brideName: form.bride_name,
+        brideFather: form.bride_father || "",
+        brideAddress: form.bride_address || "",
+        groomName: form.groom_name,
+        groomFather: form.groom_father || "",
+        groomAddress: form.groom_address || "",
+        witness1: form.witness1 || "",
+        witness2: form.witness2 || "",
+        witness3: form.witness3 || "",
+        witness4: form.witness4 || "",
+        mahar: form.mahar || "",
+        nikahDate: form.nikah_date,
+        registrationDate: form.registration_date || "",
+        place: form.place || "",
+        remarks: form.remarks || "",
+        createdBy: 1,
+      };
       if (editingId) {
-        await window.mms.marriages.update(editingId, form);
+        await window.mms.marriages.update(editingId, payload);
         toast.success(t("ui_save_changes"));
       } else {
-        await window.mms.marriages.create(form);
+        await window.mms.marriages.create(payload);
         toast.success(t("mrg_register"));
       }
       setDialogOpen(false);
@@ -77,19 +106,47 @@ export function Marriages() {
     setDialogOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Delete this marriage record?")) return;
+  const handleDeleteClick = (id: number) => {
+    setPendingDeleteId(id);
+    setConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (pendingDeleteId == null) return;
     try {
-      await window.mms.marriages.remove(id);
+      await window.mms.marriages.remove(pendingDeleteId);
       toast.success("Deleted");
       refetch();
     } catch (err: any) {
       toast.error(err.message);
+    } finally {
+      setConfirmOpen(false);
+      setPendingDeleteId(null);
     }
   };
 
+  const handleRowDoubleClick = (row: Marriage) => {
+    setPreviewRow(row);
+    setPreviewOpen(true);
+  };
+
+  const switchToEdit = async () => {
+    if (!previewRow) return;
+    const id = previewRow.id;
+    setPreviewOpen(false);
+    setPreviewRow(null);
+    await handleEdit(id);
+  };
+
   const columns: Column<Marriage>[] = [
-    { header: t("mrg_number"), accessor: (r) => <span className="font-semibold">{r.marriage_number}</span> },
+    {
+      header: t("mrg_number"),
+      accessor: (r) => (
+        <span style={codeFontStyle} className="text-primary">
+          {r.marriage_number}
+        </span>
+      ),
+    },
     { header: t("mrg_nikah_date"), accessor: (r) => formatDate(r.nikah_date) },
     { header: t("mrg_bride"), accessor: (r) => <span className="font-semibold">{r.bride_name}</span> },
     { header: t("mrg_groom"), accessor: (r) => <span className="font-semibold">{r.groom_name}</span> },
@@ -101,7 +158,7 @@ export function Marriages() {
           <Button variant="ghost" size="icon" onClick={() => handleEdit(r.id)}>
             <Edit2 className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => handleDelete(r.id)}>
+          <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(r.id)}>
             <Trash2 className="h-4 w-4 text-danger" />
           </Button>
         </div>
@@ -110,17 +167,43 @@ export function Marriages() {
     },
   ];
 
+  const previewDetails = previewRow
+    ? [
+        { k: t("mrg_number"), v: previewRow.marriage_number },
+        { k: t("mrg_nikah_date"), v: formatDate(previewRow.nikah_date) },
+        { k: t("mrg_registration_date"), v: formatDate(previewRow.registration_date) },
+        { k: t("mrg_place"), v: previewRow.place || "—" },
+        { k: t("mrg_mahar"), v: previewRow.mahar || "—" },
+        { k: t("mrg_bride"), v: previewRow.bride_name },
+        { k: t("mrg_bride_father"), v: previewRow.bride_father || "—" },
+        { k: t("mrg_groom"), v: previewRow.groom_name },
+        { k: t("mrg_groom_father"), v: previewRow.groom_father || "—" },
+        { k: "Witness 1", v: previewRow.witness1 || "—" },
+        { k: "Witness 2", v: previewRow.witness2 || "—" },
+        { k: "Witness 3", v: previewRow.witness3 || "—" },
+        { k: "Witness 4", v: previewRow.witness4 || "—" },
+        { k: "Bride Address", v: previewRow.bride_address || "—", full: true },
+        { k: "Groom Address", v: previewRow.groom_address || "—", full: true },
+        { k: "Remarks", v: previewRow.remarks || "—", full: true },
+      ]
+    : [];
+
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">{t("mrg_title")}</h1>
-          <p className="text-sm text-text-secondary mt-1">Nikah records and registrations</p>
+    <div className="view view-enter">
+      <div className="vhead">
+        <div className="modic t-em">
+          <Heart size={20} />
         </div>
-        <Button onClick={() => { setForm(emptyForm); setEditingId(null); setDialogOpen(true); }}>
-          <Plus className="h-4 w-4" />
-          {t("mrg_register")}
-        </Button>
+        <div>
+          <h1>{t("mrg_title")}</h1>
+          <div className="vs">Nikah records and registrations</div>
+        </div>
+        <div className="vr">
+          <Button onClick={() => { setForm(emptyForm); setEditingId(null); setDialogOpen(true); }}>
+            <Plus className="h-4 w-4" />
+            {t("mrg_register")}
+          </Button>
+        </div>
       </div>
 
       <DataTable
@@ -135,7 +218,72 @@ export function Marriages() {
         searchValue={search}
         onSearchChange={setSearch}
         rowKey={(r) => r.id}
+        onRowDoubleClick={handleRowDoubleClick}
       />
+
+      {/* Preview Dialog */}
+      <Dialog
+        open={previewOpen}
+        onClose={() => { setPreviewOpen(false); setPreviewRow(null); }}
+        title={t("mrg_title")}
+      >
+        <div style={{ padding: "2px 0" }}>
+          {previewRow && (
+            <>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "12px 14px",
+                  marginBottom: 14,
+                  background: "var(--sb)",
+                  border: "1.5px solid var(--sl)",
+                  borderRadius: 14,
+                }}
+                className="t-em"
+              >
+                <div
+                  style={{
+                    width: 48, height: 48, borderRadius: 14, flex: "none",
+                    background: "var(--sc)", color: "#fff",
+                    display: "grid", placeItems: "center",
+                    boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
+                  }}
+                >
+                  <Heart size={20} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ font: "700 16px 'Space Grotesk'", color: "var(--st)" }}>
+                    {previewRow.bride_name} &nbsp;♠&nbsp; {previewRow.groom_name}
+                  </div>
+                  <div style={{ font: "700 11px Poppins", color: "var(--st)", marginTop: 2 }}>
+                    {previewRow.marriage_number} · {formatDate(previewRow.nikah_date)}
+                  </div>
+                </div>
+                <Badge variant="default">{previewRow.place || "—"}</Badge>
+              </div>
+              <div className="det-grid">
+                {previewDetails.map((d, i) => (
+                  <div key={i} className={`det${d.full ? " full" : ""}`}>
+                    <span className="k">{d.k}</span>
+                    <span className="v">{d.v}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+            <Button variant="secondary" onClick={() => { setPreviewOpen(false); setPreviewRow(null); }}>
+              {t("ui_close")}
+            </Button>
+            <Button onClick={switchToEdit}>
+              <Edit2 size={14} />
+              {t("action_edit")}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
 
       <Dialog
         open={dialogOpen}
@@ -238,6 +386,15 @@ export function Marriages() {
           </div>
         </div>
       </Dialog>
+
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
+        onConfirm={handleDeleteConfirm}
+        title="Confirm Delete"
+        confirmLabel="Delete Marriage"
+      />
     </div>
   );
 }

@@ -1,31 +1,41 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, Gift } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
 import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 interface Donation {
   id: number;
-  receipt: string;
+  receipt_number: string;
   donor_name: string;
   donor_phone: string;
   donor_address: string;
   family_id: number;
+  category_id: number;
   category_name: string;
   amount: number;
   donation_date: string;
   purpose: string;
   payment_method: string;
+  transaction_ref: string;
+  received_by: number;
   remarks: string;
 }
 
 const emptyForm: Partial<Donation> = {
-  receipt: "", donor_name: "", donor_phone: "", donor_address: "", family_id: 0,
-  category_name: "", amount: 0, donation_date: "", purpose: "", payment_method: "Cash",
-  remarks: "",
+  receipt_number: "", donor_name: "", donor_phone: "", donor_address: "", family_id: 0,
+  category_id: 0, category_name: "", amount: 0, donation_date: "", purpose: "",
+  payment_method: "Cash", transaction_ref: "", remarks: "",
+};
+
+const codeFontStyle: React.CSSProperties = {
+  fontFamily: "'Space Grotesk', sans-serif",
+  fontWeight: 700,
+  letterSpacing: "0.03em",
 };
 
 export function Donations() {
@@ -38,6 +48,10 @@ export function Donations() {
   const [form, setForm] = useState<Partial<Donation>>(emptyForm);
   const [families, setFamilies] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewRow, setPreviewRow] = useState<Donation | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
 
   const { rows, total, totalPages, loading, refetch } = useList(
     (filter) => window.mms.donations.list(filter),
@@ -50,16 +64,31 @@ export function Donations() {
   }, []);
 
   const handleSave = async () => {
-    if (!form.donor_name || !form.amount || !form.category_name) {
+    if (!form.donor_name || !form.amount || !form.category_id) {
       toast.error("Donor Name, Category and Amount are required");
       return;
     }
     try {
+      const payload: any = {
+        donorName: form.donor_name,
+        donorPhone: form.donor_phone || "",
+        donorAddress: form.donor_address || "",
+        familyId: form.family_id || null,
+        categoryId: form.category_id,
+        amount: form.amount,
+        donationDate: form.donation_date || "",
+        receiptNumber: form.receipt_number || "",
+        purpose: form.purpose || "",
+        paymentMethod: form.payment_method || "Cash",
+        transactionRef: form.transaction_ref || "",
+        receivedBy: 1,
+        remarks: form.remarks || "",
+      };
       if (editingId) {
-        await window.mms.donations.update(editingId, form);
+        await window.mms.donations.update(editingId, payload);
         toast.success(t("ui_save_changes"));
       } else {
-        await window.mms.donations.create(form);
+        await window.mms.donations.create(payload);
         toast.success(t("add_donation"));
       }
       setDialogOpen(false);
@@ -78,19 +107,47 @@ export function Donations() {
     setDialogOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Delete this donation?")) return;
+  const handleDeleteClick = (id: number) => {
+    setPendingDeleteId(id);
+    setConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (pendingDeleteId == null) return;
     try {
-      await window.mms.donations.remove(id);
+      await window.mms.donations.remove(pendingDeleteId);
       toast.success("Deleted");
       refetch();
     } catch (err: any) {
       toast.error(err.message);
+    } finally {
+      setConfirmOpen(false);
+      setPendingDeleteId(null);
     }
   };
 
+  const handleRowDoubleClick = (row: Donation) => {
+    setPreviewRow(row);
+    setPreviewOpen(true);
+  };
+
+  const switchToEdit = async () => {
+    if (!previewRow) return;
+    const id = previewRow.id;
+    setPreviewOpen(false);
+    setPreviewRow(null);
+    await handleEdit(id);
+  };
+
   const columns: Column<Donation>[] = [
-    { header: t("sub_receipt"), accessor: (r) => <span className="font-semibold">{r.receipt}</span> },
+    {
+      header: t("sub_receipt"),
+      accessor: (r) => (
+        <span style={codeFontStyle} className="text-primary">
+          {r.receipt_number || "—"}
+        </span>
+      ),
+    },
     { header: t("don_donor_name"), accessor: (r) => <span className="font-semibold">{r.donor_name}</span> },
     { header: t("don_donor_phone"), accessor: (r) => r.donor_phone || "—" },
     { header: t("don_category"), accessor: (r) => <Badge variant="muted">{r.category_name}</Badge> },
@@ -104,7 +161,7 @@ export function Donations() {
           <Button variant="ghost" size="icon" onClick={() => handleEdit(r.id)}>
             <Edit2 className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => handleDelete(r.id)}>
+          <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(r.id)}>
             <Trash2 className="h-4 w-4 text-danger" />
           </Button>
         </div>
@@ -113,17 +170,38 @@ export function Donations() {
     },
   ];
 
+  const previewDetails = previewRow
+    ? [
+        { k: t("sub_receipt"), v: previewRow.receipt_number },
+        { k: t("don_donor_name"), v: previewRow.donor_name },
+        { k: t("don_donor_phone"), v: previewRow.donor_phone || "—" },
+        { k: t("don_category"), v: previewRow.category_name || "—" },
+        { k: t("sub_amount"), v: formatCurrency(previewRow.amount) },
+        { k: t("don_date"), v: formatDate(previewRow.donation_date) },
+        { k: t("don_purpose"), v: previewRow.purpose || "—" },
+        { k: t("sub_method"), v: previewRow.payment_method || "—" },
+        { k: "Transaction Ref", v: previewRow.transaction_ref || "—" },
+        { k: t("don_donor_address"), v: previewRow.donor_address || "—", full: true },
+        { k: "Remarks", v: previewRow.remarks || "—", full: true },
+      ]
+    : [];
+
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">{t("don_title")}</h1>
-          <p className="text-sm text-text-secondary mt-1">{t("don_subtitle")}</p>
+    <div className="view view-enter">
+      <div className="vhead">
+        <div className="modic t-em">
+          <Gift size={20} />
         </div>
-        <Button onClick={() => { setForm(emptyForm); setEditingId(null); setDialogOpen(true); }}>
-          <Plus className="h-4 w-4" />
-          {t("add_donation")}
-        </Button>
+        <div>
+          <h1>{t("don_title")}</h1>
+          <div className="vs">{t("don_subtitle")}</div>
+        </div>
+        <div className="vr">
+          <Button onClick={() => { setForm(emptyForm); setEditingId(null); setDialogOpen(true); }}>
+            <Plus className="h-4 w-4" />
+            {t("add_donation")}
+          </Button>
+        </div>
       </div>
 
       <DataTable
@@ -138,6 +216,7 @@ export function Donations() {
         searchValue={search}
         onSearchChange={setSearch}
         rowKey={(r) => r.id}
+        onRowDoubleClick={handleRowDoubleClick}
         toolbar={
           <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="w-48">
             <option value="All">All Categories</option>
@@ -147,6 +226,70 @@ export function Donations() {
           </Select>
         }
       />
+
+      {/* Preview Dialog (read-only) */}
+      <Dialog
+        open={previewOpen}
+        onClose={() => { setPreviewOpen(false); setPreviewRow(null); }}
+        title={t("don_title")}
+      >
+        <div style={{ padding: "2px 0" }}>
+          {previewRow && (
+            <>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "12px 14px",
+                  marginBottom: 14,
+                  background: "var(--sb)",
+                  border: "1.5px solid var(--sl)",
+                  borderRadius: 14,
+                }}
+                className="t-em"
+              >
+                <div
+                  style={{
+                    width: 48, height: 48, borderRadius: 14, flex: "none",
+                    background: "var(--sc)", color: "#fff",
+                    display: "grid", placeItems: "center",
+                    boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
+                  }}
+                >
+                  <Eye size={20} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ font: "700 16px 'Space Grotesk'", color: "var(--st)" }}>
+                    {previewRow.donor_name}
+                  </div>
+                  <div style={{ font: "700 11px Poppins", color: "var(--st)", marginTop: 2 }}>
+                    {previewRow.receipt_number} · {formatCurrency(previewRow.amount)}
+                  </div>
+                </div>
+                <Badge variant="muted">{previewRow.category_name}</Badge>
+              </div>
+              <div className="det-grid">
+                {previewDetails.map((d, i) => (
+                  <div key={i} className={`det${d.full ? " full" : ""}`}>
+                    <span className="k">{d.k}</span>
+                    <span className="v">{d.v}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+            <Button variant="secondary" onClick={() => { setPreviewOpen(false); setPreviewRow(null); }}>
+              {t("ui_close")}
+            </Button>
+            <Button onClick={switchToEdit}>
+              <Edit2 size={14} />
+              {t("action_edit")}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
 
       <Dialog
         open={dialogOpen}
@@ -166,9 +309,16 @@ export function Donations() {
             </div>
             <div>
               <Label>{t("don_category")} *</Label>
-              <Select value={form.category_name || ""} onChange={(e) => setForm({ ...form, category_name: e.target.value })}>
+              <Select
+                value={form.category_id || ""}
+                onChange={(e) => {
+                  const cid = Number(e.target.value);
+                  const c = categories.find((x) => x.id === cid);
+                  setForm({ ...form, category_id: cid, category_name: c?.name || "" });
+                }}
+              >
                 <option value="">{t("ui_select")}</option>
-                {categories.map((c) => <option key={c.name || c.id} value={c.name}>{c.name}</option>)}
+                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </Select>
             </div>
             <div>
@@ -218,6 +368,15 @@ export function Donations() {
           </div>
         </div>
       </Dialog>
+
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
+        onConfirm={handleDeleteConfirm}
+        title="Confirm Delete"
+        confirmLabel="Delete Donation"
+      />
     </div>
   );
 }

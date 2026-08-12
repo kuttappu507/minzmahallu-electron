@@ -5,6 +5,7 @@ import {
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
 import { Button, Dialog, Input, Label, Badge } from "@/components/ui";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
 import { formatDate } from "@/lib/utils";
@@ -49,6 +50,8 @@ export function Certificates() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [issuedTo, setIssuedTo] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
 
   const { rows, total, totalPages, loading, refetch } = useList(
     (filter) => window.mms.certificates.list(filter),
@@ -142,14 +145,22 @@ export function Certificates() {
     }
   }, [issueType, selectedRow, issuedTo, refetch]);
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Delete this certificate?")) return;
+  const handleDeleteClick = (id: number) => {
+    setPendingDeleteId(id);
+    setConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (pendingDeleteId == null) return;
     try {
-      await window.mms.certificates.remove(id);
+      await window.mms.certificates.remove(pendingDeleteId);
       toast.success("Deleted");
       refetch();
     } catch (err: any) {
       toast.error(err.message);
+    } finally {
+      setConfirmOpen(false);
+      setPendingDeleteId(null);
     }
   };
 
@@ -242,7 +253,7 @@ export function Certificates() {
       header: "",
       accessor: (r) => (
         <div className="flex items-center gap-1 justify-end">
-          <Button variant="ghost" size="icon" onClick={() => handleDelete(r.id)} title={t("action_delete")}>
+          <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(r.id)} title={t("action_delete")}>
             <Trash2 className="h-4 w-4 text-danger" />
           </Button>
         </div>
@@ -402,6 +413,15 @@ export function Certificates() {
           )}
         </div>
       </Dialog>
+
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
+        onConfirm={handleDeleteConfirm}
+        title="Confirm Delete"
+        confirmLabel="Delete Certificate"
+      />
     </div>
   );
 }

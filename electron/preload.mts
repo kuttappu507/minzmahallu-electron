@@ -132,6 +132,13 @@ const api = {
   // ===== Backup =====
   backup: {
     create: () => ipcRenderer.invoke("backup:create"),
+    list: () => ipcRenderer.invoke("backup:list"),
+  },
+
+  // ===== File save dialog (for exports) =====
+  dialog: {
+    showSave: (defaultName: string, filters: any[]) =>
+      ipcRenderer.invoke("dialog:showSave", defaultName, filters),
   },
 };
 

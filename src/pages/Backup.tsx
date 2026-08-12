@@ -9,31 +9,10 @@ import { toast } from "@/lib/toast";
 import { formatDateTime } from "@/lib/utils";
 
 interface BackupRecord {
+  name: string;
   path: string;
-  createdAt: string; // ISO
-  sizeBytes?: number;
-}
-
-const STORAGE_KEY = "mms:backup-history";
-
-function loadHistory(): BackupRecord[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const arr = JSON.parse(raw);
-    if (!Array.isArray(arr)) return [];
-    return arr;
-  } catch {
-    return [];
-  }
-}
-
-function saveHistory(records: BackupRecord[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(records.slice(0, 20)));
-  } catch {
-    /* ignore quota */
-  }
+  size: number;
+  time: string; // ISO
 }
 
 function basename(p: string): string {
@@ -64,44 +43,63 @@ function formatBytes(n?: number): string {
 export function Backup() {
   const { t } = useI18n();
   const [creating, setCreating] = useState(false);
+  const [backups, setBackups] = useState<BackupRecord[]>([]);
+  const [loading, setLoading] = useState(false);
   const [lastBackup, setLastBackup] = useState<BackupRecord | null>(null);
-  const [history, setHistory] = useState<BackupRecord[]>([]);
+
+  const refreshList = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result: any = await window.mms.backup.list();
+      if (result && result.success && Array.isArray(result.backups)) {
+        setBackups(result.backups);
+        setLastBackup(result.backups[0] || null);
+      } else {
+        setBackups([]);
+        setLastBackup(null);
+      }
+    } catch (err: any) {
+      // Fail silently — list endpoint may not be ready.
+      setBackups([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const h = loadHistory();
-    setHistory(h);
-    setLastBackup(h[0] || null);
-  }, []);
-
-  const refreshHistory = useCallback(() => {
-    const h = loadHistory();
-    setHistory(h);
-    setLastBackup(h[0] || null);
-  }, []);
+    refreshList();
+  }, [refreshList]);
 
   const handleCreateBackup = async () => {
     setCreating(true);
     try {
       const result: any = await window.mms.backup.create();
-      // The main process returns { success: true, path } or { success: false, error }
       if (result && result.success === false) {
-        throw new Error(result.error || "Backup failed");
+        if (result.error !== "cancelled") {
+          throw new Error(result.error || "Backup failed");
+        }
+        // User cancelled the save dialog — silent.
+        setCreating(false);
+        return;
       }
       const path: string | undefined =
         typeof result === "string" ? result : result?.path;
       if (!path) {
         throw new Error("Backup path not returned");
       }
-      const record: BackupRecord = {
-        path,
-        createdAt: new Date().toISOString(),
-        sizeBytes: typeof result?.size === "number" ? result.size : undefined,
-      };
-      const next = [record, ...history].slice(0, 20);
-      saveHistory(next);
-      setHistory(next);
-      setLastBackup(record);
-      toast.success(t("bak_create_now") + " ✓");
+      toast.success(`Backup saved: ${basename(path)}`);
+      // Refresh the list from main process.
+      await refreshList();
+      // Also surface the freshly-created backup as "latest" if it isn't in the list.
+      if (result?.size != null || path) {
+        const synthetic: BackupRecord = {
+          name: basename(path),
+          path,
+          size: typeof result?.size === "number" ? result.size : 0,
+          time: new Date().toISOString(),
+        };
+        setLastBackup(synthetic);
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to create backup");
     } finally {
@@ -109,8 +107,8 @@ export function Backup() {
     }
   };
 
-  const totalBackups = history.length;
-  const lastBackupAt = lastBackup ? formatDateTime(lastBackup.createdAt) : "—";
+  const totalBackups = backups.length;
+  const lastBackupAt = lastBackup ? formatDateTime(lastBackup.time) : "—";
 
   return (
     <div className="view view-enter">
@@ -123,7 +121,7 @@ export function Backup() {
           <div className="vs">Create database snapshots for safekeeping & disaster recovery.</div>
         </div>
         <div className="vr">
-          <Button variant="secondary" onClick={refreshHistory} disabled={creating}>
+          <Button variant="secondary" onClick={refreshList} disabled={creating || loading}>
             <RefreshCw size={14} />
             {t("action_refresh")}
           </Button>
@@ -175,43 +173,50 @@ export function Backup() {
               ACTIVE
             </span>
           </div>
-          <div style={{
-            display: "flex",
-            alignItems: "flex-start",
-            gap: 14,
-            padding: "14px 16px",
-            background: "var(--sb)",
-            border: "1.5px solid var(--sl)",
-            borderRadius: 14,
-          }} className="t-em">
-            <div style={{
-              width: 42, height: 42, flex: "none", borderRadius: 12,
-              background: "var(--sc)", color: "#fff",
-              display: "grid", placeItems: "center",
-              boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
-            }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 14,
+              padding: "14px 16px",
+              background: "var(--sb)",
+              border: "1.5px solid var(--sl)",
+              borderRadius: 14,
+            }}
+            className="t-em"
+          >
+            <div
+              style={{
+                width: 42, height: 42, flex: "none", borderRadius: 12,
+                background: "var(--sc)", color: "#fff",
+                display: "grid", placeItems: "center",
+                boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
+              }}
+            >
               <CheckCircle2 size={20} />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <b style={{ font: "700 14px 'Space Grotesk'", color: "var(--st)" }}>{basename(lastBackup.path)}</b>
-                <span className="count-chip">{formatDateTime(lastBackup.createdAt)}</span>
-                {lastBackup.sizeBytes ? <span className="count-chip">{formatBytes(lastBackup.sizeBytes)}</span> : null}
+                <span className="count-chip">{formatDateTime(lastBackup.time)}</span>
+                {lastBackup.size ? <span className="count-chip">{formatBytes(lastBackup.size)}</span> : null}
               </div>
-              <div style={{
-                font: "600 11.5px monospace",
-                color: "var(--mut)",
-                marginTop: 8,
-                wordBreak: "break-all",
-                background: "var(--panel)",
-                border: "1px solid var(--line)",
-                borderRadius: 8,
-                padding: "8px 10px",
-              }}>
+              <div
+                style={{
+                  font: "600 11.5px monospace",
+                  color: "var(--mut)",
+                  marginTop: 8,
+                  wordBreak: "break-all",
+                  background: "var(--panel)",
+                  border: "1px solid var(--line)",
+                  borderRadius: 8,
+                  padding: "8px 10px",
+                }}
+              >
                 {lastBackup.path}
               </div>
               {dirname(lastBackup.path) && (
-                <div style={{ font: "700 10px Manrope", color: "var(--fnt)", marginTop: 6, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                <div style={{ font: "700 10px Poppins", color: "var(--fnt)", marginTop: 6, letterSpacing: "0.08em", textTransform: "uppercase" }}>
                   <FolderOpen size={11} style={{ display: "inline", marginRight: 4, verticalAlign: -1 }} />
                   {dirname(lastBackup.path)}
                 </div>
@@ -221,59 +226,71 @@ export function Backup() {
         </div>
       )}
 
-      {/* Recent backups list */}
+      {/* Recent backups table */}
       <div className="card" style={{ padding: "16px 17px 6px" }}>
         <div className="ch-head" style={{ marginBottom: 10 }}>
           <div>
             <div className="ch-title">Recent Backups</div>
-            <div className="ch-sub">Last {history.length} snapshot{history.length === 1 ? "" : "s"} created in this session</div>
+            <div className="ch-sub">
+              {loading ? "Refreshing…" : `Last ${backups.length} snapshot${backups.length === 1 ? "" : "s"} saved by this app`}
+            </div>
           </div>
-          <span className="count-chip">{history.length} record{history.length === 1 ? "" : "s"}</span>
+          <span className="count-chip">{backups.length} record{backups.length === 1 ? "" : "s"}</span>
         </div>
         <div className="tbl" style={{ boxShadow: "none", marginTop: 4 }}>
           <table>
             <thead>
               <tr>
                 <th style={{ width: 36 }}></th>
-                <th>File</th>
+                <th>Name</th>
                 <th>Directory</th>
-                <th>Created</th>
+                <th>Date</th>
                 <th>Size</th>
               </tr>
             </thead>
             <tbody>
-              {history.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="tempty">
+                    <Loader2 size={16} className="animate-spin" style={{ margin: "0 auto 8px", display: "block" }} />
+                    Loading backups…
+                  </td>
+                </tr>
+              ) : backups.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="tempty">
                     No backups yet — click <b style={{ color: "var(--em)" }}>“{t("bak_create_now")}”</b> to create your first snapshot.
                   </td>
                 </tr>
               ) : (
-                history.map((h, i) => (
-                  <tr key={i + h.path}>
+                backups.map((h, i) => (
+                  <tr key={i + "|" + h.path}>
                     <td style={{ textAlign: "center" }}>
-                      <span style={{
-                        display: "inline-grid", placeItems: "center",
-                        width: 26, height: 26, borderRadius: 8,
-                        background: i === 0 ? "var(--sb)" : "var(--panel2)",
-                        color: i === 0 ? "var(--st)" : "var(--fnt)",
-                        border: "1px solid var(--line)",
-                      }} className={i === 0 ? "t-em" : ""}>
+                      <span
+                        style={{
+                          display: "inline-grid", placeItems: "center",
+                          width: 26, height: 26, borderRadius: 8,
+                          background: i === 0 ? "var(--sb)" : "var(--panel2)",
+                          color: i === 0 ? "var(--st)" : "var(--fnt)",
+                          border: "1px solid var(--line)",
+                        }}
+                        className={i === 0 ? "t-em" : ""}
+                      >
                         <FileArchive size={13} />
                       </span>
                     </td>
                     <td>
-                      <span style={{ font: "700 12.5px 'Space Grotesk'", color: "var(--tx)" }}>{basename(h.path)}</span>
+                      <span style={{ font: "700 12.5px 'Space Grotesk'", color: "var(--tx)" }}>{h.name || basename(h.path)}</span>
                       {i === 0 && <span className="pill t-em" style={{ marginLeft: 8, padding: "2px 8px", fontSize: 9 }}>LATEST</span>}
                     </td>
                     <td>
                       <span style={{ font: "600 11px monospace", color: "var(--mut)" }}>{dirname(h.path) || "—"}</span>
                     </td>
                     <td>
-                      <span style={{ font: "700 12px Manrope", color: "var(--mut)" }}>{formatDateTime(h.createdAt)}</span>
+                      <span style={{ font: "700 12px Poppins", color: "var(--mut)" }}>{formatDateTime(h.time)}</span>
                     </td>
                     <td>
-                      <span className="count-chip">{formatBytes(h.sizeBytes)}</span>
+                      <span className="count-chip">{formatBytes(h.size)}</span>
                     </td>
                   </tr>
                 ))
@@ -288,14 +305,14 @@ export function Backup() {
         <div className="ch-head" style={{ marginBottom: 6 }}>
           <div>
             <div className="ch-title">How backups work</div>
-            <div className="ch-sub">Snapshots are written to your app’s userData directory.</div>
+            <div className="ch-sub">Choose where to save each snapshot — backups are full SQLite copies.</div>
           </div>
         </div>
-        <div style={{ font: "600 12.5px Manrope", color: "var(--mut)", lineHeight: 1.6 }}>
-          Each backup is a full SQLite snapshot of the live database, created atomically via the
-          better-sqlite3 <code style={{ font: "700 11px monospace", color: "var(--st)", background: "var(--sb)", padding: "2px 6px", borderRadius: 6 }}>db.backup()</code> API.
-          Backups do not lock the running app and can be safely copied to external storage. To restore,
-          replace the live <code style={{ font: "700 11px monospace", color: "var(--st)", background: "var(--sb)", padding: "2px 6px", borderRadius: 6 }}>mms.db</code> file
+        <div style={{ font: "600 12.5px Poppins", color: "var(--mut)", lineHeight: 1.6 }}>
+          Clicking <b style={{ color: "var(--tx)" }}>Create Backup Now</b> opens a save dialog so you
+          can choose the destination folder and filename for the snapshot. The file is written
+          atomically via the <code style={{ font: "700 11px monospace", color: "var(--st)", background: "var(--sb)", padding: "2px 6px", borderRadius: 6 }}>better-sqlite3 db.backup()</code> API.
+          To restore, replace the live <code style={{ font: "700 11px monospace", color: "var(--st)", background: "var(--sb)", padding: "2px 6px", borderRadius: 6 }}>mms.db</code> file
           with a snapshot while the app is closed.
         </div>
       </div>

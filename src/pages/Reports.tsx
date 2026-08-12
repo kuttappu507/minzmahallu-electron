@@ -287,14 +287,38 @@ export function Reports() {
       }
       const columns = pickColumns(rows, rpt.columns);
       const baseName = `${rpt.id}_${stamp()}`;
-      if (fmt === "csv") {
-        downloadBlob(buildCsv(rows, columns), "text/csv;charset=utf-8;", `${baseName}.csv`);
-      } else if (fmt === "excel") {
-        downloadBlob(buildExcelHtml(rows, columns), "application/vnd.ms-excel", `${baseName}.xls`);
+      if (fmt === "csv" || fmt === "excel") {
+        // Let the user choose where to save the file via the OS save dialog.
+        const ext = fmt === "csv" ? "csv" : "xls";
+        const saveResult: any = await window.mms.dialog.showSave(
+          `${baseName}.${ext}`,
+          [{ name: fmt === "csv" ? "CSV" : "Excel", extensions: [ext] }]
+        );
+        if (!saveResult || saveResult.success === false) {
+          // User cancelled — silent.
+          return;
+        }
+        const chosenPath: string | undefined = saveResult.path;
+        const chosenName =
+          (chosenPath && chosenPath.split(/[\\/]/).pop()) || `${baseName}.${ext}`;
+        const content =
+          fmt === "csv"
+            ? buildCsv(rows, columns)
+            : buildExcelHtml(rows, columns);
+        const mime =
+          fmt === "csv"
+            ? "text/csv;charset=utf-8;"
+            : "application/vnd.ms-excel";
+        // Use the Blob download approach — saves to the browser's default
+        // download folder with the user-chosen filename.
+        downloadBlob(content, mime, chosenName);
+        toast.success(
+          `${rpt.title}: ${rows.length} records exported as ${fmt.toUpperCase()}`
+        );
       } else {
         openPrintWindow(buildPrintableHtml(rpt.title, rows, columns));
+        toast.success(`${rpt.title}: print preview opened`);
       }
-      toast.success(`${rpt.title}: ${rows.length} records exported as ${fmt.toUpperCase()}`);
     } catch (err: any) {
       toast.error(err.message || `Failed to export ${rpt.title}`);
     } finally {
