@@ -37,11 +37,7 @@ const emptyForm: Partial<Member> = {
   emergency_contact: "", relationship: "Head", status: "Active", nationality: "", address: "", family_id: 0,
 };
 
-const codeFontStyle: React.CSSProperties = {
-  fontFamily: "'Space Grotesk', sans-serif",
-  fontWeight: 700,
-  letterSpacing: "0.04em",
-};
+const codeFontStyle = "code-text-sm";
 
 export function Members() {
   const { t } = useI18n();
@@ -71,7 +67,7 @@ export function Members() {
 
   const handleSave = async () => {
     if (!form.name || !form.family_id) {
-      toast.error("Name and Family are required");
+      toast.error(t("ui_name_family_required"));
       return;
     }
     try {
@@ -107,7 +103,7 @@ export function Members() {
       setEditingId(null);
       refetch();
     } catch (err: any) {
-      toast.error(err.message || "Failed to save");
+      toast.error(err.message || t("ui_failed_save"));
     }
   };
 
@@ -127,7 +123,7 @@ export function Members() {
     if (pendingDeleteId == null) return;
     try {
       await window.mms.members.remove(pendingDeleteId);
-      toast.success("Deleted");
+      toast.success(t("ui_record_deleted"));
       refetch();
     } catch (err: any) {
       toast.error(err.message);
@@ -156,7 +152,7 @@ export function Members() {
     {
       header: t("member_code"),
       accessor: (r) => (
-        <span style={codeFontStyle} className="text-primary">
+        <span className={codeFontStyle + " text-primary"}>
           {r.member_code || "—"}
         </span>
       ),
@@ -257,31 +253,16 @@ export function Members() {
         onClose={() => { setPreviewOpen(false); setPreviewMember(null); }}
         title={t("member_title")}
       >
-        <div style={{ padding: "4px 0" }}>
+        <div className="dlg-pad">
           {previewMember && (
             <>
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 14,
-                padding: "12px 14px",
-                marginBottom: 14,
-                background: "var(--sb)",
-                border: "1.5px solid var(--sl)",
-                borderRadius: 14,
-              }} className="t-em">
-                <div style={{
-                  width: 52, height: 52, borderRadius: 14, flex: "none",
-                  background: "var(--sc)", color: "#fff",
-                  display: "grid", placeItems: "center",
-                  font: "700 18px 'Space Grotesk'",
-                  boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
-                }}>
+              <div className="dlg-hero t-em">
+                <div className="dlg-hero-ic">
                   {(previewMember.name || "?").charAt(0).toUpperCase()}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ font: "700 17px 'Space Grotesk'", color: "var(--st)" }}>{previewMember.name}</div>
-                  <div style={{ font: "700 11px 'Space Grotesk'", color: "var(--st)", letterSpacing: "0.08em", marginTop: 2 }}>
+                <div className="dlg-hero-body">
+                  <div className="dlg-hero-title">{previewMember.name}</div>
+                  <div className="dlg-hero-sub code-text-sm">
                     {previewMember.member_code}
                   </div>
                 </div>
@@ -299,7 +280,7 @@ export function Members() {
             </>
           )}
 
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+          <div className="dlg-actions">
             <Button variant="secondary" onClick={() => { setPreviewOpen(false); setPreviewMember(null); }}>
               {t("ui_close")}
             </Button>
@@ -423,8 +404,8 @@ export function Members() {
         open={confirmOpen}
         onClose={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
         onConfirm={handleDeleteConfirm}
-        title="Confirm Delete"
-        confirmLabel="Delete Member"
+        title={t("ui_confirm_delete")}
+        confirmLabel={t("ui_delete_member_label")}
       />
     </div>
   );

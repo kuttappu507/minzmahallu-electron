@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
-  Trash2, FileText, Home, Heart, Skull, Search, Loader2, FileCheck2,
+  Trash2, FileText, Home, Heart, Skull, Search, Loader2, FileCheck2, Printer,
 } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
@@ -50,6 +50,7 @@ export function Certificates() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [issuedTo, setIssuedTo] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [pdfLoadingId, setPdfLoadingId] = useState<number | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
 
@@ -57,6 +58,67 @@ export function Certificates() {
     (filter) => window.mms.certificates.list(filter),
     { pageSize: 20 }
   );
+
+  const ISSUE_DIALOG_INFO: Record<IssueType, IssueDialogConfig> = {
+    membership: {
+      title: `${t("cert_membership")} ${t("cert_title")}`,
+      codeLabel: t("cert_member_code"),
+      needsIssuedTo: false,
+      loader: async () => {
+        const r = await window.mms.members.list({ pageSize: 100 });
+        return (r?.rows || []).map((m: any) => ({
+          id: m.id,
+          code: m.code || "",
+          primaryName: m.name || "—",
+          sub: m.house_name || m.family_number || "",
+        }));
+      },
+    },
+    residence: {
+      title: `${t("cert_residence")} ${t("cert_title")}`,
+      codeLabel: t("cert_family_number"),
+      needsIssuedTo: true,
+      loader: async () => {
+        const r = await window.mms.families.list({ pageSize: 100 });
+        return (r?.rows || []).map((f: any) => ({
+          id: f.id,
+          code: f.family_number || "",
+          primaryName: f.house_name || "—",
+          sub: [f.ward, f.area].filter(Boolean).join(", "),
+        }));
+      },
+    },
+    marriage: {
+      title: `${t("cert_marriage")} ${t("cert_title")}`,
+      codeLabel: t("cert_marriage_number"),
+      needsIssuedTo: false,
+      loader: async () => {
+        const r = await window.mms.marriages.list({ pageSize: 100 });
+        return (r?.rows || []).map((m: any) => ({
+          id: m.id,
+          code: m.marriage_number || "",
+          primaryName: m.bride_name || "—",
+          secondaryName: m.groom_name,
+          sub: m.nikah_date ? formatDate(m.nikah_date) : "",
+        }));
+      },
+    },
+    death: {
+      title: `${t("cert_death")} ${t("cert_title")}`,
+      codeLabel: t("cert_death_number"),
+      needsIssuedTo: false,
+      loader: async () => {
+        const r = await window.mms.deaths.list({ pageSize: 100 });
+        return (r?.rows || []).map((d: any) => ({
+          id: d.id,
+          code: d.death_number || "",
+          primaryName: d.deceased_name || "—",
+          secondaryName: d.father_name,
+          sub: d.date_of_death ? formatDate(d.date_of_death) : "",
+        }));
+      },
+    },
+  };
 
   // Reset picker state when dialog opens/closes
   useEffect(() => {
@@ -83,7 +145,7 @@ export function Certificates() {
         const result = await cfg.loader();
         if (!cancelled) setPickRows(result);
       } catch (err: any) {
-        if (!cancelled) toast.error(err.message || "Failed to load records");
+        if (!cancelled) toast.error(err.message || t("ui_failed_save"));
       } finally {
         if (!cancelled) setPickLoading(false);
       }
@@ -91,6 +153,7 @@ export function Certificates() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [issueType]);
 
   const filteredPicks = useMemo(() => {
@@ -111,11 +174,11 @@ export function Certificates() {
 
   const handleGenerate = useCallback(async () => {
     if (!issueType || !selectedRow) {
-      toast.error("Please select a record from the list");
+      toast.error(t("cert_select_record"));
       return;
     }
     if (issueType === "residence" && !issuedTo.trim()) {
-      toast.error("Issued To name is required for residence certificates");
+      toast.error(t("cert_issued_to_required"));
       return;
     }
     setProcessing(true);
@@ -135,15 +198,27 @@ export function Certificates() {
           result = await window.mms.certificates.issueDeath(selectedRow.code);
           break;
       }
-      toast.success(`Certificate issued: ${result?.certificate_number || ""}`);
+      toast.success(`${t("cert_issued_success")}: ${result?.certificate_number || ""}`);
       setIssueType(null);
       refetch();
     } catch (err: any) {
-      toast.error(err.message || "Failed to issue certificate");
+      toast.error(err.message || t("ui_failed_save"));
     } finally {
       setProcessing(false);
     }
-  }, [issueType, selectedRow, issuedTo, refetch]);
+  }, [issueType, selectedRow, issuedTo, refetch, t]);
+
+  const handleGeneratePdf = async (cert: Certificate) => {
+    setPdfLoadingId(cert.id);
+    try {
+      await window.mms.certificates.generatePdf(cert.id);
+      toast.success(t("cert_pdf_success"));
+    } catch (err: any) {
+      toast.error(err.message || t("cert_pdf_failed"));
+    } finally {
+      setPdfLoadingId(null);
+    }
+  };
 
   const handleDeleteClick = (id: number) => {
     setPendingDeleteId(id);
@@ -154,7 +229,7 @@ export function Certificates() {
     if (pendingDeleteId == null) return;
     try {
       await window.mms.certificates.remove(pendingDeleteId);
-      toast.success("Deleted");
+      toast.success(t("ui_record_deleted"));
       refetch();
     } catch (err: any) {
       toast.error(err.message);
@@ -171,69 +246,8 @@ export function Certificates() {
     { type: "death" as IssueType, label: t("cert_death"), icon: Skull, tint: "t-slate" },
   ];
 
-  const ISSUE_DIALOG_INFO: Record<IssueType, IssueDialogConfig> = {
-    membership: {
-      title: `${t("cert_membership")} Certificate`,
-      codeLabel: "Member Code",
-      needsIssuedTo: false,
-      loader: async () => {
-        const r = await window.mms.members.list({ pageSize: 100 });
-        return (r?.rows || []).map((m: any) => ({
-          id: m.id,
-          code: m.code || "",
-          primaryName: m.name || "—",
-          sub: m.house_name || m.family_number || "",
-        }));
-      },
-    },
-    residence: {
-      title: `${t("cert_residence")} Certificate`,
-      codeLabel: "Family Number",
-      needsIssuedTo: true,
-      loader: async () => {
-        const r = await window.mms.families.list({ pageSize: 100 });
-        return (r?.rows || []).map((f: any) => ({
-          id: f.id,
-          code: f.family_number || "",
-          primaryName: f.house_name || "—",
-          sub: [f.ward, f.area].filter(Boolean).join(", "),
-        }));
-      },
-    },
-    marriage: {
-      title: `${t("cert_marriage")} Certificate`,
-      codeLabel: "Marriage Number",
-      needsIssuedTo: false,
-      loader: async () => {
-        const r = await window.mms.marriages.list({ pageSize: 100 });
-        return (r?.rows || []).map((m: any) => ({
-          id: m.id,
-          code: m.marriage_number || "",
-          primaryName: m.bride_name || "—",
-          secondaryName: m.groom_name,
-          sub: m.nikah_date ? formatDate(m.nikah_date) : "",
-        }));
-      },
-    },
-    death: {
-      title: `${t("cert_death")} Certificate`,
-      codeLabel: "Death Number",
-      needsIssuedTo: false,
-      loader: async () => {
-        const r = await window.mms.deaths.list({ pageSize: 100 });
-        return (r?.rows || []).map((d: any) => ({
-          id: d.id,
-          code: d.death_number || "",
-          primaryName: d.deceased_name || "—",
-          secondaryName: d.father_name,
-          sub: d.date_of_death ? formatDate(d.date_of_death) : "",
-        }));
-      },
-    },
-  };
-
   const columns: Column<Certificate>[] = [
-    { header: "Certificate No", accessor: (r) => <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700 }}>{r.certificate_number}</span> },
+    { header: t("cert_number"), accessor: (r) => <span className="code-text text-primary">{r.certificate_number}</span> },
     {
       header: t("acc_type"),
       accessor: (r) => {
@@ -246,13 +260,16 @@ export function Certificates() {
         return <span className={`pill ${tintMap[r.type?.toLowerCase()] || "t-slate"}`}>{r.type}</span>;
       },
     },
-    { header: "Issued To", accessor: (r) => r.issued_to || "—" },
-    { header: "Issued Date", accessor: (r) => formatDate(r.issued_date) },
-    { header: "Issued By", accessor: (r) => r.issued_by || "—" },
+    { header: t("cert_issued_to"), accessor: (r) => r.issued_to || "—" },
+    { header: t("cert_issued_date"), accessor: (r) => formatDate(r.issued_date) },
+    { header: t("cert_issued_by"), accessor: (r) => r.issued_by || "—" },
     {
       header: "",
       accessor: (r) => (
         <div className="flex items-center gap-1 justify-end">
+          <Button variant="ghost" size="icon" onClick={() => handleGeneratePdf(r)} title={t("cert_generate_pdf_btn")} disabled={pdfLoadingId === r.id}>
+            {pdfLoadingId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+          </Button>
           <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(r.id)} title={t("action_delete")}>
             <Trash2 className="h-4 w-4 text-danger" />
           </Button>
@@ -272,26 +289,25 @@ export function Certificates() {
         </div>
         <div>
           <h1>{t("cert_title")}</h1>
-          <div className="vs">Issue and manage community certificates with searchable picker.</div>
+          <div className="vs">{t("cert_subtitle")}</div>
         </div>
       </div>
 
       {/* Issue buttons */}
-      <div className="rep-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginBottom: 14 }}>
+      <div className="cert-issue-grid">
         {issueButtons.map((b) => {
           const Icon = b.icon;
           return (
             <button
               key={b.type}
               onClick={() => setIssueType(b.type)}
-              className={`rep-card ${b.tint}`}
-              style={{ padding: "16px 16px 14px", gap: 8, cursor: "pointer", alignItems: "center", textAlign: "center" }}
+              className={`rep-card ${b.tint} cert-issue-card`}
             >
-              <div className="ric" style={{ margin: "0 auto" }}>
+              <div className="ric">
                 <Icon size={20} />
               </div>
-              <div className="rtitle" style={{ fontSize: 14 }}>{b.label}</div>
-              <div className="rdesc" style={{ minHeight: "auto" }}>Issue new certificate</div>
+              <div className="rtitle">{b.label}</div>
+              <div className="rdesc">{t("cert_issue_new")}</div>
             </button>
           );
         })}
@@ -316,25 +332,23 @@ export function Certificates() {
         open={!!issueType}
         onClose={() => !processing && setIssueType(null)}
         title={activeConfig?.title || ""}
-        className="max-w-xl"
       >
-        <div style={{ padding: "4px 0" }}>
+        <div className="dlg-pad">
           {activeConfig && (
             <>
               {/* Search input */}
-              <div className="qwrap" style={{ width: "100%", height: 40 }}>
+              <div className="pick-search-wrap">
                 <Search size={14} />
                 <input
-                  placeholder={`Search by ${activeConfig.codeLabel.toLowerCase()} or name…`}
+                  placeholder={t("cert_search_by")}
                   value={pickSearch}
                   onChange={(e) => setPickSearch(e.target.value)}
                   autoFocus
-                  style={{ flex: 1, border: 0, background: "none", outline: "none", color: "var(--tx)", font: "600 13px Manrope", minWidth: 0 }}
                 />
                 {pickSearch && (
                   <button
                     onClick={() => setPickSearch("")}
-                    style={{ border: 0, background: "none", color: "var(--fnt)", cursor: "pointer", padding: 4 }}
+                    className="pick-search-clear"
                     title="Clear"
                   >
                     ✕
@@ -342,14 +356,14 @@ export function Certificates() {
                 )}
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "12px 0 6px" }}>
-                <Label style={{ margin: 0 }}>
-                  {activeConfig.codeLabel}s · {filteredPicks.length} of {pickRows.length}
+              <div className="flex items-center justify-between mt-3 mb-2">
+                <Label className="mb-0">
+                  {activeConfig.codeLabel}s · {filteredPicks.length} / {pickRows.length}
                 </Label>
                 {selectedRow && (
                   <span className="pill t-em">
                     <i />
-                    Selected: {selectedRow.code}
+                    {t("cert_selected")}: {selectedRow.code}
                   </span>
                 )}
               </div>
@@ -358,12 +372,12 @@ export function Certificates() {
               <div className="picklist">
                 {pickLoading ? (
                   <div className="pl-empty">
-                    <Loader2 size={20} className="animate-spin" style={{ margin: "0 auto 8px", display: "block" }} />
-                    Loading records…
+                    <Loader2 size={20} className="animate-spin bk-load-spin" />
+                    {t("cert_loading_records")}
                   </div>
                 ) : filteredPicks.length === 0 ? (
                   <div className="pl-empty">
-                    {pickRows.length === 0 ? "No records found." : "No records match your search."}
+                    {pickRows.length === 0 ? t("cert_no_records") : t("cert_no_match")}
                   </div>
                 ) : (
                   filteredPicks.map((r) => (
@@ -373,10 +387,10 @@ export function Certificates() {
                       onClick={() => setSelectedId(r.id)}
                     >
                       <span className="pl-code">{r.code || "—"}</span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="pl-body">
                         <div className="pl-name">{r.primaryName}</div>
                         {r.secondaryName && (
-                          <div className="pl-sub" style={{ marginTop: 1 }}>
+                          <div className="pl-sub mt-1">
                             {issueType === "marriage" ? `Groom: ${r.secondaryName}` : `S/o ${r.secondaryName}`}
                           </div>
                         )}
@@ -389,24 +403,24 @@ export function Certificates() {
 
               {/* Issued To field for residence */}
               {activeConfig.needsIssuedTo && (
-                <div style={{ marginTop: 14 }}>
-                  <Label>Issued To (Name) *</Label>
+                <div className="mt-3">
+                  <Label>{t("cert_issued_to_name")} *</Label>
                   <Input
                     value={issuedTo}
                     onChange={(e) => setIssuedTo(e.target.value)}
-                    placeholder="Full name of the person the certificate is issued to"
+                    placeholder={t("cert_issued_placeholder")}
                   />
                 </div>
               )}
 
               {/* Footer actions */}
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+              <div className="dlg-actions">
                 <Button variant="secondary" onClick={() => setIssueType(null)} disabled={processing}>
                   {t("action_cancel")}
                 </Button>
                 <Button onClick={handleGenerate} disabled={processing || !selectedRow}>
                   {processing ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
-                  {processing ? "Issuing..." : t("cert_generate_pdf")}
+                  {processing ? t("cert_issuing") : t("cert_generate_pdf_btn")}
                 </Button>
               </div>
             </>
@@ -419,8 +433,8 @@ export function Certificates() {
         open={confirmOpen}
         onClose={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
         onConfirm={handleDeleteConfirm}
-        title="Confirm Delete"
-        confirmLabel="Delete Certificate"
+        title={t("ui_confirm_delete")}
+        confirmLabel={t("cert_delete_label")}
       />
     </div>
   );

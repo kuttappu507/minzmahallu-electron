@@ -28,11 +28,7 @@ const emptyForm: Partial<Transaction> = {
   description: "", account_id: 1, transaction_ref: "", linked_module: "", linked_id: 0,
 };
 
-const codeFontStyle: React.CSSProperties = {
-  fontFamily: "'Space Grotesk', sans-serif",
-  fontWeight: 700,
-  letterSpacing: "0.03em",
-};
+const codeFontStyle = "code-text-sm";
 
 export function Accounting() {
   const { t } = useI18n();
@@ -70,7 +66,7 @@ export function Accounting() {
 
   const handleSave = async () => {
     if (!form.amount || !form.txn_date) {
-      toast.error("Amount and Date are required");
+      toast.error(t("ui_amount_date_required"));
       return;
     }
     try {
@@ -100,7 +96,7 @@ export function Accounting() {
       refetch();
       refreshSummary();
     } catch (err: any) {
-      toast.error(err.message || "Failed to save");
+      toast.error(err.message || t("ui_failed_save"));
     }
   };
 
@@ -120,7 +116,7 @@ export function Accounting() {
     if (pendingDeleteId == null) return;
     try {
       await window.mms.accounting.remove(pendingDeleteId);
-      toast.success("Deleted");
+      toast.success(t("ui_record_deleted"));
       refetch();
       refreshSummary();
     } catch (err: any) {
@@ -148,7 +144,7 @@ export function Accounting() {
     {
       header: t("sub_receipt"),
       accessor: (r) => (
-        <span style={codeFontStyle} className="text-primary">
+        <span className={codeFontStyle + " text-primary"}>
           {r.receipt_number || "—"}
         </span>
       ),
@@ -192,10 +188,10 @@ export function Accounting() {
         { k: t("acc_type"), v: previewRow.type },
         { k: t("sub_amount"), v: formatCurrency(previewRow.amount) },
         { k: t("sub_method"), v: previewRow.payment_method || "—" },
-        { k: "Account ID", v: String(previewRow.account_id ?? "—") },
-        { k: "Transaction Ref", v: previewRow.transaction_ref || "—" },
-        { k: "Linked Module", v: previewRow.linked_module || "—" },
-        { k: "Created By", v: previewRow.created_by_name || "—" },
+        { k: t("ui_account_id"), v: String(previewRow.account_id ?? "—") },
+        { k: t("ui_transaction_ref"), v: previewRow.transaction_ref || "—" },
+        { k: t("ui_linked_module"), v: previewRow.linked_module || "—" },
+        { k: t("ui_created_by"), v: previewRow.created_by_name || "—" },
         { k: t("acc_description"), v: previewRow.description || "—", full: true },
       ]
     : [];
@@ -223,7 +219,7 @@ export function Accounting() {
       </div>
 
       {/* Summary cards */}
-      <div className="stat-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+      <div className="stat-grid stat-grid-3">
         <div className="stat t-em">
           <div className="srow">
             <span className="sic"><TrendingUp size={18} /></span>
@@ -278,38 +274,18 @@ export function Accounting() {
         onClose={() => { setPreviewOpen(false); setPreviewRow(null); }}
         title={t("acc_title")}
       >
-        <div style={{ padding: "2px 0" }}>
+        <div className="dlg-pad">
           {previewRow && (
             <>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  padding: "12px 14px",
-                  marginBottom: 14,
-                  background: previewRow.type === "Income" ? "var(--sb)" : "var(--rose-bg)",
-                  border: `1.5px solid ${previewRow.type === "Income" ? "var(--sl)" : "var(--rose-line)"}`,
-                  borderRadius: 14,
-                }}
-                className={previewRow.type === "Income" ? "t-em" : "t-rose"}
-              >
-                <div
-                  style={{
-                    width: 48, height: 48, borderRadius: 14, flex: "none",
-                    background: previewRow.type === "Income" ? "var(--sc)" : "var(--c-rose)",
-                    color: "#fff",
-                    display: "grid", placeItems: "center",
-                    boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
-                  }}
-                >
+              <div className={`dlg-hero ${previewRow.type === "Income" ? "t-em" : "t-rose"}`}>
+                <div className="dlg-hero-ic">
                   <Eye size={20} />
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ font: "700 16px 'Space Grotesk'", color: "var(--st)" }}>
+                <div className="dlg-hero-body">
+                  <div className="dlg-hero-title">
                     {previewRow.receipt_number || previewRow.description || "Transaction"}
                   </div>
-                  <div style={{ font: "700 11px Poppins", color: "var(--st)", marginTop: 2 }}>
+                  <div className="dlg-hero-sub">
                     {previewRow.type} · {formatDate(previewRow.txn_date)} · {formatCurrency(previewRow.amount)}
                   </div>
                 </div>
@@ -325,7 +301,7 @@ export function Accounting() {
               </div>
             </>
           )}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+          <div className="dlg-actions">
             <Button variant="secondary" onClick={() => { setPreviewOpen(false); setPreviewRow(null); }}>
               {t("ui_close")}
             </Button>
@@ -372,7 +348,7 @@ export function Accounting() {
               </Select>
             </div>
             <div>
-              <Label>Transaction Reference</Label>
+              <Label>{t("ui_transaction_ref")}</Label>
               <Input value={form.transaction_ref || ""} onChange={(e) => setForm({ ...form, transaction_ref: e.target.value })} />
             </div>
           </div>
@@ -392,8 +368,8 @@ export function Accounting() {
         open={confirmOpen}
         onClose={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
         onConfirm={handleDeleteConfirm}
-        title="Confirm Delete"
-        confirmLabel="Delete Transaction"
+        title={t("ui_confirm_delete")}
+        confirmLabel={t("ui_delete_transaction_label")}
       />
     </div>
   );

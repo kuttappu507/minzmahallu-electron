@@ -100,6 +100,11 @@ const api = {
     issueMarriage: (marriageNum: string) => ipcRenderer.invoke("certificates:issueMarriage", marriageNum),
     issueDeath: (deathNum: string) => ipcRenderer.invoke("certificates:issueDeath", deathNum),
     remove: (id: number) => ipcRenderer.invoke("certificates:remove", id),
+    generatePdf: (id: number) => ipcRenderer.invoke("certificates:generatePdf", id),
+  },
+  // ===== PDF generation =====
+  pdf: {
+    generate: (html: string, defaultName: string) => ipcRenderer.invoke("pdf:generate", html, defaultName),
   },
   // ===== Users =====
   users: {

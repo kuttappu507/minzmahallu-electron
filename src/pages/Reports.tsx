@@ -219,28 +219,26 @@ function escapeHtml(v: any): string {
     .replace(/"/g, "&quot;");
 }
 
-function buildPrintableHtml(title: string, rows: any[], columns: string[]): string {
+function buildPdfHtml(title: string, rows: any[], columns: string[]): string {
   const head = columns.map((c) => `<th>${escapeHtml(c)}</th>`).join("");
   const body = rows
     .map((r) => `<tr>${columns.map((c) => `<td>${escapeHtml(r[c])}</td>`).join("")}</tr>`)
     .join("");
   return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
 <style>
-  body { font: 700 12px Manrope, system-ui, sans-serif; color: #1e2b25; margin: 24px; }
-  h1 { font: 700 20px 'Space Grotesk', sans-serif; margin: 0 0 4px; }
+  body { font: 400 12px Poppins, system-ui, sans-serif; color: #1e2b25; margin: 24px; }
+  h1 { font: 600 20px Poppins, sans-serif; margin: 0 0 4px; }
   .sub { color: #5f7268; font-size: 11px; margin-bottom: 16px; }
   table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  th { background: #f6f9f6; text-align: left; padding: 8px 10px; border: 1px solid #e6ede7; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.1em; color: #5f7268; }
+  th { background: #f6f9f6; text-align: left; padding: 8px 10px; border: 1px solid #e6ede7; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.1em; color: #5f7268; font-weight: 600; }
   td { padding: 7px 10px; border: 1px solid #e6ede7; vertical-align: top; }
   tr:nth-child(even) td { background: #f8faf8; }
   .foot { margin-top: 18px; color: #8ba096; font-size: 10px; }
-  @media print { body { margin: 12px; } }
 </style></head><body>
   <h1>${escapeHtml(title)}</h1>
   <div class="sub">Generated ${new Date().toLocaleString("en-IN")} · ${rows.length} records</div>
   <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
   <div class="foot">Minz Mahallu Management System · Printed report</div>
-  <script>window.onload = function(){ setTimeout(function(){ window.print(); }, 250); };</script>
 </body></html>`;
 }
 
@@ -254,17 +252,6 @@ function downloadBlob(content: string, mime: string, filename: string) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-}
-
-function openPrintWindow(html: string) {
-  const w = window.open("", "_blank");
-  if (!w) {
-    toast.error("Pop-up blocked — allow pop-ups for PDF printing");
-    return;
-  }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
 }
 
 function stamp(): string {
@@ -282,7 +269,7 @@ export function Reports() {
     try {
       const rows = await rpt.fetch();
       if (!rows.length) {
-        toast.warning(`No records found for “${rpt.title}”`);
+        toast.warning(`${t("rpt_no_records")} "${rpt.title}"`);
         return;
       }
       const columns = pickColumns(rows, rpt.columns);
@@ -313,14 +300,21 @@ export function Reports() {
         // download folder with the user-chosen filename.
         downloadBlob(content, mime, chosenName);
         toast.success(
-          `${rpt.title}: ${rows.length} records exported as ${fmt.toUpperCase()}`
+          `${rpt.title}: ${rows.length} ${t("rpt_exported_as")} ${fmt.toUpperCase()}`
         );
       } else {
-        openPrintWindow(buildPrintableHtml(rpt.title, rows, columns));
-        toast.success(`${rpt.title}: print preview opened`);
+        // PDF — build HTML and call the Electron PDF generator
+        const html = buildPdfHtml(rpt.title, rows, columns);
+        const fileName = `${baseName}.pdf`;
+        await window.mms.pdf.generate(html, fileName);
+        toast.success(`${rpt.title}: ${t("rpt_pdf_generated")}`);
       }
     } catch (err: any) {
-      toast.error(err.message || `Failed to export ${rpt.title}`);
+      if (fmt === "pdf") {
+        toast.error(err.message || t("rpt_pdf_failed"));
+      } else {
+        toast.error(err.message || `Failed to export ${rpt.title}`);
+      }
     } finally {
       setBusyId(null);
       setBusyFmt(null);
@@ -335,12 +329,12 @@ export function Reports() {
         </div>
         <div>
           <h1>{t("rpt_title")}</h1>
-          <div className="vs">Export any module to CSV, Excel or print-ready PDF.</div>
+          <div className="vs">{t("rpt_subtitle")}</div>
         </div>
       </div>
 
       <div className="rep-sec">
-        <b>Reports Catalogue</b>
+        <b>{t("rpt_catalogue")}</b>
       </div>
 
       <div className="rep-grid">
@@ -377,7 +371,7 @@ export function Reports() {
                   className="btn bs bp"
                   onClick={() => handleExport(rpt, "pdf")}
                   disabled={isBusy}
-                  title="Print / Save as PDF"
+                  title="Save as PDF"
                 >
                   {isBusy && busyFmt === "pdf" ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />}
                   PDF
@@ -388,22 +382,22 @@ export function Reports() {
         })}
       </div>
 
-      <div className="rep-sec" style={{ marginTop: 18 }}>
-        <b>How exports work</b>
+      <div className="rep-sec mt-4">
+        <b>{t("rpt_how_works")}</b>
       </div>
-      <div className="card" style={{ padding: "16px 18px" }}>
-        <div style={{ font: "600 12.5px Manrope", color: "var(--mut)", lineHeight: 1.6 }}>
-          <p style={{ margin: "0 0 8px" }}>
-            <b style={{ color: "var(--tx)" }}>CSV</b> — plain comma-separated values, opens in any spreadsheet or text editor.
+      <div className="card card-pad-5">
+        <div className="rep-info">
+          <p>
+            <b>CSV</b> — {t("rpt_csv_desc")}
           </p>
-          <p style={{ margin: "0 0 8px" }}>
-            <b style={{ color: "var(--tx)" }}>Excel</b> — generates a <code style={{ font: "700 11px monospace", color: "var(--st)", background: "var(--sb)", padding: "2px 6px", borderRadius: 6 }}>.xls</code> HTML-table file that opens directly in Microsoft Excel and LibreOffice Calc.
+          <p>
+            <b>Excel</b> — {t("rpt_excel_desc")}
           </p>
-          <p style={{ margin: "0 0 8px" }}>
-            <b style={{ color: "var(--tx)" }}>PDF</b> — opens a print-ready preview window. Use <b>Ctrl+P</b> (or <b>⌘+P</b>) and choose <i>“Save as PDF”</i> as the destination.
+          <p>
+            <b>PDF</b> — {t("rpt_pdf_desc")}
           </p>
-          <p style={{ margin: 0, color: "var(--fnt)", fontSize: 11.5 }}>
-            All exports are generated client-side from live data via <code style={{ font: "700 11px monospace" }}>window.mms.*.list()</code>. No data leaves your machine.
+          <p className="rep-info-foot">
+            {t("rpt_foot")}
           </p>
         </div>
       </div>

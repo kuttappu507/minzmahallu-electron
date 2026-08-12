@@ -49,7 +49,7 @@ export function Families() {
 
   const handleSave = async () => {
     if (!form.house_name || !form.phone) {
-      toast.error("House Name and Phone are required");
+      toast.error(t("ui_house_phone_required"));
       return;
     }
     try {
@@ -77,7 +77,7 @@ export function Families() {
       setEditingId(null);
       refetch();
     } catch (err: any) {
-      toast.error(err.message || "Failed to save");
+      toast.error(err.message || t("ui_failed_save"));
     }
   };
 
@@ -97,7 +97,7 @@ export function Families() {
     if (pendingDeleteId == null) return;
     try {
       await window.mms.families.remove(pendingDeleteId);
-      toast.success("Deleted");
+      toast.success(t("ui_record_deleted"));
       refetch();
     } catch (err: any) {
       toast.error(err.message);
@@ -124,7 +124,7 @@ export function Families() {
     {
       header: t("family_number"),
       accessor: (r) => (
-        <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700 }} className="text-primary">
+        <span className="code-text text-primary">
           {r.family_number}
         </span>
       ),
@@ -218,37 +218,18 @@ export function Families() {
         onClose={() => { setPreviewOpen(false); setPreviewRow(null); }}
         title={t("family_title")}
       >
-        <div style={{ padding: "2px 0" }}>
+        <div className="dlg-pad">
           {previewRow && (
             <>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  padding: "12px 14px",
-                  marginBottom: 14,
-                  background: "var(--sb)",
-                  border: "1.5px solid var(--sl)",
-                  borderRadius: 14,
-                }}
-                className="t-em"
-              >
-                <div
-                  style={{
-                    width: 48, height: 48, borderRadius: 14, flex: "none",
-                    background: "var(--sc)", color: "#fff",
-                    display: "grid", placeItems: "center",
-                    boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
-                  }}
-                >
+              <div className="dlg-hero t-em">
+                <div className="dlg-hero-ic">
                   <Eye size={20} />
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ font: "700 16px 'Space Grotesk'", color: "var(--st)" }}>
+                <div className="dlg-hero-body">
+                  <div className="dlg-hero-title">
                     {previewRow.house_name}
                   </div>
-                  <div style={{ font: "700 11px Poppins", color: "var(--st)", marginTop: 2 }}>
+                  <div className="dlg-hero-sub">
                     {previewRow.family_number} · {previewRow.ward || previewRow.area || "—"}
                   </div>
                 </div>
@@ -264,7 +245,7 @@ export function Families() {
               </div>
             </>
           )}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+          <div className="dlg-actions">
             <Button variant="secondary" onClick={() => { setPreviewOpen(false); setPreviewRow(null); }}>
               {t("ui_close")}
             </Button>
@@ -342,8 +323,8 @@ export function Families() {
         open={confirmOpen}
         onClose={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
         onConfirm={handleDeleteConfirm}
-        title="Confirm Delete"
-        confirmLabel="Delete Family"
+        title={t("ui_confirm_delete")}
+        confirmLabel={t("ui_delete_family_label")}
       />
     </div>
   );

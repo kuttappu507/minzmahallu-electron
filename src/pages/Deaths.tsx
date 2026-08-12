@@ -28,11 +28,7 @@ const emptyForm: Partial<Death> = {
   remarks: "",
 };
 
-const codeFontStyle: React.CSSProperties = {
-  fontFamily: "'Space Grotesk', sans-serif",
-  fontWeight: 700,
-  letterSpacing: "0.03em",
-};
+const codeFontStyle = "code-text-sm";
 
 export function Deaths() {
   const { t } = useI18n();
@@ -53,7 +49,7 @@ export function Deaths() {
 
   const handleSave = async () => {
     if (!form.deceased_name || !form.date_of_death) {
-      toast.error("Deceased Name and Date of Death are required");
+      toast.error(t("ui_deceased_date_required"));
       return;
     }
     try {
@@ -74,14 +70,14 @@ export function Deaths() {
         toast.success(t("ui_save_changes"));
       } else {
         await window.mms.deaths.create(payload);
-        toast.success("Death record added");
+        toast.success(t("ui_death_added"));
       }
       setDialogOpen(false);
       setForm(emptyForm);
       setEditingId(null);
       refetch();
     } catch (err: any) {
-      toast.error(err.message || "Failed to save");
+      toast.error(err.message || t("ui_failed_save"));
     }
   };
 
@@ -101,7 +97,7 @@ export function Deaths() {
     if (pendingDeleteId == null) return;
     try {
       await window.mms.deaths.remove(pendingDeleteId);
-      toast.success("Deleted");
+      toast.success(t("ui_record_deleted"));
       refetch();
     } catch (err: any) {
       toast.error(err.message);
@@ -128,7 +124,7 @@ export function Deaths() {
     {
       header: t("dth_number"),
       accessor: (r) => (
-        <span style={codeFontStyle} className="text-primary">
+        <span className={codeFontStyle + " text-primary"}>
           {r.death_number}
         </span>
       ),
@@ -164,7 +160,7 @@ export function Deaths() {
         { k: t("dth_burial_date"), v: formatDate(previewRow.burial_date) },
         { k: t("dth_burial_place"), v: previewRow.burial_place || "—" },
         { k: t("dth_cause"), v: previewRow.cause_of_death || "—", full: true },
-        { k: "Remarks", v: previewRow.remarks || "—", full: true },
+        { k: t("ui_remarks"), v: previewRow.remarks || "—", full: true },
       ]
     : [];
 
@@ -207,37 +203,18 @@ export function Deaths() {
         onClose={() => { setPreviewOpen(false); setPreviewRow(null); }}
         title={t("dth_title")}
       >
-        <div style={{ padding: "2px 0" }}>
+        <div className="dlg-pad">
           {previewRow && (
             <>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  padding: "12px 14px",
-                  marginBottom: 14,
-                  background: "var(--sb)",
-                  border: "1.5px solid var(--sl)",
-                  borderRadius: 14,
-                }}
-                className="t-em"
-              >
-                <div
-                  style={{
-                    width: 48, height: 48, borderRadius: 14, flex: "none",
-                    background: "var(--sc)", color: "#fff",
-                    display: "grid", placeItems: "center",
-                    boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
-                  }}
-                >
+              <div className="dlg-hero t-em">
+                <div className="dlg-hero-ic">
                   <Eye size={20} />
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ font: "700 16px 'Space Grotesk'", color: "var(--st)" }}>
+                <div className="dlg-hero-body">
+                  <div className="dlg-hero-title">
                     {previewRow.deceased_name}
                   </div>
-                  <div style={{ font: "700 11px Poppins", color: "var(--st)", marginTop: 2 }}>
+                  <div className="dlg-hero-sub">
                     {previewRow.death_number} · {formatDate(previewRow.date_of_death)}
                   </div>
                 </div>
@@ -253,7 +230,7 @@ export function Deaths() {
               </div>
             </>
           )}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+          <div className="dlg-actions">
             <Button variant="secondary" onClick={() => { setPreviewOpen(false); setPreviewRow(null); }}>
               {t("ui_close")}
             </Button>
@@ -318,8 +295,8 @@ export function Deaths() {
         open={confirmOpen}
         onClose={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
         onConfirm={handleDeleteConfirm}
-        title="Confirm Delete"
-        confirmLabel="Delete Record"
+        title={t("ui_confirm_delete")}
+        confirmLabel={t("ui_delete_record_label")}
       />
     </div>
   );

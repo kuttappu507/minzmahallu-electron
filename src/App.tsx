@@ -48,7 +48,7 @@ function StatusBar() {
 
 function ProtectedLayout() {
   return (
-    <div id="app" style={{ height: "100vh", display: "flex", overflow: "hidden" }}>
+    <div id="app" className="app-shell">
       <Sidebar />
       <div className="maincol">
         <Topbar />

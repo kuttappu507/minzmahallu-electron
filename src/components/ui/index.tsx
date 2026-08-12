@@ -48,7 +48,7 @@ export function Card({ className, children, ...props }: React.HTMLAttributes<HTM
 
 export function CardHeader({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("m-h", className)} style={{ padding: "17px 20px", borderBottom: "1px solid var(--line)" }} {...props}>
+    <div className={cn("m-h", className)} {...props}>
       {children}
     </div>
   );
@@ -56,7 +56,7 @@ export function CardHeader({ className, children, ...props }: React.HTMLAttribut
 
 export function CardTitle({ className, children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
-    <h3 className={cn("", className)} style={{ font: "700 16px 'Space Grotesk'" }} {...props}>
+    <h3 className={cn("card-title", className)} {...props}>
       {children}
     </h3>
   );
@@ -64,7 +64,7 @@ export function CardTitle({ className, children, ...props }: React.HTMLAttribute
 
 export function CardContent({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("m-b", className)} style={{ padding: "18px 20px" }} {...props}>
+    <div className={cn("m-b", className)} {...props}>
       {children}
     </div>
   );
@@ -92,8 +92,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTML
   ({ className, ...props }, ref) => (
     <textarea
       ref={ref}
-      className={cn("inp", className)}
-      style={{ resize: "vertical", minHeight: 60 }}
+      className={cn("inp textarea-field", className)}
       {...props}
     />
   )
@@ -187,17 +186,15 @@ export function Dialog({
     <div
       className={cn("modal-root", open && "open")}
       onClick={onClose}
-      style={{ position: "fixed", inset: 0, animation: "backdropIn 0.2s ease-out" }}
     >
       <div
         className={cn("modal", className)}
         onClick={(e) => e.stopPropagation()}
-        style={{ animation: "modalIn 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2)" }}
       >
         {title && (
           <div className="m-h">
             <b>{title}</b>
-            <button className="ibtn" onClick={onClose} style={{ marginLeft: "auto" }}>
+            <button className="ibtn ml-auto" onClick={onClose}>
               <X size={16} />
             </button>
           </div>
@@ -237,10 +234,10 @@ export function Tr({ className, children, ...props }: React.HTMLAttributes<HTMLT
 // ============ EmptyState ============
 export function EmptyState({ icon, title, description }: { icon?: React.ReactNode; title: string; description?: string }) {
   return (
-    <div className="tempty" style={{ padding: 40, textAlign: "center" }}>
-      {icon && <div style={{ marginBottom: 10, color: "var(--fnt)" }}>{icon}</div>}
-      <div style={{ font: "700 13px Manrope", color: "var(--fnt)" }}>{title}</div>
-      {description && <div style={{ font: "600 11px Manrope", color: "var(--fnt)", marginTop: 4 }}>{description}</div>}
+    <div className="empty-state">
+      {icon && <div className="es-ic">{icon}</div>}
+      <div className="es-title">{title}</div>
+      {description && <div className="es-desc">{description}</div>}
     </div>
   );
 }
@@ -261,11 +258,11 @@ export function Pagination({
 }) {
   if (total === 0) return null;
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderTop: "1px solid var(--line)", background: "var(--panel2)" }}>
+    <div className="pagination">
       <span className="count-chip">
         {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
       </span>
-      <div style={{ display: "flex", gap: 6 }}>
+      <div className="pg-right">
         <button className="btn bs bg" onClick={() => onPageChange(page - 1)} disabled={page <= 1}>← Prev</button>
         <span className="count-chip">Page {page} / {Math.max(totalPages, 1)}</span>
         <button className="btn bs bg" onClick={() => onPageChange(page + 1)} disabled={page >= totalPages}>Next →</button>
@@ -277,7 +274,7 @@ export function Pagination({
 // ============ SectionLabel ============
 export function SectionLabel({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <p className={cn("navsec", className)} style={{ padding: "0 0 8px" }}>
+    <p className={cn("navsec sec-label", className)}>
       {children}
     </p>
   );

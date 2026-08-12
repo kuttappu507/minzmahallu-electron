@@ -36,11 +36,7 @@ const emptyForm: Partial<Marriage> = {
   mahar: "", place: "", remarks: "",
 };
 
-const codeFontStyle: React.CSSProperties = {
-  fontFamily: "'Space Grotesk', sans-serif",
-  fontWeight: 700,
-  letterSpacing: "0.03em",
-};
+const codeFontStyle = "code-text-sm";
 
 export function Marriages() {
   const { t } = useI18n();
@@ -61,7 +57,7 @@ export function Marriages() {
 
   const handleSave = async () => {
     if (!form.bride_name || !form.groom_name || !form.nikah_date) {
-      toast.error("Bride, Groom and Nikah Date are required");
+      toast.error(t("ui_bride_groom_date_required"));
       return;
     }
     try {
@@ -95,7 +91,7 @@ export function Marriages() {
       setEditingId(null);
       refetch();
     } catch (err: any) {
-      toast.error(err.message || "Failed to save");
+      toast.error(err.message || t("ui_failed_save"));
     }
   };
 
@@ -115,7 +111,7 @@ export function Marriages() {
     if (pendingDeleteId == null) return;
     try {
       await window.mms.marriages.remove(pendingDeleteId);
-      toast.success("Deleted");
+      toast.success(t("ui_record_deleted"));
       refetch();
     } catch (err: any) {
       toast.error(err.message);
@@ -142,7 +138,7 @@ export function Marriages() {
     {
       header: t("mrg_number"),
       accessor: (r) => (
-        <span style={codeFontStyle} className="text-primary">
+        <span className={codeFontStyle + " text-primary"}>
           {r.marriage_number}
         </span>
       ),
@@ -178,13 +174,13 @@ export function Marriages() {
         { k: t("mrg_bride_father"), v: previewRow.bride_father || "—" },
         { k: t("mrg_groom"), v: previewRow.groom_name },
         { k: t("mrg_groom_father"), v: previewRow.groom_father || "—" },
-        { k: "Witness 1", v: previewRow.witness1 || "—" },
-        { k: "Witness 2", v: previewRow.witness2 || "—" },
-        { k: "Witness 3", v: previewRow.witness3 || "—" },
-        { k: "Witness 4", v: previewRow.witness4 || "—" },
-        { k: "Bride Address", v: previewRow.bride_address || "—", full: true },
-        { k: "Groom Address", v: previewRow.groom_address || "—", full: true },
-        { k: "Remarks", v: previewRow.remarks || "—", full: true },
+        { k: `${t("ui_witness_n")} 1`, v: previewRow.witness1 || "—" },
+        { k: `${t("ui_witness_n")} 2`, v: previewRow.witness2 || "—" },
+        { k: `${t("ui_witness_n")} 3`, v: previewRow.witness3 || "—" },
+        { k: `${t("ui_witness_n")} 4`, v: previewRow.witness4 || "—" },
+        { k: t("ui_bride_address"), v: previewRow.bride_address || "—", full: true },
+        { k: t("ui_groom_address"), v: previewRow.groom_address || "—", full: true },
+        { k: t("ui_remarks"), v: previewRow.remarks || "—", full: true },
       ]
     : [];
 
@@ -196,7 +192,7 @@ export function Marriages() {
         </div>
         <div>
           <h1>{t("mrg_title")}</h1>
-          <div className="vs">Nikah records and registrations</div>
+          <div className="vs">{t("mrg_subtitle")}</div>
         </div>
         <div className="vr">
           <Button onClick={() => { setForm(emptyForm); setEditingId(null); setDialogOpen(true); }}>
@@ -227,37 +223,18 @@ export function Marriages() {
         onClose={() => { setPreviewOpen(false); setPreviewRow(null); }}
         title={t("mrg_title")}
       >
-        <div style={{ padding: "2px 0" }}>
+        <div className="dlg-pad">
           {previewRow && (
             <>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  padding: "12px 14px",
-                  marginBottom: 14,
-                  background: "var(--sb)",
-                  border: "1.5px solid var(--sl)",
-                  borderRadius: 14,
-                }}
-                className="t-em"
-              >
-                <div
-                  style={{
-                    width: 48, height: 48, borderRadius: 14, flex: "none",
-                    background: "var(--sc)", color: "#fff",
-                    display: "grid", placeItems: "center",
-                    boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
-                  }}
-                >
+              <div className="dlg-hero t-em">
+                <div className="dlg-hero-ic">
                   <Heart size={20} />
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ font: "700 16px 'Space Grotesk'", color: "var(--st)" }}>
-                    {previewRow.bride_name} &nbsp;♠&nbsp; {previewRow.groom_name}
+                <div className="dlg-hero-body">
+                  <div className="dlg-hero-title">
+                    {previewRow.bride_name} <span className="heart-sep">♥</span> {previewRow.groom_name}
                   </div>
-                  <div style={{ font: "700 11px Poppins", color: "var(--st)", marginTop: 2 }}>
+                  <div className="dlg-hero-sub">
                     {previewRow.marriage_number} · {formatDate(previewRow.nikah_date)}
                   </div>
                 </div>
@@ -273,7 +250,7 @@ export function Marriages() {
               </div>
             </>
           )}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+          <div className="dlg-actions">
             <Button variant="secondary" onClick={() => { setPreviewOpen(false); setPreviewRow(null); }}>
               {t("ui_close")}
             </Button>
@@ -305,7 +282,7 @@ export function Marriages() {
                 <Input value={form.bride_father || ""} onChange={(e) => setForm({ ...form, bride_father: e.target.value })} />
               </div>
               <div className="col-span-2">
-                <Label>Bride Address</Label>
+                <Label>{t("ui_bride_address")}</Label>
                 <Textarea rows={2} value={form.bride_address || ""} onChange={(e) => setForm({ ...form, bride_address: e.target.value })} />
               </div>
             </div>
@@ -324,7 +301,7 @@ export function Marriages() {
                 <Input value={form.groom_father || ""} onChange={(e) => setForm({ ...form, groom_father: e.target.value })} />
               </div>
               <div className="col-span-2">
-                <Label>Groom Address</Label>
+                <Label>{t("ui_groom_address")}</Label>
                 <Textarea rows={2} value={form.groom_address || ""} onChange={(e) => setForm({ ...form, groom_address: e.target.value })} />
               </div>
             </div>
@@ -335,19 +312,19 @@ export function Marriages() {
             <SectionLabel>Witnesses</SectionLabel>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Witness 1</Label>
+                <Label>{t("ui_witness_n")} 1</Label>
                 <Input value={form.witness1 || ""} onChange={(e) => setForm({ ...form, witness1: e.target.value })} />
               </div>
               <div>
-                <Label>Witness 2</Label>
+                <Label>{t("ui_witness_n")} 2</Label>
                 <Input value={form.witness2 || ""} onChange={(e) => setForm({ ...form, witness2: e.target.value })} />
               </div>
               <div>
-                <Label>Witness 3</Label>
+                <Label>{t("ui_witness_n")} 3</Label>
                 <Input value={form.witness3 || ""} onChange={(e) => setForm({ ...form, witness3: e.target.value })} />
               </div>
               <div>
-                <Label>Witness 4</Label>
+                <Label>{t("ui_witness_n")} 4</Label>
                 <Input value={form.witness4 || ""} onChange={(e) => setForm({ ...form, witness4: e.target.value })} />
               </div>
             </div>
@@ -374,7 +351,7 @@ export function Marriages() {
                 <Input type="date" value={form.registration_date || ""} onChange={(e) => setForm({ ...form, registration_date: e.target.value })} />
               </div>
               <div className="col-span-2">
-                <Label>Remarks</Label>
+                <Label>{t("ui_remarks")}</Label>
                 <Textarea rows={2} value={form.remarks || ""} onChange={(e) => setForm({ ...form, remarks: e.target.value })} />
               </div>
             </div>
@@ -392,8 +369,8 @@ export function Marriages() {
         open={confirmOpen}
         onClose={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
         onConfirm={handleDeleteConfirm}
-        title="Confirm Delete"
-        confirmLabel="Delete Marriage"
+        title={t("ui_confirm_delete")}
+        confirmLabel={t("ui_delete_marriage_label")}
       />
     </div>
   );

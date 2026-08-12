@@ -80,9 +80,9 @@ export function DataTable<T>({
         <Table headers={columns.map((c) => c.header)}>
           {loading ? (
             <tr>
-              <td colSpan={columns.length} className="px-4 py-16">
+              <td colSpan={columns.length} className="row-loading">
                 <div className="flex flex-col items-center justify-center gap-3">
-                  <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                  <div className="spinner-sm" />
                   <p className="text-sm text-text-tertiary">Loading...</p>
                 </div>
               </td>
@@ -104,15 +104,13 @@ export function DataTable<T>({
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.15, delay: Math.min(i * 0.02, 0.3) }}
-                className="border-b border-border-subtle transition-colors hover:bg-surface-hover/50"
+                className={`border-b border-border-subtle transition-colors hover:bg-surface-hover/50 ${onRowDoubleClick ? "row-clickable" : ""}`}
                 onDoubleClick={onRowDoubleClick ? () => onRowDoubleClick(row) : undefined}
-                style={onRowDoubleClick ? { cursor: "pointer" } : undefined}
               >
                 {columns.map((col, ci) => (
                   <td
                     key={ci}
-                    className={`px-4 py-3 text-text-primary ${col.className || ""}`}
-                    style={{ textAlign: col.align || "left", width: col.width }}
+                    className={`px-4 py-3 text-text-primary ${col.className || ""} ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : ""}`}
                   >
                     {col.accessor(row)}
                   </td>

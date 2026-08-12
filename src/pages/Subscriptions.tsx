@@ -36,11 +36,7 @@ const emptyForm: Partial<Subscription> = {
   payment_method: "Cash", transaction_ref: "", status: "Pending", remarks: "",
 };
 
-const codeFontStyle: React.CSSProperties = {
-  fontFamily: "'Space Grotesk', sans-serif",
-  fontWeight: 700,
-  letterSpacing: "0.03em",
-};
+const codeFontStyle = "code-text-sm";
 
 export function Subscriptions() {
   const { t } = useI18n();
@@ -79,7 +75,7 @@ export function Subscriptions() {
 
   const handleSave = async () => {
     if (!form.family_id || !form.amount) {
-      toast.error("Family and Amount are required");
+      toast.error(t("ui_family_amount_required"));
       return;
     }
     try {
@@ -111,7 +107,7 @@ export function Subscriptions() {
       setEditingId(null);
       refetch();
     } catch (err: any) {
-      toast.error(err.message || "Failed to save");
+      toast.error(err.message || t("ui_failed_save"));
     }
   };
 
@@ -131,7 +127,7 @@ export function Subscriptions() {
     if (pendingDeleteId == null) return;
     try {
       await window.mms.subscriptions.remove(pendingDeleteId);
-      toast.success("Deleted");
+      toast.success(t("ui_record_deleted"));
       refetch();
     } catch (err: any) {
       toast.error(err.message);
@@ -168,7 +164,7 @@ export function Subscriptions() {
     {
       header: t("sub_receipt"),
       accessor: (r) => (
-        <span style={codeFontStyle} className="text-primary">
+        <span className={codeFontStyle + " text-primary"}>
           {r.receipt_number || "—"}
         </span>
       ),
@@ -211,9 +207,9 @@ export function Subscriptions() {
         { k: t("sub_period_end"), v: formatDate(previewRow.period_end) },
         { k: t("sub_payment_date"), v: formatDate(previewRow.payment_date) },
         { k: t("sub_method"), v: previewRow.payment_method || "—" },
-        { k: "Transaction Ref", v: previewRow.transaction_ref || "—" },
+        { k: t("ui_transaction_ref"), v: previewRow.transaction_ref || "—" },
         { k: t("family_status"), v: previewRow.status },
-        { k: "Remarks", v: previewRow.remarks || "—", full: true },
+        { k: t("ui_remarks"), v: previewRow.remarks || "—", full: true },
       ]
     : [];
 
@@ -240,7 +236,7 @@ export function Subscriptions() {
       </div>
 
       {/* Summary cards */}
-      <div className="stat-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+      <div className="stat-grid stat-grid-2">
         <div className="stat t-em">
           <div className="srow">
             <span className="sic"><Wallet size={18} /></span>
@@ -289,37 +285,18 @@ export function Subscriptions() {
         onClose={() => { setPreviewOpen(false); setPreviewRow(null); }}
         title={t("sub_title")}
       >
-        <div style={{ padding: "2px 0" }}>
+        <div className="dlg-pad">
           {previewRow && (
             <>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  padding: "12px 14px",
-                  marginBottom: 14,
-                  background: "var(--sb)",
-                  border: "1.5px solid var(--sl)",
-                  borderRadius: 14,
-                }}
-                className="t-em"
-              >
-                <div
-                  style={{
-                    width: 48, height: 48, borderRadius: 14, flex: "none",
-                    background: "var(--sc)", color: "#fff",
-                    display: "grid", placeItems: "center",
-                    boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
-                  }}
-                >
+              <div className="dlg-hero t-em">
+                <div className="dlg-hero-ic">
                   <Eye size={20} />
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ font: "700 16px 'Space Grotesk'", color: "var(--st)" }}>
+                <div className="dlg-hero-body">
+                  <div className="dlg-hero-title">
                     {previewRow.receipt_number}
                   </div>
-                  <div style={{ font: "700 11px Poppins", color: "var(--st)", marginTop: 2 }}>
+                  <div className="dlg-hero-sub">
                     {previewRow.member_name || previewRow.family_number || "—"}
                   </div>
                 </div>
@@ -335,7 +312,7 @@ export function Subscriptions() {
               </div>
             </>
           )}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+          <div className="dlg-actions">
             <Button variant="secondary" onClick={() => { setPreviewOpen(false); setPreviewRow(null); }}>
               {t("ui_close")}
             </Button>
@@ -424,7 +401,7 @@ export function Subscriptions() {
             </div>
           </div>
           <div>
-            <Label>Remarks</Label>
+            <Label>{t("ui_remarks")}</Label>
             <Textarea rows={2} value={form.remarks || ""} onChange={(e) => setForm({ ...form, remarks: e.target.value })} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -439,8 +416,8 @@ export function Subscriptions() {
         open={confirmOpen}
         onClose={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
         onConfirm={handleDeleteConfirm}
-        title="Confirm Delete"
-        confirmLabel="Delete Subscription"
+        title={t("ui_confirm_delete")}
+        confirmLabel={t("ui_delete_subscription_label")}
       />
     </div>
   );

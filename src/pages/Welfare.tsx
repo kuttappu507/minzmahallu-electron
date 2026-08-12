@@ -31,11 +31,7 @@ const emptyForm: Partial<Welfare> = {
   amount_requested: 0, amount_approved: 0, reason: "", remarks: "", status: "Pending",
 };
 
-const codeFontStyle: React.CSSProperties = {
-  fontFamily: "'Space Grotesk', sans-serif",
-  fontWeight: 700,
-  letterSpacing: "0.03em",
-};
+const codeFontStyle = "code-text-sm";
 
 export function Welfare() {
   const { t } = useI18n();
@@ -70,7 +66,7 @@ export function Welfare() {
 
   const handleSave = async () => {
     if (!form.applicant_name || !form.amount_requested) {
-      toast.error("Applicant Name and Requested Amount are required");
+      toast.error(t("ui_applicant_amount_required"));
       return;
     }
     try {
@@ -96,7 +92,7 @@ export function Welfare() {
       setEditingId(null);
       refetch();
     } catch (err: any) {
-      toast.error(err.message || "Failed to save");
+      toast.error(err.message || t("ui_failed_save"));
     }
   };
 
@@ -119,7 +115,7 @@ export function Welfare() {
     if (pendingDeleteId == null) return;
     try {
       await window.mms.welfare.remove(pendingDeleteId);
-      toast.success("Deleted");
+      toast.success(t("ui_record_deleted"));
       refetch();
     } catch (err: any) {
       toast.error(err.message);
@@ -146,7 +142,7 @@ export function Welfare() {
     if (!editingId) return;
     try {
       await window.mms.welfare.approve(editingId, approveAmount, approveRemarks);
-      toast.success("Request approved");
+      toast.success(t("ui_request_approved"));
       setDialogOpen(false);
       refetch();
     } catch (err: any) {
@@ -157,12 +153,12 @@ export function Welfare() {
   const handleReject = async () => {
     if (!editingId) return;
     if (!rejectReason) {
-      toast.error("Rejection reason is required");
+      toast.error(t("ui_rejection_required"));
       return;
     }
     try {
       await window.mms.welfare.reject(editingId, rejectReason);
-      toast.success("Request rejected");
+      toast.success(t("ui_request_rejected"));
       setDialogOpen(false);
       refetch();
     } catch (err: any) {
@@ -173,7 +169,7 @@ export function Welfare() {
   const handleDisburse = async (id: number) => {
     try {
       await window.mms.welfare.disburse(id);
-      toast.success("Marked as disbursed");
+      toast.success(t("ui_marked_disbursed"));
       refetch();
     } catch (err: any) {
       toast.error(err.message);
@@ -184,7 +180,7 @@ export function Welfare() {
     {
       header: t("wel_request_no"),
       accessor: (r) => (
-        <span style={codeFontStyle} className="text-primary">
+        <span className={codeFontStyle + " text-primary"}>
           {r.request_number}
         </span>
       ),
@@ -226,12 +222,12 @@ export function Welfare() {
         { k: t("wel_amount_requested"), v: formatCurrency(previewRow.amount_requested) },
         { k: t("wel_amount_approved"), v: formatCurrency(previewRow.amount_approved) },
         { k: t("family_status"), v: previewRow.status },
-        { k: "Request Date", v: previewRow.request_date || "—" },
-        { k: "Processed Date", v: previewRow.processed_date || "—" },
-        { k: "Disbursed Date", v: previewRow.disbursed_date || "—" },
+        { k: t("ui_request_date"), v: previewRow.request_date || "—" },
+        { k: t("ui_processed_date"), v: previewRow.processed_date || "—" },
+        { k: t("ui_disbursed_date"), v: previewRow.disbursed_date || "—" },
         { k: t("wel_reason"), v: previewRow.reason || "—", full: true },
-        { k: "Remarks", v: previewRow.remarks || "—", full: true },
-        { k: "Rejection Reason", v: previewRow.rejection_reason || "—", full: true },
+        { k: t("ui_remarks"), v: previewRow.remarks || "—", full: true },
+        { k: t("ui_rejection_reason"), v: previewRow.rejection_reason || "—", full: true },
       ]
     : [];
 
@@ -254,7 +250,7 @@ export function Welfare() {
       </div>
 
       {/* Summary cards */}
-      <div className="stat-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+      <div className="stat-grid stat-grid-2">
         <div className="stat t-em">
           <div className="srow">
             <span className="sic"><ShieldCheck size={18} /></span>
@@ -303,37 +299,18 @@ export function Welfare() {
         onClose={() => { setPreviewOpen(false); setPreviewRow(null); }}
         title={t("wel_title")}
       >
-        <div style={{ padding: "2px 0" }}>
+        <div className="dlg-pad">
           {previewRow && (
             <>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  padding: "12px 14px",
-                  marginBottom: 14,
-                  background: "var(--sb)",
-                  border: "1.5px solid var(--sl)",
-                  borderRadius: 14,
-                }}
-                className="t-em"
-              >
-                <div
-                  style={{
-                    width: 48, height: 48, borderRadius: 14, flex: "none",
-                    background: "var(--sc)", color: "#fff",
-                    display: "grid", placeItems: "center",
-                    boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
-                  }}
-                >
+              <div className="dlg-hero t-em">
+                <div className="dlg-hero-ic">
                   <Eye size={20} />
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ font: "700 16px 'Space Grotesk'", color: "var(--st)" }}>
+                <div className="dlg-hero-body">
+                  <div className="dlg-hero-title">
                     {previewRow.applicant_name}
                   </div>
-                  <div style={{ font: "700 11px Poppins", color: "var(--st)", marginTop: 2 }}>
+                  <div className="dlg-hero-sub">
                     {previewRow.request_number} · {formatCurrency(previewRow.amount_requested)}
                   </div>
                 </div>
@@ -349,7 +326,7 @@ export function Welfare() {
               </div>
             </>
           )}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+          <div className="dlg-actions">
             <Button variant="secondary" onClick={() => { setPreviewOpen(false); setPreviewRow(null); }}>
               {t("ui_close")}
             </Button>
@@ -412,14 +389,14 @@ export function Welfare() {
             <Textarea rows={2} value={form.reason || ""} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
           </div>
           <div>
-            <Label>Remarks</Label>
+            <Label>{t("ui_remarks")}</Label>
             <Textarea rows={2} value={form.remarks || ""} onChange={(e) => setForm({ ...form, remarks: e.target.value })} />
           </div>
 
           {/* Workflow actions for pending */}
           {editingId && form.status === "Pending" && (
             <>
-              <div className="border-t border-border pt-4">
+              <div className="sec-divider">
                 <SectionLabel>{t("wel_approve_request")}</SectionLabel>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -427,7 +404,7 @@ export function Welfare() {
                     <Input type="number" value={approveAmount || ""} onChange={(e) => setApproveAmount(Number(e.target.value))} />
                   </div>
                   <div>
-                    <Label>Remarks</Label>
+                    <Label>{t("ui_remarks")}</Label>
                     <Input value={approveRemarks} onChange={(e) => setApproveRemarks(e.target.value)} />
                   </div>
                 </div>
@@ -438,10 +415,10 @@ export function Welfare() {
                   </Button>
                 </div>
               </div>
-              <div className="border-t border-border pt-4">
+              <div className="sec-divider">
                 <SectionLabel>{t("wel_reject_request")}</SectionLabel>
                 <div>
-                  <Label>Rejection Reason *</Label>
+                  <Label>{t("ui_rejection_reason")} *</Label>
                   <Textarea rows={2} value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
                 </div>
                 <div className="flex gap-2 mt-3">
@@ -455,7 +432,7 @@ export function Welfare() {
           )}
 
           {editingId && form.status === "Approved" && (
-            <div className="border-t border-border pt-4">
+            <div className="sec-divider">
               <SectionLabel>{t("wel_mark_disbursed")}</SectionLabel>
               <Button onClick={() => editingId && handleDisburse(editingId)}>
                 <Send className="h-4 w-4" />
@@ -464,7 +441,7 @@ export function Welfare() {
             </div>
           )}
 
-          <div className="flex justify-end gap-2 pt-2 border-t border-border">
+          <div className="flex justify-end gap-2 pt-2 sec-divider">
             <Button variant="secondary" onClick={() => setDialogOpen(false)}>{t("action_cancel")}</Button>
             <Button onClick={handleSave}>{t("action_save")}</Button>
           </div>
@@ -476,8 +453,8 @@ export function Welfare() {
         open={confirmOpen}
         onClose={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
         onConfirm={handleDeleteConfirm}
-        title="Confirm Delete"
-        confirmLabel="Delete Request"
+        title={t("ui_confirm_delete")}
+        confirmLabel={t("ui_delete_request_label")}
       />
     </div>
   );

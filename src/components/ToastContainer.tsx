@@ -6,13 +6,13 @@ export function ToastContainer() {
   const { toasts, dismiss } = useToastStore();
 
   return (
-    <div style={{ position: "absolute", right: 18, bottom: 42, zIndex: 130, display: "flex", flexDirection: "column", gap: 9, alignItems: "flex-end" }}>
+    <div className="toast-container">
       {toasts.map((t) => {
         const icon = {
           success: <CheckCircle2 size={15} className="text-em" />,
-          error: <AlertCircle size={15} style={{ color: "#e8556e" }} />,
-          warning: <AlertTriangle size={15} style={{ color: "#e0a50d" }} />,
-          info: <Info size={15} style={{ color: "#2b9be0" }} />,
+          error: <AlertCircle size={15} className="toast-ic-err" />,
+          warning: <AlertTriangle size={15} className="toast-ic-warn" />,
+          info: <Info size={15} className="toast-ic-info" />,
         }[t.type];
 
         const cls = {
@@ -28,7 +28,7 @@ export function ToastContainer() {
             <span>{t.message}</span>
             <button
               onClick={() => dismiss(t.id)}
-              style={{ background: "none", border: 0, color: "var(--fnt)", cursor: "pointer", padding: 0, marginLeft: 4 }}
+              className="toast-close"
             >
               <X size={14} />
             </button>

@@ -28,20 +28,18 @@ export function Splash({ onDone }: { onDone: () => void }) {
   }, [onDone]);
 
   return (
-    <div className={`splash-overlay ${out ? "out" : ""}`}>
-      <div className="splash-box t-em">
-        <div className="splash-logo">
-          <b>M</b>
-        </div>
-        <div style={{ textAlign: "center" }}>
-          <div className="splash-title">MMS</div>
-          <div className="splash-sub">Minz Mahallu</div>
-        </div>
-        <div className="splash-progress">
-          <i />
-        </div>
-        <div className="splash-status">{status}</div>
+    <div className={`splash-box-only ${out ? "out" : ""}`}>
+      <div className="splash-logo">
+        <img src="/logo.svg" alt="MMS" />
       </div>
+      <div className="splash-text-group">
+        <div className="splash-title">MMS</div>
+        <div className="splash-sub">Minz Mahallu</div>
+      </div>
+      <div className="splash-progress">
+        <i />
+      </div>
+      <div className="splash-status">{status}</div>
     </div>
   );
 }

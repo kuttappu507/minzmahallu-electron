@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import {
   Ticket, CalendarDays, CheckCircle2, RefreshCw, Eye, EyeOff,
+  FileText, Printer, Loader2,
 } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { Button } from "@/components/ui";
@@ -113,6 +114,62 @@ function makeInitialEvents(): TokenEvent[] {
   ];
 }
 
+function escapeHtml(v: any): string {
+  if (v === null || v === undefined) return "";
+  return String(v)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function buildTokensPdfHtml(eventName: string, tokens: TokenRow[]): string {
+  const head = `<th>#</th><th>Token Code</th><th>Family</th><th>Family No</th><th>Status</th>`;
+  const body = tokens
+    .map((tk, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(tk.code)}</td><td>${escapeHtml(tk.familyName)}</td><td>${escapeHtml(tk.familyNumber)}</td><td>${tk.collected ? "Collected" : "Pending"}</td></tr>`)
+    .join("");
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(eventName)} — Tokens</title>
+<style>
+  body { font: 400 12px Poppins, system-ui, sans-serif; color: #1e2b25; margin: 24px; }
+  h1 { font: 600 20px Poppins, sans-serif; margin: 0 0 4px; }
+  .sub { color: #5f7268; font-size: 11px; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { background: #f6f9f6; text-align: left; padding: 8px 10px; border: 1px solid #e6ede7; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.1em; color: #5f7268; font-weight: 600; }
+  td { padding: 7px 10px; border: 1px solid #e6ede7; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8faf8; }
+  .foot { margin-top: 18px; color: #8ba096; font-size: 10px; }
+</style></head><body>
+  <h1>${escapeHtml(eventName)} — Token Sheet</h1>
+  <div class="sub">Generated ${new Date().toLocaleString("en-IN")} · ${tokens.length} tokens</div>
+  <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+  <div class="foot">Minz Mahallu Management System · Token Distribution Sheet</div>
+</body></html>`;
+}
+
+function buildReceivedSheetPdfHtml(eventName: string, tokens: TokenRow[]): string {
+  const collected = tokens.filter((tk) => tk.collected);
+  const head = `<th>#</th><th>Token Code</th><th>Family</th><th>Family No</th><th>Collected At</th><th>Signature</th>`;
+  const body = collected
+    .map((tk, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(tk.code)}</td><td>${escapeHtml(tk.familyName)}</td><td>${escapeHtml(tk.familyNumber)}</td><td>${tk.collectedAt ? new Date(tk.collectedAt).toLocaleString("en-IN") : "—"}</td><td></td></tr>`)
+    .join("");
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(eventName)} — Received Sheet</title>
+<style>
+  body { font: 400 12px Poppins, system-ui, sans-serif; color: #1e2b25; margin: 24px; }
+  h1 { font: 600 20px Poppins, sans-serif; margin: 0 0 4px; }
+  .sub { color: #5f7268; font-size: 11px; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { background: #f6f9f6; text-align: left; padding: 10px 10px; border: 1px solid #e6ede7; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.1em; color: #5f7268; font-weight: 600; }
+  td { padding: 14px 10px; border: 1px solid #e6ede7; vertical-align: top; min-height: 30px; }
+  tr:nth-child(even) td { background: #f8faf8; }
+  .foot { margin-top: 18px; color: #8ba096; font-size: 10px; }
+</style></head><body>
+  <h1>${escapeHtml(eventName)} — Received Sheet</h1>
+  <div class="sub">Generated ${new Date().toLocaleString("en-IN")} · ${collected.length} of ${tokens.length} tokens collected</div>
+  <table><thead><tr>${head}</tr></thead><tbody>${body || '<tr><td colspan="6" style="text-align:center;padding:30px;">No tokens collected yet</td></tr>'}</tbody></table>
+  <div class="foot">Minz Mahallu Management System · Received Token Sheet</div>
+</body></html>`;
+}
+
 export function Tokens() {
   const { t } = useI18n();
 
@@ -121,6 +178,7 @@ export function Tokens() {
   const [filter, setFilter] = useState<"all" | "collected" | "pending">("all");
   const [search, setSearch] = useState("");
   const [poppingId, setPoppingId] = useState<number | null>(null);
+  const [pdfLoading, setPdfLoading] = useState<null | "tokens" | "received">(null);
 
   const activeEvent = useMemo(
     () => events.find((e) => e.id === activeEventId) || events[0],
@@ -188,8 +246,8 @@ export function Tokens() {
             }
       )
     );
-    toast.info(`Token board reset for ${activeEvent?.name}`);
-  }, [activeEventId, activeEvent]);
+    toast.info(`${t("tok_reset_done")} ${activeEvent?.name}`);
+  }, [activeEventId, activeEvent, t]);
 
   const handleMarkAllCollected = useCallback(() => {
     setEvents((prev) =>
@@ -206,8 +264,38 @@ export function Tokens() {
             }
       )
     );
-    toast.success(`All tokens collected for ${activeEvent?.name}`);
-  }, [activeEventId, activeEvent]);
+    toast.success(`${t("tok_all_collected")} ${activeEvent?.name}`);
+  }, [activeEventId, activeEvent, t]);
+
+  const handleGenerateTokensPdf = async () => {
+    if (!activeEvent) return;
+    setPdfLoading("tokens");
+    try {
+      const html = buildTokensPdfHtml(activeEvent.name, activeEvent.tokens);
+      const fileName = `tokens_${activeEvent.type}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      await window.mms.pdf.generate(html, fileName);
+      toast.success(t("tok_pdf_success"));
+    } catch (err: any) {
+      toast.error(err.message || t("tok_pdf_failed"));
+    } finally {
+      setPdfLoading(null);
+    }
+  };
+
+  const handlePrintReceivedSheet = async () => {
+    if (!activeEvent) return;
+    setPdfLoading("received");
+    try {
+      const html = buildReceivedSheetPdfHtml(activeEvent.name, activeEvent.tokens);
+      const fileName = `received_${activeEvent.type}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      await window.mms.pdf.generate(html, fileName);
+      toast.success(t("tok_pdf_success"));
+    } catch (err: any) {
+      toast.error(err.message || t("tok_pdf_failed"));
+    } finally {
+      setPdfLoading(null);
+    }
+  };
 
   return (
     <div className="view view-enter">
@@ -217,23 +305,31 @@ export function Tokens() {
         </div>
         <div>
           <h1>{t("nav_tokens")}</h1>
-          <div className="vs">Issue and track token distributions for community events.</div>
+          <div className="vs">{t("tok_subtitle")}</div>
         </div>
         <div className="vr">
+          <Button variant="secondary" onClick={handleGenerateTokensPdf} disabled={pdfLoading !== null}>
+            {pdfLoading === "tokens" ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+            {t("tok_generate_pdf")}
+          </Button>
+          <Button variant="secondary" onClick={handlePrintReceivedSheet} disabled={pdfLoading !== null}>
+            {pdfLoading === "received" ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
+            {t("tok_print_received")}
+          </Button>
           <Button variant="secondary" onClick={handleReset}>
             <RefreshCw size={14} />
-            Reset Board
+            {t("tok_reset_board")}
           </Button>
           <Button onClick={handleMarkAllCollected}>
             <CheckCircle2 size={14} />
-            Mark All Collected
+            {t("tok_mark_all")}
           </Button>
         </div>
       </div>
 
       {/* Event selector strip */}
       <div className="toolbar">
-        <span className="count-chip" style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+        <span className="count-chip flex items-center gap-2">
           <CalendarDays size={12} />
           {activeEvent?.date ? formatDate(activeEvent.date) : "—"}
         </span>
@@ -242,7 +338,7 @@ export function Tokens() {
         >
           {activeEvent?.status?.toUpperCase()}
         </span>
-        <div className="chiprow" style={{ marginLeft: 8 }}>
+        <div className="chiprow ml-2">
           {events.map((ev) => (
             <button
               key={ev.id}
@@ -253,7 +349,7 @@ export function Tokens() {
                 setSearch("");
               }}
             >
-              <Ticket size={12} style={{ display: "inline", marginRight: 5, verticalAlign: -1 }} />
+              <Ticket size={12} className="ic-inline-sm" />
               {ev.name}
             </button>
           ))}
@@ -267,34 +363,26 @@ export function Tokens() {
         </div>
         <div className="ts-meta">
           <b>{activeEvent?.name}</b>
-          <small>Distribution Progress</small>
+          <small>{t("tok_distribution_progress")}</small>
         </div>
         <div className="ts-prog">
           <div className="ts-bar">
             <i style={{ width: `${stats.pct}%` }} />
           </div>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              font: "700 10.5px Poppins",
-              color: "var(--fnt)",
-              letterSpacing: "0.1em",
-            }}
-          >
-            <span>{stats.pct}% COLLECTED</span>
+          <div className="tok-progress-label">
+            <span>{stats.pct}% {t("tok_collected_pct")}</span>
             <span>
               {stats.collected} / {stats.total}
             </span>
           </div>
         </div>
         <div className="ts-stats">
-          <span className="count-chip">Total · {stats.total}</span>
-          <span className="count-chip" style={{ color: "var(--c-em)", borderColor: "var(--c-em)" }}>
-            Collected · {stats.collected}
+          <span className="count-chip">{t("tok_total")} · {stats.total}</span>
+          <span className="count-chip em">
+            {t("tok_collected")} · {stats.collected}
           </span>
-          <span className="count-chip" style={{ color: "var(--c-gold)", borderColor: "var(--c-gold)" }}>
-            Pending · {stats.pending}
+          <span className="count-chip gold">
+            {t("tok_pending")} · {stats.pending}
           </span>
         </div>
       </div>
@@ -303,34 +391,33 @@ export function Tokens() {
       <div className="tok-main">
         <div className="tok-board">
           <div className="tb-head">
-            <b>Token Board</b>
-            <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
+            <b>{t("tok_board")}</b>
+            <div className="flex gap-2 items-center flex-wrap">
               <div className="chiprow">
                 <button
                   className={`fchip ${filter === "all" ? "on" : ""}`}
                   onClick={() => setFilter("all")}
                 >
-                  All ({stats.total})
+                  {t("ui_all")} ({stats.total})
                 </button>
                 <button
                   className={`fchip t-em ${filter === "collected" ? "on" : ""}`}
                   onClick={() => setFilter("collected")}
                 >
-                  <Eye size={12} style={{ display: "inline", marginRight: 4, verticalAlign: -1 }} />
-                  Collected ({stats.collected})
+                  <Eye size={12} className="ic-inline-sm" />
+                  {t("tok_collected")} ({stats.collected})
                 </button>
                 <button
                   className={`fchip t-gold ${filter === "pending" ? "on" : ""}`}
                   onClick={() => setFilter("pending")}
                 >
-                  <EyeOff size={12} style={{ display: "inline", marginRight: 4, verticalAlign: -1 }} />
-                  Pending ({stats.pending})
+                  <EyeOff size={12} className="ic-inline-sm" />
+                  {t("tok_pending")} ({stats.pending})
                 </button>
               </div>
               <input
-                className="inp"
-                style={{ width: 200, height: 34, padding: "0 12px", fontSize: 12 }}
-                placeholder="Search code or family…"
+                className="inp tok-search-inp"
+                placeholder={t("tok_search_placeholder")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -338,8 +425,8 @@ export function Tokens() {
           </div>
 
           {visibleTokens.length === 0 ? (
-            <div className="tempty" style={{ padding: 50 }}>
-              No tokens match the current filter.
+            <div className="tempty tok-empty">
+              {t("tok_no_match")}
             </div>
           ) : (
             <div className="tok-grid">
@@ -356,7 +443,7 @@ export function Tokens() {
                   </div>
                   <div className="tstat">
                     <span className="dot" />
-                    {tk.collected ? "Collected" : "Pending"}
+                    {tk.collected ? t("tok_collected_lower") : t("tok_pending_lower")}
                   </div>
                 </div>
               ))}
@@ -366,24 +453,24 @@ export function Tokens() {
       </div>
 
       {/* Event list / sidebar */}
-      <div className="card" style={{ padding: "16px 17px", marginTop: 14 }}>
-        <div className="ch-head" style={{ marginBottom: 12 }}>
+      <div className="card card-pad-4 mt-3">
+        <div className="ch-head mb-3">
           <div>
-            <div className="ch-title">Token Events</div>
-            <div className="ch-sub">Upcoming & past distribution events</div>
+            <div className="ch-title">{t("tok_events")}</div>
+            <div className="ch-sub">{t("tok_events_sub")}</div>
           </div>
         </div>
-        <div className="tbl" style={{ boxShadow: "none" }}>
+        <div className="tbl tbl-flat">
           <table>
             <thead>
               <tr>
-                <th>Event</th>
-                <th>Type</th>
-                <th>Date</th>
-                <th>Tokens</th>
-                <th>Collected</th>
-                <th>Status</th>
-                <th style={{ width: 120 }}></th>
+                <th>{t("tok_event")}</th>
+                <th>{t("tok_type")}</th>
+                <th>{t("tok_date")}</th>
+                <th>{t("tok_tokens")}</th>
+                <th>{t("tok_collected")}</th>
+                <th>{t("tok_status")}</th>
+                <th className="col-narrow"></th>
               </tr>
             </thead>
             <tbody>
@@ -392,10 +479,10 @@ export function Tokens() {
                 return (
                   <tr key={ev.id}>
                     <td>
-                      <span style={{ font: "700 13px Poppins", color: "var(--tx)" }}>{ev.name}</span>
+                      <span className="tok-ev-name">{ev.name}</span>
                     </td>
                     <td>
-                      <span className="pill t-slate" style={{ textTransform: "capitalize" }}>
+                      <span className="pill t-slate tok-ev-type">
                         {ev.type}
                       </span>
                     </td>
@@ -404,10 +491,7 @@ export function Tokens() {
                       <span className="count-chip">{ev.tokens.length}</span>
                     </td>
                     <td>
-                      <span
-                        className="count-chip"
-                        style={{ color: "var(--c-em)", borderColor: "var(--c-em)" }}
-                      >
+                      <span className="count-chip em">
                         {collected}
                       </span>
                     </td>
@@ -418,7 +502,7 @@ export function Tokens() {
                         {ev.status.charAt(0).toUpperCase() + ev.status.slice(1)}
                       </span>
                     </td>
-                    <td style={{ textAlign: "right" }}>
+                    <td className="text-right">
                       <Button
                         variant={ev.id === activeEventId ? "primary" : "secondary"}
                         size="sm"
@@ -428,7 +512,7 @@ export function Tokens() {
                           setSearch("");
                         }}
                       >
-                        {ev.id === activeEventId ? "Selected" : "Open"}
+                        {ev.id === activeEventId ? t("tok_selected") : t("tok_open")}
                       </Button>
                     </td>
                   </tr>

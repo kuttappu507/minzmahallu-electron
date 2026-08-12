@@ -75,6 +75,70 @@ function createWindow() {
   });
 }
 
+// ===== Certificate HTML builder =====
+function buildCertificateHtml(cert: any): string {
+  const today = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+  const typeLabels: Record<string, string> = {
+    Membership: "MEMBERSHIP CERTIFICATE",
+    Residence: "RESIDENCE CERTIFICATE",
+    Marriage: "MARRIAGE CERTIFICATE",
+    Death: "DEATH CERTIFICATE",
+  };
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Poppins', Arial, sans-serif; }
+  .cert { width: 210mm; height: 297mm; padding: 20mm 18mm; position: relative; background: #fff; }
+  .border { position: absolute; top: 8mm; left: 8mm; right: 8mm; bottom: 8mm; border: 3px solid #0eab7f; border-radius: 8px; }
+  .border::before { content: ""; position: absolute; top: 3mm; left: 3mm; right: 3mm; bottom: 3mm; border: 1px solid #0eab7f; border-radius: 4px; }
+  .header { text-align: center; margin-bottom: 15mm; position: relative; }
+  .logo { width: 60px; height: 60px; border-radius: 14px; background: #0eab7f; display: inline-grid; place-items: center; margin-bottom: 8px; }
+  .logo span { font-size: 32px; font-weight: 800; color: #fff; }
+  .org { font-size: 22px; font-weight: 700; color: #1e2b25; }
+  .sub { font-size: 12px; color: #5f7268; margin-top: 2px; }
+  .title { font-size: 28px; font-weight: 700; color: #0eab7f; text-align: center; letter-spacing: 2px; margin: 10mm 0 8mm; }
+  .body { text-align: center; position: relative; }
+  .body p { font-size: 14px; color: #1e2b25; line-height: 1.8; margin-bottom: 6mm; }
+  .name { font-size: 20px; font-weight: 600; color: #0eab7f; border-bottom: 2px solid #0eab7f; display: inline-block; padding: 0 20px 4px; margin: 4mm 0; }
+  .cert-no { font-size: 12px; color: #5f7268; margin-top: 8mm; }
+  .footer { position: absolute; bottom: 25mm; left: 18mm; right: 18mm; display: flex; justify-content: space-between; }
+  .sign { text-align: center; }
+  .sign-line { width: 50mm; border-top: 1.5px solid #1e2b25; margin-bottom: 4px; }
+  .sign-label { font-size: 11px; color: #5f7268; }
+  .seal { width: 35mm; height: 35mm; border: 2px dashed #0eab7f; border-radius: 50%; display: grid; place-items: center; font-size: 10px; color: #0eab7f; text-align: center; }
+  .pattern { position: absolute; top: 0; left: 0; right: 0; bottom: 0; opacity: 0.03; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cpath d='M20 0 L40 20 L20 40 L0 20 Z' fill='none' stroke='%230eab7f' stroke-width='1'/%3E%3C/svg%3E"); pointer-events: none; }
+  </style></head><body>
+  <div class="cert">
+    <div class="border"></div>
+    <div class="pattern"></div>
+    <div class="header">
+      <div class="logo"><span>M</span></div>
+      <div class="org">Minz Mahallu Management</div>
+      <div class="sub">Community Administration</div>
+    </div>
+    <div class="title">${typeLabels[cert.type] || "CERTIFICATE"}</div>
+    <div class="body">
+      <p>This is to certify that</p>
+      <div class="name">${cert.issued_to || "—"}</div>
+      <p>is a registered member of Minz Mahallu community.</p>
+      <p>This certificate is issued on ${today} as per the records of the mahallu.</p>
+      <div class="cert-no">Certificate No: <b>${cert.certificate_number}</b><br>Date of Issue: ${today}</div>
+    </div>
+    <div class="footer">
+      <div class="sign">
+        <div class="sign-line"></div>
+        <div class="sign-label">Secretary</div>
+      </div>
+      <div class="seal">Official Seal</div>
+      <div class="sign">
+        <div class="sign-line"></div>
+        <div class="sign-label">President</div>
+      </div>
+    </div>
+  </div>
+  </body></html>`;
+}
+
 app.whenReady().then(() => {
   // ===== Force DB initialization early so we surface errors before login =====
   try {
@@ -202,6 +266,70 @@ app.whenReady().then(() => {
   ipcMain.handle("certificates:issueMarriage", (_e, marriageNum) => data.certificates.issueMarriage(marriageNum, session.user?.id ?? 1));
   ipcMain.handle("certificates:issueDeath", (_e, deathNum) => data.certificates.issueDeath(deathNum, session.user?.id ?? 1));
   ipcMain.handle("certificates:remove", (_e, id) => data.certificates.remove(id));
+
+  // ===== IPC: PDF generation (certificates + reports + tokens) =====
+  ipcMain.handle("pdf:generate", async (_e, html: string, defaultName: string) => {
+    try {
+      // Show save dialog first
+      const saveResult = await dialog.showSaveDialog(mainWindow!, {
+        title: "Save PDF",
+        defaultPath: defaultName || "document.pdf",
+        filters: [{ name: "PDF Document", extensions: ["pdf"] }],
+      });
+      if (saveResult.canceled || !saveResult.filePath) {
+        return { success: false, cancelled: true };
+      }
+
+      // Create a hidden BrowserWindow to render the HTML
+      const pdfWin = new BrowserWindow({
+        show: false,
+        webPreferences: { offscreen: true },
+      });
+      await pdfWin.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
+      // Wait for content to render
+      await new Promise(r => setTimeout(r, 500));
+      const pdfBuffer = await pdfWin.webContents.printToPDF({
+        pageSize: "A4",
+        printBackground: true,
+        margins: { top: 0, bottom: 0, left: 0, right: 0 },
+      });
+      pdfWin.close();
+      fs.writeFileSync(saveResult.filePath, pdfBuffer);
+      return { success: true, path: saveResult.filePath };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ===== IPC: Certificate PDF generation =====
+  ipcMain.handle("certificates:generatePdf", async (_e, certId: number) => {
+    try {
+      const cert = data.certificates.list({}).rows?.find((c: any) => c.id === certId);
+      if (!cert) return { success: false, error: "Certificate not found" };
+
+      const html = buildCertificateHtml(cert);
+      const saveResult = await dialog.showSaveDialog(mainWindow!, {
+        title: "Save Certificate PDF",
+        defaultPath: `certificate-${cert.certificate_number}.pdf`,
+        filters: [{ name: "PDF Document", extensions: ["pdf"] }],
+      });
+      if (saveResult.canceled || !saveResult.filePath) {
+        return { success: false, cancelled: true };
+      }
+      const pdfWin = new BrowserWindow({ show: false, webPreferences: { offscreen: true } });
+      await pdfWin.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
+      await new Promise(r => setTimeout(r, 500));
+      const pdfBuffer = await pdfWin.webContents.printToPDF({
+        pageSize: "A4", printBackground: true,
+        margins: { top: 0, bottom: 0, left: 0, right: 0 },
+      });
+      pdfWin.close();
+      fs.writeFileSync(saveResult.filePath, pdfBuffer);
+      return { success: true, path: saveResult.filePath };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
 
   // ===== IPC: Users =====
   ipcMain.handle("users:list", () => data.users.list());

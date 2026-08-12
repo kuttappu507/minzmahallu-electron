@@ -67,11 +67,11 @@ export function Users() {
 
   const handleSave = async () => {
     if (!form.username || !form.full_name) {
-      toast.error("Username and Full Name are required");
+      toast.error(t("ui_username_fullname_required"));
       return;
     }
     if (!editingId && !form.password) {
-      toast.error("Password is required");
+      toast.error(t("ui_password_required"));
       return;
     }
     try {
@@ -96,7 +96,7 @@ export function Users() {
       setEditingId(null);
       fetchUsers();
     } catch (err: any) {
-      toast.error(err.message || "Failed to save");
+      toast.error(err.message || t("ui_failed_save"));
     }
   };
 
@@ -112,7 +112,7 @@ export function Users() {
       // toggleLock(id, locked) — pass true to lock, false to unlock.
       // We want to invert current state: if currently locked → unlock (false), else → lock (true).
       await window.mms.users.toggleLock(user.id, !locked);
-      toast.success(!locked ? "User locked" : "User unlocked");
+      toast.success(!locked ? t("ui_user_locked") : t("ui_user_unlocked"));
       fetchUsers();
     } catch (err: any) {
       toast.error(err.message);
@@ -121,12 +121,12 @@ export function Users() {
 
   const handleResetPassword = async () => {
     if (!resetDialog.userId || !newPwd) {
-      toast.error("New password is required");
+      toast.error(t("tb_pwd_required"));
       return;
     }
     try {
       await window.mms.users.resetPassword(resetDialog.userId, newPwd);
-      toast.success("Password reset");
+      toast.success(t("ui_password_reset"));
       setResetDialog({ open: false, userId: null });
       setNewPwd("");
     } catch (err: any) {
@@ -143,7 +143,7 @@ export function Users() {
     if (pendingDeleteId == null) return;
     try {
       await window.mms.users.remove(pendingDeleteId);
-      toast.success("Deleted");
+      toast.success(t("ui_record_deleted"));
       fetchUsers();
     } catch (err: any) {
       toast.error(err.message);
@@ -170,7 +170,7 @@ export function Users() {
     {
       header: t("usr_username"),
       accessor: (r) => (
-        <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700 }} className="text-primary">
+        <span className="code-text-sm text-primary">
           {r.username}
         </span>
       ),
@@ -191,23 +191,23 @@ export function Users() {
         );
       },
     },
-    { header: "Last Login", accessor: (r) => formatDate(r.last_login) },
+    { header: t("usr_last_login"), accessor: (r) => formatDate(r.last_login) },
     {
       header: "",
       accessor: (r) => {
         const locked = isLocked(r);
         return (
           <div className="flex items-center gap-1 justify-end">
-            <Button variant="ghost" size="icon" title={locked ? "Unlock" : "Lock"} onClick={() => handleToggleLock(r)}>
+            <Button variant="ghost" size="icon" title={locked ? t("ui_unlock") : t("ui_lock")} onClick={() => handleToggleLock(r)}>
               {locked ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
             </Button>
-            <Button variant="ghost" size="icon" title="Reset Password" onClick={() => setResetDialog({ open: true, userId: r.id })}>
+            <Button variant="ghost" size="icon" title={t("usr_reset_password")} onClick={() => setResetDialog({ open: true, userId: r.id })}>
               <KeyRound className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => handleEdit(r)} title="Edit">
+            <Button variant="ghost" size="icon" onClick={() => handleEdit(r)} title={t("ui_edit")}>
               <Edit2 className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(r.id)} title="Delete">
+            <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(r.id)} title={t("ui_delete")}>
               <Trash2 className="h-4 w-4 text-danger" />
             </Button>
           </div>
@@ -222,10 +222,10 @@ export function Users() {
         { k: t("usr_username"), v: previewRow.username },
         { k: t("usr_full_name"), v: previewRow.full_name || "—" },
         { k: t("usr_role"), v: previewRow.role || "—" },
-        { k: t("family_status"), v: isLocked(previewRow) ? "Locked" : "Active" },
-        { k: "Must Change Pwd", v: previewRow.must_change_pwd ? "Yes" : "No" },
-        { k: "Last Login", v: formatDate(previewRow.last_login) },
-        { k: "Created At", v: formatDate(previewRow.created_at) },
+        { k: t("family_status"), v: isLocked(previewRow) ? t("usr_locked") : t("usr_unlocked") },
+        { k: t("ui_must_change_pwd"), v: previewRow.must_change_pwd ? "Yes" : "No" },
+        { k: t("usr_last_login"), v: formatDate(previewRow.last_login) },
+        { k: t("ui_created_at"), v: formatDate(previewRow.created_at) },
       ]
     : [];
 
@@ -237,7 +237,7 @@ export function Users() {
         </div>
         <div>
           <h1>{t("usr_title")}</h1>
-          <div className="vs">Manage users and access permissions</div>
+          <div className="vs">{t("usr_subtitle")}</div>
         </div>
         <div className="vr">
           <Button onClick={() => { setForm({ ...emptyForm }); setEditingId(null); setDialogOpen(true); }}>
@@ -267,43 +267,23 @@ export function Users() {
         onClose={() => { setPreviewOpen(false); setPreviewRow(null); }}
         title={t("usr_title")}
       >
-        <div style={{ padding: "2px 0" }}>
+        <div className="dlg-pad">
           {previewRow && (
             <>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  padding: "12px 14px",
-                  marginBottom: 14,
-                  background: "var(--sb)",
-                  border: "1.5px solid var(--sl)",
-                  borderRadius: 14,
-                }}
-                className="t-em"
-              >
-                <div
-                  style={{
-                    width: 48, height: 48, borderRadius: 14, flex: "none",
-                    background: "var(--sc)", color: "#fff",
-                    display: "grid", placeItems: "center",
-                    font: "700 18px 'Space Grotesk'",
-                    boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
-                  }}
-                >
+              <div className="dlg-hero t-em">
+                <div className="dlg-hero-ic">
                   {(previewRow.username || "?").charAt(0).toUpperCase()}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ font: "700 16px 'Space Grotesk'", color: "var(--st)" }}>
+                <div className="dlg-hero-body">
+                  <div className="dlg-hero-title">
                     {previewRow.full_name || previewRow.username}
                   </div>
-                  <div style={{ font: "700 11px Poppins", color: "var(--st)", marginTop: 2 }}>
+                  <div className="dlg-hero-sub">
                     @{previewRow.username} · {previewRow.role}
                   </div>
                 </div>
                 <Badge variant={isLocked(previewRow) ? "danger" : "success"}>
-                  {isLocked(previewRow) ? "Locked" : "Active"}
+                  {isLocked(previewRow) ? t("usr_locked") : t("usr_unlocked")}
                 </Badge>
               </div>
               <div className="det-grid">
@@ -316,7 +296,7 @@ export function Users() {
               </div>
             </>
           )}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+          <div className="dlg-actions">
             <Button variant="secondary" onClick={() => { setPreviewOpen(false); setPreviewRow(null); }}>
               {t("ui_close")}
             </Button>
@@ -373,17 +353,17 @@ export function Users() {
       <Dialog
         open={resetDialog.open}
         onClose={() => { setResetDialog({ open: false, userId: null }); setNewPwd(""); }}
-        title="Reset Password"
+        title={t("usr_reset_password")}
         className="max-w-md"
       >
         <div className="p-6 space-y-4">
           <div>
             <Label>{t("login_password")}</Label>
-            <Input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} placeholder="New password" autoFocus />
+            <Input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} placeholder={t("ui_new_password_placeholder")} autoFocus />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => { setResetDialog({ open: false, userId: null }); setNewPwd(""); }}>{t("action_cancel")}</Button>
-            <Button onClick={handleResetPassword}>Reset</Button>
+            <Button onClick={handleResetPassword}>{t("ui_reset_btn")}</Button>
           </div>
         </div>
       </Dialog>
@@ -393,8 +373,8 @@ export function Users() {
         open={confirmOpen}
         onClose={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
         onConfirm={handleDeleteConfirm}
-        title="Confirm Delete"
-        confirmLabel="Delete User"
+        title={t("ui_confirm_delete")}
+        confirmLabel={t("ui_delete_user_label")}
       />
     </div>
   );

@@ -76,7 +76,7 @@ export function Backup() {
       const result: any = await window.mms.backup.create();
       if (result && result.success === false) {
         if (result.error !== "cancelled") {
-          throw new Error(result.error || "Backup failed");
+          throw new Error(result.error || t("tb_backup_failed"));
         }
         // User cancelled the save dialog — silent.
         setCreating(false);
@@ -87,7 +87,7 @@ export function Backup() {
       if (!path) {
         throw new Error("Backup path not returned");
       }
-      toast.success(`Backup saved: ${basename(path)}`);
+      toast.success(`${t("tb_backup_saved")}: ${basename(path)}`);
       // Refresh the list from main process.
       await refreshList();
       // Also surface the freshly-created backup as "latest" if it isn't in the list.
@@ -101,7 +101,7 @@ export function Backup() {
         setLastBackup(synthetic);
       }
     } catch (err: any) {
-      toast.error(err.message || "Failed to create backup");
+      toast.error(err.message || t("tb_backup_failed"));
     } finally {
       setCreating(false);
     }
@@ -118,7 +118,7 @@ export function Backup() {
         </div>
         <div>
           <h1>{t("bak_title")}</h1>
-          <div className="vs">Create database snapshots for safekeeping & disaster recovery.</div>
+          <div className="vs">{t("bak_subtitle")}</div>
         </div>
         <div className="vr">
           <Button variant="secondary" onClick={refreshList} disabled={creating || loading}>
@@ -127,97 +127,68 @@ export function Backup() {
           </Button>
           <Button onClick={handleCreateBackup} disabled={creating}>
             {creating ? <Loader2 size={14} className="animate-spin" /> : <FileArchive size={14} />}
-            {creating ? "Creating..." : t("bak_create_now")}
+            {creating ? t("ui_saving") : t("bak_create_now")}
           </Button>
         </div>
       </div>
 
       {/* Stat strip */}
-      <div className="stat-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+      <div className="stat-grid stat-grid-3">
         <div className="stat t-em">
           <div className="srow">
             <span className="sic"><HardDrive size={18} /></span>
             <span className="delta">snapshots</span>
           </div>
           <div className="val">{totalBackups}</div>
-          <div className="slab">Total Backups</div>
+          <div className="slab">{t("bak_total_backups")}</div>
         </div>
         <div className="stat t-gold">
           <div className="srow">
             <span className="sic"><Clock size={18} /></span>
             <span className="delta">last run</span>
           </div>
-          <div className="val" style={{ fontSize: 18 }}>{lastBackupAt}</div>
-          <div className="slab">Most Recent Backup</div>
+          <div className="val val-sm">{lastBackupAt}</div>
+          <div className="slab">{t("bak_most_recent")}</div>
         </div>
         <div className="stat t-sky">
           <div className="srow">
             <span className="sic"><Shield size={18} /></span>
             <span className="delta">status</span>
           </div>
-          <div className="val" style={{ fontSize: 18 }}>{lastBackup ? "OK" : "—"}</div>
-          <div className="slab">Backup Health</div>
+          <div className="val val-sm">{lastBackup ? "OK" : "—"}</div>
+          <div className="slab">{t("bak_health")}</div>
         </div>
       </div>
 
       {/* Latest backup card */}
       {lastBackup && (
-        <div className="card" style={{ padding: "18px 20px", marginBottom: 14 }}>
-          <div className="ch-head" style={{ marginBottom: 14 }}>
+        <div className="card card-pad-5 mb-3">
+          <div className="ch-head mb-3">
             <div>
-              <div className="ch-title">Latest Backup</div>
-              <div className="ch-sub">Most recently created snapshot file</div>
+              <div className="ch-title">{t("bak_latest")}</div>
+              <div className="ch-sub">{t("bak_latest_sub")}</div>
             </div>
             <span className="pill t-em">
               <i />
               ACTIVE
             </span>
           </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 14,
-              padding: "14px 16px",
-              background: "var(--sb)",
-              border: "1.5px solid var(--sl)",
-              borderRadius: 14,
-            }}
-            className="t-em"
-          >
-            <div
-              style={{
-                width: 42, height: 42, flex: "none", borderRadius: 12,
-                background: "var(--sc)", color: "#fff",
-                display: "grid", placeItems: "center",
-                boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
-              }}
-            >
+          <div className="dlg-hero t-em">
+            <div className="dlg-hero-ic">
               <CheckCircle2 size={20} />
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <b style={{ font: "700 14px 'Space Grotesk'", color: "var(--st)" }}>{basename(lastBackup.path)}</b>
+            <div className="dlg-hero-body">
+              <div className="flex items-center gap-2 flex-wrap">
+                <b className="bk-cell-name">{basename(lastBackup.path)}</b>
                 <span className="count-chip">{formatDateTime(lastBackup.time)}</span>
                 {lastBackup.size ? <span className="count-chip">{formatBytes(lastBackup.size)}</span> : null}
               </div>
-              <div
-                style={{
-                  font: "600 11.5px monospace",
-                  color: "var(--mut)",
-                  marginTop: 8,
-                  wordBreak: "break-all",
-                  background: "var(--panel)",
-                  border: "1px solid var(--line)",
-                  borderRadius: 8,
-                  padding: "8px 10px",
-                }}
-              >
+              <div className="bk-latest-path">
                 {lastBackup.path}
               </div>
               {dirname(lastBackup.path) && (
-                <div style={{ font: "700 10px Poppins", color: "var(--fnt)", marginTop: 6, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                  <FolderOpen size={11} style={{ display: "inline", marginRight: 4, verticalAlign: -1 }} />
+                <div className="bk-latest-dir">
+                  <FolderOpen size={11} className="ic-inline-sm" />
                   {dirname(lastBackup.path)}
                 </div>
               )}
@@ -227,67 +198,58 @@ export function Backup() {
       )}
 
       {/* Recent backups table */}
-      <div className="card" style={{ padding: "16px 17px 6px" }}>
-        <div className="ch-head" style={{ marginBottom: 10 }}>
+      <div className="card card-pad-tight">
+        <div className="ch-head mb-2">
           <div>
-            <div className="ch-title">Recent Backups</div>
+            <div className="ch-title">{t("bak_recent")}</div>
             <div className="ch-sub">
-              {loading ? "Refreshing…" : `Last ${backups.length} snapshot${backups.length === 1 ? "" : "s"} saved by this app`}
+              {loading ? t("bak_loading") : `Last ${backups.length} ${t("bak_snapshots_saved")}`}
             </div>
           </div>
-          <span className="count-chip">{backups.length} record{backups.length === 1 ? "" : "s"}</span>
+          <span className="count-chip">{backups.length} {backups.length === 1 ? t("bak_record") : t("bak_records")}</span>
         </div>
-        <div className="tbl" style={{ boxShadow: "none", marginTop: 4 }}>
+        <div className="tbl tbl-flat">
           <table>
             <thead>
               <tr>
-                <th style={{ width: 36 }}></th>
-                <th>Name</th>
-                <th>Directory</th>
-                <th>Date</th>
-                <th>Size</th>
+                <th className="col-icon"></th>
+                <th>{t("bak_name_col")}</th>
+                <th>{t("bak_dir_col")}</th>
+                <th>{t("tok_date")}</th>
+                <th>{t("bak_size_col")}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
                   <td colSpan={5} className="tempty">
-                    <Loader2 size={16} className="animate-spin" style={{ margin: "0 auto 8px", display: "block" }} />
-                    Loading backups…
+                    <Loader2 size={16} className="animate-spin bk-load-spin" />
+                    {t("bak_loading_backups")}
                   </td>
                 </tr>
               ) : backups.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="tempty">
-                    No backups yet — click <b style={{ color: "var(--em)" }}>“{t("bak_create_now")}”</b> to create your first snapshot.
+                    {t("bak_no_backups")}
                   </td>
                 </tr>
               ) : (
                 backups.map((h, i) => (
                   <tr key={i + "|" + h.path}>
-                    <td style={{ textAlign: "center" }}>
-                      <span
-                        style={{
-                          display: "inline-grid", placeItems: "center",
-                          width: 26, height: 26, borderRadius: 8,
-                          background: i === 0 ? "var(--sb)" : "var(--panel2)",
-                          color: i === 0 ? "var(--st)" : "var(--fnt)",
-                          border: "1px solid var(--line)",
-                        }}
-                        className={i === 0 ? "t-em" : ""}
-                      >
+                    <td className="text-center">
+                      <span className={`bk-ic-cell ${i === 0 ? "latest" : ""}`}>
                         <FileArchive size={13} />
                       </span>
                     </td>
                     <td>
-                      <span style={{ font: "700 12.5px 'Space Grotesk'", color: "var(--tx)" }}>{h.name || basename(h.path)}</span>
-                      {i === 0 && <span className="pill t-em" style={{ marginLeft: 8, padding: "2px 8px", fontSize: 9 }}>LATEST</span>}
+                      <span className="bk-cell-name">{h.name || basename(h.path)}</span>
+                      {i === 0 && <span className="pill t-em latest-tag">{t("bak_latest_tag")}</span>}
                     </td>
                     <td>
-                      <span style={{ font: "600 11px monospace", color: "var(--mut)" }}>{dirname(h.path) || "—"}</span>
+                      <span className="bk-cell-dir">{dirname(h.path) || "—"}</span>
                     </td>
                     <td>
-                      <span style={{ font: "700 12px Poppins", color: "var(--mut)" }}>{formatDateTime(h.time)}</span>
+                      <span className="bk-cell-date">{formatDateTime(h.time)}</span>
                     </td>
                     <td>
                       <span className="count-chip">{formatBytes(h.size)}</span>
@@ -301,18 +263,18 @@ export function Backup() {
       </div>
 
       {/* Info card */}
-      <div className="card" style={{ padding: "16px 18px", marginTop: 14 }}>
-        <div className="ch-head" style={{ marginBottom: 6 }}>
+      <div className="card card-pad-5 mt-3">
+        <div className="ch-head mb-2">
           <div>
-            <div className="ch-title">How backups work</div>
-            <div className="ch-sub">Choose where to save each snapshot — backups are full SQLite copies.</div>
+            <div className="ch-title">{t("bak_how_works")}</div>
+            <div className="ch-sub">{t("bak_how_sub")}</div>
           </div>
         </div>
-        <div style={{ font: "600 12.5px Poppins", color: "var(--mut)", lineHeight: 1.6 }}>
-          Clicking <b style={{ color: "var(--tx)" }}>Create Backup Now</b> opens a save dialog so you
+        <div className="bk-info-text">
+          Clicking <b>Create Backup Now</b> opens a save dialog so you
           can choose the destination folder and filename for the snapshot. The file is written
-          atomically via the <code style={{ font: "700 11px monospace", color: "var(--st)", background: "var(--sb)", padding: "2px 6px", borderRadius: 6 }}>better-sqlite3 db.backup()</code> API.
-          To restore, replace the live <code style={{ font: "700 11px monospace", color: "var(--st)", background: "var(--sb)", padding: "2px 6px", borderRadius: 6 }}>mms.db</code> file
+          atomically via the <code>better-sqlite3 db.backup()</code> API.
+          To restore, replace the live <code>mms.db</code> file
           with a snapshot while the app is closed.
         </div>
       </div>

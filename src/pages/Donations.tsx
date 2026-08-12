@@ -32,11 +32,7 @@ const emptyForm: Partial<Donation> = {
   payment_method: "Cash", transaction_ref: "", remarks: "",
 };
 
-const codeFontStyle: React.CSSProperties = {
-  fontFamily: "'Space Grotesk', sans-serif",
-  fontWeight: 700,
-  letterSpacing: "0.03em",
-};
+const codeFontStyle = "code-text-sm";
 
 export function Donations() {
   const { t } = useI18n();
@@ -65,7 +61,7 @@ export function Donations() {
 
   const handleSave = async () => {
     if (!form.donor_name || !form.amount || !form.category_id) {
-      toast.error("Donor Name, Category and Amount are required");
+      toast.error(t("ui_donor_cat_amount_required"));
       return;
     }
     try {
@@ -96,7 +92,7 @@ export function Donations() {
       setEditingId(null);
       refetch();
     } catch (err: any) {
-      toast.error(err.message || "Failed to save");
+      toast.error(err.message || t("ui_failed_save"));
     }
   };
 
@@ -116,7 +112,7 @@ export function Donations() {
     if (pendingDeleteId == null) return;
     try {
       await window.mms.donations.remove(pendingDeleteId);
-      toast.success("Deleted");
+      toast.success(t("ui_record_deleted"));
       refetch();
     } catch (err: any) {
       toast.error(err.message);
@@ -143,7 +139,7 @@ export function Donations() {
     {
       header: t("sub_receipt"),
       accessor: (r) => (
-        <span style={codeFontStyle} className="text-primary">
+        <span className={codeFontStyle + " text-primary"}>
           {r.receipt_number || "—"}
         </span>
       ),
@@ -180,9 +176,9 @@ export function Donations() {
         { k: t("don_date"), v: formatDate(previewRow.donation_date) },
         { k: t("don_purpose"), v: previewRow.purpose || "—" },
         { k: t("sub_method"), v: previewRow.payment_method || "—" },
-        { k: "Transaction Ref", v: previewRow.transaction_ref || "—" },
-        { k: t("don_donor_address"), v: previewRow.donor_address || "—", full: true },
-        { k: "Remarks", v: previewRow.remarks || "—", full: true },
+        { k: t("ui_transaction_ref"), v: previewRow.transaction_ref || "—" },
+        { k: t("ui_donor_address"), v: previewRow.donor_address || "—", full: true },
+        { k: t("ui_remarks"), v: previewRow.remarks || "—", full: true },
       ]
     : [];
 
@@ -219,7 +215,7 @@ export function Donations() {
         onRowDoubleClick={handleRowDoubleClick}
         toolbar={
           <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="w-48">
-            <option value="All">All Categories</option>
+            <option value="All">{t("ui_all_categories")}</option>
             {categories.map((c) => (
               <option key={c.name || c.id} value={c.name}>{c.name}</option>
             ))}
@@ -233,37 +229,18 @@ export function Donations() {
         onClose={() => { setPreviewOpen(false); setPreviewRow(null); }}
         title={t("don_title")}
       >
-        <div style={{ padding: "2px 0" }}>
+        <div className="dlg-pad">
           {previewRow && (
             <>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  padding: "12px 14px",
-                  marginBottom: 14,
-                  background: "var(--sb)",
-                  border: "1.5px solid var(--sl)",
-                  borderRadius: 14,
-                }}
-                className="t-em"
-              >
-                <div
-                  style={{
-                    width: 48, height: 48, borderRadius: 14, flex: "none",
-                    background: "var(--sc)", color: "#fff",
-                    display: "grid", placeItems: "center",
-                    boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
-                  }}
-                >
+              <div className="dlg-hero t-em">
+                <div className="dlg-hero-ic">
                   <Eye size={20} />
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ font: "700 16px 'Space Grotesk'", color: "var(--st)" }}>
+                <div className="dlg-hero-body">
+                  <div className="dlg-hero-title">
                     {previewRow.donor_name}
                   </div>
-                  <div style={{ font: "700 11px Poppins", color: "var(--st)", marginTop: 2 }}>
+                  <div className="dlg-hero-sub">
                     {previewRow.receipt_number} · {formatCurrency(previewRow.amount)}
                   </div>
                 </div>
@@ -279,7 +256,7 @@ export function Donations() {
               </div>
             </>
           )}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+          <div className="dlg-actions">
             <Button variant="secondary" onClick={() => { setPreviewOpen(false); setPreviewRow(null); }}>
               {t("ui_close")}
             </Button>
@@ -355,11 +332,11 @@ export function Donations() {
             </div>
           </div>
           <div>
-            <Label>Donor Address</Label>
+            <Label>{t("ui_donor_address")}</Label>
             <Textarea rows={2} value={form.donor_address || ""} onChange={(e) => setForm({ ...form, donor_address: e.target.value })} />
           </div>
           <div>
-            <Label>Remarks</Label>
+            <Label>{t("ui_remarks")}</Label>
             <Textarea rows={2} value={form.remarks || ""} onChange={(e) => setForm({ ...form, remarks: e.target.value })} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -374,8 +351,8 @@ export function Donations() {
         open={confirmOpen}
         onClose={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
         onConfirm={handleDeleteConfirm}
-        title="Confirm Delete"
-        confirmLabel="Delete Donation"
+        title={t("ui_confirm_delete")}
+        confirmLabel={t("ui_delete_donation_label")}
       />
     </div>
   );

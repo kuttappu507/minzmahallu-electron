@@ -64,10 +64,10 @@ export function AuditLog() {
         { k: t("audit_user"), v: previewRow.username || "—" },
         { k: t("audit_action"), v: previewRow.action || "—" },
         { k: t("audit_module"), v: previewRow.module || "—" },
-        { k: "Entity ID", v: previewRow.entity_id != null ? String(previewRow.entity_id) : "—" },
-        { k: "User ID", v: previewRow.user_id != null ? String(previewRow.user_id) : "—" },
+        { k: t("ui_entity_id"), v: previewRow.entity_id != null ? String(previewRow.entity_id) : "—" },
+        { k: t("ui_user_id"), v: previewRow.user_id != null ? String(previewRow.user_id) : "—" },
         { k: t("audit_description"), v: previewRow.description || "—", full: true },
-        { k: "Metadata", v: previewRow.metadata || "—", full: true },
+        { k: t("ui_metadata"), v: previewRow.metadata || "—", full: true },
       ]
     : [];
 
@@ -79,7 +79,7 @@ export function AuditLog() {
         </div>
         <div>
           <h1>{t("audit_title")}</h1>
-          <div className="vs">Track all user actions and system changes</div>
+          <div className="vs">{t("audit_subtitle")}</div>
         </div>
       </div>
 
@@ -115,37 +115,18 @@ export function AuditLog() {
         onClose={() => { setPreviewOpen(false); setPreviewRow(null); }}
         title={t("audit_title")}
       >
-        <div style={{ padding: "2px 0" }}>
+        <div className="dlg-pad">
           {previewRow && (
             <>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  padding: "12px 14px",
-                  marginBottom: 14,
-                  background: "var(--sb)",
-                  border: "1.5px solid var(--sl)",
-                  borderRadius: 14,
-                }}
-                className="t-em"
-              >
-                <div
-                  style={{
-                    width: 48, height: 48, borderRadius: 14, flex: "none",
-                    background: "var(--sc)", color: "#fff",
-                    display: "grid", placeItems: "center",
-                    boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
-                  }}
-                >
+              <div className="dlg-hero t-em">
+                <div className="dlg-hero-ic">
                   <Eye size={20} />
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ font: "700 16px 'Space Grotesk'", color: "var(--st)" }}>
+                <div className="dlg-hero-body">
+                  <div className="dlg-hero-title">
                     {previewRow.action}
                   </div>
-                  <div style={{ font: "700 11px Poppins", color: "var(--st)", marginTop: 2 }}>
+                  <div className="dlg-hero-sub">
                     {previewRow.username} · {previewRow.module} · {formatDateTime(previewRow.created_at)}
                   </div>
                 </div>
@@ -161,7 +142,7 @@ export function AuditLog() {
               </div>
             </>
           )}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+          <div className="dlg-actions">
             <Button variant="secondary" onClick={() => { setPreviewOpen(false); setPreviewRow(null); }}>
               {t("ui_close")}
             </Button>

@@ -28,7 +28,7 @@ const PAGE_TITLES: Record<string, string> = {
 
 export function Topbar() {
   const { theme, toggle } = useTheme();
-  const { lang, setLang } = useI18n();
+  const { t, lang, setLang } = useI18n();
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -43,6 +43,48 @@ export function Topbar() {
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
   const [savingPwd, setSavingPwd] = useState(false);
+
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Quick-nav: typing a module name + Enter navigates to it.
+  const QUICK_NAV: Record<string, string> = {
+    dashboard: "/", home: "/", dash: "/",
+    families: "/families", family: "/families",
+    members: "/members", member: "/members",
+    subscriptions: "/subscriptions", subscription: "/subscriptions", subs: "/subscriptions",
+    donations: "/donations", donation: "/donations",
+    accounting: "/accounting", accounts: "/accounting", ledger: "/accounting",
+    marriages: "/marriages", marriage: "/marriages", nikah: "/marriages",
+    deaths: "/deaths", death: "/deaths",
+    welfare: "/welfare",
+    certificates: "/certificates", certificate: "/certificates", cert: "/certificates",
+    tokens: "/tokens", token: "/tokens",
+    reports: "/reports", report: "/reports",
+    settings: "/settings", setting: "/settings",
+    users: "/users", user: "/users",
+    audit: "/audit",
+    backup: "/backup",
+  };
+
+  const handleSearchSubmit = (e: React.KeyboardEvent) => {
+    if (e.key !== "Enter") return;
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return;
+    const target = QUICK_NAV[q];
+    if (target) {
+      navigate(target);
+      setSearchQuery("");
+    } else {
+      // Try fuzzy match: any key containing the query
+      const fuzzy = Object.keys(QUICK_NAV).find((k) => k.includes(q));
+      if (fuzzy) {
+        navigate(QUICK_NAV[fuzzy]);
+        setSearchQuery("");
+      } else {
+        toast.info(`No module matches "${searchQuery}"`);
+      }
+    }
+  };
 
   // Load notifications on mount + page change
   useEffect(() => {
@@ -80,41 +122,41 @@ export function Topbar() {
 
   const handleQuickBackup = async () => {
     try {
-      toast.info("Creating backup...");
+      toast.info(t("tb_creating_backup"));
       const result = await window.mms.backup.create();
       if (result && result.success === false) {
         if (result.error !== "cancelled") {
-          toast.error(result.error || "Backup failed");
+          toast.error(result.error || t("tb_backup_failed"));
         }
         return;
       }
       const path: string | undefined =
         typeof result === "string" ? result : result?.path;
       if (path) {
-        toast.success("Backup saved: " + path.split(/[\\/]/).pop());
+        toast.success(t("tb_backup_saved") + ": " + path.split(/[\\/]/).pop());
       } else {
-        toast.success("Backup created");
+        toast.success(t("tb_backup_created"));
       }
     } catch (e: any) {
-      toast.error(e.message || "Backup failed");
+      toast.error(e.message || t("tb_backup_failed"));
     }
   };
 
   const handleChangePassword = async () => {
     if (!user?.id) {
-      toast.error("No user session found");
+      toast.error(t("tb_no_session"));
       return;
     }
     if (!newPwd) {
-      toast.error("New password is required");
+      toast.error(t("tb_pwd_required"));
       return;
     }
     if (newPwd.length < 6) {
-      toast.error("Password must be at least 6 characters");
+      toast.error(t("tb_pwd_min"));
       return;
     }
     if (newPwd !== confirmPwd) {
-      toast.error("Passwords do not match");
+      toast.error(t("tb_pwd_mismatch"));
       return;
     }
     setSavingPwd(true);
@@ -123,7 +165,7 @@ export function Topbar() {
       if (result && result.success === false) {
         throw new Error(result.error || "Failed to change password");
       }
-      toast.success("Password updated successfully");
+      toast.success(t("tb_pwd_updated"));
       setNewPwd("");
       setConfirmPwd("");
       setProfileOpen(false);
@@ -151,31 +193,32 @@ export function Topbar() {
     return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
   };
 
-  const dropdownStyle: React.CSSProperties = {
-    position: "fixed",
-    top: 60,
-    zIndex: 9999,
-    background: "var(--panel)",
-    border: "1px solid var(--line)",
-    borderRadius: 16,
-    boxShadow: "var(--shl)",
-    overflow: "hidden",
-    animation: "dropdownIn 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2)",
+  const notifTintClass = (action: string) => {
+    const a = (action || "").toUpperCase();
+    if (a.includes("CREATE")) return "create";
+    if (a.includes("DELETE")) return "delete";
+    if (a.includes("LOGIN")) return "login";
+    return "other";
   };
 
   return (
     <>
-      <header className="topbar" style={{ position: "relative", zIndex: 35 }}>
+      <header className="topbar">
         {/* Breadcrumb */}
         <div className="crumb">
           <small>Minz Mahallu /</small>
           <b>{pageTitle}</b>
         </div>
 
-        {/* Search */}
-        <div className="qwrap" style={{ marginLeft: 8 }}>
+        {/* Search — quick-nav: type a module name + Enter */}
+        <div className="qwrap ml-2">
           <Search size={16} strokeWidth={2} />
-          <input placeholder="Search records…" />
+          <input
+            placeholder={t("tb_search_placeholder")}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleSearchSubmit}
+          />
           <kbd>Ctrl K</kbd>
         </div>
 
@@ -184,7 +227,7 @@ export function Topbar() {
           {/* DB status chip */}
           <span className="tb-chip t-em">
             <i />
-            mms.db · connected
+            {t("tb_db_connected")}
           </span>
 
           {/* Language segment */}
@@ -213,49 +256,40 @@ export function Topbar() {
           </button>
 
           {/* Notifications — fixed dropdown */}
-          <div data-dropdown style={{ position: "relative" }}>
+          <div data-dropdown className="relative">
             <button
               className="ibtn"
-              title="Notifications"
+              title={t("tb_notifications")}
               onClick={(e) => { e.stopPropagation(); setNotifOpen(!notifOpen); setAvatarOpen(false); if (!notifOpen) loadNotifications(); }}
             >
               <Bell size={17} strokeWidth={2} />
               {notifications.length > 0 && (
-                <span style={{
-                  position: "absolute", top: -3, right: -3,
-                  minWidth: 16, height: 16, borderRadius: 99,
-                  background: "#e8556e", color: "#fff",
-                  font: "800 9.5px Manrope", display: "grid", placeItems: "center",
-                  padding: "0 4px", border: "2px solid var(--panel)",
-                }}>
+                <span className="notif-dot">
                   {notifications.length}
                 </span>
               )}
             </button>
             {notifOpen && (
-              <div style={{ ...dropdownStyle, right: 120, width: 340 }}>
-                <div style={{ padding: "13px 16px", borderBottom: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <b style={{ font: "700 13px Manrope" }}>Notifications</b>
-                  <button onClick={(e) => { e.stopPropagation(); loadNotifications(); }} style={{ border: 0, background: "none", color: "var(--em)", font: "700 11.5px Manrope", cursor: "pointer" }}>Refresh</button>
+              <div className="dropdown-fixed notif-dropdown">
+                <div className="dropdown-head">
+                  <b>{t("tb_notifications")}</b>
+                  <button onClick={(e) => { e.stopPropagation(); loadNotifications(); }}>{t("action_refresh")}</button>
                 </div>
                 {notifications.length === 0 ? (
-                  <div style={{ padding: 26, textAlign: "center", color: "var(--fnt)", font: "700 12.5px Manrope" }}>No notifications</div>
+                  <div className="dropdown-empty">{t("tb_no_notifications")}</div>
                 ) : (
                   notifications.map((n, i) => (
-                    <div key={n.id || i} style={{ display: "flex", gap: 11, padding: "13px 16px", borderBottom: i < notifications.length - 1 ? "1px solid var(--line)" : "none", cursor: "pointer" }}
+                    <div key={n.id || i} className="notif-row"
                       onClick={() => { setNotifOpen(false); navigate("/audit"); }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = "var(--panel2)"}
-                      onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                     >
-                      <div style={{ width: 34, height: 34, flex: "none", borderRadius: 11, display: "grid", placeItems: "center", color: "#fff",
-                        background: n.action === "CREATE" ? "var(--c-em)" : n.action === "DELETE" ? "var(--c-rose)" : n.action === "LOGIN" ? "var(--c-sky)" : "var(--c-gold)" }}>
+                      <div className={`notif-ic ${notifTintClass(n.action)}`}>
                         <Bell size={14} />
                       </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <b style={{ font: "700 12.5px Manrope", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.description || n.action}</b>
-                        <p style={{ font: "500 11.5px Manrope", color: "var(--mut)", marginTop: 2 }}>{n.username} · {n.module}</p>
+                      <div className="notif-body">
+                        <b>{n.description || n.action}</b>
+                        <p>{n.username} · {n.module}</p>
                       </div>
-                      <time style={{ font: "700 10px Manrope", color: "var(--fnt)", flex: "none" }}>{formatTime(n.created_at)}</time>
+                      <time className="notif-time">{formatTime(n.created_at)}</time>
                     </div>
                   ))
                 )}
@@ -264,46 +298,40 @@ export function Topbar() {
           </div>
 
           {/* Quick backup */}
-          <button className="ibtn" title="Quick backup" onClick={handleQuickBackup}>
+          <button className="ibtn" title={t("tb_quick_backup")} onClick={handleQuickBackup}>
             <Database size={17} strokeWidth={2} />
           </button>
 
           <div className="tbdiv" />
 
           {/* Avatar — fixed dropdown */}
-          <div data-dropdown style={{ position: "relative" }}>
+          <div data-dropdown className="relative">
             <button className="avbtn" onClick={(e) => { e.stopPropagation(); setAvatarOpen(!avatarOpen); setNotifOpen(false); }}>
               <span className="av">{initials}</span>
               <b>{user?.username ?? "—"}</b>
-              <ChevronDown size={14} style={{ color: "var(--fnt)" }} />
+              <ChevronDown size={14} className="chev" />
             </button>
             {avatarOpen && (
-              <div style={{ ...dropdownStyle, right: 8, width: 220 }}>
-                <div style={{ padding: "13px 16px", borderBottom: "1px solid var(--line)" }}>
-                  <b style={{ font: "700 13px Manrope", display: "block" }}>{user?.fullName}</b>
-                  <small style={{ font: "600 11px Manrope", color: "var(--fnt)" }}>{user?.role}</small>
+              <div className="dropdown-fixed avatar-dropdown">
+                <div className="dropdown-head">
+                  <b className="dlg-hero-title">{user?.fullName}</b>
+                  <small className="dlg-hero-sub">{user?.role}</small>
                 </div>
-                <button className="menuit" style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", border: 0, background: "none", font: "700 12.8px Manrope", color: "var(--tx)", textAlign: "left", cursor: "pointer" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--selbg)"; e.currentTarget.style.color = "var(--em)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--tx)"; }}
+                <button className="menuit-btn"
                   onClick={() => { setAvatarOpen(false); setProfileOpen(true); }}
                 >
-                  <User size={15} /> Profile
+                  <User size={15} /> {t("tb_profile")}
                 </button>
-                <button className="menuit" style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", border: 0, background: "none", font: "700 12.8px Manrope", color: "var(--tx)", textAlign: "left", cursor: "pointer" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--selbg)"; e.currentTarget.style.color = "var(--em)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--tx)"; }}
+                <button className="menuit-btn"
                   onClick={() => { setAvatarOpen(false); navigate("/settings"); }}
                 >
-                  <Settings size={15} /> Settings
+                  <Settings size={15} /> {t("tb_settings")}
                 </button>
-                <div style={{ height: 1, background: "var(--line)", margin: "4px 0" }} />
-                <button className="menuit" style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", border: 0, background: "none", font: "700 12.8px Manrope", color: "var(--c-rose)", textAlign: "left", cursor: "pointer" }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = "var(--rose-bg)"}
-                  onMouseLeave={(e) => e.currentTarget.style.background = "none"}
+                <div className="menu-divider" />
+                <button className="menuit-btn danger"
                   onClick={handleLogout}
                 >
-                  <LogOut size={15} /> Logout
+                  <LogOut size={15} /> {t("action_logout")}
                 </button>
               </div>
             )}
@@ -311,53 +339,25 @@ export function Topbar() {
         </div>
       </header>
 
-      {/* Backdrop overlay when any dropdown is open — closes on click */}
-      {(notifOpen || avatarOpen) && (
-        <div
-          onClick={() => { setNotifOpen(false); setAvatarOpen(false); }}
-          style={{ position: "fixed", inset: 0, zIndex: 9998, background: "transparent" }}
-        />
-      )}
-
       {/* Profile dialog with Change Password */}
       <Dialog
         open={profileOpen}
         onClose={() => { setProfileOpen(false); setNewPwd(""); setConfirmPwd(""); }}
-        title="My Profile"
+        title={t("tb_my_profile")}
       >
-        <div style={{ padding: "2px 0" }}>
+        <div className="dlg-pad">
           {user && (
             <>
               {/* User details card */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  padding: "12px 14px",
-                  marginBottom: 14,
-                  background: "var(--sb)",
-                  border: "1.5px solid var(--sl)",
-                  borderRadius: 14,
-                }}
-                className="t-em"
-              >
-                <div
-                  style={{
-                    width: 48, height: 48, borderRadius: 14, flex: "none",
-                    background: "var(--sc)", color: "#fff",
-                    display: "grid", placeItems: "center",
-                    font: "700 18px 'Space Grotesk'",
-                    boxShadow: "0 2px 0 rgba(0,0,0,0.12)",
-                  }}
-                >
+              <div className="dlg-hero t-em">
+                <div className="dlg-hero-ic">
                   {user.initials || user.username?.charAt(0).toUpperCase() || "?"}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ font: "700 16px 'Space Grotesk'", color: "var(--st)" }}>
+                <div className="dlg-hero-body">
+                  <div className="dlg-hero-title">
                     {user.fullName}
                   </div>
-                  <div style={{ font: "700 11px Poppins", color: "var(--st)", marginTop: 2 }}>
+                  <div className="dlg-hero-sub">
                     @{user.username}
                   </div>
                 </div>
@@ -365,63 +365,61 @@ export function Topbar() {
               </div>
 
               {/* Profile details grid */}
-              <div className="det-grid" style={{ marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid var(--line)" }}>
+              <div className="det-grid mb-4">
                 <div className="det">
-                  <span className="k">Full Name</span>
+                  <span className="k">{t("tb_full_name")}</span>
                   <span className="v">{user.fullName || "—"}</span>
                 </div>
                 <div className="det">
-                  <span className="k">Username</span>
+                  <span className="k">{t("tb_username")}</span>
                   <span className="v">{user.username}</span>
                 </div>
                 <div className="det">
-                  <span className="k">Role</span>
+                  <span className="k">{t("tb_role")}</span>
                   <span className="v">{user.role}</span>
                 </div>
                 <div className="det">
-                  <span className="k">Status</span>
-                  <span className="v">{user.isActive ? "Active" : "Inactive"}</span>
+                  <span className="k">{t("tb_status")}</span>
+                  <span className="v">{user.isActive ? t("tb_active") : t("tb_inactive")}</span>
                 </div>
               </div>
 
               {/* Change Password section */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                <KeyRound size={14} style={{ color: "var(--em)" }} />
-                <b style={{ font: "800 11px Poppins", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--st)" }} className="t-em">
-                  Change Password
-                </b>
+              <div className="pwd-section-label t-em">
+                <KeyRound size={14} className="ic" />
+                <b>{t("tb_change_password")}</b>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div className="flex-col gap-3">
                 <div>
-                  <Label>New Password</Label>
+                  <Label>{t("tb_new_password")}</Label>
                   <Input
                     type="password"
                     value={newPwd}
                     onChange={(e) => setNewPwd(e.target.value)}
-                    placeholder="Enter new password"
+                    placeholder={t("tb_new_password")}
                     autoFocus
                   />
                 </div>
                 <div>
-                  <Label>Confirm Password</Label>
+                  <Label>{t("tb_confirm_password")}</Label>
                   <Input
                     type="password"
                     value={confirmPwd}
                     onChange={(e) => setConfirmPwd(e.target.value)}
-                    placeholder="Re-enter new password"
+                    placeholder={t("tb_confirm_password")}
                   />
                 </div>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+              <div className="dlg-actions">
                 <Button variant="secondary" onClick={() => { setProfileOpen(false); setNewPwd(""); setConfirmPwd(""); }} disabled={savingPwd}>
-                  Close
+                  {t("ui_close")}
                 </Button>
                 <Button onClick={handleChangePassword} disabled={savingPwd}>
-                  {savingPwd ? "Saving…" : (
+                  {savingPwd ? t("tb_saving") : (
                     <>
                       <ShieldCheck size={14} />
-                      Save Password
+                      {t("tb_save_password")}
                     </>
                   )}
                 </Button>
