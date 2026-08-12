@@ -45,13 +45,12 @@ function createWindow() {
     minHeight: 640,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: "#f3f6f3",
+    backgroundColor: "#00000000",
     icon: path.join(__dirname, "..", "public", "icon.png"),
     title: "MMS — Minz Mahallu Management System",
-    transparent: false,
-    frame: true,
-    thickFrame: true,
-    hasShadow: true,
+    transparent: true,
+    frame: false,
+    hasShadow: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),
       contextIsolation: true,
@@ -73,6 +72,14 @@ function createWindow() {
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
+
+  // Window control IPC handlers
+  ipcMain.handle("win:minimize", () => mainWindow?.minimize());
+  ipcMain.handle("win:maximize", () => {
+    if (mainWindow?.isMaximized()) mainWindow.unmaximize();
+    else mainWindow?.maximize();
+  });
+  ipcMain.handle("win:close", () => mainWindow?.close());
 }
 
 // ===== Certificate HTML builder =====

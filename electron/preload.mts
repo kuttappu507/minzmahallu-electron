@@ -146,6 +146,12 @@ const api = {
     showSave: (defaultName: string, filters: any[]) =>
       ipcRenderer.invoke("dialog:showSave", defaultName, filters),
   },
+  // ===== Window controls =====
+  win: {
+    minimize: () => ipcRenderer.invoke("win:minimize"),
+    maximize: () => ipcRenderer.invoke("win:maximize"),
+    close: () => ipcRenderer.invoke("win:close"),
+  },
 };
 
 contextBridge.exposeInMainWorld("mms", api);

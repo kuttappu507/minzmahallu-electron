@@ -27,7 +27,7 @@
 @font-face {
   font-family: Gayathri;
   src: url("/fonts/Gayathri-Bold.ttf") format("truetype");
-  font-weight: 600; font-style: normal; font-display: swap;
+  font-weight: 700; font-style: normal; font-display: swap;
 }
 
 @tailwind base;
@@ -126,7 +126,7 @@
     font-size: 15px;
     font-weight: 500;
     color: var(--tx);
-    background: var(--bg);
+    background: transparent;
     overflow: hidden;
     transition: background 0.3s, color 0.3s;
     user-select: none;
@@ -135,13 +135,15 @@
     padding: 0;
   }
 
+  /* When app is loaded (not splash), give body a background */
+  body.app-loaded { background: var(--bg); }
+
   html.lang-ml body,
   html.lang-ml input,
   html.lang-ml button,
   html.lang-ml select {
     font-family: Gayathri, Poppins, sans-serif;
-    font-weight: 500;
-    font-size: 15.5px;
+    font-weight: 700;
   }
 
   input, textarea, [contenteditable="true"] { user-select: text; }
@@ -1126,3 +1128,21 @@
 }
 
 .tok-prog-bar { display: block; height: 100%; background: var(--em); transition: width 0.6s; border-radius: 99px; }
+
+  /* ===== Window controls (frameless window) ===== */
+  .topbar { -webkit-app-region: drag; }
+  .topbar button, .topbar input, .topbar select, .topbar .qwrap, .topbar .avbtn, .topbar .langseg, .topbar .win-controls { -webkit-app-region: no-drag; }
+  .win-controls { display: flex; gap: 2px; margin-left: 6px; -webkit-app-region: no-drag; }
+  .win-btn { width: 36px; height: 30px; border: 0; background: none; color: var(--fnt); display: grid; place-items: center; border-radius: 9px; transition: 0.12s; cursor: pointer; }
+  .win-btn:hover { background: var(--selbg); color: var(--em); }
+  .win-close:hover { background: var(--rose-bg); color: var(--c-rose); }
+
+  /* ===== Modal scrollbar — strictly 2px ===== */
+  .modal::-webkit-scrollbar { width: 2px !important; }
+  .modal::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 1px; border: none; }
+  .modal::-webkit-scrollbar-track { background: transparent; }
+  .modal { scrollbar-width: thin; scrollbar-color: var(--line2) transparent; }
+
+  /* ===== All scrollable areas — narrow scrollbar ===== */
+  #content::-webkit-scrollbar { width: 4px; }
+  .navscroll::-webkit-scrollbar { width: 4px; }

@@ -52,14 +52,15 @@ export function Subscriptions() {
   const [previewRow, setPreviewRow] = useState<Subscription | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  const [familyMembers, setFamilyMembers] = useState<any[]>([]);
 
   const { rows, total, totalPages, loading, refetch } = useList(
     (filter) => window.mms.subscriptions.list(filter),
     { pageSize: 20, initialFilters: { status: statusFilter !== "All" ? statusFilter : undefined } }
   );
 
-  const { data: totalCollected } = useAsync(() => window.mms.subscriptions.totalCollected(), []);
-  const { data: totalPending } = useAsync(() => window.mms.subscriptions.totalPending(), []);
+  const { data: totalCollected, refresh: refreshCollected } = useAsync(() => window.mms.subscriptions.totalCollected(), []);
+  const { data: totalPending, refresh: refreshPending } = useAsync(() => window.mms.subscriptions.totalPending(), []);
 
   useEffect(() => {
     window.mms.families.list({ pageSize: 1000 }).then((r) => setFamilies(r.rows || [])).catch(() => {});
@@ -152,9 +153,11 @@ export function Subscriptions() {
 
   const handleMarkOverdue = async () => {
     try {
-      await window.mms.subscriptions.markOverdue();
-      toast.success("Overdue status updated");
+      const count = await window.mms.subscriptions.markOverdue();
+      toast.success(`${count} subscriptions marked overdue`);
       refetch();
+      refreshCollected();
+      refreshPending();
     } catch (err: any) {
       toast.error(err.message);
     }
@@ -334,7 +337,18 @@ export function Subscriptions() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>{t("member_family")} *</Label>
-              <Select value={form.family_id || ""} onChange={(e) => setForm({ ...form, family_id: Number(e.target.value) })}>
+              <Select value={form.family_id || ""} onChange={async (e) => {
+                const fid = Number(e.target.value);
+                setForm({ ...form, family_id: fid, member_id: 0, member_name: "" });
+                if (fid) {
+                  try {
+                    const result = await window.mms.members.list({ familyId: fid, pageSize: 100 });
+                    setFamilyMembers(result.rows || []);
+                  } catch { setFamilyMembers([]); }
+                } else {
+                  setFamilyMembers([]);
+                }
+              }}>
                 <option value="">{t("ui_select")}</option>
                 {families.map((f) => (
                   <option key={f.id} value={f.id}>{f.house_name} ({f.family_number})</option>
@@ -343,7 +357,19 @@ export function Subscriptions() {
             </div>
             <div>
               <Label>{t("member_name")}</Label>
-              <Input value={form.member_name || ""} onChange={(e) => setForm({ ...form, member_name: e.target.value })} />
+              <Select
+                value={form.member_id || ""}
+                onChange={async (e) => {
+                  const mid = Number(e.target.value);
+                  const m = familyMembers.find((x) => x.id === mid);
+                  setForm({ ...form, member_id: mid, member_name: m?.name || "" });
+                }}
+              >
+                <option value="">—</option>
+                {familyMembers.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </Select>
             </div>
             <div>
               <Label>{t("sub_plan")}</Label>

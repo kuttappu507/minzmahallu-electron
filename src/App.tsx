@@ -87,6 +87,12 @@ export default function App() {
     apply();
   }, [apply]);
 
+  useEffect(() => {
+    if (splashDone) {
+      document.body.classList.add("app-loaded");
+    }
+  }, [splashDone]);
+
   if (!splashDone) {
     return <Splash onDone={() => setSplashDone(true)} />;
   }
