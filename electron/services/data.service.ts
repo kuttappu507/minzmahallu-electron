@@ -54,20 +54,20 @@ export const families = {
     );
     const { id } = run(
       `INSERT INTO families
-        (family_number, house_name, house_number, ward, area, address, pincode, phone, alt_phone, status, notes, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (family_number, house_name, house_number, ward, area, address, pincode, phone, alternative_phone, status, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         num, data.houseName ?? "", data.houseNumber ?? "", data.ward ?? "",
         data.area ?? "", data.address ?? "", data.pincode ?? "",
         data.phone ?? "", data.altPhone ?? "", data.status ?? "Active",
-        data.notes ?? "", data.createdBy ?? 1
+        data.notes ?? ""
       ]
     );
     return { id, familyNumber: num };
   },
   update: (id: number, data: any) =>
     run(
-      `UPDATE families SET house_name = ?, house_number = ?, ward = ?, area = ?, address = ?, pincode = ?, phone = ?, alt_phone = ?, status = ?, notes = ?, updated_at = datetime('now') WHERE id = ?`,
+      `UPDATE families SET house_name = ?, house_number = ?, ward = ?, area = ?, address = ?, pincode = ?, phone = ?, alternative_phone = ?, status = ?, notes = ?, updated_at = datetime('now') WHERE id = ?`,
       [
         data.houseName ?? "", data.houseNumber ?? "", data.ward ?? "",
         data.area ?? "", data.address ?? "", data.pincode ?? "",
@@ -120,8 +120,8 @@ export const members = {
     );
     const { id } = run(
       `INSERT INTO members
-        (member_code, family_id, name, arabic_name, gender, date_of_birth, age, blood_group, occupation, education, marital_status, mobile, email, emergency_contact, relationship, status, nationality, address, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (member_code, family_id, name, arabic_name, gender, date_of_birth, age, blood_group, occupation, education, marital_status, mobile, email, emergency_contact, relationship, status, nationality, address)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         num, data.familyId, data.name ?? "", data.arabicName ?? "",
         data.gender ?? "Male", data.dateOfBirth ?? "", data.age ?? null,
@@ -129,7 +129,7 @@ export const members = {
         data.maritalStatus ?? "Single", data.mobile ?? "",
         data.email ?? "", data.emergencyContact ?? "",
         data.relationship ?? "Other", data.status ?? "Active",
-        data.nationality ?? "Indian", data.address ?? "", data.createdBy ?? 1
+        data.nationality ?? "Indian", data.address ?? ""
       ]
     );
     return { id, memberCode: num };
@@ -384,14 +384,14 @@ export const marriages = {
     );
     const { id } = run(
       `INSERT INTO marriages
-        (marriage_number, bride_name, bride_father, bride_address, groom_name, groom_father, groom_address, witness1, witness2, witness3, witness4, mahar, nikah_date, registration_date, place, remarks, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (marriage_number, bride_name, bride_father, bride_address, groom_name, groom_father, groom_address, witness1, witness2, witness3, witness4, mahar, nikah_date, registration_date, place, remarks)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         num, data.brideName, data.brideFather ?? "", data.brideAddress ?? "",
         data.groomName, data.groomFather ?? "", data.groomAddress ?? "",
         data.witness1 ?? "", data.witness2 ?? "", data.witness3 ?? "", data.witness4 ?? "",
         data.mahar ?? "", data.nikahDate, data.registrationDate || nowDate(),
-        data.place ?? "", data.remarks ?? "", data.createdBy ?? 1
+        data.place ?? "", data.remarks ?? ""
       ]
     );
     return { id, marriageNumber: num };
@@ -438,13 +438,13 @@ export const deaths = {
     );
     const { id } = run(
       `INSERT INTO deaths
-        (death_number, deceased_name, father_name, gender, date_of_death, burial_date, cause_of_death, burial_place, family_id, remarks, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (death_number, deceased_name, father_name, gender, date_of_death, burial_date, cause_of_death, burial_place, family_id, remarks)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         num, data.deceasedName, data.fatherName ?? "",
         data.gender ?? "Male", data.dateOfDeath,
         data.burialDate, data.causeOfDeath ?? "", data.burialPlace ?? "",
-        data.familyId ?? null, data.remarks ?? "", data.createdBy ?? 1
+        data.familyId ?? null, data.remarks ?? ""
       ]
     );
     return { id, deathNumber: num };
@@ -598,7 +598,7 @@ export const certificates = {
 // ================= USERS =================
 
 export const users = {
-  list: () => all<any>(`SELECT id, username, full_name, role, is_active, must_change_pwd, last_login, created_at FROM users ORDER BY username`),
+  list: () => all<any>(`SELECT id, username, full_name, role, is_active, must_change_pwd, last_login_at AS last_login, created_at FROM users ORDER BY username`),
   create: (data: any, creatorRole: string) => {
     if (creatorRole !== "Administrator") throw new Error("Only administrators can create users");
     const salt = randomBytes(16);

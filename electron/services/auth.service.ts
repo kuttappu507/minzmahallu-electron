@@ -97,7 +97,7 @@ export function login(username: string, password: string): AuthUser {
 
   // Update last_login
   try {
-    run("UPDATE users SET last_login = datetime('now') WHERE id = ?", [user.id]);
+    run("UPDATE users SET last_login_at = datetime('now') WHERE id = ?", [user.id]);
   } catch (err) {
     console.warn("[auth] Could not update last_login:", err);
   }
