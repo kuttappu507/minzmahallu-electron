@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 
 export interface AuthUser {
   id: number;
@@ -17,20 +16,17 @@ interface AuthState {
   logout: () => Promise<void>;
 }
 
-export const useAuth = create<AuthState>()(
-  persist(
-    (set) => ({
-      user: null,
-      setUser: (u) => set({ user: u }),
-      logout: async () => {
-        try {
-          await window.mms.auth.logout();
-        } catch (e) {
-          console.error("Logout failed:", e);
-        }
-        set({ user: null });
-      },
-    }),
-    { name: "mms-auth" }
-  )
-);
+// NO persist — user must log in every time the app starts (security requirement).
+// The user state is in-memory only, cleared on app restart.
+export const useAuth = create<AuthState>()((set) => ({
+  user: null,
+  setUser: (u) => set({ user: u }),
+  logout: async () => {
+    try {
+      await window.mms.auth.logout();
+    } catch (e) {
+      console.error("Logout failed:", e);
+    }
+    set({ user: null });
+  },
+}));

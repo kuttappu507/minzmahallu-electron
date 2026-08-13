@@ -907,9 +907,22 @@
 
   /* ===== Login page ===== */
   .login-wrap {
-    height: 100vh; display: flex;
+    height: 100vh; display: flex; position: relative;
     background: var(--bg); background-image: var(--dot);
+    -webkit-app-region: drag;
   }
+  .login-wrap input, .login-wrap button, .login-wrap .login-win-controls { -webkit-app-region: no-drag; }
+  .login-win-controls {
+    position: fixed; top: 0; right: 0; z-index: 10000;
+    display: flex; gap: 2px; -webkit-app-region: no-drag;
+  }
+  .login-win-controls .win-btn {
+    width: 40px; height: 32px; border: 0; background: none;
+    color: var(--fnt); display: grid; place-items: center;
+    border-radius: 0; transition: 0.12s; cursor: pointer;
+  }
+  .login-win-controls .win-btn:hover { background: var(--selbg); color: var(--em); }
+  .login-win-controls .win-close:hover { background: var(--rose-bg); color: var(--c-rose); }
   .login-left {
     flex: 0 0 45%; position: relative; overflow: hidden;
     background: linear-gradient(135deg, #0eab7f 0%, #0b916c 40%, #08755a 100%);
