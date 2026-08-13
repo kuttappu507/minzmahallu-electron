@@ -139,50 +139,14 @@
   body.app-loaded { background: var(--bg); animation: appFadeIn 0.3s ease-out; }
   @keyframes appFadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-  /* Malayalam: override ALL font weights with !important so class-level
-     font: 500 declarations don't make Gayathri look thin */
+  /* Malayalam: override ALL elements with !important — universal selector
+     ensures no class-level font declaration can make Gayathri look thin */
+  html.lang-ml *,
   html.lang-ml body,
   html.lang-ml input,
   html.lang-ml button,
   html.lang-ml select,
-  html.lang-ml textarea,
-  html.lang-ml .navit b,
-  html.lang-ml .stat .val,
-  html.lang-ml .stat .slab,
-  html.lang-ml .tbl th,
-  html.lang-ml .tbl td,
-  html.lang-ml .btn,
-  html.lang-ml .inp,
-  html.lang-ml .lbl,
-  html.lang-ml .pill,
-  html.lang-ml .vhead h1,
-  html.lang-ml .vhead .vs,
-  html.lang-ml .ch-title,
-  html.lang-ml .ch-sub,
-  html.lang-ml .hero h1,
-  html.lang-ml .hero .sub,
-  html.lang-ml .qwrap input,
-  html.lang-ml .crumb b,
-  html.lang-ml .crumb small,
-  html.lang-ml .sb-user b,
-  html.lang-ml .sb-user small,
-  html.lang-ml .navsec,
-  html.lang-ml .gchip,
-  html.lang-ml .count-chip,
-  html.lang-ml .fchip,
-  html.lang-ml .toast,
-  html.lang-ml .modal,
-  html.lang-ml .m-h b,
-  html.lang-ml .m-b,
-  html.lang-ml .statusbar,
-  html.lang-ml .overline,
-  html.lang-ml .g-row,
-  html.lang-ml .g-row b,
-  html.lang-ml .sess,
-  html.lang-ml .avbtn b,
-  html.lang-ml .langseg button,
-  html.lang-ml .tb-chip,
-  html.lang-ml .delta {
+  html.lang-ml textarea {
     font-family: Gayathri, Poppins, sans-serif !important;
     font-weight: 700 !important;
   }
@@ -239,13 +203,13 @@
   .sb-logo { display: flex; align-items: center; gap: 11px; padding: 16px 16px 14px; }
   .sb-logo .logo { width: 38px; height: 38px; border-radius: 12px; }
   .sb-logo .logo b { font-size: 20px; }
-  .sb-logo .nm b { font: 500 15px Poppins; display: block; }
-  .sb-logo .nm small { font: 500 9px Poppins; color: var(--fnt); letter-spacing: 0.14em; }
+  .sb-logo .nm b { font: 600 17px Poppins; display: block; }
+  .sb-logo .nm small { font: 500 10px Poppins; color: var(--fnt); letter-spacing: 0.14em; }
   .sidebar.min .sb-logo { justify-content: center; padding: 16px 0 14px; }
   .sidebar.min .sb-logo .nm { display: none; }
 
   .navscroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0 12px 10px; scrollbar-width: thin; scrollbar-color: var(--line2) transparent; }
-  .navsec { font: 500 9px Poppins; letter-spacing: 0.24em; text-transform: uppercase; color: var(--fnt); padding: 14px 12px 6px; white-space: nowrap; }
+  .navsec { font: 600 10px Poppins; letter-spacing: 0.24em; text-transform: uppercase; color: var(--fnt); padding: 14px 12px 6px; white-space: nowrap; }
   .sidebar.min .navsec { padding: 11px 0 4px; color: transparent; }
   .sidebar.min .navsec::after { content: ""; display: block; border-top: 1px solid var(--line); }
   .navit {
@@ -255,7 +219,7 @@
     transition: 0.14s; white-space: nowrap; position: relative;
     text-decoration: none;
   }
-  .navit b { font: 500 12.8px Poppins; flex: 1; }
+  .navit b { font: 500 14px Poppins; flex: 1; }
   .navit:hover { background: var(--panel2); color: var(--tx); transform: translateX(2px); }
   .navit.on { background: var(--sb); color: var(--st); box-shadow: inset 0 0 0 1.5px var(--sl); }
   .navit.on::before { content: ""; position: absolute; left: -12px; top: 12px; width: 4px; height: 18px; border-radius: 4px; background: var(--sc); }
@@ -284,8 +248,8 @@
 
   .sb-user { border-top: 1px solid var(--line); padding: 13px 14px; display: flex; align-items: center; gap: 10px; }
   .sb-user .av { width: 36px; height: 36px; flex: none; border-radius: 12px; display: grid; place-items: center; font: 500 12px Poppins; color: #fff; background: var(--em); box-shadow: 0 2px 0 var(--emdd); }
-  .sb-user b { font: 500 12px Poppins; display: block; }
-  .sb-user small { font: 500 10px Poppins; color: var(--fnt); }
+  .sb-user b { font: 500 13px Poppins; display: block; }
+  .sb-user small { font: 500 11px Poppins; color: var(--fnt); }
   .sb-user .ibtn { margin-left: auto; }
   .sb-user .ibtn:hover { background: var(--rose-bg); color: var(--c-rose); }
   .sidebar.min .sb-user { flex-direction: column; padding: 12px 0; }

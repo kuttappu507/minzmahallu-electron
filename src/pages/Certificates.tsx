@@ -211,8 +211,12 @@ export function Certificates() {
   const handleGeneratePdf = async (cert: Certificate) => {
     setPdfLoadingId(cert.id);
     try {
-      await window.mms.certificates.generatePdf(cert.id);
-      toast.success(t("cert_pdf_success"));
+      const result = await window.mms.certificates.generatePdf(cert.id);
+      if (result.success) {
+        toast.success(t("cert_pdf_success"));
+      } else if (!result.cancelled) {
+        toast.error(result.error || t("cert_pdf_failed"));
+      }
     } catch (err: any) {
       toast.error(err.message || t("cert_pdf_failed"));
     } finally {

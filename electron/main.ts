@@ -431,11 +431,11 @@ app.whenReady().then(() => {
       if (saveResult.canceled || !saveResult.filePath) {
         return { success: false, cancelled: true };
       }
-      const pdfWin = new BrowserWindow({ show: false, webPreferences: { offscreen: true } });
+      const pdfWin = new BrowserWindow({ show: false, webPreferences: { } });
       // Use loadURL with base64 encoding for large HTML
       const base64Html = Buffer.from(html).toString("base64");
       await pdfWin.loadURL("data:text/html;base64," + base64Html);
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise(r => setTimeout(r, 1000));
       const pdfBuffer = await pdfWin.webContents.printToPDF({
         pageSize: "A4", printBackground: true,
         margins: { top: 0, bottom: 0, left: 0, right: 0 },
