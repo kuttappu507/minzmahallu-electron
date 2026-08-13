@@ -1,527 +1,693 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  Ticket, CalendarDays, CheckCircle2, RefreshCw, Eye, EyeOff,
-  FileText, Printer, Loader2,
+  Ticket, CalendarDays, CheckCircle2, RefreshCw, FileText, Printer,
+  Loader2, Plus, Search, Users, AlertTriangle, X, Check, Ban, RotateCcw,
 } from "lucide-react";
 import { useI18n } from "@/i18n";
-import { Button } from "@/components/ui";
+import { Button, Dialog, Input, Label, Select, Badge } from "@/components/ui";
 import { toast } from "@/lib/toast";
-import { formatDate, formatDateTime } from "@/lib/utils";
-
-/*
- * Tokens page — community token distribution management.
- *
- * Mirrors the Qt implementation: events (e.g. "Eid Milad 2026",
- * "Ramadan Kit 2026") each have a set of 4-digit token codes assigned
- * to families. Clicking a token toggles its collected state.
- *
- * Uses local mock state (no API needed). Two events with 24 tokens each.
- */
-
-interface TokenRow {
-  id: number;
-  code: string; // 4-digit code, e.g. "0421"
-  familyName: string;
-  familyNumber: string;
-  collected: boolean;
-  collectedAt: string | null;
-}
+import { formatDate } from "@/lib/utils";
 
 interface TokenEvent {
   id: number;
-  name: string;
-  type: string;
-  date: string;
-  status: "active" | "completed" | "cancelled";
-  tokens: TokenRow[];
+  event_name: string;
+  event_type: string;
+  event_date: string;
+  event_time: string;
+  venue: string;
+  description: string;
+  status: string;
 }
 
-// Stable family pool — used to assign tokens deterministically.
-const FAMILY_POOL: { name: string; number: string }[] = [
-  { name: "Kunjammu Hse", number: "F-001" },
-  { name: "Rahman Hse", number: "F-002" },
-  { name: "Abdul Khader Hse", number: "F-003" },
-  { name: "Mammu Hse", number: "F-004" },
-  { name: "Sainaba Hse", number: "F-005" },
-  { name: "Jaleel Hse", number: "F-006" },
-  { name: "Haleema Hse", number: "F-007" },
-  { name: "Imbichi Hse", number: "F-008" },
-  { name: "Moidu Hse", number: "F-009" },
-  { name: "Suhara Hse", number: "F-010" },
-  { name: "Ummu Hse", number: "F-011" },
-  { name: "Nasar Hse", number: "F-012" },
-  { name: "Khadeeja Hse", number: "F-013" },
-  { name: "Aboobacker Hse", number: "F-014" },
-  { name: "Fathima Hs", number: "F-015" },
-  { name: "Yusuf Hse", number: "F-016" },
-  { name: "Zainaba Hse", number: "F-017" },
-  { name: "Savad Hse", number: "F-018" },
-  { name: "Mariyam Hse", number: "F-019" },
-  { name: "Ibrahim Hse", number: "F-020" },
-  { name: "Rafeeque Hse", number: "F-021" },
-  { name: "Hafsah Hse", number: "F-022" },
-  { name: "Anvar Hse", number: "F-023" },
-  { name: "Kadeeja Hse", number: "F-024" },
-];
-
-// Deterministic 4-digit code generator — same input → same codes each render.
-function buildTokensForEvent(eventId: number, preCollectedCount = 0): TokenRow[] {
-  const tokens: TokenRow[] = [];
-  const used = new Set<string>();
-  // Seed the PRNG with the eventId so each event has a different but stable set.
-  let seed = eventId * 9973;
-  const rand = () => {
-    seed = (seed * 9301 + 49297) % 233280;
-    return seed / 233280;
-  };
-  for (let i = 0; i < 24; i++) {
-    let code = "";
-    do {
-      code = String(1000 + Math.floor(rand() * 9000));
-    } while (used.has(code));
-    used.add(code);
-    const fam = FAMILY_POOL[i % FAMILY_POOL.length];
-    tokens.push({
-      id: i + 1,
-      code,
-      familyName: fam.name,
-      familyNumber: fam.number,
-      collected: i < preCollectedCount,
-      collectedAt: i < preCollectedCount ? new Date().toISOString() : null,
-    });
-  }
-  return tokens;
+interface TokenRow {
+  id: number;
+  event_id: number;
+  family_id: number;
+  token_code: string;
+  status: string;
+  collected: number;
+  collected_at: string | null;
+  collected_by: number | null;
+  created_at: string;
+  family_number: string;
+  house_name: string;
+  ward: string;
+  house_number: string;
+  phone: string;
+  event_name: string;
+  event_date: string;
+  venue: string;
 }
 
-function makeInitialEvents(): TokenEvent[] {
-  return [
-    {
-      id: 1,
-      name: "Eid Milad 2026",
-      type: "eid-milad",
-      date: "2026-09-04",
-      status: "active",
-      tokens: buildTokensForEvent(1, 8),
-    },
-    {
-      id: 2,
-      name: "Ramadan Kit 2026",
-      type: "ramadan-kit",
-      date: "2026-02-18",
-      status: "active",
-      tokens: buildTokensForEvent(2, 3),
-    },
-  ];
+interface Family {
+  id: number;
+  family_number: string;
+  house_name: string;
+  house_number: string;
+  ward: string;
+  phone: string;
+  status: string;
+  member_count: number;
 }
 
-function escapeHtml(v: any): string {
-  if (v === null || v === undefined) return "";
-  return String(v)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function buildTokensPdfHtml(eventName: string, tokens: TokenRow[]): string {
-  const head = `<th>#</th><th>Token Code</th><th>Family</th><th>Family No</th><th>Status</th>`;
-  const body = tokens
-    .map((tk, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(tk.code)}</td><td>${escapeHtml(tk.familyName)}</td><td>${escapeHtml(tk.familyNumber)}</td><td>${tk.collected ? "Collected" : "Pending"}</td></tr>`)
-    .join("");
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(eventName)} — Tokens</title>
-<style>
-  body { font: 400 12px Poppins, system-ui, sans-serif; color: #1e2b25; margin: 24px; }
-  h1 { font: 600 20px Poppins, sans-serif; margin: 0 0 4px; }
-  .sub { color: #5f7268; font-size: 11px; margin-bottom: 16px; }
-  table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  th { background: #f6f9f6; text-align: left; padding: 8px 10px; border: 1px solid #e6ede7; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.1em; color: #5f7268; font-weight: 500; }
-  td { padding: 7px 10px; border: 1px solid #e6ede7; vertical-align: top; }
-  tr:nth-child(even) td { background: #f8faf8; }
-  .foot { margin-top: 18px; color: #8ba096; font-size: 10px; }
-</style></head><body>
-  <h1>${escapeHtml(eventName)} — Token Sheet</h1>
-  <div class="sub">Generated ${new Date().toLocaleString("en-IN")} · ${tokens.length} tokens</div>
-  <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
-  <div class="foot">Minz Mahallu Management System · Token Distribution Sheet</div>
-</body></html>`;
-}
-
-function buildReceivedSheetPdfHtml(eventName: string, tokens: TokenRow[]): string {
-  const collected = tokens.filter((tk) => tk.collected);
-  const head = `<th>#</th><th>Token Code</th><th>Family</th><th>Family No</th><th>Collected At</th><th>Signature</th>`;
-  const body = collected
-    .map((tk, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(tk.code)}</td><td>${escapeHtml(tk.familyName)}</td><td>${escapeHtml(tk.familyNumber)}</td><td>${tk.collectedAt ? new Date(tk.collectedAt).toLocaleString("en-IN") : "—"}</td><td></td></tr>`)
-    .join("");
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(eventName)} — Received Sheet</title>
-<style>
-  body { font: 400 12px Poppins, system-ui, sans-serif; color: #1e2b25; margin: 24px; }
-  h1 { font: 600 20px Poppins, sans-serif; margin: 0 0 4px; }
-  .sub { color: #5f7268; font-size: 11px; margin-bottom: 16px; }
-  table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  th { background: #f6f9f6; text-align: left; padding: 10px 10px; border: 1px solid #e6ede7; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.1em; color: #5f7268; font-weight: 500; }
-  td { padding: 14px 10px; border: 1px solid #e6ede7; vertical-align: top; min-height: 30px; }
-  tr:nth-child(even) td { background: #f8faf8; }
-  .foot { margin-top: 18px; color: #8ba096; font-size: 10px; }
-</style></head><body>
-  <h1>${escapeHtml(eventName)} — Received Sheet</h1>
-  <div class="sub">Generated ${new Date().toLocaleString("en-IN")} · ${collected.length} of ${tokens.length} tokens collected</div>
-  <table><thead><tr>${head}</tr></thead><tbody>${body || '<tr><td colspan="6" style="text-align:center;padding:30px;">No tokens collected yet</td></tr>'}</tbody></table>
-  <div class="foot">Minz Mahallu Management System · Received Token Sheet</div>
-</body></html>`;
-}
+type ViewMode = "list" | "select" | "review" | "generated";
 
 export function Tokens() {
   const { t } = useI18n();
+  const navigate = useNavigate();
 
-  const [events, setEvents] = useState<TokenEvent[]>(makeInitialEvents);
-  const [activeEventId, setActiveEventId] = useState<number>(1);
-  const [filter, setFilter] = useState<"all" | "collected" | "pending">("all");
+  const [events, setEvents] = useState<TokenEvent[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const [tokens, setTokens] = useState<TokenRow[]>([]);
+  const [stats, setStats] = useState({ total: 0, collected: 0, remaining: 0, rate: 0 });
   const [search, setSearch] = useState("");
-  const [poppingId, setPoppingId] = useState<number | null>(null);
-  const [pdfLoading, setPdfLoading] = useState<null | "tokens" | "received">(null);
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [loading, setLoading] = useState(false);
 
-  const activeEvent = useMemo(
-    () => events.find((e) => e.id === activeEventId) || events[0],
-    [events, activeEventId]
-  );
+  // Event dialog
+  const [eventDialogOpen, setEventDialogOpen] = useState(false);
+  const [eventForm, setEventForm] = useState({ event_name: "", event_type: "general", event_date: "", event_time: "", venue: "", description: "" });
+  const [editingEventId, setEditingEventId] = useState<number | null>(null);
 
-  const tokens = activeEvent?.tokens || [];
+  // Family selection
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [families, setFamilies] = useState<Family[]>([]);
+  const [selectedFamilyIds, setSelectedFamilyIds] = useState<Set<number>>(new Set());
+  const [familySearch, setFamilySearch] = useState("");
+  const [wardFilter, setWardFilter] = useState("All");
+  const [existingTokens, setExistingTokens] = useState<Set<number>>(new Set());
 
-  const stats = useMemo(() => {
-    const total = tokens.length;
-    const collected = tokens.filter((tk) => tk.collected).length;
-    const pending = total - collected;
-    const pct = total === 0 ? 0 : Math.round((collected / total) * 100);
-    return { total, collected, pending, pct };
-  }, [tokens]);
+  // PDF loading
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [collectionSheetLoading, setCollectionSheetLoading] = useState(false);
 
-  const visibleTokens = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return tokens.filter((tk) => {
-      if (filter === "collected" && !tk.collected) return false;
-      if (filter === "pending" && tk.collected) return false;
-      if (!q) return true;
-      return (
-        tk.code.includes(q) ||
-        tk.familyName.toLowerCase().includes(q) ||
-        tk.familyNumber.toLowerCase().includes(q)
-      );
+  // Cancel/Replace dialog
+  const [actionDialog, setActionDialog] = useState<{ type: "cancel" | "replace" | null; token: TokenRow | null }>({ type: null, token: null });
+  const [actionReason, setActionReason] = useState("");
+
+  // ===== Load events =====
+  const loadEvents = useCallback(async () => {
+    try {
+      const result = await window.mms.tokens.listEvents();
+      setEvents(result || []);
+      if (result && result.length > 0 && !selectedEventId) {
+        setSelectedEventId(result[0].id);
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Failed to load events");
+    }
+  }, []);
+
+  // ===== Load tokens for selected event =====
+  const loadTokens = useCallback(async () => {
+    if (!selectedEventId) return;
+    setLoading(true);
+    try {
+      const filter: any = { eventId: selectedEventId };
+      if (statusFilter !== "All") filter.status = statusFilter;
+      if (search) filter.search = search;
+      const result = await window.mms.tokens.list(filter);
+      setTokens(result.rows || []);
+      const s = await window.mms.tokens.stats(selectedEventId);
+      setStats(s);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to load tokens");
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedEventId, statusFilter, search]);
+
+  useEffect(() => { loadEvents(); }, [loadEvents]);
+  useEffect(() => { if (selectedEventId && viewMode === "list") loadTokens(); }, [selectedEventId, viewMode, loadTokens]);
+
+  // ===== Event CRUD =====
+  const handleSaveEvent = async () => {
+    if (!eventForm.event_name || !eventForm.event_date) {
+      toast.error("Event name and date are required");
+      return;
+    }
+    try {
+      if (editingEventId) {
+        await window.mms.tokens.updateEvent(editingEventId, eventForm);
+        toast.success("Event updated");
+      } else {
+        const result = await window.mms.tokens.createEvent(eventForm);
+        toast.success("Event created");
+        setSelectedEventId(result.id);
+      }
+      setEventDialogOpen(false);
+      setEventForm({ event_name: "", event_type: "general", event_date: "", event_time: "", venue: "", description: "" });
+      setEditingEventId(null);
+      loadEvents();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to save event");
+    }
+  };
+
+  const handleEditEvent = async (id: number) => {
+    const ev = await window.mms.tokens.getEvent(id);
+    if (ev) {
+      setEventForm({
+        event_name: ev.event_name || "",
+        event_type: ev.event_type || "general",
+        event_date: ev.event_date || "",
+        event_time: ev.event_time || "",
+        venue: ev.venue || "",
+        description: ev.description || "",
+      });
+      setEditingEventId(id);
+      setEventDialogOpen(true);
+    }
+  };
+
+  // ===== Family selection flow =====
+  const startFamilySelection = async () => {
+    if (!selectedEventId) {
+      toast.error("Please select an event first");
+      return;
+    }
+    try {
+      // Load all active families
+      const result = await window.mms.families.list({ status: "Active", pageSize: 10000 });
+      setFamilies(result.rows || []);
+      // Check existing tokens for this event
+      const existing = await window.mms.tokens.checkExisting(selectedEventId);
+      setExistingTokens(existing);
+      setSelectedFamilyIds(new Set());
+      setViewMode("select");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to load families");
+    }
+  };
+
+  const filteredFamilies = useMemo(() => {
+    return families.filter(f => {
+      if (wardFilter !== "All" && f.ward !== wardFilter) return false;
+      if (familySearch) {
+        const q = familySearch.toLowerCase();
+        return f.family_number.toLowerCase().includes(q) ||
+               f.house_name.toLowerCase().includes(q) ||
+               f.ward.toLowerCase().includes(q) ||
+               (f.phone || "").includes(q);
+      }
+      return true;
     });
-  }, [tokens, filter, search]);
+  }, [families, wardFilter, familySearch]);
 
-  const toggleToken = useCallback(
-    (id: number) => {
-      setEvents((prev) =>
-        prev.map((ev) =>
-          ev.id !== activeEventId
-            ? ev
-            : {
-                ...ev,
-                tokens: ev.tokens.map((tk) =>
-                  tk.id === id
-                    ? {
-                        ...tk,
-                        collected: !tk.collected,
-                        collectedAt: !tk.collected ? new Date().toISOString() : null,
-                      }
-                    : tk
-                ),
-              }
-        )
-      );
-      setPoppingId(id);
-      window.setTimeout(() => setPoppingId((cur) => (cur === id ? null : cur)), 320);
-    },
-    [activeEventId]
-  );
+  const wards = useMemo(() => {
+    const set = new Set(families.map(f => f.ward).filter(Boolean));
+    return ["All", ...Array.from(set).sort()];
+  }, [families]);
 
-  const handleReset = useCallback(() => {
-    setEvents((prev) =>
-      prev.map((ev) =>
-        ev.id !== activeEventId
-          ? ev
-          : {
-              ...ev,
-              tokens: ev.tokens.map((tk) => ({ ...tk, collected: false, collectedAt: null })),
-            }
-      )
-    );
-    toast.info(`${t("tok_reset_done")} ${activeEvent?.name}`);
-  }, [activeEventId, activeEvent, t]);
+  const selectAllActive = () => {
+    setSelectedFamilyIds(new Set(families.map(f => f.id)));
+  };
 
-  const handleMarkAllCollected = useCallback(() => {
-    setEvents((prev) =>
-      prev.map((ev) =>
-        ev.id !== activeEventId
-          ? ev
-          : {
-              ...ev,
-              tokens: ev.tokens.map((tk) => ({
-                ...tk,
-                collected: true,
-                collectedAt: tk.collectedAt || new Date().toISOString(),
-              })),
-            }
-      )
-    );
-    toast.success(`${t("tok_all_collected")} ${activeEvent?.name}`);
-  }, [activeEventId, activeEvent, t]);
+  const clearSelection = () => {
+    setSelectedFamilyIds(new Set());
+  };
 
-  const handleGenerateTokensPdf = async () => {
-    if (!activeEvent) return;
-    setPdfLoading("tokens");
+  const toggleFamily = (id: number) => {
+    setSelectedFamilyIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Ward distribution for review
+  const wardDistribution = useMemo(() => {
+    const dist: Record<string, number> = {};
+    selectedFamilyIds.forEach(id => {
+      const fam = families.find(f => f.id === id);
+      const ward = fam?.ward || "Unknown";
+      dist[ward] = (dist[ward] || 0) + 1;
+    });
+    return Object.entries(dist).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [selectedFamilyIds, families]);
+
+  const newCount = useMemo(() => {
+    let count = 0;
+    selectedFamilyIds.forEach(id => {
+      if (!existingTokens.has(id)) count++;
+    });
+    return count;
+  }, [selectedFamilyIds, existingTokens]);
+
+  const alreadyCount = selectedFamilyIds.size - newCount;
+
+  // ===== Generate tokens =====
+  const handleGenerate = async () => {
+    if (!selectedEventId || selectedFamilyIds.size === 0) return;
     try {
-      const html = buildTokensPdfHtml(activeEvent.name, activeEvent.tokens);
-      const fileName = `tokens_${activeEvent.type}_${new Date().toISOString().slice(0, 10)}.pdf`;
-      await window.mms.pdf.generate(html, fileName);
-      toast.success(t("tok_pdf_success"));
-    } catch (err: any) {
-      toast.error(err.message || t("tok_pdf_failed"));
-    } finally {
-      setPdfLoading(null);
+      const result = await window.mms.tokens.generate(selectedEventId, Array.from(selectedFamilyIds));
+      toast.success(`${result.generated} tokens generated${result.skipped > 0 ? ` · ${result.skipped} already existed` : ""}`);
+      setViewMode("generated");
+      loadTokens();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to generate tokens");
     }
   };
 
-  const handlePrintReceivedSheet = async () => {
-    if (!activeEvent) return;
-    setPdfLoading("received");
+  // ===== PDF generation =====
+  const handleGenerateTokenPdf = async () => {
+    if (!selectedEventId) return;
+    setPdfLoading(true);
     try {
-      const html = buildReceivedSheetPdfHtml(activeEvent.name, activeEvent.tokens);
-      const fileName = `received_${activeEvent.type}_${new Date().toISOString().slice(0, 10)}.pdf`;
-      await window.mms.pdf.generate(html, fileName);
-      toast.success(t("tok_pdf_success"));
-    } catch (err: any) {
-      toast.error(err.message || t("tok_pdf_failed"));
+      const result = await window.mms.tokens.generateTokenPdf(selectedEventId);
+      if (result.success) {
+        toast.success(`Token PDF generated (${result.count} tokens)`);
+      } else if (!result.cancelled) {
+        toast.error(result.error || "Failed to generate PDF");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Failed to generate PDF");
     } finally {
-      setPdfLoading(null);
+      setPdfLoading(false);
     }
   };
 
+  const handleGenerateCollectionSheet = async () => {
+    if (!selectedEventId) return;
+    setCollectionSheetLoading(true);
+    try {
+      const result = await window.mms.tokens.generateCollectionSheet(selectedEventId);
+      if (result.success) {
+        toast.success(`Collection sheet generated (${result.count} tokens)`);
+      } else if (!result.cancelled) {
+        toast.error(result.error || "Failed to generate collection sheet");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Failed to generate collection sheet");
+    } finally {
+      setCollectionSheetLoading(false);
+    }
+  };
+
+  // ===== Token actions =====
+  const handleCollect = async (tokenId: number) => {
+    try {
+      await window.mms.tokens.collect(tokenId);
+      toast.success("Token marked as collected");
+      loadTokens();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to collect token");
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!actionDialog.token) return;
+    try {
+      await window.mms.tokens.cancel(actionDialog.token.id, actionReason || "Lost token");
+      toast.success("Token cancelled");
+      setActionDialog({ type: null, token: null });
+      setActionReason("");
+      loadTokens();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to cancel token");
+    }
+  };
+
+  const handleReplace = async () => {
+    if (!actionDialog.token) return;
+    try {
+      const result = await window.mms.tokens.replace(actionDialog.token.id, actionReason || "Lost token");
+      toast.success(`Replacement token generated: ${result.tokenCode}`);
+      setActionDialog({ type: null, token: null });
+      setActionReason("");
+      loadTokens();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to replace token");
+    }
+  };
+
+  const selectedEvent = events.find(e => e.id === selectedEventId);
+
+  // ===== RENDER: Family Selection View =====
+  if (viewMode === "select" || viewMode === "review") {
+    return (
+      <div className="view view-enter">
+        <div className="vhead">
+          <span className="modic t-pink"><Ticket size={22} /></span>
+          <div>
+            <h1>Select Families — {selectedEvent?.event_name}</h1>
+            <div className="vs">{selectedFamilyIds.size} selected · {newCount} new · {alreadyCount} already have tokens</div>
+          </div>
+          <div className="vr">
+            <Button variant="secondary" onClick={() => setViewMode("list")}>Back</Button>
+            {viewMode === "select" && (
+              <Button onClick={() => setViewMode("review")} disabled={selectedFamilyIds.size === 0}>
+                Review Selection ({selectedFamilyIds.size})
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {viewMode === "select" && (
+          <>
+            <div className="toolbar">
+              <Input className="w-64" placeholder="Search families..." value={familySearch} onChange={e => setFamilySearch(e.target.value)} />
+              <Select value={wardFilter} onChange={e => setWardFilter(e.target.value)} className="w-40">
+                {wards.map(w => <option key={w} value={w}>{w === "All" ? "All wards" : w}</option>)}
+              </Select>
+              <Button variant="secondary" onClick={selectAllActive}>Select All Active</Button>
+              <Button variant="secondary" onClick={clearSelection}>Clear</Button>
+              <span className="count-chip">{selectedFamilyIds.size} / {families.length} selected</span>
+            </div>
+
+            <div className="tbl">
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ width: 40 }}></th>
+                    <th>Family No.</th>
+                    <th>House Name</th>
+                    <th>Ward</th>
+                    <th>Phone</th>
+                    <th>Members</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredFamilies.map(f => (
+                    <tr key={f.id} onClick={() => toggleFamily(f.id)} className={selectedFamilyIds.has(f.id) ? "" : ""}>
+                      <td>
+                        <input type="checkbox" checked={selectedFamilyIds.has(f.id)} onChange={() => toggleFamily(f.id)} />
+                      </td>
+                      <td><span style={{ fontFamily: "Poppins", fontWeight: 600 }}>{f.family_number}</span></td>
+                      <td>{f.house_name}</td>
+                      <td>{f.ward || "—"}</td>
+                      <td>{f.phone || "—"}</td>
+                      <td><Badge variant="muted">{f.member_count}</Badge></td>
+                      <td>
+                        {existingTokens.has(f.id) ? (
+                          <Badge variant="warning">Has Token</Badge>
+                        ) : (
+                          <Badge variant="success">New</Badge>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {viewMode === "review" && (
+          <div className="card" style={{ padding: 20 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Review Selection</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
+              <div className="stat t-em" style={{ padding: 15 }}>
+                <div className="val">{selectedFamilyIds.size}</div>
+                <div className="slab">Selected Families</div>
+              </div>
+              <div className="stat t-gold" style={{ padding: 15 }}>
+                <div className="val">{newCount}</div>
+                <div className="slab">New Tokens</div>
+              </div>
+              <div className="stat t-slate" style={{ padding: 15 }}>
+                <div className="val">{alreadyCount}</div>
+                <div className="slab">Already Have Tokens</div>
+              </div>
+            </div>
+
+            <h4 style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Ward Distribution</h4>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
+              {wardDistribution.map(([ward, count]) => (
+                <span key={ward} className="count-chip">{ward}: {count}</span>
+              ))}
+            </div>
+
+            {alreadyCount > 0 && (
+              <div className="alert-card t-rose" style={{ marginBottom: 16, padding: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <AlertTriangle size={16} />
+                  <b>{alreadyCount} families already have tokens for this event.</b>
+                </div>
+                <p style={{ marginTop: 4, fontSize: 12, color: "var(--mut)" }}>These will be skipped during generation. Only {newCount} new tokens will be created.</p>
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <Button variant="secondary" onClick={() => setViewMode("select")}>Back to Selection</Button>
+              <Button onClick={handleGenerate} disabled={newCount === 0}>
+                Generate {newCount} New Tokens
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ===== RENDER: Generated confirmation =====
+  if (viewMode === "generated") {
+    return (
+      <div className="view view-enter">
+        <div className="card" style={{ padding: 40, textAlign: "center", maxWidth: 480, margin: "60px auto" }}>
+          <div style={{ width: 64, height: 64, borderRadius: 18, background: "var(--selbg)", border: "1.5px solid var(--em)", display: "grid", placeItems: "center", margin: "0 auto 16px" }}>
+            <CheckCircle2 size={32} style={{ color: "var(--em)" }} />
+          </div>
+          <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>Tokens Generated Successfully</h2>
+          <p style={{ fontSize: 13, color: "var(--mut)", marginBottom: 24 }}>
+            {stats.total} tokens for {selectedEvent?.event_name}
+          </p>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+            <Button variant="secondary" onClick={handleGenerateTokenPdf} disabled={pdfLoading}>
+              {pdfLoading ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
+              Generate Token PDF
+            </Button>
+            <Button variant="secondary" onClick={handleGenerateCollectionSheet} disabled={collectionSheetLoading}>
+              {collectionSheetLoading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+              Collection Sheet
+            </Button>
+          </div>
+          <div style={{ marginTop: 20 }}>
+            <Button variant="ghost" onClick={() => { setViewMode("list"); loadTokens(); }}>View Tokens</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ===== RENDER: Main Token List View =====
   return (
     <div className="view view-enter">
       <div className="vhead">
-        <div className="modic t-em">
-          <Ticket size={20} />
-        </div>
+        <span className="modic t-pink"><Ticket size={22} /></span>
         <div>
-          <h1>{t("nav_tokens")}</h1>
-          <div className="vs">{t("tok_subtitle")}</div>
+          <h1>Tokens</h1>
+          <div className="vs">Token distribution & collection management</div>
         </div>
         <div className="vr">
-          <Button variant="secondary" onClick={handleGenerateTokensPdf} disabled={pdfLoading !== null}>
-            {pdfLoading === "tokens" ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
-            {t("tok_generate_pdf")}
+          <Select value={selectedEventId || ""} onChange={e => setSelectedEventId(Number(e.target.value))} className="w-48">
+            <option value="">— Select Event —</option>
+            {events.map(ev => (
+              <option key={ev.id} value={ev.id}>{ev.event_name} ({formatDate(ev.event_date)})</option>
+            ))}
+          </Select>
+          <Button variant="secondary" onClick={() => { setEventForm({ event_name: "", event_type: "general", event_date: "", event_time: "", venue: "", description: "" }); setEditingEventId(null); setEventDialogOpen(true); }}>
+            <Plus size={14} /> New Event
           </Button>
-          <Button variant="secondary" onClick={handlePrintReceivedSheet} disabled={pdfLoading !== null}>
-            {pdfLoading === "received" ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
-            {t("tok_print_received")}
-          </Button>
-          <Button variant="secondary" onClick={handleReset}>
-            <RefreshCw size={14} />
-            {t("tok_reset_board")}
-          </Button>
-          <Button onClick={handleMarkAllCollected}>
-            <CheckCircle2 size={14} />
-            {t("tok_mark_all")}
-          </Button>
-        </div>
-      </div>
-
-      {/* Event selector strip */}
-      <div className="toolbar">
-        <span className="count-chip flex items-center gap-2">
-          <CalendarDays size={12} />
-          {activeEvent?.date ? formatDate(activeEvent.date) : "—"}
-        </span>
-        <span
-          className={`pill ${activeEvent?.status === "active" ? "t-em" : activeEvent?.status === "completed" ? "t-slate" : "t-rose"}`}
-        >
-          {activeEvent?.status?.toUpperCase()}
-        </span>
-        <div className="chiprow ml-2">
-          {events.map((ev) => (
-            <button
-              key={ev.id}
-              className={`fchip ${ev.id === activeEventId ? "on" : ""}`}
-              onClick={() => {
-                setActiveEventId(ev.id);
-                setFilter("all");
-                setSearch("");
-              }}
-            >
-              <Ticket size={12} className="ic-inline-sm" />
-              {ev.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Stat strip with progress bar */}
-      <div className="tok-strip t-em">
-        <div className="ts-ic">
-          <Ticket size={20} />
-        </div>
-        <div className="ts-meta">
-          <b>{activeEvent?.name}</b>
-          <small>{t("tok_distribution_progress")}</small>
-        </div>
-        <div className="ts-prog">
-          <div className="ts-bar">
-            <i className="tok-prog-bar" style={{ width: stats.pct + "%" }} />
-          </div>
-          <div className="tok-progress-label">
-            <span>{stats.pct}% {t("tok_collected_pct")}</span>
-            <span>
-              {stats.collected} / {stats.total}
-            </span>
-          </div>
-        </div>
-        <div className="ts-stats">
-          <span className="count-chip">{t("tok_total")} · {stats.total}</span>
-          <span className="count-chip em">
-            {t("tok_collected")} · {stats.collected}
-          </span>
-          <span className="count-chip gold">
-            {t("tok_pending")} · {stats.pending}
-          </span>
-        </div>
-      </div>
-
-      {/* Token board */}
-      <div className="tok-main">
-        <div className="tok-board">
-          <div className="tb-head">
-            <b>{t("tok_board")}</b>
-            <div className="flex gap-2 items-center flex-wrap">
-              <div className="chiprow">
-                <button
-                  className={`fchip ${filter === "all" ? "on" : ""}`}
-                  onClick={() => setFilter("all")}
-                >
-                  {t("ui_all")} ({stats.total})
-                </button>
-                <button
-                  className={`fchip t-em ${filter === "collected" ? "on" : ""}`}
-                  onClick={() => setFilter("collected")}
-                >
-                  <Eye size={12} className="ic-inline-sm" />
-                  {t("tok_collected")} ({stats.collected})
-                </button>
-                <button
-                  className={`fchip t-gold ${filter === "pending" ? "on" : ""}`}
-                  onClick={() => setFilter("pending")}
-                >
-                  <EyeOff size={12} className="ic-inline-sm" />
-                  {t("tok_pending")} ({stats.pending})
-                </button>
-              </div>
-              <input
-                className="inp tok-search-inp"
-                placeholder={t("tok_search_placeholder")}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {visibleTokens.length === 0 ? (
-            <div className="tempty tok-empty">
-              {t("tok_no_match")}
-            </div>
-          ) : (
-            <div className="tok-grid">
-              {visibleTokens.map((tk) => (
-                <div
-                  key={tk.id}
-                  className={`tok ${tk.collected ? "collected" : ""} ${poppingId === tk.id ? "popping" : ""}`}
-                  onClick={() => toggleToken(tk.id)}
-                  title={tk.collected ? `Collected ${formatDateTime(tk.collectedAt)}` : "Click to mark collected"}
-                >
-                  <div className="tcode">{tk.code}</div>
-                  <div className="tfam" title={`${tk.familyName} · ${tk.familyNumber}`}>
-                    {tk.familyName}
-                  </div>
-                  <div className="tstat">
-                    <span className="dot" />
-                    {tk.collected ? t("tok_collected_lower") : t("tok_pending_lower")}
-                  </div>
-                </div>
-              ))}
-            </div>
+          {selectedEventId && (
+            <Button variant="secondary" onClick={() => handleEditEvent(selectedEventId)}>Edit Event</Button>
           )}
         </div>
       </div>
 
-      {/* Event list / sidebar */}
-      <div className="card card-pad-4 mt-3">
-        <div className="ch-head mb-3">
-          <div>
-            <div className="ch-title">{t("tok_events")}</div>
-            <div className="ch-sub">{t("tok_events_sub")}</div>
+      {selectedEventId && (
+        <>
+          {/* Stats */}
+          <div className="stat-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+            <div className="stat t-em">
+              <div className="srow"><span className="sic"><Ticket size={18} /></span><span className="delta">{stats.rate}%</span></div>
+              <div className="val">{stats.total}</div>
+              <div className="slab">Total Tokens</div>
+            </div>
+            <div className="stat t-teal">
+              <div className="srow"><span className="sic"><CheckCircle2 size={18} /></span></div>
+              <div className="val">{stats.collected}</div>
+              <div className="slab">Collected</div>
+            </div>
+            <div className="stat t-gold">
+              <div className="srow"><span className="sic"><Users size={18} /></span></div>
+              <div className="val">{stats.remaining}</div>
+              <div className="slab">Remaining</div>
+            </div>
+            <div className="stat t-sky">
+              <div className="srow"><span className="sic"><RefreshCw size={18} /></span></div>
+              <div className="val">{stats.rate}%</div>
+              <div className="slab">Collection Rate</div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="toolbar">
+            <Button onClick={startFamilySelection}><Plus size={14} /> Generate Tokens</Button>
+            <Button variant="secondary" onClick={handleGenerateTokenPdf} disabled={pdfLoading || stats.total === 0}>
+              {pdfLoading ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
+              Token PDF
+            </Button>
+            <Button variant="secondary" onClick={handleGenerateCollectionSheet} disabled={collectionSheetLoading || stats.total === 0}>
+              {collectionSheetLoading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+              Collection Sheet
+            </Button>
+            <div style={{ flex: 1 }} />
+            <Input className="w-48" placeholder="Search token/family..." value={search} onChange={e => setSearch(e.target.value)} />
+            <Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-32">
+              <option>All</option>
+              <option>GENERATED</option>
+              <option>COLLECTED</option>
+              <option>CANCELLED</option>
+            </Select>
+            <Button variant="ghost" onClick={loadTokens}><RefreshCw size={14} /></Button>
+          </div>
+
+          {/* Token table */}
+          <div className="tbl">
+            <table>
+              <thead>
+                <tr>
+                  <th>Token</th>
+                  <th>Family</th>
+                  <th>House</th>
+                  <th>Ward</th>
+                  <th>Status</th>
+                  <th>Generated</th>
+                  <th>Collected</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan={8} className="tempty">Loading...</td></tr>
+                ) : tokens.length === 0 ? (
+                  <tr><td colSpan={8} className="tempty">No tokens yet. Click "Generate Tokens" to create tokens for active families.</td></tr>
+                ) : (
+                  tokens.map(tk => (
+                    <tr key={tk.id}>
+                      <td><span style={{ fontFamily: "Courier New, monospace", fontWeight: 700, fontSize: 14, color: "var(--em)", letterSpacing: 1 }}>{tk.token_code}</span></td>
+                      <td>{tk.house_name || tk.family_number}</td>
+                      <td>{tk.house_number || tk.family_number}</td>
+                      <td>{tk.ward || "—"}</td>
+                      <td>
+                        <Badge variant={tk.status === "COLLECTED" ? "success" : tk.status === "CANCELLED" ? "danger" : "warning"}>
+                          {tk.status}
+                        </Badge>
+                      </td>
+                      <td>{formatDate(tk.created_at)}</td>
+                      <td>{tk.collected_at ? formatDate(tk.collected_at) : "—"}</td>
+                      <td>
+                        <div className="rowact">
+                          {tk.status === "GENERATED" && (
+                            <button className="act-btn act-edit" onClick={() => handleCollect(tk.id)} title="Mark Collected">
+                              <Check size={14} />
+                            </button>
+                          )}
+                          {tk.status !== "CANCELLED" && (
+                            <>
+                              <button className="act-btn act-del" onClick={() => setActionDialog({ type: "cancel", token: tk })} title="Cancel Token">
+                                <Ban size={14} />
+                              </button>
+                              <button className="act-btn act-view" onClick={() => setActionDialog({ type: "replace", token: tk })} title="Replace Token">
+                                <RotateCcw size={14} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {!selectedEventId && (
+        <div className="card" style={{ padding: 40, textAlign: "center" }}>
+          <Ticket size={40} style={{ color: "var(--fnt)", marginBottom: 12 }} />
+          <h3 style={{ fontSize: 15, fontWeight: 600 }}>No Event Selected</h3>
+          <p style={{ fontSize: 12, color: "var(--mut)", marginTop: 4 }}>Select an event or create a new one to manage tokens.</p>
+        </div>
+      )}
+
+      {/* Event Dialog */}
+      <Dialog open={eventDialogOpen} onClose={() => setEventDialogOpen(false)} title={editingEventId ? "Edit Event" : "New Event"}>
+        <div className="m-b">
+          <div className="grid-2">
+            <div>
+              <Label>Event Name *</Label>
+              <Input value={eventForm.event_name} onChange={e => setEventForm({ ...eventForm, event_name: e.target.value })} placeholder="Eid Milad 2026" />
+            </div>
+            <div>
+              <Label>Event Type</Label>
+              <Select value={eventForm.event_type} onChange={e => setEventForm({ ...eventForm, event_type: e.target.value })}>
+                <option value="general">General</option>
+                <option value="eid">Eid</option>
+                <option value="ramadan">Ramadan</option>
+                <option value="welfare">Welfare</option>
+              </Select>
+            </div>
+            <div>
+              <Label>Date *</Label>
+              <Input type="date" value={eventForm.event_date} onChange={e => setEventForm({ ...eventForm, event_date: e.target.value })} />
+            </div>
+            <div>
+              <Label>Time</Label>
+              <Input type="time" value={eventForm.event_time} onChange={e => setEventForm({ ...eventForm, event_time: e.target.value })} />
+            </div>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <Label>Venue</Label>
+            <Input value={eventForm.venue} onChange={e => setEventForm({ ...eventForm, venue: e.target.value })} placeholder="Mahallu Hall" />
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <Label>Description</Label>
+            <Input value={eventForm.description} onChange={e => setEventForm({ ...eventForm, description: e.target.value })} />
           </div>
         </div>
-        <div className="tbl tbl-flat">
-          <table>
-            <thead>
-              <tr>
-                <th>{t("tok_event")}</th>
-                <th>{t("tok_type")}</th>
-                <th>{t("tok_date")}</th>
-                <th>{t("tok_tokens")}</th>
-                <th>{t("tok_collected")}</th>
-                <th>{t("tok_status")}</th>
-                <th className="col-narrow"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.map((ev) => {
-                const collected = ev.tokens.filter((tk) => tk.collected).length;
-                return (
-                  <tr key={ev.id}>
-                    <td>
-                      <span className="tok-ev-name">{ev.name}</span>
-                    </td>
-                    <td>
-                      <span className="pill t-slate tok-ev-type">
-                        {ev.type}
-                      </span>
-                    </td>
-                    <td>{formatDate(ev.date)}</td>
-                    <td>
-                      <span className="count-chip">{ev.tokens.length}</span>
-                    </td>
-                    <td>
-                      <span className="count-chip em">
-                        {collected}
-                      </span>
-                    </td>
-                    <td>
-                      <span
-                        className={`pill ${ev.status === "active" ? "t-em" : ev.status === "completed" ? "t-slate" : "t-rose"}`}
-                      >
-                        {ev.status.charAt(0).toUpperCase() + ev.status.slice(1)}
-                      </span>
-                    </td>
-                    <td className="text-right">
-                      <Button
-                        variant={ev.id === activeEventId ? "primary" : "secondary"}
-                        size="sm"
-                        onClick={() => {
-                          setActiveEventId(ev.id);
-                          setFilter("all");
-                          setSearch("");
-                        }}
-                      >
-                        {ev.id === activeEventId ? t("tok_selected") : t("tok_open")}
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="m-f">
+          <Button variant="secondary" onClick={() => setEventDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleSaveEvent}>Save Event</Button>
         </div>
-      </div>
+      </Dialog>
+
+      {/* Cancel/Replace Dialog */}
+      <Dialog open={actionDialog.type !== null} onClose={() => { setActionDialog({ type: null, token: null }); setActionReason(""); }}
+        title={actionDialog.type === "cancel" ? "Cancel Token" : "Replace Token"}>
+        <div className="m-b">
+          {actionDialog.token && (
+            <div style={{ marginBottom: 12 }}>
+              <p style={{ fontSize: 13, color: "var(--mut)" }}>
+                Token: <b style={{ fontFamily: "Courier New, monospace", color: "var(--em)" }}>{actionDialog.token.token_code}</b>
+              </p>
+              <p style={{ fontSize: 13, color: "var(--mut)" }}>Family: {actionDialog.token.house_name}</p>
+            </div>
+          )}
+          {actionDialog.type === "cancel" ? (
+            <p style={{ fontSize: 12, color: "var(--mut)", marginBottom: 12 }}>
+              This token will be marked as CANCELLED. It will not be deleted. A replacement can be generated later.
+            </p>
+          ) : (
+            <p style={{ fontSize: 12, color: "var(--mut)", marginBottom: 12 }}>
+              The old token will be cancelled and a new unique code will be generated for the same family.
+            </p>
+          )}
+          <Label>Reason</Label>
+          <Input value={actionReason} onChange={e => setActionReason(e.target.value)} placeholder="Lost token" />
+        </div>
+        <div className="m-f">
+          <Button variant="secondary" onClick={() => { setActionDialog({ type: null, token: null }); setActionReason(""); }}>Cancel</Button>
+          <Button variant={actionDialog.type === "cancel" ? "danger" : "primary"} onClick={actionDialog.type === "cancel" ? handleCancel : handleReplace}>
+            {actionDialog.type === "cancel" ? "Cancel Token" : "Generate Replacement"}
+          </Button>
+        </div>
+      </Dialog>
     </div>
   );
 }

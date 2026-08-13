@@ -152,6 +152,23 @@ const api = {
     maximize: () => ipcRenderer.invoke("win:maximize"),
     close: () => ipcRenderer.invoke("win:close"),
   },
+  // ===== Tokens =====
+  tokens: {
+    listEvents: () => ipcRenderer.invoke("tokens:listEvents"),
+    getEvent: (id: number) => ipcRenderer.invoke("tokens:getEvent", id),
+    createEvent: (data: any) => ipcRenderer.invoke("tokens:createEvent", data),
+    updateEvent: (id: number, data: any) => ipcRenderer.invoke("tokens:updateEvent", id, data),
+    list: (filter?: any) => ipcRenderer.invoke("tokens:list", filter),
+    checkExisting: (eventId: number) => ipcRenderer.invoke("tokens:checkExisting", eventId),
+    generate: (eventId: number, familyIds: number[]) => ipcRenderer.invoke("tokens:generate", eventId, familyIds),
+    collect: (tokenId: number) => ipcRenderer.invoke("tokens:collect", tokenId),
+    cancel: (tokenId: number, reason: string) => ipcRenderer.invoke("tokens:cancel", tokenId, reason),
+    replace: (tokenId: number, reason: string) => ipcRenderer.invoke("tokens:replace", tokenId, reason),
+    stats: (eventId: number) => ipcRenderer.invoke("tokens:stats", eventId),
+    listForPdf: (eventId: number) => ipcRenderer.invoke("tokens:listForPdf", eventId),
+    generateTokenPdf: (eventId: number) => ipcRenderer.invoke("tokens:generateTokenPdf", eventId),
+    generateCollectionSheet: (eventId: number) => ipcRenderer.invoke("tokens:generateCollectionSheet", eventId),
+  },
 };
 
 contextBridge.exposeInMainWorld("mms", api);

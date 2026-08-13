@@ -2,7 +2,7 @@
  * DataService — exposes all 16 modules' CRUD + summary operations
  * to the Electron renderer via IPC.
  */
-import { all, one, run, scalar } from "../db/connection.js";
+import { all, one, run, scalar, getDB } from "../db/connection.js";
 import { randomBytes } from "node:crypto";
 
 // ================= HELPERS =================
@@ -719,3 +719,173 @@ export const dashboard = {
     `SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ?`, [limit]
   ),
 };
+
+// ================= TOKENS =================
+
+const TOKEN_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+function generateTokenCode(): string {
+  let code = "";
+  for (let i = 0; i < 4; i++) {
+    code += TOKEN_ALPHABET[Math.floor(Math.random() * TOKEN_ALPHABET.length)];
+  }
+  return code;
+}
+
+function generateUniqueTokenCode(existing: Set<string>): string {
+  let code = generateTokenCode();
+  let attempts = 0;
+  while (existing.has(code) && attempts < 1000) {
+    code = generateTokenCode();
+    attempts++;
+  }
+  return code;
+}
+
+export const tokens = {
+  // ===== Events =====
+  listEvents: () => all<any>("SELECT * FROM token_events ORDER BY event_date DESC, id DESC"),
+  getEvent: (id: number) => one<any>("SELECT * FROM token_events WHERE id = ?", [id]),
+  createEvent: (data: any) => {
+    const { id } = run(
+      `INSERT INTO token_events (event_name, event_type, event_date, event_time, venue, description, status)
+       VALUES (?, ?, ?, ?, ?, ?, 'active')`,
+      [data.eventName, data.eventType || "general", data.eventDate, data.eventTime || "", data.venue || "", data.description || ""]
+    );
+    return { id };
+  },
+  updateEvent: (id: number, data: any) =>
+    run(
+      `UPDATE token_events SET event_name = ?, event_type = ?, event_date = ?, event_time = ?, venue = ?, description = ? WHERE id = ?`,
+      [data.eventName, data.eventType || "general", data.eventDate, data.eventTime || "", data.venue || "", data.description || "", id]
+    ),
+
+  // ===== Token listing =====
+  list: (filter: { eventId?: number; search?: string; status?: string } = {}) => {
+    const where: string[] = ["1=1"];
+    const params: any[] = [];
+    if (filter.eventId) {
+      where.push("ta.event_id = ?");
+      params.push(filter.eventId);
+    }
+    if (filter.status && filter.status !== "All") {
+      where.push("ta.status = ?");
+      params.push(filter.status);
+    }
+    if (filter.search) {
+      where.push("(ta.token_code LIKE ? OR f.house_name LIKE ? OR f.family_number LIKE ? OR f.ward LIKE ?)");
+      const t = `%${filter.search}%`;
+      params.push(t, t, t, t);
+    }
+    const sql = `SELECT ta.*, f.family_number, f.house_name, f.ward, f.phone,
+      te.event_name, te.event_date, te.venue
+      FROM token_assignments ta
+      LEFT JOIN families f ON f.id = ta.family_id
+      LEFT JOIN token_events te ON te.id = ta.event_id
+      WHERE ${where.join(" AND ")}
+      ORDER BY ta.id DESC`;
+    return { rows: all<any>(sql, params), total: 0 };
+  },
+
+  // ===== Duplicate check: which families already have tokens for this event =====
+  checkExisting: (eventId: number) => {
+    const rows = all<any>(
+      "SELECT family_id FROM token_assignments WHERE event_id = ? AND status != 'CANCELLED'",
+      [eventId]
+    );
+    return new Set(rows.map((r: any) => r.family_id));
+  },
+
+  // ===== Generate tokens for selected families =====
+  generate: (eventId: number, familyIds: number[], userId: number) => {
+    // Get existing codes for this event (and globally to avoid collision)
+    const existingCodes = new Set(
+      all<any>("SELECT token_code FROM token_assignments").map((r: any) => r.token_code)
+    );
+    const existingFamilyTokens = tokens.checkExisting(eventId);
+
+    let generated = 0;
+    let skipped = 0;
+    const insertStmt = getDB().prepare(
+      `INSERT INTO token_assignments (event_id, family_id, token_code, status)
+       VALUES (?, ?, ?, 'GENERATED')`
+    );
+
+    const insertMany = getDB().transaction(() => {
+      for (const familyId of familyIds) {
+        if (existingFamilyTokens.has(familyId)) {
+          skipped++;
+          continue;
+        }
+        const code = generateUniqueTokenCode(existingCodes);
+        existingCodes.add(code);
+        insertStmt.run(eventId, familyId, code);
+        generated++;
+      }
+    });
+    insertMany();
+
+    return { generated, skipped, total: familyIds.length };
+  },
+
+  // ===== Collect / mark as collected =====
+  collect: (tokenId: number, userId: number) =>
+    run(
+      `UPDATE token_assignments SET status = 'COLLECTED', collected = 1, collected_at = datetime('now'), collected_by = ? WHERE id = ? AND status != 'CANCELLED'`,
+      [userId, tokenId]
+    ),
+
+  // ===== Cancel token (for lost tokens) =====
+  cancel: (tokenId: number, reason: string) =>
+    run(
+      `UPDATE token_assignments SET status = 'CANCELLED', cancelled_at = datetime('now'), cancelled_reason = ? WHERE id = ?`,
+      [reason, tokenId]
+    ),
+
+  // ===== Replace token (generate new code for cancelled token) =====
+  replace: (tokenId: number, reason: string, userId: number) => {
+    const oldToken = one<any>("SELECT * FROM token_assignments WHERE id = ?", [tokenId]);
+    if (!oldToken) throw new Error("Token not found");
+
+    // Cancel old token
+    run(
+      `UPDATE token_assignments SET status = 'CANCELLED', cancelled_at = datetime('now'), cancelled_reason = ? WHERE id = ?`,
+      [reason, tokenId]
+    );
+
+    // Generate new token for same event+family
+    const existingCodes = new Set(
+      all<any>("SELECT token_code FROM token_assignments").map((r: any) => r.token_code)
+    );
+    const newCode = generateUniqueTokenCode(existingCodes);
+    const { id } = run(
+      `INSERT INTO token_assignments (event_id, family_id, token_code, status, replacement_for)
+       VALUES (?, ?, ?, 'GENERATED', ?)`,
+      [oldToken.event_id, oldToken.family_id, newCode, tokenId]
+    );
+    return { id, tokenCode: newCode };
+  },
+
+  // ===== Stats for dashboard =====
+  stats: (eventId: number) => {
+    const total = scalar<number>("SELECT COUNT(*) AS v FROM token_assignments WHERE event_id = ? AND status != 'CANCELLED'", [eventId]);
+    const collected = scalar<number>("SELECT COUNT(*) AS v FROM token_assignments WHERE event_id = ? AND status = 'COLLECTED'", [eventId]);
+    const remaining = total - collected;
+    const rate = total > 0 ? Math.round((collected / total) * 1000) / 10 : 0;
+    return { total, collected, remaining, rate };
+  },
+
+  // ===== Get all tokens for an event (for PDF) =====
+  listForPdf: (eventId: number) => all<any>(
+    `SELECT ta.token_code, ta.status, ta.collected_at, ta.created_at,
+       f.family_number, f.house_name, f.ward, f.house_number, f.phone,
+       te.event_name, te.event_date, te.venue, te.event_time
+     FROM token_assignments ta
+     LEFT JOIN families f ON f.id = ta.family_id
+     LEFT JOIN token_events te ON te.id = ta.event_id
+     WHERE ta.event_id = ? AND ta.status != 'CANCELLED'
+     ORDER BY f.ward, f.family_number`,
+    [eventId]
+  ),
+};
+

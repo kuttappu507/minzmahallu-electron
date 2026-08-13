@@ -82,6 +82,112 @@ function createWindow() {
   ipcMain.handle("win:close", () => mainWindow?.close());
 }
 
+// ===== HTML escape helper =====
+function esc(s: any): string {
+  return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] || c));
+}
+
+// ===== Token sheet HTML builder (A4, 2 cols × 6 rows = 12 per page) =====
+function buildTokenSheetHtml(tokenList: any[], event: any): string {
+  const eventName = event?.event_name || "Event";
+  const eventDate = event?.event_date || "";
+  const venue = event?.venue || "";
+  const eventTime = event?.event_time || "";
+
+  const tokens = tokenList.map((t: any) => {
+    const familyName = t.house_name || t.family_number || "—";
+    const houseNo = t.house_number || t.family_number || "";
+    const ward = t.ward || "";
+    return `
+    <div class="token-card">
+      <div class="token-border"></div>
+      <div class="token-mahallu">MMS · Minz Mahallu</div>
+      <div class="token-event">${esc(eventName)}</div>
+      <div class="token-meta">${esc(eventDate)}${venue ? " · " + esc(venue) : ""}${eventTime ? " · " + esc(eventTime) : ""}</div>
+      <div class="token-code">${esc(t.token_code)}</div>
+      <div class="token-info">
+        <div class="token-row"><span>Family:</span><b>${esc(familyName)}</b></div>
+        ${houseNo ? `<div class="token-row"><span>House:</span><b>${esc(houseNo)}</b></div>` : ""}
+        ${ward ? `<div class="token-row"><span>Ward:</span><b>${esc(ward)}</b></div>` : ""}
+      </div>
+      <div class="token-foot">Present this token at the event</div>
+    </div>`;
+  }).join("");
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+  @page { size: A4 portrait; margin: 8mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Poppins, Arial, sans-serif; }
+  .token-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+  .token-card {
+    border: 1.5px solid #0eab7f; border-radius: 6px; padding: 6mm 5mm;
+    position: relative; overflow: hidden; min-height: 42mm;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    page-break-inside: avoid;
+  }
+  .token-border { position: absolute; top: 2mm; left: 2mm; right: 2mm; bottom: 2mm; border: 0.5px solid #0eab7f; border-radius: 4px; pointer-events: none; }
+  .token-mahallu { font-size: 8px; font-weight: 600; color: #5f7268; letter-spacing: 0.1em; text-transform: uppercase; }
+  .token-event { font-size: 11px; font-weight: 600; color: #0eab7f; margin-top: 2px; }
+  .token-meta { font-size: 7.5px; color: #8ba096; margin-top: 1px; }
+  .token-code { font-size: 28px; font-weight: 700; color: #1e2b25; letter-spacing: 4px; margin: 3mm 0 2mm; font-family: 'Courier New', monospace; }
+  .token-info { font-size: 8px; color: #5f7268; width: 100%; }
+  .token-row { display: flex; justify-content: space-between; padding: 1px 0; }
+  .token-row span { color: #8ba096; }
+  .token-row b { color: #1e2b25; font-weight: 600; }
+  .token-foot { font-size: 7px; color: #8ba096; margin-top: 2mm; font-style: italic; }
+  </style></head><body>
+  <div class="token-grid">${tokens}</div>
+  </body></html>`;
+}
+
+// ===== Collection sheet HTML builder (A4 table) =====
+function buildCollectionSheetHtml(tokenList: any[], event: any): string {
+  const eventName = event?.event_name || "Event";
+  const eventDate = event?.event_date || "";
+
+  const rows = tokenList.map((t: any, i: number) => `
+    <tr>
+      <td class="no">${i + 1}</td>
+      <td class="code">${esc(t.token_code)}</td>
+      <td>${esc(t.house_name || t.family_number || "—")}</td>
+      <td>${esc(t.house_number || t.family_number || "—")}</td>
+      <td>${esc(t.ward || "—")}</td>
+      <td class="check">☐</td>
+      <td class="sig"></td>
+    </tr>`).join("");
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+  @page { size: A4 portrait; margin: 12mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Poppins, Arial, sans-serif; font-size: 11px; color: #1e2b25; }
+  .header { text-align: center; margin-bottom: 8mm; }
+  .header .logo { width: 32px; height: 32px; border-radius: 8px; background: #0eab7f; display: inline-grid; place-items: center; margin-bottom: 4px; }
+  .header .logo span { font-size: 16px; font-weight: 700; color: #fff; }
+  .header h1 { font-size: 16px; font-weight: 600; }
+  .header .sub { font-size: 10px; color: #5f7268; margin-top: 2px; }
+  .header .event { font-size: 13px; font-weight: 600; color: #0eab7f; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #f3f6f3; font-size: 9px; font-weight: 600; color: #5f7268; text-transform: uppercase; letter-spacing: 0.1em; padding: 8px 6px; border: 1px solid #d6e2d9; text-align: left; }
+  td { padding: 7px 6px; border: 1px solid #e6ede7; font-size: 10px; }
+  td.no { text-align: center; font-weight: 600; color: #8ba096; width: 24px; }
+  td.code { font-family: 'Courier New', monospace; font-weight: 700; font-size: 12px; color: #0eab7f; letter-spacing: 1px; }
+  td.check { text-align: center; font-size: 14px; width: 30px; }
+  td.sig { width: 80px; }
+  tr { page-break-inside: avoid; }
+  </style></head><body>
+  <div class="header">
+    <div class="logo"><span>M</span></div>
+    <h1>MMS · Minz Mahallu</h1>
+    <div class="sub">Token Collection / Return Sheet</div>
+    <div class="event">${esc(eventName)} · ${esc(eventDate)}</div>
+  </div>
+  <table>
+    <thead><tr><th>No.</th><th>Token</th><th>Family</th><th>House No.</th><th>Ward</th><th>Collected</th><th>Signature</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  </body></html>`;
+}
+
 // ===== Certificate HTML builder =====
 function buildCertificateHtml(cert: any): string {
   const today = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
@@ -416,6 +522,86 @@ app.whenReady().then(() => {
         return { success: false, cancelled: true };
       }
       return { success: true, path: result.filePath };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ===== IPC: Token events =====
+  ipcMain.handle("tokens:listEvents", () => data.tokens.listEvents());
+  ipcMain.handle("tokens:getEvent", (_e, id) => data.tokens.getEvent(id));
+  ipcMain.handle("tokens:createEvent", (_e, d) => data.tokens.createEvent(d));
+  ipcMain.handle("tokens:updateEvent", (_e, id, d) => data.tokens.updateEvent(id, d));
+
+  // ===== IPC: Token operations =====
+  ipcMain.handle("tokens:list", (_e, filter) => data.tokens.list(filter || {}));
+  ipcMain.handle("tokens:checkExisting", (_e, eventId) => data.tokens.checkExisting(eventId));
+  ipcMain.handle("tokens:generate", (_e, eventId, familyIds) => data.tokens.generate(eventId, familyIds, session.user?.id ?? 1));
+  ipcMain.handle("tokens:collect", (_e, tokenId) => data.tokens.collect(tokenId, session.user?.id ?? 1));
+  ipcMain.handle("tokens:cancel", (_e, tokenId, reason) => data.tokens.cancel(tokenId, reason));
+  ipcMain.handle("tokens:replace", (_e, tokenId, reason) => data.tokens.replace(tokenId, reason, session.user?.id ?? 1));
+  ipcMain.handle("tokens:stats", (_e, eventId) => data.tokens.stats(eventId));
+  ipcMain.handle("tokens:listForPdf", (_e, eventId) => data.tokens.listForPdf(eventId));
+
+  // ===== IPC: Token PDF generation =====
+  ipcMain.handle("tokens:generateTokenPdf", async (_e, eventId: number) => {
+    try {
+      const tokenList = data.tokens.listForPdf(eventId);
+      if (!tokenList || tokenList.length === 0) {
+        return { success: false, error: "No tokens found for this event" };
+      }
+      const event = data.tokens.getEvent(eventId);
+      const html = buildTokenSheetHtml(tokenList, event);
+      const saveResult = await dialog.showSaveDialog(mainWindow!, {
+        title: "Save Token PDF",
+        defaultPath: `tokens-${event?.event_name?.replace(/\s+/g, "-") || eventId}.pdf`,
+        filters: [{ name: "PDF Document", extensions: ["pdf"] }],
+      });
+      if (saveResult.canceled || !saveResult.filePath) {
+        return { success: false, cancelled: true };
+      }
+      const pdfWin = new BrowserWindow({ show: false, webPreferences: { offscreen: true } });
+      await pdfWin.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
+      await new Promise(r => setTimeout(r, 500));
+      const pdfBuffer = await pdfWin.webContents.printToPDF({
+        pageSize: "A4", printBackground: true,
+        margins: { top: 8, bottom: 8, left: 8, right: 8 },
+      });
+      pdfWin.close();
+      fs.writeFileSync(saveResult.filePath, pdfBuffer);
+      return { success: true, path: saveResult.filePath, count: tokenList.length };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ===== IPC: Collection sheet PDF =====
+  ipcMain.handle("tokens:generateCollectionSheet", async (_e, eventId: number) => {
+    try {
+      const tokenList = data.tokens.listForPdf(eventId);
+      if (!tokenList || tokenList.length === 0) {
+        return { success: false, error: "No tokens found for this event" };
+      }
+      const event = data.tokens.getEvent(eventId);
+      const html = buildCollectionSheetHtml(tokenList, event);
+      const saveResult = await dialog.showSaveDialog(mainWindow!, {
+        title: "Save Collection Sheet PDF",
+        defaultPath: `collection-sheet-${event?.event_name?.replace(/\s+/g, "-") || eventId}.pdf`,
+        filters: [{ name: "PDF Document", extensions: ["pdf"] }],
+      });
+      if (saveResult.canceled || !saveResult.filePath) {
+        return { success: false, cancelled: true };
+      }
+      const pdfWin = new BrowserWindow({ show: false, webPreferences: { offscreen: true } });
+      await pdfWin.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
+      await new Promise(r => setTimeout(r, 500));
+      const pdfBuffer = await pdfWin.webContents.printToPDF({
+        pageSize: "A4", printBackground: true,
+        margins: { top: 12, bottom: 12, left: 12, right: 12 },
+      });
+      pdfWin.close();
+      fs.writeFileSync(saveResult.filePath, pdfBuffer);
+      return { success: true, path: saveResult.filePath, count: tokenList.length };
     } catch (err: any) {
       return { success: false, error: err.message };
     }
