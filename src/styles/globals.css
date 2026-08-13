@@ -123,7 +123,7 @@
 
   body {
     font-family: Poppins, system-ui, sans-serif;
-    font-size: 15px;
+    font-size: 15.5px;
     font-weight: 500;
     color: var(--tx);
     background: transparent;
@@ -135,15 +135,56 @@
     padding: 0;
   }
 
-  /* When app is loaded (not splash), give body a background */
-  body.app-loaded { background: var(--bg); }
+  /* When app is loaded (not splash), give body a background + fade in */
+  body.app-loaded { background: var(--bg); animation: appFadeIn 0.3s ease-out; }
+  @keyframes appFadeIn { from { opacity: 0; } to { opacity: 1; } }
 
+  /* Malayalam: override ALL font weights with !important so class-level
+     font: 500 declarations don't make Gayathri look thin */
   html.lang-ml body,
   html.lang-ml input,
   html.lang-ml button,
-  html.lang-ml select {
-    font-family: Gayathri, Poppins, sans-serif;
-    font-weight: 700;
+  html.lang-ml select,
+  html.lang-ml textarea,
+  html.lang-ml .navit b,
+  html.lang-ml .stat .val,
+  html.lang-ml .stat .slab,
+  html.lang-ml .tbl th,
+  html.lang-ml .tbl td,
+  html.lang-ml .btn,
+  html.lang-ml .inp,
+  html.lang-ml .lbl,
+  html.lang-ml .pill,
+  html.lang-ml .vhead h1,
+  html.lang-ml .vhead .vs,
+  html.lang-ml .ch-title,
+  html.lang-ml .ch-sub,
+  html.lang-ml .hero h1,
+  html.lang-ml .hero .sub,
+  html.lang-ml .qwrap input,
+  html.lang-ml .crumb b,
+  html.lang-ml .crumb small,
+  html.lang-ml .sb-user b,
+  html.lang-ml .sb-user small,
+  html.lang-ml .navsec,
+  html.lang-ml .gchip,
+  html.lang-ml .count-chip,
+  html.lang-ml .fchip,
+  html.lang-ml .toast,
+  html.lang-ml .modal,
+  html.lang-ml .m-h b,
+  html.lang-ml .m-b,
+  html.lang-ml .statusbar,
+  html.lang-ml .overline,
+  html.lang-ml .g-row,
+  html.lang-ml .g-row b,
+  html.lang-ml .sess,
+  html.lang-ml .avbtn b,
+  html.lang-ml .langseg button,
+  html.lang-ml .tb-chip,
+  html.lang-ml .delta {
+    font-family: Gayathri, Poppins, sans-serif !important;
+    font-weight: 700 !important;
   }
 
   input, textarea, [contenteditable="true"] { user-select: text; }
@@ -352,8 +393,8 @@
 
   /* ===== Table ===== */
   .tbl { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--panel); box-shadow: var(--sh); }
-  .tbl table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .tbl th { background: var(--panel2); text-align: left; font: 500 9.5px Poppins; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fnt); padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .tbl table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .tbl th { background: var(--head); text-align: left; font: 600 11px Poppins; letter-spacing: 0.14em; text-transform: uppercase; color: var(--mut); padding: 12px 16px; border-bottom: 1px solid var(--line); }
   .tbl td { padding: 13px 16px; vertical-align: middle; border-top: 1px solid var(--line); }
   .tbl tbody tr:first-child td { border-top: 0; }
   .tbl tbody tr { transition: background 0.1s; }
@@ -377,7 +418,7 @@
   .bd:hover { background: #f06e84; }
   .bgd { background: var(--panel); border-color: var(--rose-line); color: var(--c-rose); box-shadow: 0 2px 0 var(--rose-line); }
   .bgd:hover { background: var(--rose-bg); transform: translateY(-1px); }
-  .bs { padding: 6px 12px; font-size: 11.5px; border-radius: 99px; }
+  .bs { padding: 6px 12px; font-size: 13px; border-radius: 99px; }
   .bblock { width: 100%; }
   .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
 
@@ -387,7 +428,7 @@
   .ibtn.dh:hover { background: var(--rose-bg); color: var(--c-rose); }
 
   /* ===== Inputs ===== */
-  .lbl { display: block; font: 500 10.5px Poppins; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mut); margin-bottom: 6px; }
+  .lbl { display: block; font: 600 11px Poppins; letter-spacing: 0.12em; text-transform: uppercase; color: var(--tx);; margin-bottom: 6px; }
   .inp { width: 100%; padding: 10px 13px; border: 1.5px solid var(--line2); border-radius: 10px; background: var(--panel); color: var(--tx); font: 500 14px Poppins; transition: 0.15s; outline: none; }
   .inp:focus { border-color: var(--em); box-shadow: 0 0 0 3px rgba(14, 171, 127, 0.1); }
   select.inp { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238ba096' stroke-width='2.4'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 34px; cursor: pointer; }
@@ -489,26 +530,27 @@
   .splash-box-only {
     position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
     z-index: 9999;
-    width: 320px; padding: 32px 28px;
+    width: 380px; padding: 40px 34px;
     background: var(--panel); border: 1px solid var(--line);
-    border-radius: 20px; box-shadow: var(--shl);
-    display: flex; flex-direction: column; align-items: center; gap: 16px;
+    border-radius: 24px; box-shadow: var(--shl);
+    display: flex; flex-direction: column; align-items: center; gap: 18px;
     animation: splashBoxIn 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2);
   }
   .splash-box-only.out { animation: splashFadeOut 0.4s ease-out forwards; }
   .splash-logo {
-    width: 64px; height: 64px; border-radius: 18px;
+    width: 72px; height: 72px; border-radius: 20px;
     background: var(--selbg); display: grid; place-items: center;
-    border: 1.5px solid var(--em);
+    border: 2px solid var(--em);
     animation: splashLogoPulse 2s ease-in-out infinite;
   }
-  .splash-logo svg, .splash-logo img { width: 36px; height: 36px; }
+  .splash-logo b { font: 700 38px Poppins; color: var(--em); }
   .splash-text-group { text-align: center; }
-  .splash-title { font: 500 18px Poppins; letter-spacing: -0.01em; color: var(--tx); }
-  .splash-sub { font: 500 11px Poppins; color: var(--fnt); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 2px; }
-  .splash-progress { width: 100%; height: 4px; border-radius: 99px; background: var(--panel2); overflow: hidden; }
+  .splash-title { font: 700 22px Poppins; letter-spacing: -0.01em; color: var(--tx); }
+  .splash-sub { font: 500 12px Poppins; color: var(--fnt); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 3px; }
+  .splash-progress { width: 100%; height: 5px; border-radius: 99px; background: var(--panel2); overflow: hidden; }
   .splash-progress i { display: block; height: 100%; width: 0%; background: var(--em); border-radius: 99px; animation: splashProgress 1.8s ease-out forwards; }
-  .splash-status { font: 500 11px Poppins; color: var(--mut); }
+  .splash-status { font: 500 12px Poppins; color: var(--mut); }
+  .splash-credit { font: 500 10px Poppins; color: var(--fnt); margin-top: 4px; opacity: 0.7; }
 
   @keyframes splashFadeIn { from { opacity: 0; } }
   @keyframes splashFadeOut { to { opacity: 0; } }
@@ -521,14 +563,15 @@
     width: 26px; height: 26px; border-radius: 9px;
     background: var(--selbg); display: grid; place-items: center;
     box-shadow: 0 2px 0 var(--emdd); flex: none;
-    border: 1.5px solid var(--sl, var(--em));
+    border: 1.5px solid var(--em);
+    overflow: hidden;
   }
-  .logo b { font: 500 14px Poppins; color: var(--em); }
-  .logo svg, .logo img { width: 16px; height: 16px; }
+  .logo b { font: 700 14px Poppins; color: var(--em); }
+  .logo svg { width: 100% !important; height: 100% !important; }
 
-  .sb-logo .logo { width: 38px; height: 38px; border-radius: 12px; background: var(--selbg); }
-  .sb-logo .logo b { font-size: 20px; color: var(--em); }
-  .sb-logo .logo svg, .sb-logo .logo img { width: 24px; height: 24px; }
+  .sb-logo .logo { width: 40px; height: 40px; border-radius: 12px; background: var(--selbg); }
+  .sb-logo .logo b { font-size: 22px; color: var(--em); }
+  .sb-logo .logo svg { width: 100% !important; height: 100% !important; }
 
   /* ===== Switch ===== */
   .sw { position: relative; width: 40px; height: 22px; flex: none; border-radius: 99px; background: var(--line2); transition: 0.18s; border: 0; cursor: pointer; }
@@ -640,9 +683,9 @@
 
 @layer utilities {
   /* ===== Text utilities (replace inline font styles) ===== */
-  .text-xs { font-size: 11px; }
+  .text-xs { font-size: 12px; }
   .text-sm { font-size: 12px; }
-  .text-md { font-size: 13px; }
+  .text-md { font-size: 14px; }
   .text-lg { font-size: 15px; }
   .text-xl { font-size: 18px; }
   .text-2xl { font-size: 21px; }
@@ -923,7 +966,7 @@
     max-width: 380px; line-height: 1.6;
   }
   .login-feature-row {
-    display: flex; gap: 20px; font-size: 13px; color: rgba(255,255,255,0.6);
+    display: flex; gap: 20px; font-size: 14px; color: rgba(255,255,255,0.6);
   }
   .login-feature { display: flex; align-items: center; gap: 8px; }
   .login-feature b { font: 500 12px Poppins; }
@@ -1030,7 +1073,7 @@
     font: 500 11px monospace; color: var(--st);
     background: var(--sb); padding: 2px 6px; border-radius: 6px;
   }
-  .rep-info-foot { margin: 0; color: var(--fnt); font-size: 11.5px; }
+  .rep-info-foot { margin: 0; color: var(--fnt); font-size: 13px; }
 
   /* ===== Backup cells ===== */
   .bk-latest-path {

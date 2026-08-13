@@ -398,7 +398,7 @@ app.whenReady().then(() => {
         show: false,
         webPreferences: { offscreen: true },
       });
-      await pdfWin.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
+      const base64Html = Buffer.from(html).toString("base64"); await pdfWin.loadURL("data:text/html;base64," + base64Html);
       // Wait for content to render
       await new Promise(r => setTimeout(r, 500));
       const pdfBuffer = await pdfWin.webContents.printToPDF({
@@ -417,21 +417,25 @@ app.whenReady().then(() => {
   // ===== IPC: Certificate PDF generation =====
   ipcMain.handle("certificates:generatePdf", async (_e, certId: number) => {
     try {
-      const cert = data.certificates.list({}).rows?.find((c: any) => c.id === certId);
+      const listResult = data.certificates.list({});
+      const certs = listResult?.rows || [];
+      const cert = certs.find((c: any) => c.id === certId);
       if (!cert) return { success: false, error: "Certificate not found" };
 
       const html = buildCertificateHtml(cert);
       const saveResult = await dialog.showSaveDialog(mainWindow!, {
         title: "Save Certificate PDF",
-        defaultPath: `certificate-${cert.certificate_number}.pdf`,
+        defaultPath: `certificate-${cert.certificate_number || certId}.pdf`,
         filters: [{ name: "PDF Document", extensions: ["pdf"] }],
       });
       if (saveResult.canceled || !saveResult.filePath) {
         return { success: false, cancelled: true };
       }
       const pdfWin = new BrowserWindow({ show: false, webPreferences: { offscreen: true } });
-      await pdfWin.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
-      await new Promise(r => setTimeout(r, 500));
+      // Use loadURL with base64 encoding for large HTML
+      const base64Html = Buffer.from(html).toString("base64");
+      await pdfWin.loadURL("data:text/html;base64," + base64Html);
+      await new Promise(r => setTimeout(r, 800));
       const pdfBuffer = await pdfWin.webContents.printToPDF({
         pageSize: "A4", printBackground: true,
         margins: { top: 0, bottom: 0, left: 0, right: 0 },
@@ -561,7 +565,7 @@ app.whenReady().then(() => {
         return { success: false, cancelled: true };
       }
       const pdfWin = new BrowserWindow({ show: false, webPreferences: { offscreen: true } });
-      await pdfWin.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
+      const base64Html = Buffer.from(html).toString("base64"); await pdfWin.loadURL("data:text/html;base64," + base64Html);
       await new Promise(r => setTimeout(r, 500));
       const pdfBuffer = await pdfWin.webContents.printToPDF({
         pageSize: "A4", printBackground: true,
@@ -593,7 +597,7 @@ app.whenReady().then(() => {
         return { success: false, cancelled: true };
       }
       const pdfWin = new BrowserWindow({ show: false, webPreferences: { offscreen: true } });
-      await pdfWin.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
+      const base64Html = Buffer.from(html).toString("base64"); await pdfWin.loadURL("data:text/html;base64," + base64Html);
       await new Promise(r => setTimeout(r, 500));
       const pdfBuffer = await pdfWin.webContents.printToPDF({
         pageSize: "A4", printBackground: true,

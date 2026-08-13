@@ -71,16 +71,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="sb-logo">
         <span className="logo">
-          <svg viewBox="0 0 256 256" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="sbLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#e3f6ec"/>
-                <stop offset="100%" stopColor="#bfe8d4"/>
-              </linearGradient>
-            </defs>
-            <rect width="256" height="256" rx="56" fill="url(#sbLogoGrad)" stroke="#0eab7f" strokeWidth="4"/>
-            <text x="128" y="178" fontFamily="Poppins, Arial, sans-serif" fontSize="140" fontWeight="700" fill="#0eab7f" textAnchor="middle">M</text>
-          </svg>
+          <b>M</b>
         </span>
         {!collapsed && (
           <div className="nm">
