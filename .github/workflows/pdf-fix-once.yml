@@ -1,0 +1,47 @@
+name: Fix PDF printing once
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: ${{ !contains(github.event.head_commit.message, '[pdf-fix]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fix printToPDF parameters
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('electron/main.ts')
+          text = path.read_text(encoding='utf-8')
+
+          replacements = {
+              'margins: { top: 0, bottom: 0, left: 0, right: 0 },': 'margins: { top: 0.05, bottom: 0.05, left: 0.05, right: 0.05 },\n        preferCSSPageSize: true,',
+              'margins: { top: 8, bottom: 8, left: 8, right: 8 },': 'margins: { top: 0.05, bottom: 0.05, left: 0.05, right: 0.05 },\n        preferCSSPageSize: true,',
+              'margins: { top: 12, bottom: 12, left: 12, right: 12 },': 'margins: { top: 0.05, bottom: 0.05, left: 0.05, right: 0.05 },\n        preferCSSPageSize: true,',
+          }
+
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f'Expected PDF print setting not found: {old}')
+              text = text.replace(old, new)
+
+          path.write_text(text, encoding='utf-8')
+
+      - name: Commit source fix and remove one-time workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f .github/workflows/pdf-fix-once.yml
+          git add electron/main.ts .github/workflows/pdf-fix-once.yml
+          git commit -m 'Fix PDF print parameters [pdf-fix]'
+          git push
