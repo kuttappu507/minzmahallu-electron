@@ -16,27 +16,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let mainWindow: BrowserWindow | null = null;
 
-// Track logged-in user (in-memory only — no persistent session token)
 const session = { user: null as null | { id: number; username: string; fullName: string; role: string } };
 
-// ===== Global error handlers — show error dialog so user can see what went wrong =====
 process.on("uncaughtException", (err) => {
   console.error("[FATAL] Uncaught exception:", err);
   try {
-    dialog.showErrorBox(
-      "MMS — Unexpected Error",
-      `The application encountered an error:\n\n${err.message}\n\nStack: ${err.stack || "(no stack)"}`
-    );
+    dialog.showErrorBox("MMS — Unexpected Error", `The application encountered an error:\n\n${err.message}\n\nStack: ${err.stack || "(no stack)"}`);
   } catch {}
 });
 
 process.on("unhandledRejection", (reason) => {
   console.error("[FATAL] Unhandled rejection:", reason);
   try {
-    dialog.showErrorBox(
-      "MMS — Unexpected Error",
-      `An async operation failed:\n\n${String(reason)}`
-    );
+    dialog.showErrorBox("MMS — Unexpected Error", `An async operation failed:\n\n${String(reason)}`);
   } catch {}
 });
 
@@ -64,19 +56,13 @@ function createWindow() {
   });
 
   mainWindow.once("ready-to-show", () => mainWindow?.show());
-
   if (process.env.NODE_ENV === "development" || process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL || "http://localhost:5174");
     mainWindow.webContents.openDevTools({ mode: "detach" });
   } else {
     mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
   }
-
-  mainWindow.on("closed", () => {
-    mainWindow = null;
-  });
-
-  // Window control IPC handlers
+  mainWindow.on("closed", () => { mainWindow = null; });
   ipcMain.handle("win:minimize", () => mainWindow?.minimize());
   ipcMain.handle("win:maximize", () => {
     if (mainWindow?.isMaximized()) mainWindow.unmaximize();
@@ -85,47 +71,30 @@ function createWindow() {
   ipcMain.handle("win:close", () => mainWindow?.close());
 }
 
-// ===== HTML escape helper =====
 function esc(s: any): string {
-  return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] || c));
+  return String(s ?? "").replace(/[&<>\"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] || c));
 }
 
-
-
-// ===== Robust HTML-to-PDF renderer =====
 async function renderHtmlToPdf(html: string): Promise<Buffer> {
   const pdfWin = new BrowserWindow({
     show: false,
     width: 794,
     height: 1123,
     useContentSize: true,
-    backgroundColor: '#ffffff',
-    webPreferences: {
-      offscreen: false,
-      sandbox: false,
-    },
+    backgroundColor: "#ffffff",
+    webPreferences: { offscreen: false, sandbox: false },
   });
-
   try {
-    const dataUrl = 'data:text/html;charset=UTF-8,' + encodeURIComponent(html);
-    await pdfWin.loadURL(dataUrl);
-
+    await pdfWin.loadURL("data:text/html;charset=UTF-8," + encodeURIComponent(html));
     await pdfWin.webContents.executeJavaScript(`
       document.documentElement.style.width = '210mm';
       document.body.style.width = '210mm';
       void document.body.offsetHeight;
-      ({
-        bodyWidth: document.body.scrollWidth,
-        bodyHeight: document.body.scrollHeight,
-        htmlWidth: document.documentElement.scrollWidth,
-        htmlHeight: document.documentElement.scrollHeight
-      });
+      ({bodyWidth: document.body.scrollWidth, bodyHeight: document.body.scrollHeight});
     `);
-
     await new Promise(resolve => setTimeout(resolve, 150));
-
     return await pdfWin.webContents.printToPDF({
-      pageSize: 'A4',
+      pageSize: "A4",
       printBackground: true,
       margins: { top: 0, bottom: 0, left: 0, right: 0 },
       preferCSSPageSize: false,
@@ -135,40 +104,26 @@ async function renderHtmlToPdf(html: string): Promise<Buffer> {
   }
 }
 
-// ===== Print templates are maintained in electron/print/*.template.ts =====
-
-// ===== IPC: Auth =====
+// All IPC handlers run after Electron is ready.
+app.whenReady().then(() => {
+  // ===== IPC: Auth =====
   ipcMain.handle("auth:login", (_e, username: string, password: string) => {
     try {
       const user = login(username, password);
       session.user = { id: user.id, username: user.username, fullName: user.fullName, role: user.role };
-      try {
-        data.audit.log(user.id, user.username, "LOGIN", "auth", user.id, `User logged in`, "");
-      } catch {}
+      try { data.audit.log(user.id, user.username, "LOGIN", "auth", user.id, "User logged in", ""); } catch {}
       return { success: true, user };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
+    } catch (err: any) { return { success: false, error: err.message }; }
   });
-
   ipcMain.handle("auth:logout", () => {
-    if (session.user) {
-      try {
-        data.audit.log(session.user.id, session.user.username, "LOGOUT", "auth", session.user.id, "User logged out", "");
-      } catch {}
-    }
+    if (session.user) { try { data.audit.log(session.user.id, session.user.username, "LOGOUT", "auth", session.user.id, "User logged out", ""); } catch {} }
     session.user = null;
     return { success: true };
   });
-
   ipcMain.handle("auth:currentUser", () => session.user);
   ipcMain.handle("auth:changePassword", (_e, userId: number, newPassword: string) => {
-    try {
-      changePassword(userId, newPassword);
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
+    try { changePassword(userId, newPassword); return { success: true }; }
+    catch (err: any) { return { success: false, error: err.message }; }
   });
 
   // ===== IPC: Families =====
@@ -249,50 +204,28 @@ async function renderHtmlToPdf(html: string): Promise<Buffer> {
   ipcMain.handle("certificates:issueDeath", (_e, deathNum) => data.certificates.issueDeath(deathNum, session.user?.id ?? 1));
   ipcMain.handle("certificates:remove", (_e, id) => data.certificates.remove(id));
 
-  // ===== IPC: PDF generation (certificates + reports + tokens) =====
+  // ===== IPC: PDF generation =====
   ipcMain.handle("pdf:generate", async (_e, html: string, defaultName: string) => {
     try {
-      // Show save dialog first
-      const saveResult = await dialog.showSaveDialog(mainWindow!, {
-        title: "Save PDF",
-        defaultPath: defaultName || "document.pdf",
-        filters: [{ name: "PDF Document", extensions: ["pdf"] }],
-      });
-      if (saveResult.canceled || !saveResult.filePath) {
-        return { success: false, cancelled: true };
-      }
-
+      const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save PDF", defaultPath: defaultName || "document.pdf", filters: [{ name: "PDF Document", extensions: ["pdf"] }] });
+      if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true };
       const pdfBuffer = await renderHtmlToPdf(html);
       fs.writeFileSync(saveResult.filePath, pdfBuffer);
       return { success: true, path: saveResult.filePath };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
+    } catch (err: any) { return { success: false, error: err.message }; }
   });
-
-  // ===== IPC: Certificate PDF generation =====
   ipcMain.handle("certificates:generatePdf", async (_e, certId: number) => {
     try {
       const listResult = data.certificates.list({});
-      const certs = listResult?.rows || [];
-      const cert = certs.find((c: any) => c.id === certId);
+      const cert = (listResult?.rows || []).find((c: any) => c.id === certId);
       if (!cert) return { success: false, error: "Certificate not found" };
-
       const html = buildCertificateHtml(cert);
-      const saveResult = await dialog.showSaveDialog(mainWindow!, {
-        title: "Save Certificate PDF",
-        defaultPath: `certificate-${cert.certificate_number || certId}.pdf`,
-        filters: [{ name: "PDF Document", extensions: ["pdf"] }],
-      });
-      if (saveResult.canceled || !saveResult.filePath) {
-        return { success: false, cancelled: true };
-      }
+      const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Certificate PDF", defaultPath: `certificate-${cert.certificate_number || certId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] });
+      if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true };
       const pdfBuffer = await renderHtmlToPdf(html);
       fs.writeFileSync(saveResult.filePath, pdfBuffer);
       return { success: true, path: saveResult.filePath };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
+    } catch (err: any) { return { success: false, error: err.message }; }
   });
 
   // ===== IPC: Users =====
@@ -302,11 +235,7 @@ async function renderHtmlToPdf(html: string): Promise<Buffer> {
   ipcMain.handle("users:toggleLock", (_e, id, locked) => data.users.toggleLock(id, locked));
   ipcMain.handle("users:resetPassword", (_e, id, newPwd) => data.users.resetPassword(id, newPwd));
   ipcMain.handle("users:remove", (_e, id) => data.users.remove(id));
-
-  // ===== IPC: Audit =====
   ipcMain.handle("audit:list", (_e, filter) => data.audit.list(filter || {}));
-
-  // ===== IPC: Settings =====
   ipcMain.handle("settings:load", () => data.settings.load());
   ipcMain.handle("settings:save", (_e, d) => data.settings.save(d));
 
@@ -323,59 +252,32 @@ async function renderHtmlToPdf(html: string): Promise<Buffer> {
   // ===== IPC: Backup =====
   ipcMain.handle("backup:create", async () => {
     try {
-      // Ask user where to save the backup
       const defaultName = `mms-backup-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.db`;
-      const result = await dialog.showSaveDialog(mainWindow!, {
-        title: "Save Backup",
-        defaultPath: defaultName,
-        filters: [{ name: "SQLite Database", extensions: ["db"] }],
-      });
-      if (result.canceled || !result.filePath) {
-        return { success: false, error: "cancelled" };
-      }
-      const backupPath = result.filePath;
-      const { getDB } = require("./db/connection.js");
+      const result = await dialog.showSaveDialog(mainWindow!, { title: "Save Backup", defaultPath: defaultName, filters: [{ name: "SQLite Database", extensions: ["db"] }] });
+      if (result.canceled || !result.filePath) return { success: false, error: "cancelled" };
       const db = getDB();
-      db.backup(backupPath);
-      const stats = fs.statSync(backupPath);
-      return { success: true, path: backupPath, size: stats.size };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
+      db.backup(result.filePath);
+      const stats = fs.statSync(result.filePath);
+      return { success: true, path: result.filePath, size: stats.size };
+    } catch (err: any) { return { success: false, error: err.message }; }
   });
-
   ipcMain.handle("backup:list", () => {
     try {
       const userData = app.getPath("userData");
-      const files = fs.readdirSync(userData)
-        .filter(f => f.startsWith("backup-") && f.endsWith(".db"))
-        .map(f => {
-          const fullPath = path.join(userData, f);
-          const stats = fs.statSync(fullPath);
-          return { name: f, path: fullPath, size: stats.size, time: stats.mtime.toISOString() };
-        })
-        .sort((a, b) => b.time.localeCompare(a.time));
+      const files = fs.readdirSync(userData).filter(f => f.startsWith("backup-") && f.endsWith(".db")).map(f => {
+        const fullPath = path.join(userData, f); const stats = fs.statSync(fullPath);
+        return { name: f, path: fullPath, size: stats.size, time: stats.mtime.toISOString() };
+      }).sort((a, b) => b.time.localeCompare(a.time));
       return { success: true, backups: files };
-    } catch (err: any) {
-      return { success: false, error: err.message, backups: [] };
-    }
+    } catch (err: any) { return { success: false, error: err.message, backups: [] }; }
   });
 
-  // ===== IPC: File save dialog (for exports) =====
   ipcMain.handle("dialog:showSave", async (_e, defaultName: string, filters: any[]) => {
     try {
-      const result = await dialog.showSaveDialog(mainWindow!, {
-        title: "Save File",
-        defaultPath: defaultName,
-        filters: filters || [{ name: "All Files", extensions: ["*"] }],
-      });
-      if (result.canceled || !result.filePath) {
-        return { success: false, cancelled: true };
-      }
+      const result = await dialog.showSaveDialog(mainWindow!, { title: "Save File", defaultPath: defaultName, filters: filters || [{ name: "All Files", extensions: ["*"] }] });
+      if (result.canceled || !result.filePath) return { success: false, cancelled: true };
       return { success: true, path: result.filePath };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
+    } catch (err: any) { return { success: false, error: err.message }; }
   });
 
   // ===== IPC: Token events =====
@@ -383,8 +285,6 @@ async function renderHtmlToPdf(html: string): Promise<Buffer> {
   ipcMain.handle("tokens:getEvent", (_e, id) => data.tokens.getEvent(id));
   ipcMain.handle("tokens:createEvent", (_e, d) => data.tokens.createEvent(d));
   ipcMain.handle("tokens:updateEvent", (_e, id, d) => data.tokens.updateEvent(id, d));
-
-  // ===== IPC: Token operations =====
   ipcMain.handle("tokens:list", (_e, filter) => data.tokens.list(filter || {}));
   ipcMain.handle("tokens:checkExisting", (_e, eventId) => data.tokens.checkExisting(eventId));
   ipcMain.handle("tokens:generate", (_e, eventId, familyIds) => data.tokens.generate(eventId, familyIds, session.user?.id ?? 1));
@@ -393,59 +293,32 @@ async function renderHtmlToPdf(html: string): Promise<Buffer> {
   ipcMain.handle("tokens:replace", (_e, tokenId, reason) => data.tokens.replace(tokenId, reason, session.user?.id ?? 1));
   ipcMain.handle("tokens:stats", (_e, eventId) => data.tokens.stats(eventId));
   ipcMain.handle("tokens:listForPdf", (_e, eventId) => data.tokens.listForPdf(eventId));
-
-  // ===== IPC: Token PDF generation =====
   ipcMain.handle("tokens:generateTokenPdf", async (_e, eventId: number) => {
     try {
       const tokenList = data.tokens.listForPdf(eventId);
-      if (!tokenList || tokenList.length === 0) {
-        return { success: false, error: "No tokens found for this event" };
-      }
+      if (!tokenList || tokenList.length === 0) return { success: false, error: "No tokens found for this event" };
       const event = data.tokens.getEvent(eventId);
       const html = buildTokenSheetHtml(tokenList, event);
-      const saveResult = await dialog.showSaveDialog(mainWindow!, {
-        title: "Save Token PDF",
-        defaultPath: `tokens-${event?.event_name?.replace(/\s+/g, "-") || eventId}.pdf`,
-        filters: [{ name: "PDF Document", extensions: ["pdf"] }],
-      });
-      if (saveResult.canceled || !saveResult.filePath) {
-        return { success: false, cancelled: true };
-      }
-      const pdfBuffer = await renderHtmlToPdf(html);
-      fs.writeFileSync(saveResult.filePath, pdfBuffer);
+      const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Token PDF", defaultPath: `tokens-${event?.event_name?.replace(/\s+/g, "-") || eventId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] });
+      if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true };
+      const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer);
       return { success: true, path: saveResult.filePath, count: tokenList.length };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
+    } catch (err: any) { return { success: false, error: err.message }; }
   });
-
-  // ===== IPC: Collection sheet PDF =====
   ipcMain.handle("tokens:generateCollectionSheet", async (_e, eventId: number) => {
     try {
       const tokenList = data.tokens.listForPdf(eventId);
-      if (!tokenList || tokenList.length === 0) {
-        return { success: false, error: "No tokens found for this event" };
-      }
+      if (!tokenList || tokenList.length === 0) return { success: false, error: "No tokens found for this event" };
       const event = data.tokens.getEvent(eventId);
       const html = buildCollectionSheetHtml(tokenList, event);
-      const saveResult = await dialog.showSaveDialog(mainWindow!, {
-        title: "Save Collection Sheet PDF",
-        defaultPath: `collection-sheet-${event?.event_name?.replace(/\s+/g, "-") || eventId}.pdf`,
-        filters: [{ name: "PDF Document", extensions: ["pdf"] }],
-      });
-      if (saveResult.canceled || !saveResult.filePath) {
-        return { success: false, cancelled: true };
-      }
-      const pdfBuffer = await renderHtmlToPdf(html);
-      fs.writeFileSync(saveResult.filePath, pdfBuffer);
+      const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Collection Sheet PDF", defaultPath: `collection-sheet-${event?.event_name?.replace(/\s+/g, "-") || eventId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] });
+      if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true };
+      const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer);
       return { success: true, path: saveResult.filePath, count: tokenList.length };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
+    } catch (err: any) { return { success: false, error: err.message }; }
   });
 
   createWindow();
-
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -455,7 +328,4 @@ app.on("window-all-closed", () => {
   closeDB();
   if (process.platform !== "darwin") app.quit();
 });
-
-app.on("before-quit", () => {
-  closeDB();
-});
+app.on("before-quit", () => { closeDB(); });
