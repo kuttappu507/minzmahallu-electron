@@ -71,9 +71,9 @@ html.lang-ml textarea::placeholder {
   line-height: 1.45 !important;
 }
 
-/* Tables: use one fixed column model so headers and cells stay aligned. */
+/* Tables: preserve natural column widths while keeping every header/cell on the same grid. */
 .tbl table {
-  table-layout: fixed;
+  table-layout: auto;
   font-size: 14px;
 }
 
@@ -90,6 +90,7 @@ html.lang-ml textarea::placeholder {
   font-weight: 650;
   line-height: 1.4;
   letter-spacing: 0.08em;
+  white-space: nowrap;
   padding-top: 13px;
   padding-bottom: 13px;
 }
