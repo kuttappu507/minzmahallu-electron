@@ -103,10 +103,10 @@ export function Dashboard() {
             <div key={i} className={`stat ${s.tint}`}>
               <div className="srow">
                 <span className="sic"><Icon size={18} /></span>
-                <span className="delta">{s.delta}</span>
+                <span className="delta" style={{ fontSize: "10.5px" }}>{s.delta}</span>
               </div>
-              <div className="val">{s.value}</div>
-              <div className="slab">{s.label}</div>
+              <div className="val" style={{ fontSize: "28px" }}>{s.value}</div>
+              <div className="slab" style={{ fontSize: "11px" }}>{s.label}</div>
             </div>
           );
         })}
