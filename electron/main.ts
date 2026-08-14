@@ -404,7 +404,8 @@ app.whenReady().then(() => {
       const pdfBuffer = await pdfWin.webContents.printToPDF({
         pageSize: "A4",
         printBackground: true,
-        margins: { top: 0, bottom: 0, left: 0, right: 0 },
+        margins: { top: 0.05, bottom: 0.05, left: 0.05, right: 0.05 },
+        preferCSSPageSize: true,
       });
       pdfWin.close();
       fs.writeFileSync(saveResult.filePath, pdfBuffer);
@@ -438,7 +439,8 @@ app.whenReady().then(() => {
       await new Promise(r => setTimeout(r, 1000));
       const pdfBuffer = await pdfWin.webContents.printToPDF({
         pageSize: "A4", printBackground: true,
-        margins: { top: 0, bottom: 0, left: 0, right: 0 },
+        margins: { top: 0.05, bottom: 0.05, left: 0.05, right: 0.05 },
+        preferCSSPageSize: true,
       });
       pdfWin.close();
       fs.writeFileSync(saveResult.filePath, pdfBuffer);
@@ -569,7 +571,8 @@ app.whenReady().then(() => {
       await new Promise(r => setTimeout(r, 500));
       const pdfBuffer = await pdfWin.webContents.printToPDF({
         pageSize: "A4", printBackground: true,
-        margins: { top: 8, bottom: 8, left: 8, right: 8 },
+        margins: { top: 0.05, bottom: 0.05, left: 0.05, right: 0.05 },
+        preferCSSPageSize: true,
       });
       pdfWin.close();
       fs.writeFileSync(saveResult.filePath, pdfBuffer);
@@ -601,7 +604,8 @@ app.whenReady().then(() => {
       await new Promise(r => setTimeout(r, 500));
       const pdfBuffer = await pdfWin.webContents.printToPDF({
         pageSize: "A4", printBackground: true,
-        margins: { top: 12, bottom: 12, left: 12, right: 12 },
+        margins: { top: 0.05, bottom: 0.05, left: 0.05, right: 0.05 },
+        preferCSSPageSize: true,
       });
       pdfWin.close();
       fs.writeFileSync(saveResult.filePath, pdfBuffer);
