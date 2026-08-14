@@ -1,61 +1,85 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import {
-  Ticket, CalendarDays, CheckCircle2, RefreshCw, FileText, Printer,
-  Loader2, Plus, Search, Users, AlertTriangle, X, Check, Ban, RotateCcw,
+  Ticket, CheckCircle2, RefreshCw, FileText, Printer, Loader2,
+  Plus, Users, AlertTriangle, Check, Ban, RotateCcw,
 } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { Button, Dialog, Input, Label, Select, Badge } from "@/components/ui";
 import { toast } from "@/lib/toast";
 import { formatDate } from "@/lib/utils";
 
-interface TokenEvent {
-  id: number;
-  event_name: string;
-  event_type: string;
-  event_date: string;
-  event_time: string;
-  venue: string;
-  description: string;
-  status: string;
-}
-
-interface TokenRow {
-  id: number;
-  event_id: number;
-  family_id: number;
-  token_code: string;
-  status: string;
-  collected: number;
-  collected_at: string | null;
-  collected_by: number | null;
-  created_at: string;
-  family_number: string;
-  house_name: string;
-  ward: string;
-  house_number: string;
-  phone: string;
-  event_name: string;
-  event_date: string;
-  venue: string;
-}
-
-interface Family {
-  id: number;
-  family_number: string;
-  house_name: string;
-  house_number: string;
-  ward: string;
-  phone: string;
-  status: string;
-  member_count: number;
-}
-
 type ViewMode = "list" | "select" | "review" | "generated";
 
+interface TokenEvent {
+  id: number; event_name: string; event_type: string; event_date: string;
+  event_time: string; venue: string; description: string; status: string;
+}
+interface TokenRow {
+  id: number; event_id: number; family_id: number; token_code: string;
+  status: string; collected_at: string | null; created_at: string;
+  family_number: string; house_name: string; house_number: string;
+  ward: string; phone: string;
+}
+interface Family {
+  id: number; family_number: string; house_name: string; house_number: string;
+  ward: string; phone: string; status: string; member_count: number;
+}
+
 export function Tokens() {
-  const { t } = useI18n();
-  const navigate = useNavigate();
+  const { t, lang } = useI18n();
+  const ml = lang === "ml";
+  const text = {
+    title: ml ? "ടോക്കണുകൾ" : "Tokens",
+    subtitle: ml ? "ടോക്കൺ വിതരണം, ശേഖരണം എന്നിവ കൈകാര്യം ചെയ്യുക" : "Token distribution & collection management",
+    selectFamilies: ml ? "കുടുംബങ്ങൾ തിരഞ്ഞെടുക്കുക" : "Select Families",
+    selected: ml ? "തിരഞ്ഞെടുത്തത്" : "selected",
+    new: ml ? "പുതിയത്" : "new",
+    already: ml ? "ടോക്കൺ നിലവിലുണ്ട്" : "already have tokens",
+    back: t("action_cancel"),
+    review: ml ? "തിരഞ്ഞെടുപ്പ് പരിശോധിക്കുക" : "Review Selection",
+    searchFamilies: ml ? "കുടുംബങ്ങൾ തിരയുക..." : "Search families...",
+    allWards: ml ? "എല്ലാ വാർഡുകളും" : "All wards",
+    selectAll: ml ? "സജീവമായവയെല്ലാം തിരഞ്ഞെടുക്കുക" : "Select All Active",
+    clear: ml ? "മായ്ക്കുക" : "Clear",
+    familyNo: t("family_number"), houseName: t("family_house_name"),
+    ward: t("family_ward"), phone: t("family_phone"), members: t("family_members_count"),
+    status: t("family_status"), hasToken: ml ? "ടോക്കൺ ഉണ്ട്" : "Has Token",
+    newToken: ml ? "പുതിയത്" : "New",
+    reviewSelection: ml ? "തിരഞ്ഞെടുപ്പ് പരിശോധിക്കുക" : "Review Selection",
+    selectedFamilies: ml ? "തിരഞ്ഞെടുത്ത കുടുംബങ്ങൾ" : "Selected Families",
+    newTokens: ml ? "പുതിയ ടോക്കണുകൾ" : "New Tokens",
+    existingTokens: ml ? "നിലവിലുള്ള ടോക്കണുകൾ" : "Already Have Tokens",
+    wardDistribution: ml ? "വാർഡ് വിതരണം" : "Ward Distribution",
+    skipWarning: ml ? "ചില കുടുംബങ്ങൾക്ക് ഈ ഇവന്റിൽ ടോക്കൺ നിലവിലുണ്ട്. അവ ഒഴിവാക്കും." : "Some families already have tokens for this event. They will be skipped.",
+    generateNew: ml ? "പുതിയ ടോക്കണുകൾ സൃഷ്ടിക്കുക" : "Generate New Tokens",
+    generatedSuccess: ml ? "ടോക്കണുകൾ വിജയകരമായി സൃഷ്ടിച്ചു" : "Tokens Generated Successfully",
+    totalFor: ml ? "ടോക്കണുകൾ" : "tokens",
+    total: ml ? "മൊത്തം ടോക്കണുകൾ" : "Total Tokens",
+    collected: ml ? "ശേഖരിച്ചത്" : "Collected",
+    remaining: ml ? "ശേഷിക്കുന്നത്" : "Remaining",
+    rate: ml ? "ശേഖരണ നിരക്ക്" : "Collection Rate",
+    generate: ml ? "ടോക്കണുകൾ സൃഷ്ടിക്കുക" : "Generate Tokens",
+    tokenPdf: ml ? "ടോക്കൺ PDF" : "Token PDF",
+    collectionSheet: ml ? "ശേഖരണ ഷീറ്റ്" : "Collection Sheet",
+    searchToken: ml ? "ടോക്കൺ/കുടുംബം തിരയുക..." : "Search token/family...",
+    all: t("ui_all"), loading: t("ui_loading"),
+    noTokens: ml ? "ടോക്കണുകളൊന്നുമില്ല. സജീവ കുടുംബങ്ങൾക്കായി ടോക്കൺ സൃഷ്ടിക്കുക." : "No tokens yet. Generate tokens for active families.",
+    token: ml ? "ടോക്കൺ" : "Token", house: ml ? "വീട്" : "House",
+    generated: ml ? "സൃഷ്ടിച്ചത്" : "Generated", actions: ml ? "പ്രവർത്തനങ്ങൾ" : "Actions",
+    markCollected: ml ? "ശേഖരിച്ചതായി അടയാളപ്പെടുത്തുക" : "Mark Collected",
+    cancelToken: ml ? "ടോക്കൺ റദ്ദാക്കുക" : "Cancel Token",
+    replaceToken: ml ? "ടോക്കൺ മാറ്റിസ്ഥാപിക്കുക" : "Replace Token",
+    noEvent: ml ? "ഇവന്റ് തിരഞ്ഞെടുത്തിട്ടില്ല" : "No Event Selected",
+    selectOrCreate: ml ? "ഇവന്റ് തിരഞ്ഞെടുക്കുക അല്ലെങ്കിൽ പുതിയത് സൃഷ്ടിക്കുക." : "Select an event or create a new one to manage tokens.",
+    selectEvent: ml ? "— ഇവന്റ് തിരഞ്ഞെടുക്കുക —" : "— Select Event —",
+    newEvent: ml ? "പുതിയ ഇവന്റ്" : "New Event", editEvent: ml ? "ഇവന്റ് തിരുത്തുക" : "Edit Event",
+    eventName: ml ? "ഇവന്റ് പേര്" : "Event Name", eventType: ml ? "ഇവന്റ് തരം" : "Event Type",
+    date: ml ? "തീയതി" : "Date", time: ml ? "സമയം" : "Time", venue: ml ? "സ്ഥലം" : "Venue",
+    description: ml ? "വിവരണം" : "Description", saveEvent: ml ? "ഇവന്റ് സേവ് ചെയ്യുക" : "Save Event",
+    general: ml ? "പൊതുവായത്" : "General", eid: ml ? "ഈദ്" : "Eid", ramadan: ml ? "റമദാൻ" : "Ramadan", welfare: ml ? "ക്ഷേമം" : "Welfare",
+    reason: ml ? "കാരണം" : "Reason", lostToken: ml ? "നഷ്ടപ്പെട്ട ടോക്കൺ" : "Lost token",
+    replacement: ml ? "പകരം ടോക്കൺ സൃഷ്ടിക്കുക" : "Generate Replacement",
+  };
 
   const [events, setEvents] = useState<TokenEvent[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
@@ -64,42 +88,30 @@ export function Tokens() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [loading, setLoading] = useState(false);
-
-  // Event dialog
-  const [eventDialogOpen, setEventDialogOpen] = useState(false);
-  const [eventForm, setEventForm] = useState({ event_name: "", event_type: "general", event_date: "", event_time: "", venue: "", description: "" });
-  const [editingEventId, setEditingEventId] = useState<number | null>(null);
-
-  // Family selection
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [families, setFamilies] = useState<Family[]>([]);
   const [selectedFamilyIds, setSelectedFamilyIds] = useState<Set<number>>(new Set());
   const [familySearch, setFamilySearch] = useState("");
   const [wardFilter, setWardFilter] = useState("All");
   const [existingTokens, setExistingTokens] = useState<Set<number>>(new Set());
-
-  // PDF loading
+  const [eventDialogOpen, setEventDialogOpen] = useState(false);
+  const [editingEventId, setEditingEventId] = useState<number | null>(null);
+  const [eventForm, setEventForm] = useState({ event_name: "", event_type: "general", event_date: "", event_time: "", venue: "", description: "" });
   const [pdfLoading, setPdfLoading] = useState(false);
   const [collectionSheetLoading, setCollectionSheetLoading] = useState(false);
-
-  // Cancel/Replace dialog
   const [actionDialog, setActionDialog] = useState<{ type: "cancel" | "replace" | null; token: TokenRow | null }>({ type: null, token: null });
   const [actionReason, setActionReason] = useState("");
 
-  // ===== Load events =====
+  const selectedEvent = events.find(e => e.id === selectedEventId);
+
   const loadEvents = useCallback(async () => {
     try {
       const result = await window.mms.tokens.listEvents();
       setEvents(result || []);
-      if (result && result.length > 0 && !selectedEventId) {
-        setSelectedEventId(result[0].id);
-      }
-    } catch (e: any) {
-      toast.error(e.message || "Failed to load events");
-    }
-  }, []);
+      if (result?.length && !selectedEventId) setSelectedEventId(result[0].id);
+    } catch (e: any) { toast.error(e.message || "Failed to load events"); }
+  }, [selectedEventId]);
 
-  // ===== Load tokens for selected event =====
   const loadTokens = useCallback(async () => {
     if (!selectedEventId) return;
     setLoading(true);
@@ -109,584 +121,163 @@ export function Tokens() {
       if (search) filter.search = search;
       const result = await window.mms.tokens.list(filter);
       setTokens(result.rows || []);
-      const s = await window.mms.tokens.stats(selectedEventId);
-      setStats(s);
-    } catch (e: any) {
-      toast.error(e.message || "Failed to load tokens");
-    } finally {
-      setLoading(false);
-    }
+      setStats(await window.mms.tokens.stats(selectedEventId));
+    } catch (e: any) { toast.error(e.message || "Failed to load tokens"); }
+    finally { setLoading(false); }
   }, [selectedEventId, statusFilter, search]);
 
   useEffect(() => { loadEvents(); }, [loadEvents]);
   useEffect(() => { if (selectedEventId && viewMode === "list") loadTokens(); }, [selectedEventId, viewMode, loadTokens]);
 
-  // ===== Event CRUD =====
-  const handleSaveEvent = async () => {
-    if (!eventForm.event_name || !eventForm.event_date) {
-      toast.error("Event name and date are required");
-      return;
+  const saveEvent = async () => {
+    if (!eventForm.event_name.trim() || !eventForm.event_date) {
+      toast.error(ml ? "ഇവന്റ് പേരും തീയതിയും ആവശ്യമാണ്" : "Event name and date are required"); return;
     }
     try {
+      // The backend historically used camelCase while this page uses DB-shaped snake_case.
+      // Send both names so old/new packaged builds remain compatible.
+      const payload = {
+        ...eventForm,
+        eventName: eventForm.event_name,
+        eventType: eventForm.event_type,
+        eventDate: eventForm.event_date,
+        eventTime: eventForm.event_time,
+      };
       if (editingEventId) {
-        await window.mms.tokens.updateEvent(editingEventId, eventForm);
-        toast.success("Event updated");
+        await window.mms.tokens.updateEvent(editingEventId, payload);
+        toast.success(ml ? "ഇവന്റ് പുതുക്കി" : "Event updated");
       } else {
-        const result = await window.mms.tokens.createEvent(eventForm);
-        toast.success("Event created");
+        const result = await window.mms.tokens.createEvent(payload);
         setSelectedEventId(result.id);
+        toast.success(ml ? "ഇവന്റ് സൃഷ്ടിച്ചു" : "Event created");
       }
       setEventDialogOpen(false);
-      setEventForm({ event_name: "", event_type: "general", event_date: "", event_time: "", venue: "", description: "" });
       setEditingEventId(null);
-      loadEvents();
-    } catch (e: any) {
-      toast.error(e.message || "Failed to save event");
-    }
+      setEventForm({ event_name: "", event_type: "general", event_date: "", event_time: "", venue: "", description: "" });
+      await loadEvents();
+    } catch (e: any) { toast.error(e.message || (ml ? "ഇവന്റ് സേവ് ചെയ്യാൻ കഴിഞ്ഞില്ല" : "Failed to save event")); }
   };
 
-  const handleEditEvent = async (id: number) => {
-    const ev = await window.mms.tokens.getEvent(id);
-    if (ev) {
-      setEventForm({
-        event_name: ev.event_name || "",
-        event_type: ev.event_type || "general",
-        event_date: ev.event_date || "",
-        event_time: ev.event_time || "",
-        venue: ev.venue || "",
-        description: ev.description || "",
-      });
-      setEditingEventId(id);
-      setEventDialogOpen(true);
-    }
-  };
-
-  // ===== Family selection flow =====
-  const startFamilySelection = async () => {
-    if (!selectedEventId) {
-      toast.error("Please select an event first");
-      return;
-    }
+  const editEvent = async (id: number) => {
     try {
-      // Load all active families
+      const ev = await window.mms.tokens.getEvent(id);
+      if (!ev) return;
+      setEventForm({ event_name: ev.event_name || "", event_type: ev.event_type || "general", event_date: ev.event_date || "", event_time: ev.event_time || "", venue: ev.venue || "", description: ev.description || "" });
+      setEditingEventId(id); setEventDialogOpen(true);
+    } catch (e: any) { toast.error(e.message); }
+  };
+
+  const startSelection = async () => {
+    if (!selectedEventId) { toast.error(ml ? "ആദ്യം ഒരു ഇവന്റ് തിരഞ്ഞെടുക്കുക" : "Please select an event first"); return; }
+    try {
       const result = await window.mms.families.list({ status: "Active", pageSize: 10000 });
       setFamilies(result.rows || []);
-      // Check existing tokens for this event
-      const existing = await window.mms.tokens.checkExisting(selectedEventId);
-      setExistingTokens(existing);
-      setSelectedFamilyIds(new Set());
-      setViewMode("select");
-    } catch (e: any) {
-      toast.error(e.message || "Failed to load families");
-    }
+      setExistingTokens(await window.mms.tokens.checkExisting(selectedEventId));
+      setSelectedFamilyIds(new Set()); setViewMode("select");
+    } catch (e: any) { toast.error(e.message || (ml ? "കുടുംബങ്ങൾ ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല" : "Failed to load families")); }
   };
 
-  const filteredFamilies = useMemo(() => {
-    return families.filter(f => {
-      if (wardFilter !== "All" && f.ward !== wardFilter) return false;
-      if (familySearch) {
-        const q = familySearch.toLowerCase();
-        return f.family_number.toLowerCase().includes(q) ||
-               f.house_name.toLowerCase().includes(q) ||
-               f.ward.toLowerCase().includes(q) ||
-               (f.phone || "").includes(q);
-      }
-      return true;
-    });
-  }, [families, wardFilter, familySearch]);
-
-  const wards = useMemo(() => {
-    const set = new Set(families.map(f => f.ward).filter(Boolean));
-    return ["All", ...Array.from(set).sort()];
-  }, [families]);
-
-  const selectAllActive = () => {
-    setSelectedFamilyIds(new Set(families.map(f => f.id)));
-  };
-
-  const clearSelection = () => {
-    setSelectedFamilyIds(new Set());
-  };
-
-  const toggleFamily = (id: number) => {
-    setSelectedFamilyIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  // Ward distribution for review
+  const filteredFamilies = useMemo(() => families.filter(f => {
+    if (wardFilter !== "All" && f.ward !== wardFilter) return false;
+    if (!familySearch) return true;
+    const q = familySearch.toLowerCase();
+    return f.family_number.toLowerCase().includes(q) || f.house_name.toLowerCase().includes(q) || (f.ward || "").toLowerCase().includes(q) || (f.phone || "").includes(q);
+  }), [families, familySearch, wardFilter]);
+  const wards = useMemo(() => ["All", ...Array.from(new Set(families.map(f => f.ward).filter(Boolean))).sort()], [families]);
+  const newCount = Array.from(selectedFamilyIds).filter(id => !existingTokens.has(id)).length;
+  const alreadyCount = selectedFamilyIds.size - newCount;
   const wardDistribution = useMemo(() => {
-    const dist: Record<string, number> = {};
-    selectedFamilyIds.forEach(id => {
-      const fam = families.find(f => f.id === id);
-      const ward = fam?.ward || "Unknown";
-      dist[ward] = (dist[ward] || 0) + 1;
-    });
-    return Object.entries(dist).sort((a, b) => a[0].localeCompare(b[0]));
+    const out: Record<string, number> = {};
+    selectedFamilyIds.forEach(id => { const ward = families.find(f => f.id === id)?.ward || "—"; out[ward] = (out[ward] || 0) + 1; });
+    return Object.entries(out);
   }, [selectedFamilyIds, families]);
 
-  const newCount = useMemo(() => {
-    let count = 0;
-    selectedFamilyIds.forEach(id => {
-      if (!existingTokens.has(id)) count++;
-    });
-    return count;
-  }, [selectedFamilyIds, existingTokens]);
-
-  const alreadyCount = selectedFamilyIds.size - newCount;
-
-  // ===== Generate tokens =====
-  const handleGenerate = async () => {
-    if (!selectedEventId || selectedFamilyIds.size === 0) return;
+  const toggleFamily = (id: number) => setSelectedFamilyIds(prev => {
+    const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
+  });
+  const generate = async () => {
+    if (!selectedEventId || !selectedFamilyIds.size) return;
     try {
       const result = await window.mms.tokens.generate(selectedEventId, Array.from(selectedFamilyIds));
-      toast.success(`${result.generated} tokens generated${result.skipped > 0 ? ` · ${result.skipped} already existed` : ""}`);
-      setViewMode("generated");
-      loadTokens();
-    } catch (e: any) {
-      toast.error(e.message || "Failed to generate tokens");
-    }
+      toast.success(ml ? `${result.generated} ടോക്കണുകൾ സൃഷ്ടിച്ചു` : `${result.generated} tokens generated${result.skipped ? ` · ${result.skipped} already existed` : ""}`);
+      setViewMode("generated"); await loadTokens();
+    } catch (e: any) { toast.error(e.message || (ml ? "ടോക്കണുകൾ സൃഷ്ടിക്കാൻ കഴിഞ്ഞില്ല" : "Failed to generate tokens")); }
   };
-
-  // ===== PDF generation =====
-  const handleGenerateTokenPdf = async () => {
+  const generatePdf = async (sheet = false) => {
     if (!selectedEventId) return;
-    setPdfLoading(true);
+    sheet ? setCollectionSheetLoading(true) : setPdfLoading(true);
     try {
-      const result = await window.mms.tokens.generateTokenPdf(selectedEventId);
-      if (result.success) {
-        toast.success(`Token PDF generated (${result.count} tokens)`);
-      } else if (!result.cancelled) {
-        toast.error(result.error || "Failed to generate PDF");
-      }
-    } catch (e: any) {
-      toast.error(e.message || "Failed to generate PDF");
-    } finally {
-      setPdfLoading(false);
-    }
+      const result = sheet ? await window.mms.tokens.generateCollectionSheet(selectedEventId) : await window.mms.tokens.generateTokenPdf(selectedEventId);
+      if (result.success) toast.success(ml ? `${result.count} ടോക്കണുകളുടെ PDF തയ്യാറാക്കി` : `${sheet ? "Collection sheet" : "Token PDF"} generated (${result.count} tokens)`);
+      else if (!result.cancelled) toast.error(result.error || (ml ? "PDF തയ്യാറാക്കാൻ കഴിഞ്ഞില്ല" : "Failed to generate PDF"));
+    } catch (e: any) { toast.error(e.message || (ml ? "PDF തയ്യാറാക്കാൻ കഴിഞ്ഞില്ല" : "Failed to generate PDF")); }
+    finally { sheet ? setCollectionSheetLoading(false) : setPdfLoading(false); }
   };
-
-  const handleGenerateCollectionSheet = async () => {
-    if (!selectedEventId) return;
-    setCollectionSheetLoading(true);
-    try {
-      const result = await window.mms.tokens.generateCollectionSheet(selectedEventId);
-      if (result.success) {
-        toast.success(`Collection sheet generated (${result.count} tokens)`);
-      } else if (!result.cancelled) {
-        toast.error(result.error || "Failed to generate collection sheet");
-      }
-    } catch (e: any) {
-      toast.error(e.message || "Failed to generate collection sheet");
-    } finally {
-      setCollectionSheetLoading(false);
-    }
+  const collect = async (id: number) => {
+    try { await window.mms.tokens.collect(id); toast.success(ml ? "ടോക്കൺ ശേഖരിച്ചതായി അടയാളപ്പെടുത്തി" : "Token marked as collected"); await loadTokens(); }
+    catch (e: any) { toast.error(e.message || (ml ? "ടോക്കൺ ശേഖരിക്കാൻ കഴിഞ്ഞില്ല" : "Failed to collect token")); }
   };
-
-  // ===== Token actions =====
-  const handleCollect = async (tokenId: number) => {
-    try {
-      await window.mms.tokens.collect(tokenId);
-      toast.success("Token marked as collected");
-      loadTokens();
-    } catch (e: any) {
-      toast.error(e.message || "Failed to collect token");
-    }
-  };
-
-  const handleCancel = async () => {
+  const cancelToken = async () => {
     if (!actionDialog.token) return;
-    try {
-      await window.mms.tokens.cancel(actionDialog.token.id, actionReason || "Lost token");
-      toast.success("Token cancelled");
-      setActionDialog({ type: null, token: null });
-      setActionReason("");
-      loadTokens();
-    } catch (e: any) {
-      toast.error(e.message || "Failed to cancel token");
-    }
+    try { await window.mms.tokens.cancel(actionDialog.token.id, actionReason || (ml ? "നഷ്ടപ്പെട്ട ടോക്കൺ" : "Lost token")); toast.success(ml ? "ടോക്കൺ റദ്ദാക്കി" : "Token cancelled"); setActionDialog({ type: null, token: null }); setActionReason(""); await loadTokens(); }
+    catch (e: any) { toast.error(e.message || (ml ? "ടോക്കൺ റദ്ദാക്കാൻ കഴിഞ്ഞില്ല" : "Failed to cancel token")); }
   };
-
-  const handleReplace = async () => {
+  const replaceToken = async () => {
     if (!actionDialog.token) return;
-    try {
-      const result = await window.mms.tokens.replace(actionDialog.token.id, actionReason || "Lost token");
-      toast.success(`Replacement token generated: ${result.tokenCode}`);
-      setActionDialog({ type: null, token: null });
-      setActionReason("");
-      loadTokens();
-    } catch (e: any) {
-      toast.error(e.message || "Failed to replace token");
-    }
+    try { const result = await window.mms.tokens.replace(actionDialog.token.id, actionReason || (ml ? "നഷ്ടപ്പെട്ട ടോക്കൺ" : "Lost token")); toast.success(ml ? `പകരം ടോക്കൺ സൃഷ്ടിച്ചു: ${result.tokenCode}` : `Replacement token generated: ${result.tokenCode}`); setActionDialog({ type: null, token: null }); setActionReason(""); await loadTokens(); }
+    catch (e: any) { toast.error(e.message || (ml ? "പകരം ടോക്കൺ സൃഷ്ടിക്കാൻ കഴിഞ്ഞില്ല" : "Failed to replace token")); }
   };
 
-  const selectedEvent = events.find(e => e.id === selectedEventId);
-
-  // ===== RENDER: Family Selection View =====
-  if (viewMode === "select" || viewMode === "review") {
-    return (
-      <div className="view view-enter">
-        <div className="vhead">
-          <span className="modic t-pink"><Ticket size={22} /></span>
-          <div>
-            <h1>Select Families — {selectedEvent?.event_name}</h1>
-            <div className="vs">{selectedFamilyIds.size} selected · {newCount} new · {alreadyCount} already have tokens</div>
-          </div>
-          <div className="vr">
-            <Button variant="secondary" onClick={() => setViewMode("list")}>Back</Button>
-            {viewMode === "select" && (
-              <Button onClick={() => setViewMode("review")} disabled={selectedFamilyIds.size === 0}>
-                Review Selection ({selectedFamilyIds.size})
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {viewMode === "select" && (
-          <>
-            <div className="toolbar">
-              <Input className="w-64" placeholder="Search families..." value={familySearch} onChange={e => setFamilySearch(e.target.value)} />
-              <Select value={wardFilter} onChange={e => setWardFilter(e.target.value)} className="w-40">
-                {wards.map(w => <option key={w} value={w}>{w === "All" ? "All wards" : w}</option>)}
-              </Select>
-              <Button variant="secondary" onClick={selectAllActive}>Select All Active</Button>
-              <Button variant="secondary" onClick={clearSelection}>Clear</Button>
-              <span className="count-chip">{selectedFamilyIds.size} / {families.length} selected</span>
-            </div>
-
-            <div className="tbl">
-              <table>
-                <thead>
-                  <tr>
-                    <th style={{ width: 40 }}></th>
-                    <th>Family No.</th>
-                    <th>House Name</th>
-                    <th>Ward</th>
-                    <th>Phone</th>
-                    <th>Members</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredFamilies.map(f => (
-                    <tr key={f.id} onClick={() => toggleFamily(f.id)} className={selectedFamilyIds.has(f.id) ? "" : ""}>
-                      <td>
-                        <input type="checkbox" checked={selectedFamilyIds.has(f.id)} onChange={() => toggleFamily(f.id)} />
-                      </td>
-                      <td><span style={{ fontFamily: "Poppins", fontWeight: 600 }}>{f.family_number}</span></td>
-                      <td>{f.house_name}</td>
-                      <td>{f.ward || "—"}</td>
-                      <td>{f.phone || "—"}</td>
-                      <td><Badge variant="muted">{f.member_count}</Badge></td>
-                      <td>
-                        {existingTokens.has(f.id) ? (
-                          <Badge variant="warning">Has Token</Badge>
-                        ) : (
-                          <Badge variant="success">New</Badge>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-
-        {viewMode === "review" && (
-          <div className="card" style={{ padding: 20 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Review Selection</h3>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
-              <div className="stat t-em" style={{ padding: 15 }}>
-                <div className="val">{selectedFamilyIds.size}</div>
-                <div className="slab">Selected Families</div>
-              </div>
-              <div className="stat t-gold" style={{ padding: 15 }}>
-                <div className="val">{newCount}</div>
-                <div className="slab">New Tokens</div>
-              </div>
-              <div className="stat t-slate" style={{ padding: 15 }}>
-                <div className="val">{alreadyCount}</div>
-                <div className="slab">Already Have Tokens</div>
-              </div>
-            </div>
-
-            <h4 style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Ward Distribution</h4>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
-              {wardDistribution.map(([ward, count]) => (
-                <span key={ward} className="count-chip">{ward}: {count}</span>
-              ))}
-            </div>
-
-            {alreadyCount > 0 && (
-              <div className="alert-card t-rose" style={{ marginBottom: 16, padding: 14 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <AlertTriangle size={16} />
-                  <b>{alreadyCount} families already have tokens for this event.</b>
-                </div>
-                <p style={{ marginTop: 4, fontSize: 12, color: "var(--mut)" }}>These will be skipped during generation. Only {newCount} new tokens will be created.</p>
-              </div>
-            )}
-
-            <div style={{ display: "flex", gap: 10 }}>
-              <Button variant="secondary" onClick={() => setViewMode("select")}>Back to Selection</Button>
-              <Button onClick={handleGenerate} disabled={newCount === 0}>
-                Generate {newCount} New Tokens
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ===== RENDER: Generated confirmation =====
-  if (viewMode === "generated") {
-    return (
-      <div className="view view-enter">
-        <div className="card" style={{ padding: 40, textAlign: "center", maxWidth: 480, margin: "60px auto" }}>
-          <div style={{ width: 64, height: 64, borderRadius: 18, background: "var(--selbg)", border: "1.5px solid var(--em)", display: "grid", placeItems: "center", margin: "0 auto 16px" }}>
-            <CheckCircle2 size={32} style={{ color: "var(--em)" }} />
-          </div>
-          <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>Tokens Generated Successfully</h2>
-          <p style={{ fontSize: 13, color: "var(--mut)", marginBottom: 24 }}>
-            {stats.total} tokens for {selectedEvent?.event_name}
-          </p>
-          <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-            <Button variant="secondary" onClick={handleGenerateTokenPdf} disabled={pdfLoading}>
-              {pdfLoading ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
-              Generate Token PDF
-            </Button>
-            <Button variant="secondary" onClick={handleGenerateCollectionSheet} disabled={collectionSheetLoading}>
-              {collectionSheetLoading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
-              Collection Sheet
-            </Button>
-          </div>
-          <div style={{ marginTop: 20 }}>
-            <Button variant="ghost" onClick={() => { setViewMode("list"); loadTokens(); }}>View Tokens</Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ===== RENDER: Main Token List View =====
-  return (
+  if (viewMode === "select" || viewMode === "review") return (
     <div className="view view-enter">
       <div className="vhead">
         <span className="modic t-pink"><Ticket size={22} /></span>
-        <div>
-          <h1>Tokens</h1>
-          <div className="vs">Token distribution & collection management</div>
-        </div>
-        <div className="vr">
-          <Select value={selectedEventId || ""} onChange={e => setSelectedEventId(Number(e.target.value))} className="w-48">
-            <option value="">— Select Event —</option>
-            {events.map(ev => (
-              <option key={ev.id} value={ev.id}>{ev.event_name} ({formatDate(ev.event_date)})</option>
-            ))}
-          </Select>
-          <Button variant="secondary" onClick={() => { setEventForm({ event_name: "", event_type: "general", event_date: "", event_time: "", venue: "", description: "" }); setEditingEventId(null); setEventDialogOpen(true); }}>
-            <Plus size={14} /> New Event
-          </Button>
-          {selectedEventId && (
-            <Button variant="secondary" onClick={() => handleEditEvent(selectedEventId)}>Edit Event</Button>
-          )}
-        </div>
+        <div><h1>{text.selectFamilies} — {selectedEvent?.event_name}</h1><div className="vs">{selectedFamilyIds.size} {text.selected} · {newCount} {text.new} · {alreadyCount} {text.already}</div></div>
+        <div className="vr"><Button variant="secondary" onClick={() => setViewMode("list")}>{text.back}</Button>{viewMode === "select" && <Button onClick={() => setViewMode("review")} disabled={!selectedFamilyIds.size}>{text.review} ({selectedFamilyIds.size})</Button>}</div>
       </div>
-
-      {selectedEventId && (
-        <>
-          {/* Stats */}
-          <div className="stat-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
-            <div className="stat t-em">
-              <div className="srow"><span className="sic"><Ticket size={18} /></span><span className="delta">{stats.rate}%</span></div>
-              <div className="val">{stats.total}</div>
-              <div className="slab">Total Tokens</div>
-            </div>
-            <div className="stat t-teal">
-              <div className="srow"><span className="sic"><CheckCircle2 size={18} /></span></div>
-              <div className="val">{stats.collected}</div>
-              <div className="slab">Collected</div>
-            </div>
-            <div className="stat t-gold">
-              <div className="srow"><span className="sic"><Users size={18} /></span></div>
-              <div className="val">{stats.remaining}</div>
-              <div className="slab">Remaining</div>
-            </div>
-            <div className="stat t-sky">
-              <div className="srow"><span className="sic"><RefreshCw size={18} /></span></div>
-              <div className="val">{stats.rate}%</div>
-              <div className="slab">Collection Rate</div>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="toolbar">
-            <Button onClick={startFamilySelection}><Plus size={14} /> Generate Tokens</Button>
-            <Button variant="secondary" onClick={handleGenerateTokenPdf} disabled={pdfLoading || stats.total === 0}>
-              {pdfLoading ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
-              Token PDF
-            </Button>
-            <Button variant="secondary" onClick={handleGenerateCollectionSheet} disabled={collectionSheetLoading || stats.total === 0}>
-              {collectionSheetLoading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
-              Collection Sheet
-            </Button>
-            <div style={{ flex: 1 }} />
-            <Input className="w-48" placeholder="Search token/family..." value={search} onChange={e => setSearch(e.target.value)} />
-            <Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-32">
-              <option>All</option>
-              <option>GENERATED</option>
-              <option>COLLECTED</option>
-              <option>CANCELLED</option>
-            </Select>
-            <Button variant="ghost" onClick={loadTokens}><RefreshCw size={14} /></Button>
-          </div>
-
-          {/* Token table */}
-          <div className="tbl">
-            <table>
-              <thead>
-                <tr>
-                  <th>Token</th>
-                  <th>Family</th>
-                  <th>House</th>
-                  <th>Ward</th>
-                  <th>Status</th>
-                  <th>Generated</th>
-                  <th>Collected</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan={8} className="tempty">Loading...</td></tr>
-                ) : tokens.length === 0 ? (
-                  <tr><td colSpan={8} className="tempty">No tokens yet. Click "Generate Tokens" to create tokens for active families.</td></tr>
-                ) : (
-                  tokens.map(tk => (
-                    <tr key={tk.id}>
-                      <td><span style={{ fontFamily: "Courier New, monospace", fontWeight: 700, fontSize: 14, color: "var(--em)", letterSpacing: 1 }}>{tk.token_code}</span></td>
-                      <td>{tk.house_name || tk.family_number}</td>
-                      <td>{tk.house_number || tk.family_number}</td>
-                      <td>{tk.ward || "—"}</td>
-                      <td>
-                        <Badge variant={tk.status === "COLLECTED" ? "success" : tk.status === "CANCELLED" ? "danger" : "warning"}>
-                          {tk.status}
-                        </Badge>
-                      </td>
-                      <td>{formatDate(tk.created_at)}</td>
-                      <td>{tk.collected_at ? formatDate(tk.collected_at) : "—"}</td>
-                      <td>
-                        <div className="rowact">
-                          {tk.status === "GENERATED" && (
-                            <button className="act-btn act-edit" onClick={() => handleCollect(tk.id)} title="Mark Collected">
-                              <Check size={14} />
-                            </button>
-                          )}
-                          {tk.status !== "CANCELLED" && (
-                            <>
-                              <button className="act-btn act-del" onClick={() => setActionDialog({ type: "cancel", token: tk })} title="Cancel Token">
-                                <Ban size={14} />
-                              </button>
-                              <button className="act-btn act-view" onClick={() => setActionDialog({ type: "replace", token: tk })} title="Replace Token">
-                                <RotateCcw size={14} />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-
-      {!selectedEventId && (
-        <div className="card" style={{ padding: 40, textAlign: "center" }}>
-          <Ticket size={40} style={{ color: "var(--fnt)", marginBottom: 12 }} />
-          <h3 style={{ fontSize: 15, fontWeight: 600 }}>No Event Selected</h3>
-          <p style={{ fontSize: 12, color: "var(--mut)", marginTop: 4 }}>Select an event or create a new one to manage tokens.</p>
+      {viewMode === "select" ? <>
+        <div className="toolbar">
+          <Input className="w-64" placeholder={text.searchFamilies} value={familySearch} onChange={e => setFamilySearch(e.target.value)} />
+          <Select value={wardFilter} onChange={e => setWardFilter(e.target.value)} className="w-40">{wards.map(w => <option key={w} value={w}>{w === "All" ? text.allWards : w}</option>)}</Select>
+          <Button variant="secondary" onClick={() => setSelectedFamilyIds(new Set(families.map(f => f.id)))}>{text.selectAll}</Button>
+          <Button variant="secondary" onClick={() => setSelectedFamilyIds(new Set())}>{text.clear}</Button>
+          <span className="count-chip">{selectedFamilyIds.size} / {families.length} {text.selected}</span>
         </div>
-      )}
+        <div className="tbl"><table><thead><tr><th className="token-check-col" /><th>{text.familyNo}</th><th>{text.houseName}</th><th>{text.ward}</th><th>{text.phone}</th><th>{text.members}</th><th>{text.status}</th></tr></thead>
+          <tbody>{filteredFamilies.map(f => <tr key={f.id} onClick={() => toggleFamily(f.id)}>
+            <td><input type="checkbox" checked={selectedFamilyIds.has(f.id)} onChange={() => toggleFamily(f.id)} /></td><td className="token-family-code">{f.family_number}</td><td>{f.house_name}</td><td>{f.ward || "—"}</td><td>{f.phone || "—"}</td><td><Badge variant="muted">{f.member_count}</Badge></td><td><Badge variant={existingTokens.has(f.id) ? "warning" : "success"}>{existingTokens.has(f.id) ? text.hasToken : text.newToken}</Badge></td>
+          </tr>)}</tbody></table></div>
+      </> : <div className="card token-review">
+        <h3>{text.reviewSelection}</h3>
+        <div className="token-review-grid"><div className="stat t-em"><div className="val">{selectedFamilyIds.size}</div><div className="slab">{text.selectedFamilies}</div></div><div className="stat t-gold"><div className="val">{newCount}</div><div className="slab">{text.newTokens}</div></div><div className="stat t-slate"><div className="val">{alreadyCount}</div><div className="slab">{text.existingTokens}</div></div></div>
+        <h4>{text.wardDistribution}</h4><div className="token-ward-list">{wardDistribution.map(([w, c]) => <span className="count-chip" key={w}>{w}: {c}</span>)}</div>
+        {alreadyCount > 0 && <div className="alert-card t-rose token-warning"><AlertTriangle size={16} /><div><b>{alreadyCount} {text.already}</b><p>{text.skipWarning}</p></div></div>}
+        <div className="m-f"><Button variant="secondary" onClick={() => setViewMode("select")}>{text.back}</Button><Button onClick={generate} disabled={!newCount}>{text.generateNew}</Button></div>
+      </div>}
+    </div>
+  );
 
-      {/* Event Dialog */}
-      <Dialog open={eventDialogOpen} onClose={() => setEventDialogOpen(false)} title={editingEventId ? "Edit Event" : "New Event"}>
-        <div className="m-b">
-          <div className="grid-2">
-            <div>
-              <Label>Event Name *</Label>
-              <Input value={eventForm.event_name} onChange={e => setEventForm({ ...eventForm, event_name: e.target.value })} placeholder="Eid Milad 2026" />
-            </div>
-            <div>
-              <Label>Event Type</Label>
-              <Select value={eventForm.event_type} onChange={e => setEventForm({ ...eventForm, event_type: e.target.value })}>
-                <option value="general">General</option>
-                <option value="eid">Eid</option>
-                <option value="ramadan">Ramadan</option>
-                <option value="welfare">Welfare</option>
-              </Select>
-            </div>
-            <div>
-              <Label>Date *</Label>
-              <Input type="date" value={eventForm.event_date} onChange={e => setEventForm({ ...eventForm, event_date: e.target.value })} />
-            </div>
-            <div>
-              <Label>Time</Label>
-              <Input type="time" value={eventForm.event_time} onChange={e => setEventForm({ ...eventForm, event_time: e.target.value })} />
-            </div>
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <Label>Venue</Label>
-            <Input value={eventForm.venue} onChange={e => setEventForm({ ...eventForm, venue: e.target.value })} placeholder="Mahallu Hall" />
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <Label>Description</Label>
-            <Input value={eventForm.description} onChange={e => setEventForm({ ...eventForm, description: e.target.value })} />
-          </div>
-        </div>
-        <div className="m-f">
-          <Button variant="secondary" onClick={() => setEventDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleSaveEvent}>Save Event</Button>
-        </div>
+  if (viewMode === "generated") return (
+    <div className="view view-enter"><div className="card token-success"><div className="token-success-icon"><CheckCircle2 size={32} /></div><h2>{text.generatedSuccess}</h2><p>{stats.total} {text.totalFor} — {selectedEvent?.event_name}</p><div className="m-f"><Button variant="secondary" onClick={() => generatePdf(false)} disabled={pdfLoading}>{pdfLoading ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}{text.tokenPdf}</Button><Button variant="secondary" onClick={() => generatePdf(true)} disabled={collectionSheetLoading}>{collectionSheetLoading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}{text.collectionSheet}</Button><Button variant="ghost" onClick={() => setViewMode("list")}>{t("nav_tokens")}</Button></div></div></div>
+  );
+
+  return (
+    <div className="view view-enter">
+      <div className="vhead"><span className="modic t-pink"><Ticket size={22} /></span><div><h1>{text.title}</h1><div className="vs">{text.subtitle}</div></div><div className="vr"><Select value={selectedEventId || ""} onChange={e => setSelectedEventId(Number(e.target.value))} className="w-48"><option value="">{text.selectEvent}</option>{events.map(ev => <option key={ev.id} value={ev.id}>{ev.event_name} ({formatDate(ev.event_date)})</option>)}</Select><Button variant="secondary" onClick={() => { setEditingEventId(null); setEventForm({ event_name: "", event_type: "general", event_date: "", event_time: "", venue: "", description: "" }); setEventDialogOpen(true); }}><Plus size={14} /> {text.newEvent}</Button>{selectedEventId && <Button variant="secondary" onClick={() => editEvent(selectedEventId)}>{text.editEvent}</Button>}</div></div>
+      {selectedEventId ? <>
+        <div className="stat-grid token-stat-grid"><div className="stat t-em"><div className="srow"><span className="sic"><Ticket size={18} /></span><span className="delta">{stats.rate}%</span></div><div className="val">{stats.total}</div><div className="slab">{text.total}</div></div><div className="stat t-teal"><div className="srow"><span className="sic"><CheckCircle2 size={18} /></span></div><div className="val">{stats.collected}</div><div className="slab">{text.collected}</div></div><div className="stat t-gold"><div className="srow"><span className="sic"><Users size={18} /></span></div><div className="val">{stats.remaining}</div><div className="slab">{text.remaining}</div></div><div className="stat t-sky"><div className="srow"><span className="sic"><RefreshCw size={18} /></span></div><div className="val">{stats.rate}%</div><div className="slab">{text.rate}</div></div></div>
+        <div className="toolbar"><Button onClick={startSelection}><Plus size={14} /> {text.generate}</Button><Button variant="secondary" onClick={() => generatePdf(false)} disabled={pdfLoading || !stats.total}>{pdfLoading ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}{text.tokenPdf}</Button><Button variant="secondary" onClick={() => generatePdf(true)} disabled={collectionSheetLoading || !stats.total}>{collectionSheetLoading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}{text.collectionSheet}</Button><span className="toolbar-spacer" /><Input className="w-48" placeholder={text.searchToken} value={search} onChange={e => setSearch(e.target.value)} /><Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-32"><option value="All">{text.all}</option><option value="GENERATED">{ml ? "സൃഷ്ടിച്ചത്" : "GENERATED"}</option><option value="COLLECTED">{ml ? "ശേഖരിച്ചത്" : "COLLECTED"}</option><option value="CANCELLED">{ml ? "റദ്ദാക്കിയത്" : "CANCELLED"}</option></Select><Button variant="ghost" onClick={loadTokens} title={t("action_refresh")}><RefreshCw size={14} /></Button></div>
+        <div className="tbl"><table><thead><tr><th>{text.token}</th><th>{text.familyNo}</th><th>{text.house}</th><th>{text.ward}</th><th>{text.status}</th><th>{text.generated}</th><th>{text.collected}</th><th>{text.actions}</th></tr></thead><tbody>
+          {loading ? <tr><td colSpan={8} className="tempty">{text.loading}</td></tr> : !tokens.length ? <tr><td colSpan={8} className="tempty">{text.noTokens}</td></tr> : tokens.map(tk => <tr key={tk.id}><td className="token-code">{tk.token_code}</td><td>{tk.family_number}</td><td>{tk.house_name || tk.house_number || "—"}</td><td>{tk.ward || "—"}</td><td><Badge variant={tk.status === "COLLECTED" ? "success" : tk.status === "CANCELLED" ? "danger" : "warning"}>{ml ? ({ GENERATED: "സൃഷ്ടിച്ചത്", COLLECTED: "ശേഖരിച്ചത്", CANCELLED: "റദ്ദാക്കിയത്", ISSUED: "നൽകിയത്" } as Record<string, string>)[tk.status] || tk.status : tk.status}</Badge></td><td>{formatDate(tk.created_at)}</td><td>{tk.collected_at ? formatDate(tk.collected_at) : "—"}</td><td><div className="rowact">{tk.status === "GENERATED" && <button className="act-btn act-edit" onClick={() => collect(tk.id)} title={text.markCollected}><Check size={14} /></button>}{tk.status !== "CANCELLED" && <><button className="act-btn act-del" onClick={() => setActionDialog({ type: "cancel", token: tk })} title={text.cancelToken}><Ban size={14} /></button><button className="act-btn act-view" onClick={() => setActionDialog({ type: "replace", token: tk })} title={text.replaceToken}><RotateCcw size={14} /></button></>}</div></td></tr>)}
+        </tbody></table></div>
+      </> : <div className="card token-empty"><Ticket size={40} /><h3>{text.noEvent}</h3><p>{text.selectOrCreate}</p></div>}
+
+      <Dialog open={eventDialogOpen} onClose={() => setEventDialogOpen(false)} title={editingEventId ? text.editEvent : text.newEvent}>
+        <div className="m-b"><div className="grid-2"><div><Label>{text.eventName} *</Label><Input value={eventForm.event_name} onChange={e => setEventForm({ ...eventForm, event_name: e.target.value })} /></div><div><Label>{text.eventType}</Label><Select value={eventForm.event_type} onChange={e => setEventForm({ ...eventForm, event_type: e.target.value })}><option value="general">{text.general}</option><option value="eid">{text.eid}</option><option value="ramadan">{text.ramadan}</option><option value="welfare">{text.welfare}</option></Select></div><div><Label>{text.date} *</Label><Input type="date" value={eventForm.event_date} onChange={e => setEventForm({ ...eventForm, event_date: e.target.value })} /></div><div><Label>{text.time}</Label><Input type="time" value={eventForm.event_time} onChange={e => setEventForm({ ...eventForm, event_time: e.target.value })} /></div></div><div className="token-form-row"><Label>{text.venue}</Label><Input value={eventForm.venue} onChange={e => setEventForm({ ...eventForm, venue: e.target.value })} /></div><div className="token-form-row"><Label>{text.description}</Label><Input value={eventForm.description} onChange={e => setEventForm({ ...eventForm, description: e.target.value })} /></div></div><div className="m-f"><Button variant="secondary" onClick={() => setEventDialogOpen(false)}>{t("action_cancel")}</Button><Button onClick={saveEvent}>{text.saveEvent}</Button></div>
       </Dialog>
 
-      {/* Cancel/Replace Dialog */}
-      <Dialog open={actionDialog.type !== null} onClose={() => { setActionDialog({ type: null, token: null }); setActionReason(""); }}
-        title={actionDialog.type === "cancel" ? "Cancel Token" : "Replace Token"}>
-        <div className="m-b">
-          {actionDialog.token && (
-            <div style={{ marginBottom: 12 }}>
-              <p style={{ fontSize: 13, color: "var(--mut)" }}>
-                Token: <b style={{ fontFamily: "Courier New, monospace", color: "var(--em)" }}>{actionDialog.token.token_code}</b>
-              </p>
-              <p style={{ fontSize: 13, color: "var(--mut)" }}>Family: {actionDialog.token.house_name}</p>
-            </div>
-          )}
-          {actionDialog.type === "cancel" ? (
-            <p style={{ fontSize: 12, color: "var(--mut)", marginBottom: 12 }}>
-              This token will be marked as CANCELLED. It will not be deleted. A replacement can be generated later.
-            </p>
-          ) : (
-            <p style={{ fontSize: 12, color: "var(--mut)", marginBottom: 12 }}>
-              The old token will be cancelled and a new unique code will be generated for the same family.
-            </p>
-          )}
-          <Label>Reason</Label>
-          <Input value={actionReason} onChange={e => setActionReason(e.target.value)} placeholder="Lost token" />
-        </div>
-        <div className="m-f">
-          <Button variant="secondary" onClick={() => { setActionDialog({ type: null, token: null }); setActionReason(""); }}>Cancel</Button>
-          <Button variant={actionDialog.type === "cancel" ? "danger" : "primary"} onClick={actionDialog.type === "cancel" ? handleCancel : handleReplace}>
-            {actionDialog.type === "cancel" ? "Cancel Token" : "Generate Replacement"}
-          </Button>
-        </div>
+      <Dialog open={actionDialog.type !== null} onClose={() => { setActionDialog({ type: null, token: null }); setActionReason(""); }} title={actionDialog.type === "cancel" ? text.cancelToken : text.replaceToken}>
+        <div className="m-b">{actionDialog.token && <div className="token-action-summary"><div>{text.token}: <b className="token-code">{actionDialog.token.token_code}</b></div><div>{text.house}: {actionDialog.token.house_name}</div></div>}{actionDialog.type === "cancel" ? <p className="token-help">{ml ? "ഈ ടോക്കൺ റദ്ദാക്കിയതായി അടയാളപ്പെടുത്തും; ഡാറ്റാബേസിൽ നിന്ന് ഇല്ലാതാക്കില്ല." : "This token will be marked as cancelled; it will not be deleted."}</p> : <p className="token-help">{ml ? "പഴയ ടോക്കൺ റദ്ദാക്കി ഈ കുടുംബത്തിന് പുതിയ കോഡ് സൃഷ്ടിക്കും." : "The old token will be cancelled and a new unique code will be generated for this family."}</p>}<Label>{text.reason}</Label><Input value={actionReason} onChange={e => setActionReason(e.target.value)} placeholder={text.lostToken} /></div><div className="m-f"><Button variant="secondary" onClick={() => { setActionDialog({ type: null, token: null }); setActionReason(""); }}>{t("action_cancel")}</Button><Button variant={actionDialog.type === "cancel" ? "danger" : "primary"} onClick={actionDialog.type === "cancel" ? cancelToken : replaceToken}>{actionDialog.type === "cancel" ? text.cancelToken : text.replacement}</Button></div>
       </Dialog>
     </div>
   );
