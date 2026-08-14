@@ -1,0 +1,169 @@
+/* ===== UI typography and spacing refinements ===== */
+
+/* Malayalam typography: keep all presentation rules in CSS, not injected <style> tags. */
+html.lang-ml *,
+html.lang-ml body,
+html.lang-ml input,
+html.lang-ml button,
+html.lang-ml select,
+html.lang-ml textarea,
+html.lang-ml [contenteditable="true"] {
+  font-family: "Anek Malayalam Variable", Poppins, sans-serif !important;
+  font-weight: 450 !important;
+  line-height: 1.45;
+}
+
+html.lang-ml strong,
+html.lang-ml b,
+html.lang-ml .font-semibold,
+html.lang-ml .font-bold,
+html.lang-ml h1,
+html.lang-ml h2,
+html.lang-ml h3,
+html.lang-ml h4,
+html.lang-ml h5,
+html.lang-ml h6 {
+  font-weight: 650 !important;
+  line-height: 1.35 !important;
+}
+
+html.lang-ml .tbl th,
+html.lang-ml .tbl thead th,
+html.lang-ml table th,
+html.lang-ml thead th {
+  font-family: "Anek Malayalam Variable", Poppins, sans-serif !important;
+  font-weight: 650 !important;
+  line-height: 1.5 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  vertical-align: middle !important;
+}
+
+html.lang-ml .tbl td,
+html.lang-ml table td,
+html.lang-ml tbody td {
+  font-family: "Anek Malayalam Variable", Poppins, sans-serif !important;
+  font-weight: 450 !important;
+  line-height: 1.5 !important;
+}
+
+html.lang-ml .tbl .strong,
+html.lang-ml table .strong {
+  font-weight: 600 !important;
+}
+
+html.lang-ml .lbl,
+html.lang-ml .navit b,
+html.lang-ml .btn,
+html.lang-ml .fchip,
+html.lang-ml .count-chip,
+html.lang-ml .pill,
+html.lang-ml .tok-board .tb-head b,
+html.lang-ml .rep-sec b {
+  font-weight: 550 !important;
+  line-height: 1.4 !important;
+}
+
+html.lang-ml input::placeholder,
+html.lang-ml textarea::placeholder {
+  font-family: "Anek Malayalam Variable", Poppins, sans-serif !important;
+  font-weight: 400 !important;
+  line-height: 1.45 !important;
+}
+
+/* Tables: use one fixed column model so headers and cells stay aligned. */
+.tbl table {
+  table-layout: fixed;
+  font-size: 14px;
+}
+
+.tbl th,
+.tbl td {
+  text-align: left;
+  vertical-align: middle;
+  padding-left: 18px;
+  padding-right: 18px;
+}
+
+.tbl th {
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  padding-top: 13px;
+  padding-bottom: 13px;
+}
+
+.tbl td {
+  font-size: 14px;
+  line-height: 1.5;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+.tbl td > *,
+.tbl th > * {
+  max-width: 100%;
+}
+
+.tbl td .strong { font-weight: 600; }
+.tbl td .sub2 { font-size: 12px; line-height: 1.45; }
+.tbl .pill { font-size: 11px; }
+
+.tbl th:last-child,
+.tbl td:last-child { text-align: right; }
+.tbl th:last-child .rowact,
+.tbl td:last-child .rowact { justify-content: flex-end; }
+
+/* Dashboard stat cards: make the primary number clearly dominant. */
+.stat .val {
+  font-size: 31px;
+  line-height: 1.05;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.stat .slab {
+  font-size: 11px;
+  line-height: 1.35;
+  letter-spacing: 0.06em;
+}
+
+.stat .delta {
+  font-size: 10.5px;
+  line-height: 1.3;
+}
+
+/* Forms: slightly larger labels and controls while retaining compact proportions. */
+.lbl {
+  font-size: 12px;
+  line-height: 1.35;
+  letter-spacing: 0.09em;
+  margin-bottom: 7px;
+}
+
+.inp {
+  font-size: 15px;
+  line-height: 1.45;
+  min-height: 42px;
+}
+
+.btn { font-size: 13.5px; }
+.fchip { font-size: 13px; }
+.count-chip { font-size: 12px; }
+
+.det-grid .det .k {
+  font-size: 10.5px;
+  letter-spacing: 0.09em;
+}
+
+.det-grid .det .v {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+html.lang-ml .tbl th { font-weight: 650 !important; }
+html.lang-ml .tbl td,
+html.lang-ml .inp,
+html.lang-ml .lbl,
+html.lang-ml .btn { line-height: 1.55; }
