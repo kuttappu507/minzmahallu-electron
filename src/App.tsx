@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { ToastContainer } from "@/components/ToastContainer";
 import { Splash } from "@/components/Splash";
+import "@fontsource-variable/anek-malayalam/wght.css";
 import "@/styles/visual-enhancement.css";
 
 import { LoginPage } from "@/pages/LoginPage";
