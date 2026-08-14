@@ -50,7 +50,6 @@ export function Members() {
   const [families, setFamilies] = useState<any[]>([]);
   const [relationships] = useState<string[]>(["Head", "Spouse", "Son", "Daughter", "Parent", "Sibling", "Other"]);
 
-  // Preview dialog state
   const [previewMember, setPreviewMember] = useState<Member | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -71,7 +70,6 @@ export function Members() {
       return;
     }
     try {
-      // Map snake_case form fields → camelCase expected by the IPC service.
       const payload: any = {
         familyId: form.family_id,
         name: form.name,
@@ -133,13 +131,11 @@ export function Members() {
     }
   };
 
-  // Double-click row → open read-only preview
   const handleRowDoubleClick = (row: Member) => {
     setPreviewMember(row);
     setPreviewOpen(true);
   };
 
-  // Switch from preview to edit mode
   const switchToEdit = async () => {
     if (!previewMember) return;
     const id = previewMember.id;
@@ -170,20 +166,29 @@ export function Members() {
     {
       header: "",
       accessor: (r) => (
-        <div className="flex items-center gap-1 justify-end">
-          <Button variant="ghost" size="icon" onClick={() => handleEdit(r.id)} title={t("action_edit")}>
+        <div className="rowact">
+          <button
+            className="act-btn act-edit"
+            onClick={() => handleEdit(r.id)}
+            title={t("action_edit")}
+            aria-label={t("action_edit")}
+          >
             <Edit2 className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(r.id)} title={t("action_delete")}>
+          </button>
+          <button
+            className="act-btn act-del"
+            onClick={() => handleDeleteClick(r.id)}
+            title={t("action_delete")}
+            aria-label={t("action_delete")}
+          >
             <Trash2 className="h-4 w-4 text-danger" />
-          </Button>
+          </button>
         </div>
       ),
       align: "right",
     },
   ];
 
-  // Preview detail rows
   const previewDetails = previewMember
     ? [
         { k: t("member_code"), v: previewMember.member_code },
@@ -247,7 +252,6 @@ export function Members() {
         }
       />
 
-      {/* Preview dialog (read-only) */}
       <Dialog
         open={previewOpen}
         onClose={() => { setPreviewOpen(false); setPreviewMember(null); }}
@@ -292,7 +296,6 @@ export function Members() {
         </div>
       </Dialog>
 
-      {/* Add/Edit dialog */}
       <Dialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
@@ -380,7 +383,7 @@ export function Members() {
               <Select value={form.status || "Active"} onChange={(e) => setForm({ ...form, status: e.target.value })}>
                 <option>Active</option>
                 <option>Inactive</option>
-                <option>Deceased</option>
+                <option>Archived</option>
               </Select>
             </div>
             <div>
@@ -399,7 +402,6 @@ export function Members() {
         </div>
       </Dialog>
 
-      {/* Delete confirmation dialog (themed, no native confirm()) */}
       <ConfirmDialog
         open={confirmOpen}
         onClose={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
