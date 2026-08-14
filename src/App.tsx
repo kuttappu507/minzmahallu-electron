@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { ToastContainer } from "@/components/ToastContainer";
 import { Splash } from "@/components/Splash";
+import "@/styles/visual-enhancement.css";
 
 import { LoginPage } from "@/pages/LoginPage";
 import { Dashboard } from "@/pages/Dashboard";
@@ -33,15 +34,8 @@ function StatusBar() {
   }, []);
   return (
     <footer className="statusbar">
-      <span className="sl">
-        <i />
-        <span>Ready · {time.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
-      </span>
-      <span className="sr">
-        <span>SQLite 3.46 · WAL</span>
-        <span>Electron · React 18</span>
-        <span>user: admin</span>
-      </span>
+      <span className="sl"><i /><span>Ready · {time.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span></span>
+      <span className="sr"><span>SQLite 3.46 · WAL</span><span>Electron · React 18</span><span>user: admin</span></span>
     </footer>
   );
 }
@@ -83,19 +77,10 @@ export default function App() {
   const { user } = useAuth();
   const [splashDone, setSplashDone] = useState(false);
 
-  useEffect(() => {
-    apply();
-  }, [apply]);
+  useEffect(() => { apply(); }, [apply]);
+  useEffect(() => { if (splashDone) document.body.classList.add("app-loaded"); }, [splashDone]);
 
-  useEffect(() => {
-    if (splashDone) {
-      document.body.classList.add("app-loaded");
-    }
-  }, [splashDone]);
-
-  if (!splashDone) {
-    return <Splash onDone={() => setSplashDone(true)} />;
-  }
+  if (!splashDone) return <Splash onDone={() => setSplashDone(true)} />;
 
   return (
     <>
