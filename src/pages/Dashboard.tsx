@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Home, Users, UserCheck, Wallet, AlertCircle,
   Gift, Gem, Flower, TrendingUp,
-  Plus, User, Receipt, BarChart3, RefreshCw, Clock, Database,
+  Plus, User, BarChart3, RefreshCw, Clock, Database,
 } from "lucide-react";
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid,
@@ -19,7 +19,7 @@ export function Dashboard() {
   const navigate = useNavigate();
 
   const { data: summary, refresh: refreshSummary } = useAsync(() => window.mms.dashboard.summary(), []);
-  const { data: balance, refresh: refreshBalance } = useAsync(() => window.mms.dashboard.balance(), []);
+  const { data: balance } = useAsync(() => window.mms.dashboard.balance(), []);
   const { data: collections } = useAsync(() => window.mms.dashboard.monthlyCollections(6), []);
   const { data: incomeExpense } = useAsync(() => window.mms.dashboard.incomeVsExpense(6), []);
   const { data: recentActivity, refresh: refreshActivity } = useAsync(() => window.mms.dashboard.recentActivity(8), []);
@@ -46,7 +46,6 @@ export function Dashboard() {
 
   return (
     <div className="view view-enter">
-      {/* Hero bento */}
       <div className="hero-row">
         <div className="hero t-em">
           <div className="overline">Minz Mahallu · {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div>
@@ -87,15 +86,14 @@ export function Dashboard() {
 
           <div className="glance">
             <b>{t("dash_today_glance")}</b>
-            <div className="g-row t-em"><span className="gdot" /><span>{t("dash_receipts_today")}</span><b>4 issued</b></div>
+            <div className="g-row t-em"><span className="gdot" /><span>{t("dash_receipts_today")}</span><b>4</b></div>
             <div className="g-row t-gold"><span className="gdot" /><span>{t("dash_next_backup")}</span><b>15:29</b></div>
-            <div className="g-row t-pink"><span className="gdot" /><span>{t("dash_welfare_pending")}</span><b>{recentActivity?.length ?? 0} requests</b></div>
+            <div className="g-row t-pink"><span className="gdot" /><span>{t("dash_welfare_pending")}</span><b>{recentActivity?.length ?? 0}</b></div>
             <div className="g-row t-sky"><span className="gdot" /><span>{t("dash_fund_balance")}</span><b>{formatCurrency(balance ?? 0)}</b></div>
           </div>
         </div>
       </div>
 
-      {/* Stat grid */}
       <div className="stat-grid">
         {stats.map((s, i) => {
           const Icon = s.icon;
@@ -103,16 +101,15 @@ export function Dashboard() {
             <div key={i} className={`stat ${s.tint}`}>
               <div className="srow">
                 <span className="sic"><Icon size={18} /></span>
-                <span className="delta" style={{ fontSize: "10.5px" }}>{s.delta}</span>
+                <span className="delta">{s.delta}</span>
               </div>
-              <div className="val" style={{ fontSize: "28px" }}>{s.value}</div>
-              <div className="slab" style={{ fontSize: "11px" }}>{s.label}</div>
+              <div className="val">{s.value}</div>
+              <div className="slab">{s.label}</div>
             </div>
           );
         })}
       </div>
 
-      {/* Charts */}
       <div className="chart-grid">
         <div className="card chart-card t-em">
           <div className="ch-head">
@@ -169,7 +166,6 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Recent activity */}
       <div className="card card-pad-4 mt-3">
         <div className="ch-head">
           <div>
