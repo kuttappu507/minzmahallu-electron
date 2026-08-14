@@ -14,7 +14,7 @@ import {
 } from "recharts";
 
 export function Dashboard() {
-  const { t } = useI18n();
+  const { t, isMalayalam } = useI18n();
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -44,11 +44,13 @@ export function Dashboard() {
     { label: t("dash_qa_generate_report"), icon: BarChart3, action: "reports" },
   ];
 
+  const displayLocale = isMalayalam() ? "ml-IN" : "en-IN";
+
   return (
     <div className="view view-enter">
       <div className="hero-row">
         <div className="hero t-em">
-          <div className="overline">Minz Mahallu · {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div>
+          <div className="overline">Minz Mahallu · {new Date().toLocaleDateString(displayLocale, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div>
           <h1>
             {t("dash_greeting")} <span className="text-em">{user?.fullName}</span>
           </h1>
@@ -192,7 +194,7 @@ export function Dashboard() {
               ) : (
                 (recentActivity || []).slice(0, 6).map((a: any) => (
                   <tr key={a.id}>
-                    <td><span className="recent-time">{new Date(a.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span></td>
+                    <td><span className="recent-time">{new Date(a.created_at).toLocaleTimeString(displayLocale, { hour: "2-digit", minute: "2-digit" })}</span></td>
                     <td>{a.username}</td>
                     <td><span className="pill t-slate">{a.action}</span></td>
                     <td><span className="recent-desc">{a.description}</span></td>
