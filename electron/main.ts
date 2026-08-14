@@ -87,6 +87,51 @@ function esc(s: any): string {
   return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] || c));
 }
 
+
+
+// ===== Robust HTML-to-PDF renderer =====
+async function renderHtmlToPdf(html: string): Promise<Buffer> {
+  const pdfWin = new BrowserWindow({
+    show: false,
+    width: 794,
+    height: 1123,
+    useContentSize: true,
+    backgroundColor: '#ffffff',
+    webPreferences: {
+      offscreen: false,
+      sandbox: false,
+    },
+  });
+
+  try {
+    const dataUrl = 'data:text/html;charset=UTF-8,' + encodeURIComponent(html);
+    await pdfWin.loadURL(dataUrl);
+
+    await pdfWin.webContents.executeJavaScript(`
+      document.documentElement.style.width = '210mm';
+      document.body.style.width = '210mm';
+      void document.body.offsetHeight;
+      ({
+        bodyWidth: document.body.scrollWidth,
+        bodyHeight: document.body.scrollHeight,
+        htmlWidth: document.documentElement.scrollWidth,
+        htmlHeight: document.documentElement.scrollHeight
+      });
+    `);
+
+    await new Promise(resolve => setTimeout(resolve, 150));
+
+    return await pdfWin.webContents.printToPDF({
+      pageSize: 'A4',
+      printBackground: true,
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
+      preferCSSPageSize: false,
+    });
+  } finally {
+    if (!pdfWin.isDestroyed()) pdfWin.destroy();
+  }
+}
+
 // ===== Token sheet HTML builder (A4, 2 cols × 6 rows = 12 per page) =====
 function buildTokenSheetHtml(tokenList: any[], event: any): string {
   const eventName = event?.event_name || "Event";
@@ -393,21 +438,7 @@ app.whenReady().then(() => {
         return { success: false, cancelled: true };
       }
 
-      // Create a hidden BrowserWindow to render the HTML
-      const pdfWin = new BrowserWindow({
-        show: false,
-        webPreferences: { offscreen: true },
-      });
-      const base64Html = Buffer.from(html).toString("base64"); await pdfWin.loadURL("data:text/html;base64," + base64Html);
-      // Wait for content to render
-      await new Promise(r => setTimeout(r, 500));
-      const pdfBuffer = await pdfWin.webContents.printToPDF({
-        pageSize: "A4",
-        printBackground: true,
-        margins: { top: 0.05, bottom: 0.05, left: 0.05, right: 0.05 },
-        preferCSSPageSize: true,
-      });
-      pdfWin.close();
+      const pdfBuffer = await renderHtmlToPdf(html);
       fs.writeFileSync(saveResult.filePath, pdfBuffer);
       return { success: true, path: saveResult.filePath };
     } catch (err: any) {
@@ -432,17 +463,7 @@ app.whenReady().then(() => {
       if (saveResult.canceled || !saveResult.filePath) {
         return { success: false, cancelled: true };
       }
-      const pdfWin = new BrowserWindow({ show: false, webPreferences: { } });
-      // Use loadURL with base64 encoding for large HTML
-      const base64Html = Buffer.from(html).toString("base64");
-      await pdfWin.loadURL("data:text/html;base64," + base64Html);
-      await new Promise(r => setTimeout(r, 1000));
-      const pdfBuffer = await pdfWin.webContents.printToPDF({
-        pageSize: "A4", printBackground: true,
-        margins: { top: 0.05, bottom: 0.05, left: 0.05, right: 0.05 },
-        preferCSSPageSize: true,
-      });
-      pdfWin.close();
+      const pdfBuffer = await renderHtmlToPdf(html);
       fs.writeFileSync(saveResult.filePath, pdfBuffer);
       return { success: true, path: saveResult.filePath };
     } catch (err: any) {
@@ -566,15 +587,7 @@ app.whenReady().then(() => {
       if (saveResult.canceled || !saveResult.filePath) {
         return { success: false, cancelled: true };
       }
-      const pdfWin = new BrowserWindow({ show: false, webPreferences: { offscreen: true } });
-      const base64Html = Buffer.from(html).toString("base64"); await pdfWin.loadURL("data:text/html;base64," + base64Html);
-      await new Promise(r => setTimeout(r, 500));
-      const pdfBuffer = await pdfWin.webContents.printToPDF({
-        pageSize: "A4", printBackground: true,
-        margins: { top: 0.05, bottom: 0.05, left: 0.05, right: 0.05 },
-        preferCSSPageSize: true,
-      });
-      pdfWin.close();
+      const pdfBuffer = await renderHtmlToPdf(html);
       fs.writeFileSync(saveResult.filePath, pdfBuffer);
       return { success: true, path: saveResult.filePath, count: tokenList.length };
     } catch (err: any) {
@@ -599,15 +612,7 @@ app.whenReady().then(() => {
       if (saveResult.canceled || !saveResult.filePath) {
         return { success: false, cancelled: true };
       }
-      const pdfWin = new BrowserWindow({ show: false, webPreferences: { offscreen: true } });
-      const base64Html = Buffer.from(html).toString("base64"); await pdfWin.loadURL("data:text/html;base64," + base64Html);
-      await new Promise(r => setTimeout(r, 500));
-      const pdfBuffer = await pdfWin.webContents.printToPDF({
-        pageSize: "A4", printBackground: true,
-        margins: { top: 0.05, bottom: 0.05, left: 0.05, right: 0.05 },
-        preferCSSPageSize: true,
-      });
-      pdfWin.close();
+      const pdfBuffer = await renderHtmlToPdf(html);
       fs.writeFileSync(saveResult.filePath, pdfBuffer);
       return { success: true, path: saveResult.filePath, count: tokenList.length };
     } catch (err: any) {
