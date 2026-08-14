@@ -1,0 +1,30 @@
+name: Apply PDF Renderer Fix
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Apply patch
+        run: python3 scripts/fix_pdf_renderer.py
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add electron/main.ts
+          git rm -f .github/workflows/pdf-fix-final.yml .github/workflows/pdf-fix-run.yml scripts/fix_pdf_renderer.py || true
+          git diff --cached --quiet && exit 0
+          git commit -m 'Fix PDF content-area rendering [pdf-final-fix]'
+          git push
