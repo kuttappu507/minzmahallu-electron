@@ -2,7 +2,7 @@ name: Build Electron App
 
 on:
   push:
-    branches: [main]
+    branches: [main, print-template-enhancement]
     tags: ["v*"]
   pull_request:
     branches: [main]
