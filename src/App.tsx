@@ -28,20 +28,6 @@ import { AuditLog } from "@/pages/AuditLog";
 import { Backup } from "@/pages/Backup";
 import { useEffect, useState } from "react";
 
-function StatusBar() {
-  const [time, setTime] = useState(new Date());
-  useEffect(() => {
-    const t = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  return (
-    <footer className="statusbar">
-      <span className="sl"><i /><span>Ready · {time.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span></span>
-      <span className="sr"><span>SQLite 3.46 · WAL</span><span>Electron · React 18</span><span>user: admin</span></span>
-    </footer>
-  );
-}
-
 function ProtectedLayout() {
   return (
     <div id="app" className="app-shell">
@@ -68,7 +54,6 @@ function ProtectedLayout() {
             <Route path="/backup" element={<Backup />} />
           </Routes>
         </div>
-        <StatusBar />
       </div>
     </div>
   );
