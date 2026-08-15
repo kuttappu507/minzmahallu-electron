@@ -1,20 +1,48 @@
-/* Layout stability fixes
- * Keep the application geometry stable when switching languages and
- * keep custom window controls reachable at narrow window sizes.
- */
+/* Layout stability fixes: language changes must not move desktop chrome. */
 .sidebar,.sidebar.min,html.lang-ml .sidebar,html.lang-ml .sidebar.min{overflow:visible !important}
-.sidebar,.html.lang-ml .sidebar{width:260px !important;flex:0 0 260px !important}.sidebar.min,html.lang-ml .sidebar.min{width:80px !important;flex-basis:80px !important}
+.sidebar,html.lang-ml .sidebar{width:260px !important;flex:0 0 260px !important}.sidebar.min,html.lang-ml .sidebar.min{width:80px !important;flex-basis:80px !important}
 .navit{min-width:0}.navit .ic,.navit>svg,html.lang-ml .navit .ic,html.lang-ml .navit>svg{flex:0 0 20px !important;width:20px !important;height:20px !important;min-width:20px !important;min-height:20px !important;max-width:20px !important;max-height:20px !important;visibility:visible !important;opacity:1 !important}
 html.lang-ml .navit b{flex:1 1 auto !important;min-width:0 !important;font-size:14px !important;font-weight:550 !important;line-height:1.35 !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important}
 .sidebar.min .navit,html.lang-ml .sidebar.min .navit{width:100%;margin-left:0 !important;margin-right:0 !important;padding-left:0 !important;padding-right:0 !important;justify-content:center}
 
-/* Collapsed navigation tooltip: render in the viewport layer so it can never
- * be clipped by .navscroll's overflow. The React component supplies a
- * viewport Y coordinate; this element is deliberately outside navscroll. */
+/* Collapsed navigation tooltip: viewport layer, never clipped by navscroll. */
 .sidebar-flyout-tip{position:fixed !important;left:92px !important;transform:translateY(-50%) !important;z-index:9999 !important;pointer-events:none !important;background:var(--panel) !important;color:var(--tx) !important;font:500 12px Poppins,sans-serif !important;line-height:1.2 !important;padding:8px 13px !important;border:1px solid var(--line) !important;border-radius:10px !important;white-space:nowrap !important;box-shadow:0 8px 24px rgba(23,43,32,.16) !important}
 html.lang-ml .sidebar-flyout-tip{font-family:Anek Malayalam Variable,Poppins,sans-serif !important;font-weight:700 !important}
 
-.topbar{position:relative !important;padding-right:126px !important}.topbar .tb-right{flex:0 0 430px !important;width:430px !important;min-width:430px !important;max-width:430px !important;display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:8px !important;white-space:nowrap !important}.topbar .qwrap{flex:1 1 320px;min-width:180px}.topbar .langseg{flex:0 0 74px !important;width:74px !important;min-width:74px !important;max-width:74px !important;display:flex !important}.topbar .langseg button{flex:0 0 37px !important;width:37px !important;min-width:37px !important;max-width:37px !important;padding-left:0 !important;padding-right:0 !important;text-align:center !important;white-space:nowrap !important}.topbar .tb-right>.ibtn,.topbar .tb-right>[data-dropdown]>.ibtn{flex:0 0 34px !important;width:34px !important;min-width:34px !important;max-width:34px !important}.topbar .tb-chip{flex:0 0 104px !important;width:104px !important;min-width:104px !important;max-width:104px !important;overflow:hidden !important;text-overflow:ellipsis !important;white-space:nowrap !important}.topbar .tbdiv{flex:0 0 1px !important;width:1px !important;min-width:1px !important}.topbar .tb-right>[data-dropdown]:last-child{flex:0 0 122px !important;width:122px !important;min-width:122px !important;max-width:122px !important}.topbar .avbtn{width:122px !important;min-width:122px !important;max-width:122px !important;overflow:hidden !important}.topbar .avbtn b{min-width:0 !important;overflow:hidden !important;text-overflow:ellipsis !important;white-space:nowrap !important}
-.win-controls{position:absolute !important;top:50% !important;right:8px !important;transform:translateY(-50%) !important;z-index:100 !important;display:flex !important;flex:none !important;width:112px !important;height:32px !important;margin:0 !important;gap:2px !important;-webkit-app-region:no-drag !important}.win-controls .win-btn{flex:0 0 36px !important;width:36px !important;min-width:36px !important;height:30px !important}
-@media(max-width:1200px){.topbar{padding-right:120px !important;gap:8px !important}.topbar .tb-right{flex-basis:300px !important;width:300px !important;min-width:300px !important;max-width:300px !important}.topbar .tb-chip{display:none !important}.topbar .tb-right>[data-dropdown]:last-child,.topbar .avbtn{width:82px !important;min-width:82px !important;max-width:82px !important}.topbar .avbtn b{display:none !important}.topbar .qwrap{flex-basis:220px;width:220px !important}}
-@media(max-width:1100px){.crumb small{display:none !important}.topbar .tb-right{flex-basis:260px !important;width:260px !important;min-width:260px !important;max-width:260px !important}.topbar .qwrap{flex-basis:160px;width:160px !important}}
+/* Topbar: reserve the right controls and keep search geometry fixed. */
+.topbar{position:relative !important;padding-right:126px !important;min-width:0 !important}
+.topbar .tb-right{flex:0 0 430px !important;width:430px !important;min-width:430px !important;max-width:430px !important;display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:8px !important;white-space:nowrap !important}
+.topbar .qwrap{flex:0 0 300px !important;width:300px !important;min-width:300px !important;max-width:300px !important;transition:none !important}
+/* Do not create a second-looking expanded search box on focus. */
+.topbar .qwrap:focus-within{width:300px !important;min-width:300px !important;max-width:300px !important;box-shadow:none !important;border-color:var(--em) !important;background:var(--panel2) !important}
+.topbar .qwrap input{min-width:0 !important}
+.topbar .langseg{flex:0 0 74px !important;width:74px !important;min-width:74px !important;max-width:74px !important;display:flex !important}
+.topbar .langseg button{flex:0 0 37px !important;width:37px !important;min-width:37px !important;max-width:37px !important;padding-left:0 !important;padding-right:0 !important;text-align:center !important;white-space:nowrap !important}
+.topbar .tb-right>.ibtn,.topbar .tb-right>[data-dropdown]>.ibtn{flex:0 0 34px !important;width:34px !important;min-width:34px !important;max-width:34px !important}
+.topbar .tb-chip{flex:0 0 104px !important;width:104px !important;min-width:104px !important;max-width:104px !important;overflow:hidden !important;text-overflow:ellipsis !important;white-space:nowrap !important}
+.topbar .tbdiv{flex:0 0 1px !important;width:1px !important;min-width:1px !important}
+.topbar .tb-right>[data-dropdown]:last-child{flex:0 0 122px !important;width:122px !important;min-width:122px !important;max-width:122px !important}
+.topbar .avbtn{width:122px !important;min-width:122px !important;max-width:122px !important;overflow:hidden !important}
+.topbar .avbtn b{min-width:0 !important;overflow:hidden !important;text-overflow:ellipsis !important;white-space:nowrap !important}
+
+/* Frameless window controls stay in their own fixed area. */
+.win-controls{position:absolute !important;top:50% !important;right:8px !important;transform:translateY(-50%) !important;z-index:100 !important;display:flex !important;flex:none !important;width:112px !important;height:32px !important;margin:0 !important;gap:2px !important;-webkit-app-region:no-drag !important}
+.win-controls .win-btn{flex:0 0 36px !important;width:36px !important;min-width:36px !important;height:30px !important}
+
+/* At smaller desktop window sizes, remove the search rather than allowing it
+ * to collide with language/theme/notification/user/window controls. Font sizes
+ * remain unchanged. Search remains available through Ctrl+K. */
+@media(max-width:1200px){
+  .topbar{padding-right:120px !important;gap:8px !important}
+  .topbar .tb-right{flex-basis:300px !important;width:300px !important;min-width:300px !important;max-width:300px !important}
+  .topbar .tb-chip{display:none !important}
+  .topbar .tb-right>[data-dropdown]:last-child,.topbar .avbtn{width:82px !important;min-width:82px !important;max-width:82px !important}
+  .topbar .avbtn b{display:none !important}
+  .topbar .qwrap{flex:0 0 220px !important;width:220px !important;min-width:220px !important;max-width:220px !important}
+  .topbar .qwrap:focus-within{width:220px !important;min-width:220px !important;max-width:220px !important}
+}
+@media(max-width:1100px){
+  .crumb small{display:none !important}
+  .topbar .tb-right{flex-basis:260px !important;width:260px !important;min-width:260px !important;max-width:260px !important}
+  .topbar .qwrap{display:none !important}
+}
