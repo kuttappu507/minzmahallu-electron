@@ -7,6 +7,7 @@ import { ToastContainer } from "@/components/ToastContainer";
 import { Splash } from "@/components/Splash";
 import "@fontsource-variable/anek-malayalam/wght.css";
 import "@/styles/visual-enhancement.css";
+import "@/styles/layout-stability.css";
 
 import { LoginPage } from "@/pages/LoginPage";
 import { Dashboard } from "@/pages/Dashboard";
