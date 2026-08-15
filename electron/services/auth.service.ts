@@ -1,10 +1,6 @@
-/*
- * AuthService — password verification via Node.js crypto.pbkdf2.
- *
- * Passwords stored as: pbkdf2_sha256$iterations$saltBase64$hashBase64
- */
 import crypto from "node:crypto";
 import { one, run } from "../db/connection.js";
+import "../security-ipc.js";
 
 interface UserRow {
   id: number;
@@ -27,8 +23,17 @@ export interface AuthUser {
   initials: string;
 }
 
+type ActorContext = { id: number; username: string; role: string };
+let currentActor: ActorContext | null = null;
+
+const actorGlobals = globalThis as typeof globalThis & {
+  __mmsGetActor?: () => ActorContext | null;
+  __mmsClearActor?: () => void;
+};
+actorGlobals.__mmsGetActor = () => currentActor;
+actorGlobals.__mmsClearActor = () => { currentActor = null; };
+
 function parseStoredHash(stored: string): { iter: number; salt: Buffer; hash: Buffer } | null {
-  // pbkdf2_sha256$200000$c2FsdC1mb3ItbW1zLWFkbWluLXVzZXI=$dJvtGdhlhx7H/9KuwAZs4U/j/DjiiDA88txKk9SnqTU=
   const parts = stored.split("$");
   if (parts.length !== 4) {
     console.error(`[auth] Invalid hash format (parts: ${parts.length})`);
@@ -50,10 +55,7 @@ function verifyPassword(plainPassword: string, storedHash: string): boolean {
   const { iter, salt, hash } = parsed;
   try {
     const derived = crypto.pbkdf2Sync(plainPassword, salt, iter, hash.length, "sha256");
-    if (derived.length !== hash.length) {
-      console.error(`[auth] Hash length mismatch: derived=${derived.length} stored=${hash.length}`);
-      return false;
-    }
+    if (derived.length !== hash.length) return false;
     return crypto.timingSafeEqual(derived, hash);
   } catch (err) {
     console.error("[auth] Password verification failed:", err);
@@ -71,36 +73,19 @@ function makeInitials(name: string): string {
 export function login(username: string, password: string): AuthUser {
   if (!username || !password) throw new Error("Username and password are required");
 
-  console.log(`[auth] Login attempt for user: "${username}"`);
-
   const user = one<UserRow>(
     "SELECT id, username, full_name, password_hash, password_salt, role, is_active, must_change_pwd FROM users WHERE username = ?",
     [username]
   );
-  if (!user) {
-    console.log(`[auth] User "${username}" not found in database`);
-    throw new Error("Invalid username or password");
-  }
-  console.log(`[auth] User found: id=${user.id}, role=${user.role}, active=${user.is_active}`);
+  if (!user) throw new Error("Invalid username or password");
+  if (!user.is_active) throw new Error("Account is inactive — contact administrator");
+  if (!verifyPassword(password, user.password_hash)) throw new Error("Invalid username or password");
 
-  if (!user.is_active) {
-    console.log(`[auth] User "${username}" is inactive`);
-    throw new Error("Account is inactive — contact administrator");
-  }
-
-  if (!verifyPassword(password, user.password_hash)) {
-    console.log(`[auth] Password verification failed for user "${username}"`);
-    throw new Error("Invalid username or password");
-  }
-
-  console.log(`[auth] Login successful for user "${username}"`);
-
-  // Update last_login
-  try {
-    run("UPDATE users SET last_login_at = datetime('now') WHERE id = ?", [user.id]);
-  } catch (err) {
+  try { run("UPDATE users SET last_login_at = datetime('now') WHERE id = ?", [user.id]); } catch (err) {
     console.warn("[auth] Could not update last_login:", err);
   }
+
+  currentActor = { id: user.id, username: user.username, role: user.role };
 
   return {
     id: user.id,
@@ -114,9 +99,7 @@ export function login(username: string, password: string): AuthUser {
 }
 
 export function changePassword(userId: number, newPassword: string): void {
-  if (!newPassword || newPassword.length < 8) {
-    throw new Error("Password must be at least 8 characters");
-  }
+  if (!newPassword || newPassword.length < 8) throw new Error("Password must be at least 8 characters");
   if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/\d/.test(newPassword) || !/[^A-Za-z0-9]/.test(newPassword)) {
     throw new Error("Password must include uppercase, lowercase, digit, and special character");
   }
@@ -124,9 +107,5 @@ export function changePassword(userId: number, newPassword: string): void {
   const iter = 200000;
   const hash = crypto.pbkdf2Sync(newPassword, salt, iter, 32, "sha256");
   const stored = `pbkdf2_sha256$${iter}$${salt.toString("base64")}$${hash.toString("base64")}`;
-  run("UPDATE users SET password_hash = ?, password_salt = ?, must_change_pwd = 0 WHERE id = ?", [
-    stored,
-    salt.toString("base64"),
-    userId,
-  ]);
+  run("UPDATE users SET password_hash = ?, password_salt = ?, must_change_pwd = 0 WHERE id = ?", [stored, salt.toString("base64"), userId]);
 }
