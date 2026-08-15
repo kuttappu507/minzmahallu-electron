@@ -8,7 +8,7 @@ import { Splash } from "@/components/Splash";
 import "@fontsource-variable/anek-malayalam/wght.css";
 import "@/styles/visual-enhancement.css";
 import "@/styles/layout-stability.css";
-
+import "@/styles/global-search.css";
 import { LoginPage } from "@/pages/LoginPage";
 import { Dashboard } from "@/pages/Dashboard";
 import { Families } from "@/pages/Families";
@@ -63,19 +63,8 @@ export default function App() {
   const { apply } = useTheme();
   const { user } = useAuth();
   const [splashDone, setSplashDone] = useState(false);
-
   useEffect(() => { apply(); }, [apply]);
   useEffect(() => { if (splashDone) document.body.classList.add("app-loaded"); }, [splashDone]);
-
   if (!splashDone) return <Splash onDone={() => setSplashDone(true)} />;
-
-  return (
-    <>
-      <Routes>
-        <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} />
-        <Route path="/*" element={user ? <ProtectedLayout /> : <Navigate to="/login" />} />
-      </Routes>
-      <ToastContainer />
-    </>
-  );
+  return <><Routes><Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} /><Route path="/*" element={user ? <ProtectedLayout /> : <Navigate to="/login" />} /></Routes><ToastContainer /></>;
 }
