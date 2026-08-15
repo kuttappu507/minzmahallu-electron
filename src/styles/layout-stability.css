@@ -1,0 +1,124 @@
+/* Layout stability fixes
+ * Keep the application geometry stable when switching languages and
+ * keep custom window controls reachable at narrow window sizes.
+ */
+
+/* Same expanded sidebar width in every language.
+ * Malayalam gets the same geometry as English instead of causing the
+ * entire main column to move when the language changes.
+ */
+.sidebar,
+html.lang-ml .sidebar {
+  width: 260px !important;
+  flex: 0 0 260px !important;
+}
+
+.sidebar.min,
+html.lang-ml .sidebar.min {
+  width: 80px !important;
+  flex-basis: 80px !important;
+}
+
+/* Never let a long Malayalam label steal space from its icon. */
+.navit {
+  min-width: 0;
+}
+
+.navit .ic,
+.navit > svg,
+html.lang-ml .navit .ic,
+html.lang-ml .navit > svg {
+  flex: 0 0 20px !important;
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  max-width: 20px !important;
+  max-height: 20px !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+html.lang-ml .navit b {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  font-size: 14px !important;
+  font-weight: 550 !important;
+  line-height: 1.35 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Keep the collapsed sidebar geometry and icon centering identical. */
+.sidebar.min .navit,
+html.lang-ml .sidebar.min .navit {
+  width: 100%;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  justify-content: center;
+}
+
+/* Frameless-window controls must never be pushed off-screen by the
+ * breadcrumb/search/right-side controls. They occupy their own fixed
+ * title-bar area instead of participating in the flex layout.
+ */
+.topbar {
+  position: relative !important;
+  padding-right: 126px !important;
+}
+
+.win-controls {
+  position: absolute !important;
+  top: 50% !important;
+  right: 8px !important;
+  transform: translateY(-50%) !important;
+  z-index: 100 !important;
+  display: flex !important;
+  flex: none !important;
+  width: 112px !important;
+  height: 32px !important;
+  margin: 0 !important;
+  gap: 2px !important;
+  -webkit-app-region: no-drag !important;
+}
+
+.win-controls .win-btn {
+  flex: 0 0 36px !important;
+  width: 36px !important;
+  min-width: 36px !important;
+  height: 30px !important;
+}
+
+/* Preserve normal font sizes; only reduce competing horizontal chrome
+ * when the app is resized near its minimum width. */
+@media (max-width: 1200px) {
+  .topbar {
+    padding-right: 120px !important;
+    gap: 8px !important;
+  }
+
+  .qwrap {
+    width: 180px !important;
+  }
+
+  .tb-chip {
+    display: none !important;
+  }
+
+  .avbtn b {
+    display: none !important;
+  }
+}
+
+@media (max-width: 1100px) {
+  .crumb small {
+    display: none !important;
+  }
+
+  .qwrap {
+    width: 160px !important;
+  }
+}
