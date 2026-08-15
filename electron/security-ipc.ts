@@ -2,6 +2,7 @@ import { app, ipcMain } from "electron";
 import { security, type Actor } from "./services/security.service.js";
 
 type ActorProvider = () => Actor | null;
+type UserProvider = () => unknown;
 
 function actor(): Actor {
   const provider = (globalThis as typeof globalThis & { __mmsGetActor?: ActorProvider }).__mmsGetActor;
@@ -19,7 +20,7 @@ export function registerSecurityIpc() {
   register("families:update", (id: number, data: any) => security.updateFamily(actor(), id, data));
   register("members:update", (id: number, data: any) => security.updateMember(actor(), id, data));
 
-  // Permanent deletion is intentionally not exposed for protected records.
+  // Protected records have no permanent-delete route.
   register("families:remove", () => { throw new Error("Families cannot be permanently deleted. Archive the family instead."); });
   register("members:remove", () => { throw new Error("Members cannot be permanently deleted. Archive the member instead."); });
 
@@ -48,15 +49,14 @@ export function registerSecurityIpc() {
 }
 
 // main.ts registers its legacy IPC handlers in app.whenReady(). This bootstrap
-// runs after those handlers have been registered, replaces the protected routes,
-// and also owns logout/current-user for the security actor context.
+// runs after those handlers have been registered and replaces the protected routes.
 app.whenReady().then(() => {
   setImmediate(() => {
     registerSecurityIpc();
 
     try { ipcMain.removeHandler("auth:currentUser"); } catch {}
     ipcMain.handle("auth:currentUser", () => {
-      const provider = (globalThis as typeof globalThis & { __mmsGetActor?: ActorProvider }).__mmsGetActor;
+      const provider = (globalThis as typeof globalThis & { __mmsGetUser?: UserProvider }).__mmsGetUser;
       return provider?.() ?? null;
     });
 
