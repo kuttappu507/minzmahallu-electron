@@ -75,7 +75,10 @@ export function Sidebar() {
           if (item.sec) return <div key={`sec-${i}`} className="navsec">{collapsed ? "" : (ml ? sectionLabel[item.sec] : item.sec)}</div>;
           const Icon = item.icon!;
           const tint = TINTS[item.id!];
-          return <NavLink key={item.id} to={item.to!} end={item.to === "/"} className={({ isActive }) => cn("navit", tint, isActive && "on")} data-tip={t(item.key!)} title={collapsed ? t(item.key!) : undefined}>
+          // data-tip is the application's custom collapsed-sidebar tooltip.
+          // Do not also set the native HTML title here: otherwise Chromium
+          // displays a second tooltip at the browser's default position.
+          return <NavLink key={item.id} to={item.to!} end={item.to === "/"} className={({ isActive }) => cn("navit", tint, isActive && "on")} data-tip={t(item.key!)}>
             <Icon className="ic" size={18} strokeWidth={2} />
             {!collapsed && <b>{t(item.key!)}</b>}
             {!collapsed && item.badge && <span className="navbadge">{item.badge}</span>}
