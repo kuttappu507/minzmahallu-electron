@@ -25,24 +25,23 @@ export interface AuthUser {
 
 type ActorContext = { id: number; username: string; role: string };
 let currentActor: ActorContext | null = null;
+let currentUser: AuthUser | null = null;
 
-const actorGlobals = globalThis as typeof globalThis & {
+const globals = globalThis as typeof globalThis & {
   __mmsGetActor?: () => ActorContext | null;
+  __mmsGetUser?: () => AuthUser | null;
   __mmsClearActor?: () => void;
 };
-actorGlobals.__mmsGetActor = () => currentActor;
-actorGlobals.__mmsClearActor = () => { currentActor = null; };
+globals.__mmsGetActor = () => currentActor;
+globals.__mmsGetUser = () => currentUser;
+globals.__mmsClearActor = () => {
+  currentActor = null;
+  currentUser = null;
+};
 
 function parseStoredHash(stored: string): { iter: number; salt: Buffer; hash: Buffer } | null {
   const parts = stored.split("$");
-  if (parts.length !== 4) {
-    console.error(`[auth] Invalid hash format (parts: ${parts.length})`);
-    return null;
-  }
-  if (parts[0] !== "pbkdf2_sha256") {
-    console.error(`[auth] Unknown hash algorithm: ${parts[0]}`);
-    return null;
-  }
+  if (parts.length !== 4 || parts[0] !== "pbkdf2_sha256") return null;
   const iter = parseInt(parts[1], 10);
   const salt = Buffer.from(parts[2], "base64");
   const hash = Buffer.from(parts[3], "base64");
@@ -52,11 +51,9 @@ function parseStoredHash(stored: string): { iter: number; salt: Buffer; hash: Bu
 function verifyPassword(plainPassword: string, storedHash: string): boolean {
   const parsed = parseStoredHash(storedHash);
   if (!parsed) return false;
-  const { iter, salt, hash } = parsed;
   try {
-    const derived = crypto.pbkdf2Sync(plainPassword, salt, iter, hash.length, "sha256");
-    if (derived.length !== hash.length) return false;
-    return crypto.timingSafeEqual(derived, hash);
+    const derived = crypto.pbkdf2Sync(plainPassword, parsed.salt, parsed.iter, parsed.hash.length, "sha256");
+    return derived.length === parsed.hash.length && crypto.timingSafeEqual(derived, parsed.hash);
   } catch (err) {
     console.error("[auth] Password verification failed:", err);
     return false;
@@ -86,8 +83,7 @@ export function login(username: string, password: string): AuthUser {
   }
 
   currentActor = { id: user.id, username: user.username, role: user.role };
-
-  return {
+  currentUser = {
     id: user.id,
     username: user.username,
     fullName: user.full_name,
@@ -96,6 +92,8 @@ export function login(username: string, password: string): AuthUser {
     mustChangePwd: !!user.must_change_pwd,
     initials: makeInitials(user.full_name),
   };
+
+  return currentUser;
 }
 
 export function changePassword(userId: number, newPassword: string): void {
