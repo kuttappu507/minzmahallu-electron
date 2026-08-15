@@ -1,29 +1,15 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Search, Moon, Sun, Bell, Database, ChevronDown, User, Settings, LogOut, X, KeyRound, ShieldCheck } from "lucide-react";
+import { Moon, Sun, Bell, Database, ChevronDown, User, Settings, LogOut, KeyRound, ShieldCheck } from "lucide-react";
 import { useTheme } from "@/lib/theme";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/lib/auth";
 import { toast } from "@/lib/toast";
 import { Dialog, Button, Input, Label, Badge } from "@/components/ui";
+import { GlobalSearch } from "@/components/layout/GlobalSearch";
 
 const PAGE_TITLES: Record<string, string> = {
-  "/": "Dashboard",
-  "/families": "Families",
-  "/members": "Members",
-  "/subscriptions": "Subscriptions",
-  "/donations": "Donations",
-  "/accounting": "Accounting",
-  "/marriages": "Marriage",
-  "/deaths": "Death",
-  "/welfare": "Welfare",
-  "/certificates": "Certificates",
-  "/tokens": "Tokens",
-  "/reports": "Reports",
-  "/settings": "Settings",
-  "/users": "Users",
-  "/audit": "Audit Log",
-  "/backup": "Backup",
+  "/": "Dashboard", "/families": "Families", "/members": "Members", "/subscriptions": "Subscriptions", "/donations": "Donations", "/accounting": "Accounting", "/marriages": "Marriage", "/deaths": "Death", "/welfare": "Welfare", "/certificates": "Certificates", "/tokens": "Tokens", "/reports": "Reports", "/settings": "Settings", "/users": "Users", "/audit": "Audit Log", "/backup": "Backup",
 };
 
 export function Topbar() {
@@ -32,10 +18,8 @@ export function Topbar() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-
   const pageTitle = PAGE_TITLES[location.pathname] || "Dashboard";
   const initials = user?.initials ?? "?";
-
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [avatarOpen, setAvatarOpen] = useState(false);
@@ -43,70 +27,22 @@ export function Topbar() {
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
   const [savingPwd, setSavingPwd] = useState(false);
-
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Quick-nav: typing a module name + Enter navigates to it.
-  const QUICK_NAV: Record<string, string> = {
-    dashboard: "/", home: "/", dash: "/",
-    families: "/families", family: "/families",
-    members: "/members", member: "/members",
-    subscriptions: "/subscriptions", subscription: "/subscriptions", subs: "/subscriptions",
-    donations: "/donations", donation: "/donations",
-    accounting: "/accounting", accounts: "/accounting", ledger: "/accounting",
-    marriages: "/marriages", marriage: "/marriages", nikah: "/marriages",
-    deaths: "/deaths", death: "/deaths",
-    welfare: "/welfare",
-    certificates: "/certificates", certificate: "/certificates", cert: "/certificates",
-    tokens: "/tokens", token: "/tokens",
-    reports: "/reports", report: "/reports",
-    settings: "/settings", setting: "/settings",
-    users: "/users", user: "/users",
-    audit: "/audit",
-    backup: "/backup",
-  };
-
-  const handleSearchSubmit = (e: React.KeyboardEvent) => {
-    if (e.key !== "Enter") return;
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return;
-    const target = QUICK_NAV[q];
-    if (target) {
-      navigate(target);
-      setSearchQuery("");
-    } else {
-      // Try fuzzy match: any key containing the query
-      const fuzzy = Object.keys(QUICK_NAV).find((k) => k.includes(q));
-      if (fuzzy) {
-        navigate(QUICK_NAV[fuzzy]);
-        setSearchQuery("");
-      } else {
-        toast.info(`No module matches "${searchQuery}"`);
-      }
-    }
-  };
-
-  // Load notifications on mount + page change
-  useEffect(() => {
-    loadNotifications();
-  }, [location.pathname]);
+  useEffect(() => { loadNotifications(); }, [location.pathname]);
 
   const loadNotifications = async () => {
     try {
       const entries = await window.mms.audit.list({ page: 1, pageSize: 5 });
       setNotifications(entries.rows || []);
-    } catch (e) {
-      console.error("Failed to load notifications:", e);
-    }
+    } catch (e) { console.error("Failed to load notifications:", e); }
   };
 
-  // Close dropdowns on outside click or Escape
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (!target.closest("[data-dropdown]")) {
-        setNotifOpen(false);
-        setAvatarOpen(false);
+      if (!target.closest("[data-dropdown]") && !target.closest("[data-global-search]")) {
+        setNotifOpen(false); setAvatarOpen(false);
       }
     };
     const escHandler = (e: KeyboardEvent) => {
@@ -114,10 +50,7 @@ export function Topbar() {
     };
     document.addEventListener("mousedown", handler);
     document.addEventListener("keydown", escHandler);
-    return () => {
-      document.removeEventListener("mousedown", handler);
-      document.removeEventListener("keydown", escHandler);
-    };
+    return () => { document.removeEventListener("mousedown", handler); document.removeEventListener("keydown", escHandler); };
   }, []);
 
   const handleQuickBackup = async () => {
@@ -125,322 +58,97 @@ export function Topbar() {
       toast.info(t("tb_creating_backup"));
       const result = await window.mms.backup.create();
       if (result && result.success === false) {
-        if (result.error !== "cancelled") {
-          toast.error(result.error || t("tb_backup_failed"));
-        }
+        if (result.error !== "cancelled") toast.error(result.error || t("tb_backup_failed"));
         return;
       }
-      const path: string | undefined =
-        typeof result === "string" ? result : result?.path;
-      if (path) {
-        toast.success(t("tb_backup_saved") + ": " + path.split(/[\\/]/).pop());
-      } else {
-        toast.success(t("tb_backup_created"));
-      }
-    } catch (e: any) {
-      toast.error(e.message || t("tb_backup_failed"));
-    }
+      const path: string | undefined = typeof result === "string" ? result : result?.path;
+      if (path) toast.success(t("tb_backup_saved") + ": " + path.split(/[\\/]/).pop());
+      else toast.success(t("tb_backup_created"));
+    } catch (e: any) { toast.error(e.message || t("tb_backup_failed")); }
   };
 
   const handleChangePassword = async () => {
-    if (!user?.id) {
-      toast.error(t("tb_no_session"));
-      return;
-    }
-    if (!newPwd) {
-      toast.error(t("tb_pwd_required"));
-      return;
-    }
-    if (newPwd.length < 6) {
-      toast.error(t("tb_pwd_min"));
-      return;
-    }
-    if (newPwd !== confirmPwd) {
-      toast.error(t("tb_pwd_mismatch"));
-      return;
-    }
+    if (!user?.id) { toast.error(t("tb_no_session")); return; }
+    if (!newPwd) { toast.error(t("tb_pwd_required")); return; }
+    if (newPwd.length < 6) { toast.error(t("tb_pwd_min")); return; }
+    if (newPwd !== confirmPwd) { toast.error(t("tb_pwd_mismatch")); return; }
     setSavingPwd(true);
     try {
       const result: any = await window.mms.auth.changePassword(user.id, newPwd);
-      if (result && result.success === false) {
-        throw new Error(result.error || "Failed to change password");
-      }
-      toast.success(t("tb_pwd_updated"));
-      setNewPwd("");
-      setConfirmPwd("");
-      setProfileOpen(false);
-    } catch (e: any) {
-      toast.error(e.message || "Failed to change password");
-    } finally {
-      setSavingPwd(false);
-    }
+      if (result && result.success === false) throw new Error(result.error || "Failed to change password");
+      toast.success(t("tb_pwd_updated")); setNewPwd(""); setConfirmPwd(""); setProfileOpen(false);
+    } catch (e: any) { toast.error(e.message || "Failed to change password"); }
+    finally { setSavingPwd(false); }
   };
 
-  const handleLogout = async () => {
-    setAvatarOpen(false);
-    await logout();
-    navigate("/login");
-  };
-
+  const handleLogout = async () => { setAvatarOpen(false); await logout(); navigate("/login"); };
   const formatTime = (ts: string) => {
-    if (!ts) return "";
-    const d = new Date(ts);
-    const now = new Date();
-    const diff = (now.getTime() - d.getTime()) / 1000;
-    if (diff < 60) return "just now";
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    if (!ts) return ""; const d = new Date(ts); const diff = (Date.now() - d.getTime()) / 1000;
+    if (diff < 60) return "just now"; if (diff < 3600) return `${Math.floor(diff / 60)}m ago`; if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
   };
+  const notifTintClass = (action: string) => { const a = (action || "").toUpperCase(); if (a.includes("CREATE")) return "create"; if (a.includes("DELETE")) return "delete"; if (a.includes("LOGIN")) return "login"; return "other"; };
 
-  const notifTintClass = (action: string) => {
-    const a = (action || "").toUpperCase();
-    if (a.includes("CREATE")) return "create";
-    if (a.includes("DELETE")) return "delete";
-    if (a.includes("LOGIN")) return "login";
-    return "other";
-  };
+  return <>
+    <header className="topbar">
+      <div className="crumb"><small>Minz Mahallu /</small><b>{pageTitle}</b></div>
+      <GlobalSearch value={searchQuery} onChange={setSearchQuery} />
 
-  return (
-    <>
-      <header className="topbar">
-        {/* Breadcrumb */}
-        <div className="crumb">
-          <small>Minz Mahallu /</small>
-          <b>{pageTitle}</b>
+      <div className="tb-right">
+        <div className="langseg">
+          <button type="button" className={lang === "en" ? "on" : ""} onClick={() => setLang("en")} title="English">EN</button>
+          <button type="button" className={lang === "ml" ? "on" : ""} onClick={() => setLang("ml")} title="മലയാളം">മല</button>
         </div>
 
-        {/* Search — quick-nav: type a module name + Enter */}
-        <div className="qwrap ml-2">
-          <Search size={16} strokeWidth={2} />
-          <input
-            placeholder={t("tb_search_placeholder")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={handleSearchSubmit}
-          />
-          <kbd>Ctrl K</kbd>
+        <button className="ibtn" onClick={toggle} title="Toggle dark mode">{theme === "dark" ? <Sun size={17} strokeWidth={2} /> : <Moon size={17} strokeWidth={2} />}</button>
+
+        <div data-dropdown className="relative">
+          <button className="ibtn" title={t("tb_notifications")} onClick={(e) => { e.stopPropagation(); setNotifOpen(!notifOpen); setAvatarOpen(false); if (!notifOpen) loadNotifications(); }}>
+            <Bell size={17} strokeWidth={2} />{notifications.length > 0 && <span className="notif-dot">{notifications.length}</span>}
+          </button>
+          {notifOpen && <div className="dropdown-fixed notif-dropdown">
+            <div className="dropdown-head"><b>{t("tb_notifications")}</b><button onClick={(e) => { e.stopPropagation(); loadNotifications(); }}>{t("action_refresh")}</button></div>
+            {notifications.length === 0 ? <div className="dropdown-empty">{t("tb_no_notifications")}</div> : notifications.map((n, i) => <div key={n.id || i} className="notif-row" onClick={() => { setNotifOpen(false); navigate("/audit"); }}>
+              <div className={`notif-ic ${notifTintClass(n.action)}`}><Bell size={14} /></div><div className="notif-body"><b>{n.description || n.action}</b><p>{n.username} · {n.module}</p></div><time className="notif-time">{formatTime(n.created_at)}</time>
+            </div>)}
+          </div>}
         </div>
 
-        {/* Right side */}
-        <div className="tb-right">
-          {/* DB status chip */}
-          <span className="tb-chip t-em">
-            <i />
-            {t("tb_db_connected")}
-          </span>
+        <button className="ibtn" title={t("tb_quick_backup")} onClick={handleQuickBackup}><Database size={17} strokeWidth={2} /></button>
+        <div className="tbdiv" />
 
-          {/* Language segment */}
-          <div className="langseg">
-            <button
-              type="button"
-              className={lang === "en" ? "on" : ""}
-              onClick={() => setLang("en")}
-              title="English"
-            >
-              EN
-            </button>
-            <button
-              type="button"
-              className={lang === "ml" ? "on" : ""}
-              onClick={() => setLang("ml")}
-              title="മലയാളം"
-            >
-              മല
-            </button>
-          </div>
-
-          {/* Theme toggle */}
-          <button className="ibtn" onClick={toggle} title="Toggle dark mode">
-            {theme === "dark" ? <Sun size={17} strokeWidth={2} /> : <Moon size={17} strokeWidth={2} />}
-          </button>
-
-          {/* Notifications — fixed dropdown */}
-          <div data-dropdown className="relative">
-            <button
-              className="ibtn"
-              title={t("tb_notifications")}
-              onClick={(e) => { e.stopPropagation(); setNotifOpen(!notifOpen); setAvatarOpen(false); if (!notifOpen) loadNotifications(); }}
-            >
-              <Bell size={17} strokeWidth={2} />
-              {notifications.length > 0 && (
-                <span className="notif-dot">
-                  {notifications.length}
-                </span>
-              )}
-            </button>
-            {notifOpen && (
-              <div className="dropdown-fixed notif-dropdown">
-                <div className="dropdown-head">
-                  <b>{t("tb_notifications")}</b>
-                  <button onClick={(e) => { e.stopPropagation(); loadNotifications(); }}>{t("action_refresh")}</button>
-                </div>
-                {notifications.length === 0 ? (
-                  <div className="dropdown-empty">{t("tb_no_notifications")}</div>
-                ) : (
-                  notifications.map((n, i) => (
-                    <div key={n.id || i} className="notif-row"
-                      onClick={() => { setNotifOpen(false); navigate("/audit"); }}
-                    >
-                      <div className={`notif-ic ${notifTintClass(n.action)}`}>
-                        <Bell size={14} />
-                      </div>
-                      <div className="notif-body">
-                        <b>{n.description || n.action}</b>
-                        <p>{n.username} · {n.module}</p>
-                      </div>
-                      <time className="notif-time">{formatTime(n.created_at)}</time>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Quick backup */}
-          <button className="ibtn" title={t("tb_quick_backup")} onClick={handleQuickBackup}>
-            <Database size={17} strokeWidth={2} />
-          </button>
-
-          <div className="tbdiv" />
-
-          {/* Avatar — fixed dropdown */}
-          <div data-dropdown className="relative">
-            <button className="avbtn" onClick={(e) => { e.stopPropagation(); setAvatarOpen(!avatarOpen); setNotifOpen(false); }}>
-              <span className="av">{initials}</span>
-              <b>{user?.username ?? "—"}</b>
-              <ChevronDown size={14} className="chev" />
-            </button>
-            {avatarOpen && (
-              <div className="dropdown-fixed avatar-dropdown">
-                <div className="dropdown-head">
-                  <b className="dlg-hero-title">{user?.fullName}</b>
-                  <small className="dlg-hero-sub">{user?.role}</small>
-                </div>
-                <button className="menuit-btn"
-                  onClick={() => { setAvatarOpen(false); setProfileOpen(true); }}
-                >
-                  <User size={15} /> {t("tb_profile")}
-                </button>
-                <button className="menuit-btn"
-                  onClick={() => { setAvatarOpen(false); navigate("/settings"); }}
-                >
-                  <Settings size={15} /> {t("tb_settings")}
-                </button>
-                <div className="menu-divider" />
-                <button className="menuit-btn danger"
-                  onClick={handleLogout}
-                >
-                  <LogOut size={15} /> {t("action_logout")}
-                </button>
-              </div>
-            )}
-          </div>
+        <div data-dropdown className="relative">
+          <button className="avbtn" onClick={(e) => { e.stopPropagation(); setAvatarOpen(!avatarOpen); setNotifOpen(false); }}><span className="av">{initials}</span><b>{user?.username ?? "—"}</b><ChevronDown size={14} className="chev" /></button>
+          {avatarOpen && <div className="dropdown-fixed avatar-dropdown">
+            <div className="dropdown-head"><b className="dlg-hero-title">{user?.fullName}</b><small className="dlg-hero-sub">{user?.role}</small></div>
+            <button className="menuit-btn" onClick={() => { setAvatarOpen(false); setProfileOpen(true); }}><User size={15} /> {t("tb_profile")}</button>
+            <button className="menuit-btn" onClick={() => { setAvatarOpen(false); navigate("/settings"); }}><Settings size={15} /> {t("tb_settings")}</button>
+            <div className="menu-divider" />
+            <button className="menuit-btn danger" onClick={handleLogout}><LogOut size={15} /> {t("action_logout")}</button>
+          </div>}
         </div>
+      </div>
 
-        {/* Window controls (frameless window) */}
-        <div className="win-controls">
-          <button className="win-btn" onClick={() => window.mms.win.minimize()} title="Minimize">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M5 12h14"/></svg>
-          </button>
-          <button className="win-btn" onClick={() => window.mms.win.maximize()} title="Maximize">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
-          </button>
-          <button className="win-btn win-close" onClick={() => window.mms.win.close()} title="Close">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-          </button>
+      <div className="win-controls">
+        <button className="win-btn" onClick={() => window.mms.win.minimize()} title="Minimize"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M5 12h14" /></svg></button>
+        <button className="win-btn" onClick={() => window.mms.win.maximize()} title="Maximize"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="5" y="5" width="14" height="14" rx="2" /></svg></button>
+        <button className="win-btn win-close" onClick={() => window.mms.win.close()} title="Close"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+      </div>
+    </header>
+
+    <Dialog open={profileOpen} onClose={() => { setProfileOpen(false); setNewPwd(""); setConfirmPwd(""); }} title={t("tb_my_profile")}>
+      <div className="dlg-pad">{user && <>
+        <div className="dlg-hero t-em"><div className="dlg-hero-ic">{user.initials || user.username?.charAt(0).toUpperCase() || "?"}</div><div className="dlg-hero-body"><div className="dlg-hero-title">{user.fullName}</div><div className="dlg-hero-sub">@{user.username}</div></div><Badge variant={user.role === "Administrator" ? "default" : "muted"}>{user.role}</Badge></div>
+        <div className="det-grid mb-4">
+          <div className="det"><span className="k">{t("tb_full_name")}</span><span className="v">{user.fullName || "—"}</span></div>
+          <div className="det"><span className="k">{t("tb_username")}</span><span className="v">{user.username}</span></div>
+          <div className="det"><span className="k">{t("tb_role")}</span><span className="v">{user.role}</span></div>
+          <div className="det"><span className="k">{t("tb_status")}</span><span className="v">{user.isActive ? t("tb_active") : t("tb_inactive")}</span></div>
         </div>
-      </header>
-
-      {/* Profile dialog with Change Password */}
-      <Dialog
-        open={profileOpen}
-        onClose={() => { setProfileOpen(false); setNewPwd(""); setConfirmPwd(""); }}
-        title={t("tb_my_profile")}
-      >
-        <div className="dlg-pad">
-          {user && (
-            <>
-              {/* User details card */}
-              <div className="dlg-hero t-em">
-                <div className="dlg-hero-ic">
-                  {user.initials || user.username?.charAt(0).toUpperCase() || "?"}
-                </div>
-                <div className="dlg-hero-body">
-                  <div className="dlg-hero-title">
-                    {user.fullName}
-                  </div>
-                  <div className="dlg-hero-sub">
-                    @{user.username}
-                  </div>
-                </div>
-                <Badge variant={user.role === "Administrator" ? "default" : "muted"}>{user.role}</Badge>
-              </div>
-
-              {/* Profile details grid */}
-              <div className="det-grid mb-4">
-                <div className="det">
-                  <span className="k">{t("tb_full_name")}</span>
-                  <span className="v">{user.fullName || "—"}</span>
-                </div>
-                <div className="det">
-                  <span className="k">{t("tb_username")}</span>
-                  <span className="v">{user.username}</span>
-                </div>
-                <div className="det">
-                  <span className="k">{t("tb_role")}</span>
-                  <span className="v">{user.role}</span>
-                </div>
-                <div className="det">
-                  <span className="k">{t("tb_status")}</span>
-                  <span className="v">{user.isActive ? t("tb_active") : t("tb_inactive")}</span>
-                </div>
-              </div>
-
-              {/* Change Password section */}
-              <div className="pwd-section-label t-em">
-                <KeyRound size={14} className="ic" />
-                <b>{t("tb_change_password")}</b>
-              </div>
-              <div className="flex-col gap-3">
-                <div>
-                  <Label>{t("tb_new_password")}</Label>
-                  <Input
-                    type="password"
-                    value={newPwd}
-                    onChange={(e) => setNewPwd(e.target.value)}
-                    placeholder={t("tb_new_password")}
-                    autoFocus
-                  />
-                </div>
-                <div>
-                  <Label>{t("tb_confirm_password")}</Label>
-                  <Input
-                    type="password"
-                    value={confirmPwd}
-                    onChange={(e) => setConfirmPwd(e.target.value)}
-                    placeholder={t("tb_confirm_password")}
-                  />
-                </div>
-              </div>
-
-              <div className="dlg-actions">
-                <Button variant="secondary" onClick={() => { setProfileOpen(false); setNewPwd(""); setConfirmPwd(""); }} disabled={savingPwd}>
-                  {t("ui_close")}
-                </Button>
-                <Button onClick={handleChangePassword} disabled={savingPwd}>
-                  {savingPwd ? t("tb_saving") : (
-                    <>
-                      <ShieldCheck size={14} />
-                      {t("tb_save_password")}
-                    </>
-                  )}
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-      </Dialog>
-    </>
-  );
+        <div className="pwd-section-label t-em"><KeyRound size={14} className="ic" /><b>{t("tb_change_password")}</b></div>
+        <div className="flex-col gap-3"><div><Label>{t("tb_new_password")}</Label><Input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} placeholder={t("tb_new_password")} autoFocus /></div><div><Label>{t("tb_confirm_password")}</Label><Input type="password" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} placeholder={t("tb_confirm_password")} /></div></div>
+        <div className="dlg-actions"><Button variant="secondary" onClick={() => { setProfileOpen(false); setNewPwd(""); setConfirmPwd(""); }} disabled={savingPwd}>{t("ui_close")}</Button><Button onClick={handleChangePassword} disabled={savingPwd}>{savingPwd ? t("tb_saving") : <><ShieldCheck size={14} />{t("tb_save_password")}</>}</Button></div>
+      </>}</div>
+    </Dialog>
+  </>;
 }
