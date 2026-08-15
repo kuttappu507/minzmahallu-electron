@@ -61,15 +61,99 @@ html.lang-ml .sidebar.min .navit {
   justify-content: center;
 }
 
-/* Frameless-window controls must never be pushed off-screen by the
- * breadcrumb/search/right-side controls. They occupy their own fixed
- * title-bar area instead of participating in the flex layout.
+/*
+ * Topbar language/layout stability.
+ * The right-side control group has a fixed footprint, so changing EN ↔ ML
+ * changes text only. It must never change the position of the theme,
+ * notification, backup, avatar, or window controls.
  */
 .topbar {
   position: relative !important;
   padding-right: 126px !important;
 }
 
+.topbar .tb-right {
+  flex: 0 0 430px !important;
+  width: 430px !important;
+  min-width: 430px !important;
+  max-width: 430px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+  white-space: nowrap !important;
+}
+
+.topbar .qwrap {
+  flex: 1 1 320px;
+  min-width: 180px;
+}
+
+.topbar .langseg {
+  flex: 0 0 74px !important;
+  width: 74px !important;
+  min-width: 74px !important;
+  max-width: 74px !important;
+  display: flex !important;
+}
+
+.topbar .langseg button {
+  flex: 0 0 37px !important;
+  width: 37px !important;
+  min-width: 37px !important;
+  max-width: 37px !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+}
+
+.topbar .tb-right > .ibtn,
+.topbar .tb-right > [data-dropdown] > .ibtn {
+  flex: 0 0 34px !important;
+  width: 34px !important;
+  min-width: 34px !important;
+  max-width: 34px !important;
+}
+
+.topbar .tb-chip {
+  flex: 0 0 104px !important;
+  width: 104px !important;
+  min-width: 104px !important;
+  max-width: 104px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.topbar .tbdiv {
+  flex: 0 0 1px !important;
+  width: 1px !important;
+  min-width: 1px !important;
+}
+
+.topbar .tb-right > [data-dropdown]:last-child {
+  flex: 0 0 122px !important;
+  width: 122px !important;
+  min-width: 122px !important;
+  max-width: 122px !important;
+}
+
+.topbar .avbtn {
+  width: 122px !important;
+  min-width: 122px !important;
+  max-width: 122px !important;
+  overflow: hidden !important;
+}
+
+.topbar .avbtn b {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+/* Frameless-window controls occupy their own fixed title-bar area. */
 .win-controls {
   position: absolute !important;
   top: 50% !important;
@@ -92,24 +176,38 @@ html.lang-ml .sidebar.min .navit {
   height: 30px !important;
 }
 
-/* Preserve normal font sizes; only reduce competing horizontal chrome
- * when the app is resized near its minimum width. */
+/* Preserve normal font sizes; only remove secondary chrome at narrow widths. */
 @media (max-width: 1200px) {
   .topbar {
     padding-right: 120px !important;
     gap: 8px !important;
   }
 
-  .qwrap {
-    width: 180px !important;
+  .topbar .tb-right {
+    flex-basis: 300px !important;
+    width: 300px !important;
+    min-width: 300px !important;
+    max-width: 300px !important;
   }
 
-  .tb-chip {
+  .topbar .tb-chip {
     display: none !important;
   }
 
-  .avbtn b {
+  .topbar .tb-right > [data-dropdown]:last-child,
+  .topbar .avbtn {
+    width: 82px !important;
+    min-width: 82px !important;
+    max-width: 82px !important;
+  }
+
+  .topbar .avbtn b {
     display: none !important;
+  }
+
+  .topbar .qwrap {
+    flex-basis: 220px;
+    width: 220px !important;
   }
 }
 
@@ -118,7 +216,15 @@ html.lang-ml .sidebar.min .navit {
     display: none !important;
   }
 
-  .qwrap {
+  .topbar .tb-right {
+    flex-basis: 260px !important;
+    width: 260px !important;
+    min-width: 260px !important;
+    max-width: 260px !important;
+  }
+
+  .topbar .qwrap {
+    flex-basis: 160px;
     width: 160px !important;
   }
 }
