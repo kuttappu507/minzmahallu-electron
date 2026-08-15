@@ -8,8 +8,8 @@ import { toast } from "@/lib/toast";
 import { Dialog, Button, Input, Label, Badge } from "@/components/ui";
 import { GlobalSearch } from "@/components/layout/GlobalSearch";
 
-const PAGE_TITLES: Record<string, string> = {
-  "/": "Dashboard", "/families": "Families", "/members": "Members", "/subscriptions": "Subscriptions", "/donations": "Donations", "/accounting": "Accounting", "/marriages": "Marriage", "/deaths": "Death", "/welfare": "Welfare", "/certificates": "Certificates", "/tokens": "Tokens", "/reports": "Reports", "/settings": "Settings", "/users": "Users", "/audit": "Audit Log", "/backup": "Backup",
+const PAGE_TITLE_KEYS: Record<string, string> = {
+  "/": "nav_dashboard", "/families": "nav_families", "/members": "nav_members", "/subscriptions": "nav_subscriptions", "/donations": "nav_donations", "/accounting": "nav_accounting", "/marriages": "nav_marriage", "/deaths": "nav_death", "/welfare": "nav_welfare", "/certificates": "nav_certificates", "/tokens": "nav_tokens", "/reports": "nav_reports", "/settings": "nav_settings", "/users": "nav_users", "/audit": "nav_audit", "/backup": "nav_backup",
 };
 
 export function Topbar() {
@@ -18,7 +18,7 @@ export function Topbar() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const pageTitle = PAGE_TITLES[location.pathname] || "Dashboard";
+  const pageTitle = t(PAGE_TITLE_KEYS[location.pathname] || "nav_dashboard");
   const initials = user?.initials ?? "?";
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -84,71 +84,40 @@ export function Topbar() {
   const handleLogout = async () => { setAvatarOpen(false); await logout(); navigate("/login"); };
   const formatTime = (ts: string) => {
     if (!ts) return ""; const d = new Date(ts); const diff = (Date.now() - d.getTime()) / 1000;
-    if (diff < 60) return "just now"; if (diff < 3600) return `${Math.floor(diff / 60)}m ago`; if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    if (diff < 60) return t("tb_just_now"); if (diff < 3600) return `${Math.floor(diff / 60)}m ${t("tb_ago")}`; if (diff < 86400) return `${Math.floor(diff / 3600)}h ${t("tb_ago")}`;
     return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
   };
   const notifTintClass = (action: string) => { const a = (action || "").toUpperCase(); if (a.includes("CREATE")) return "create"; if (a.includes("DELETE")) return "delete"; if (a.includes("LOGIN")) return "login"; return "other"; };
 
   return <>
     <header className="topbar">
-      <div className="crumb"><small>Minz Mahallu /</small><b>{pageTitle}</b></div>
+      <div className="crumb"><small>{t("app_name")} /</small><b>{pageTitle}</b></div>
       <GlobalSearch value={searchQuery} onChange={setSearchQuery} />
-
       <div className="tb-right">
         <div className="langseg">
           <button type="button" className={lang === "en" ? "on" : ""} onClick={() => setLang("en")} title="English">EN</button>
           <button type="button" className={lang === "ml" ? "on" : ""} onClick={() => setLang("ml")} title="മലയാളം">മല</button>
         </div>
-
-        <button className="ibtn" onClick={toggle} title="Toggle dark mode">{theme === "dark" ? <Sun size={17} strokeWidth={2} /> : <Moon size={17} strokeWidth={2} />}</button>
-
+        <button className="ibtn" onClick={toggle} title={t("tb_toggle_theme")}>{theme === "dark" ? <Sun size={17} strokeWidth={2} /> : <Moon size={17} strokeWidth={2} />}</button>
         <div data-dropdown className="relative">
-          <button className="ibtn" title={t("tb_notifications")} onClick={(e) => { e.stopPropagation(); setNotifOpen(!notifOpen); setAvatarOpen(false); if (!notifOpen) loadNotifications(); }}>
-            <Bell size={17} strokeWidth={2} />{notifications.length > 0 && <span className="notif-dot">{notifications.length}</span>}
-          </button>
-          {notifOpen && <div className="dropdown-fixed notif-dropdown">
-            <div className="dropdown-head"><b>{t("tb_notifications")}</b><button onClick={(e) => { e.stopPropagation(); loadNotifications(); }}>{t("action_refresh")}</button></div>
-            {notifications.length === 0 ? <div className="dropdown-empty">{t("tb_no_notifications")}</div> : notifications.map((n, i) => <div key={n.id || i} className="notif-row" onClick={() => { setNotifOpen(false); navigate("/audit"); }}>
-              <div className={`notif-ic ${notifTintClass(n.action)}`}><Bell size={14} /></div><div className="notif-body"><b>{n.description || n.action}</b><p>{n.username} · {n.module}</p></div><time className="notif-time">{formatTime(n.created_at)}</time>
-            </div>)}
-          </div>}
+          <button className="ibtn" title={t("tb_notifications")} onClick={(e) => { e.stopPropagation(); setNotifOpen(!notifOpen); setAvatarOpen(false); if (!notifOpen) loadNotifications(); }}><Bell size={17} strokeWidth={2} />{notifications.length > 0 && <span className="notif-dot">{notifications.length}</span>}</button>
+          {notifOpen && <div className="dropdown-fixed notif-dropdown"><div className="dropdown-head"><b>{t("tb_notifications")}</b><button onClick={(e) => { e.stopPropagation(); loadNotifications(); }}>{t("action_refresh")}</button></div>{notifications.length === 0 ? <div className="dropdown-empty">{t("tb_no_notifications")}</div> : notifications.map((n, i) => <div key={n.id || i} className="notif-row" onClick={() => { setNotifOpen(false); navigate("/audit"); }}><div className={`notif-ic ${notifTintClass(n.action)}`}><Bell size={14} /></div><div className="notif-body"><b>{n.description || n.action}</b><p>{n.username} · {n.module}</p></div><time className="notif-time">{formatTime(n.created_at)}</time></div>)}</div>}
         </div>
-
         <button className="ibtn" title={t("tb_quick_backup")} onClick={handleQuickBackup}><Database size={17} strokeWidth={2} /></button>
         <div className="tbdiv" />
-
         <div data-dropdown className="relative">
           <button className="avbtn" onClick={(e) => { e.stopPropagation(); setAvatarOpen(!avatarOpen); setNotifOpen(false); }}><span className="av">{initials}</span><b>{user?.username ?? "—"}</b><ChevronDown size={14} className="chev" /></button>
-          {avatarOpen && <div className="dropdown-fixed avatar-dropdown">
-            <div className="dropdown-head"><b className="dlg-hero-title">{user?.fullName}</b><small className="dlg-hero-sub">{user?.role}</small></div>
-            <button className="menuit-btn" onClick={() => { setAvatarOpen(false); setProfileOpen(true); }}><User size={15} /> {t("tb_profile")}</button>
-            <button className="menuit-btn" onClick={() => { setAvatarOpen(false); navigate("/settings"); }}><Settings size={15} /> {t("tb_settings")}</button>
-            <div className="menu-divider" />
-            <button className="menuit-btn danger" onClick={handleLogout}><LogOut size={15} /> {t("action_logout")}</button>
-          </div>}
+          {avatarOpen && <div className="dropdown-fixed avatar-dropdown"><div className="dropdown-head"><b className="dlg-hero-title">{user?.fullName}</b><small className="dlg-hero-sub">{user?.role}</small></div><button className="menuit-btn" onClick={() => { setAvatarOpen(false); setProfileOpen(true); }}><User size={15} /> {t("tb_profile")}</button><button className="menuit-btn" onClick={() => { setAvatarOpen(false); navigate("/settings"); }}><Settings size={15} /> {t("tb_settings")}</button><div className="menu-divider" /><button className="menuit-btn danger" onClick={handleLogout}><LogOut size={15} /> {t("action_logout")}</button></div>}
         </div>
       </div>
-
       <div className="win-controls">
-        <button className="win-btn" onClick={() => window.mms.win.minimize()} title="Minimize"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M5 12h14" /></svg></button>
-        <button className="win-btn" onClick={() => window.mms.win.maximize()} title="Maximize"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="5" y="5" width="14" height="14" rx="2" /></svg></button>
-        <button className="win-btn win-close" onClick={() => window.mms.win.close()} title="Close"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+        <button className="win-btn" onClick={() => window.mms.win.minimize()} title={t("tb_minimize")}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M5 12h14" /></svg></button>
+        <button className="win-btn" onClick={() => window.mms.win.maximize()} title={t("tb_maximize")}><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="5" y="5" width="14" height="14" rx="2" /></svg></button>
+        <button className="win-btn win-close" onClick={() => window.mms.win.close()} title={t("ui_close")}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
       </div>
     </header>
-
     <Dialog open={profileOpen} onClose={() => { setProfileOpen(false); setNewPwd(""); setConfirmPwd(""); }} title={t("tb_my_profile")}>
-      <div className="dlg-pad">{user && <>
-        <div className="dlg-hero t-em"><div className="dlg-hero-ic">{user.initials || user.username?.charAt(0).toUpperCase() || "?"}</div><div className="dlg-hero-body"><div className="dlg-hero-title">{user.fullName}</div><div className="dlg-hero-sub">@{user.username}</div></div><Badge variant={user.role === "Administrator" ? "default" : "muted"}>{user.role}</Badge></div>
-        <div className="det-grid mb-4">
-          <div className="det"><span className="k">{t("tb_full_name")}</span><span className="v">{user.fullName || "—"}</span></div>
-          <div className="det"><span className="k">{t("tb_username")}</span><span className="v">{user.username}</span></div>
-          <div className="det"><span className="k">{t("tb_role")}</span><span className="v">{user.role}</span></div>
-          <div className="det"><span className="k">{t("tb_status")}</span><span className="v">{user.isActive ? t("tb_active") : t("tb_inactive")}</span></div>
-        </div>
-        <div className="pwd-section-label t-em"><KeyRound size={14} className="ic" /><b>{t("tb_change_password")}</b></div>
-        <div className="flex-col gap-3"><div><Label>{t("tb_new_password")}</Label><Input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} placeholder={t("tb_new_password")} autoFocus /></div><div><Label>{t("tb_confirm_password")}</Label><Input type="password" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} placeholder={t("tb_confirm_password")} /></div></div>
-        <div className="dlg-actions"><Button variant="secondary" onClick={() => { setProfileOpen(false); setNewPwd(""); setConfirmPwd(""); }} disabled={savingPwd}>{t("ui_close")}</Button><Button onClick={handleChangePassword} disabled={savingPwd}>{savingPwd ? t("tb_saving") : <><ShieldCheck size={14} />{t("tb_save_password")}</>}</Button></div>
-      </>}</div>
+      <div className="dlg-pad">{user && <><div className="dlg-hero t-em"><div className="dlg-hero-ic">{user.initials || user.username?.charAt(0).toUpperCase() || "?"}</div><div className="dlg-hero-body"><div className="dlg-hero-title">{user.fullName}</div><div className="dlg-hero-sub">@{user.username}</div></div><Badge variant={user.role === "Administrator" ? "default" : "muted"}>{user.role}</Badge></div><div className="det-grid mb-4"><div className="det"><span className="k">{t("tb_full_name")}</span><span className="v">{user.fullName || "—"}</span></div><div className="det"><span className="k">{t("tb_username")}</span><span className="v">{user.username}</span></div><div className="det"><span className="k">{t("tb_role")}</span><span className="v">{user.role}</span></div><div className="det"><span className="k">{t("tb_status")}</span><span className="v">{user.isActive ? t("tb_active") : t("tb_inactive")}</span></div></div><div className="pwd-section-label t-em"><KeyRound size={14} className="ic" /><b>{t("tb_change_password")}</b></div><div className="flex-col gap-3"><div><Label>{t("tb_new_password")}</Label><Input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} placeholder={t("tb_new_password")} autoFocus /></div><div><Label>{t("tb_confirm_password")}</Label><Input type="password" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} placeholder={t("tb_confirm_password")} /></div></div><div className="dlg-actions"><Button variant="secondary" onClick={() => { setProfileOpen(false); setNewPwd(""); setConfirmPwd(""); }} disabled={savingPwd}>{t("ui_close")}</Button><Button onClick={handleChangePassword} disabled={savingPwd}>{savingPwd ? t("tb_saving") : <><ShieldCheck size={14} />{t("tb_save_password")}</>}</Button></div></>}</div>
     </Dialog>
   </>;
 }
