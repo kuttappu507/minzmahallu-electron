@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { Plus, Edit2, Trash2, Eye, Heart } from "lucide-react";
+import { Plus, Edit2, Eye, Heart } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
 import { Button, Dialog, Input, Label, Textarea, SectionLabel, Badge } from "@/components/ui";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -47,8 +46,6 @@ export function Marriages() {
   const [form, setForm] = useState<Partial<Marriage>>(emptyForm);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewRow, setPreviewRow] = useState<Marriage | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
 
   const { rows, total, totalPages, loading, refetch } = useList(
     (filter) => window.mms.marriages.list(filter),
@@ -102,24 +99,6 @@ export function Marriages() {
     setDialogOpen(true);
   };
 
-  const handleDeleteClick = (id: number) => {
-    setPendingDeleteId(id);
-    setConfirmOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (pendingDeleteId == null) return;
-    try {
-      await window.mms.marriages.remove(pendingDeleteId);
-      toast.success(t("ui_record_deleted"));
-      refetch();
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setConfirmOpen(false);
-      setPendingDeleteId(null);
-    }
-  };
 
   const handleRowDoubleClick = (row: Marriage) => {
     setPreviewRow(row);
@@ -153,9 +132,6 @@ export function Marriages() {
         <div className="flex items-center gap-1 justify-end">
           <button className="act-btn act-edit" onClick={() => handleEdit(r.id)}>
             <Edit2 className="h-4 w-4" />
-          </button>
-          <button className="act-btn act-del" onClick={() => handleDeleteClick(r.id)}>
-            <Trash2 className="h-4 w-4 text-danger" />
           </button>
         </div>
       ),

@@ -177,14 +177,14 @@ app.whenReady().then(() => {
   ipcMain.handle("marriages:get", (_e, id) => data.marriages.get(id));
   ipcMain.handle("marriages:create", (_e, d) => data.marriages.create(d));
   ipcMain.handle("marriages:update", (_e, id, d) => data.marriages.update(id, d));
-  ipcMain.handle("marriages:remove", (_e, id) => data.marriages.remove(id));
+  ipcMain.handle("marriages:remove", () => { throw new Error("Permanent deletion of marriage records is disabled"); });
 
   // ===== IPC: Deaths =====
   ipcMain.handle("deaths:list", (_e, filter) => data.deaths.list(filter || {}));
   ipcMain.handle("deaths:get", (_e, id) => data.deaths.get(id));
   ipcMain.handle("deaths:create", (_e, d) => data.deaths.create(d));
   ipcMain.handle("deaths:update", (_e, id, d) => data.deaths.update(id, d));
-  ipcMain.handle("deaths:remove", (_e, id) => data.deaths.remove(id));
+  ipcMain.handle("deaths:remove", () => { throw new Error("Permanent deletion of death records is disabled"); });
 
   // ===== IPC: Welfare =====
   ipcMain.handle("welfare:list", (_e, filter) => data.welfare.list(filter || {}));
@@ -203,7 +203,7 @@ app.whenReady().then(() => {
   ipcMain.handle("certificates:issueResidence", (_e, familyNum, issuedTo) => data.certificates.issueResidence(familyNum, issuedTo, session.user?.id ?? 1));
   ipcMain.handle("certificates:issueMarriage", (_e, marriageNum) => data.certificates.issueMarriage(marriageNum, session.user?.id ?? 1));
   ipcMain.handle("certificates:issueDeath", (_e, deathNum) => data.certificates.issueDeath(deathNum, session.user?.id ?? 1));
-  ipcMain.handle("certificates:remove", (_e, id) => data.certificates.remove(id));
+  ipcMain.handle("certificates:remove", () => { throw new Error("Permanent deletion of certificate records is disabled"); });
 
   // ===== IPC: PDF generation =====
   ipcMain.handle("pdf:generate", async (_e, html: string, defaultName: string) => {
@@ -220,7 +220,8 @@ app.whenReady().then(() => {
       const listResult = data.certificates.list({});
       const cert = (listResult?.rows || []).find((c: any) => c.id === certId);
       if (!cert) return { success: false, error: "Certificate not found" };
-      const html = buildCertificateHtml(cert);
+      const lang = await mainWindow!.webContents.executeJavaScript("document.documentElement.classList.contains('lang-ml') ? 'ml' : 'en'");
+      const html = buildCertificateHtml(cert, lang);
       const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Certificate PDF", defaultPath: `certificate-${cert.certificate_number || certId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] });
       if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true };
       const pdfBuffer = await renderHtmlToPdf(html);

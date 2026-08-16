@@ -1,11 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
-  Trash2, FileText, Home, Heart, Skull, Search, Loader2, FileCheck2, Printer,
+  FileText, Home, Heart, Skull, Search, Loader2, FileCheck2, Printer,
 } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
 import { Button, Dialog, Input, Label, Badge } from "@/components/ui";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
 import { formatDate } from "@/lib/utils";
@@ -51,8 +50,6 @@ export function Certificates() {
   const [issuedTo, setIssuedTo] = useState("");
   const [processing, setProcessing] = useState(false);
   const [pdfLoadingId, setPdfLoadingId] = useState<number | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
 
   const { rows, total, totalPages, loading, refetch } = useList(
     (filter) => window.mms.certificates.list(filter),
@@ -224,24 +221,6 @@ export function Certificates() {
     }
   };
 
-  const handleDeleteClick = (id: number) => {
-    setPendingDeleteId(id);
-    setConfirmOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (pendingDeleteId == null) return;
-    try {
-      await window.mms.certificates.remove(pendingDeleteId);
-      toast.success(t("ui_record_deleted"));
-      refetch();
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setConfirmOpen(false);
-      setPendingDeleteId(null);
-    }
-  };
 
   const issueButtons = [
     { type: "membership" as IssueType, label: t("cert_membership"), icon: FileText, tint: "t-blue" },
@@ -261,7 +240,7 @@ export function Certificates() {
           marriage: "t-pink",
           death: "t-slate",
         };
-        return <span className={`pill ${tintMap[r.type?.toLowerCase()] || "t-slate"}`}>{r.type}</span>;
+        return <span className={`pill ${tintMap[r.type?.toLowerCase()] || "t-slate"}`}>{t(`cert_${r.type}`)}</span>;
       },
     },
     { header: t("cert_issued_to"), accessor: (r) => r.issued_to || "—" },
@@ -273,9 +252,6 @@ export function Certificates() {
         <div className="flex items-center gap-1 justify-end">
           <button className="act-btn act-view" onClick={() => handleGeneratePdf(r)} title={t("cert_generate_pdf_btn")} disabled={pdfLoadingId === r.id}>
             {pdfLoadingId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
-          </button>
-          <button className="act-btn act-del" onClick={() => handleDeleteClick(r.id)} title={t("action_delete")}>
-            <Trash2 className="h-4 w-4 text-danger" />
           </button>
         </div>
       ),
@@ -395,7 +371,7 @@ export function Certificates() {
                         <div className="pl-name">{r.primaryName}</div>
                         {r.secondaryName && (
                           <div className="pl-sub mt-1">
-                            {issueType === "marriage" ? `Groom: ${r.secondaryName}` : `S/o ${r.secondaryName}`}
+                            {issueType === "marriage" ? `${t("cert_groom_prefix")}: ${r.secondaryName}` : `${t("cert_son_of_prefix")}: ${r.secondaryName}`}
                           </div>
                         )}
                       </div>
@@ -431,15 +407,6 @@ export function Certificates() {
           )}
         </div>
       </Dialog>
-
-      {/* Delete confirmation */}
-      <ConfirmDialog
-        open={confirmOpen}
-        onClose={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
-        onConfirm={handleDeleteConfirm}
-        title={t("ui_confirm_delete")}
-        confirmLabel={t("cert_delete_label")}
-      />
     </div>
   );
 }

@@ -92,3 +92,10 @@ html.lang-ml .btn{line-height:20px !important}
 }
 html.lang-ml .sidebar .flap{right:-10px !important;z-index:20 !important}
 html.lang-ml .sidebar.min .flap{right:-10px !important}
+
+/* Final release fixes: language pill uses one continuous capsule; official records have no delete action. */
+.topbar .langseg{border-radius:999px !important;overflow:hidden !important;align-items:stretch !important}
+.topbar .langseg button{border-radius:0 !important;height:100% !important;display:flex !important;align-items:center !important;justify-content:center !important}
+.topbar .langseg button:first-child{border-radius:999px 0 0 999px !important}
+.topbar .langseg button:last-child{border-radius:0 999px 999px 0 !important}
+.view:has(.cert-issue-grid) .act-del,.view:has(.heart-sep) .act-del,.view:has(.lucide-eye) .act-del{display:none !important}

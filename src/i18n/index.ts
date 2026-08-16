@@ -419,6 +419,8 @@ const translations: Record<string, { en: string; ml: string }> = {
   cert_pdf_failed: { en: "Failed to generate certificate PDF", ml: "സർട്ടിഫിക്കറ്റ് PDF തയ്യാറാക്കാൻ കഴിഞ്ഞില്ല" },
   cert_delete_label: { en: "Delete Certificate", ml: "സർട്ടിഫിക്കറ്റ് ഇല്ലാതാക്കുക" },
   cert_generate_pdf_btn: { en: "Generate PDF", ml: "PDF തയ്യാറാക്കുക" },
+  cert_groom_prefix: { en: "Groom", ml: "വരൻ" },
+  cert_son_of_prefix: { en: "S/o", ml: "മകൻ" },
 
   // Reports
   rpt_subtitle: { en: "Export any module to CSV, Excel or print-ready PDF.", ml: "ഏതൊരു മൊഡ്യൂളും CSV, Excel അല്ലെങ്കിൽ പ്രിന്റ്-റെഡി PDF ആയി കയറ്റുമതി ചെയ്യുക." },

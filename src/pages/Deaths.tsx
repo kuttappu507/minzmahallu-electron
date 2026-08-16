@@ -3,7 +3,6 @@ import { Plus, Edit2, Trash2, Eye, Flower2 } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
 import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
 import { formatDate } from "@/lib/utils";
@@ -39,8 +38,6 @@ export function Deaths() {
   const [form, setForm] = useState<Partial<Death>>(emptyForm);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewRow, setPreviewRow] = useState<Death | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
 
   const { rows, total, totalPages, loading, refetch } = useList(
     (filter) => window.mms.deaths.list(filter),
@@ -88,24 +85,6 @@ export function Deaths() {
     setDialogOpen(true);
   };
 
-  const handleDeleteClick = (id: number) => {
-    setPendingDeleteId(id);
-    setConfirmOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (pendingDeleteId == null) return;
-    try {
-      await window.mms.deaths.remove(pendingDeleteId);
-      toast.success(t("ui_record_deleted"));
-      refetch();
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setConfirmOpen(false);
-      setPendingDeleteId(null);
-    }
-  };
 
   const handleRowDoubleClick = (row: Death) => {
     setPreviewRow(row);
@@ -140,9 +119,6 @@ export function Deaths() {
         <div className="flex items-center gap-1 justify-end">
           <button className="act-btn act-edit" onClick={() => handleEdit(r.id)}>
             <Edit2 className="h-4 w-4" />
-          </button>
-          <button className="act-btn act-del" onClick={() => handleDeleteClick(r.id)}>
-            <Trash2 className="h-4 w-4 text-danger" />
           </button>
         </div>
       ),
