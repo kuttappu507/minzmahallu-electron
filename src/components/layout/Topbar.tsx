@@ -29,8 +29,29 @@ export function Topbar() {
   const [savingPwd, setSavingPwd] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => { loadNotifications(); }, [location.pathname]);
-  const loadNotifications = async () => { try { const entries = await window.mms.audit.list({ page: 1, pageSize: 5 }); setNotifications(entries.rows || []); } catch (e) { console.error("Failed to load notifications:", e); } };
+  const loadNotifications = async () => {
+    try {
+      const entries = await window.mms.audit.list({ page: 1, pageSize: 5 });
+      const latest = (entries.rows || []).slice(0, 5);
+      setNotifications(latest);
+    } catch (e) {
+      console.error("Failed to load notifications:", e);
+    }
+  };
+
+  // Keep the topbar feed live while the app is open. The audit API is local,
+  // so a short poll is reliable even when changes originate from another page.
+  useEffect(() => {
+    loadNotifications();
+    const refresh = window.setInterval(loadNotifications, 3000);
+    const onFocus = () => loadNotifications();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.clearInterval(refresh);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [location.pathname]);
+
   useEffect(() => {
     const handler = (e: MouseEvent) => { const target = e.target as HTMLElement; if (!target.closest("[data-dropdown]") && !target.closest("[data-global-search]")) { setNotifOpen(false); setAvatarOpen(false); } };
     const escHandler = (e: KeyboardEvent) => { if (e.key === "Escape") { setNotifOpen(false); setAvatarOpen(false); } };
