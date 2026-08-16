@@ -1,7 +1,7 @@
 /*
  * DataTable — modern, glass-style table with pagination + empty state.
  */
-import { Table, Td, Tr, EmptyState, Pagination } from "@/components/ui";
+import { Table, EmptyState, Pagination } from "@/components/ui";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui";
 import { useI18n } from "@/i18n";
@@ -56,7 +56,6 @@ export function DataTable<T>({
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
       {(onSearchChange || toolbar) && (
         <div className="flex items-center gap-3 flex-wrap">
           {onSearchChange && (
@@ -75,7 +74,6 @@ export function DataTable<T>({
         </div>
       )}
 
-      {/* Table */}
       <div className="card overflow-hidden">
         <Table headers={columns.map((c) => c.header)}>
           {loading ? (
@@ -83,7 +81,7 @@ export function DataTable<T>({
               <td colSpan={columns.length} className="row-loading">
                 <div className="flex flex-col items-center justify-center gap-3">
                   <div className="spinner-sm" />
-                  <p className="text-sm text-text-tertiary">Loading...</p>
+                  <p className="text-sm text-text-tertiary">{t("ui_loading")}</p>
                 </div>
               </td>
             </tr>
