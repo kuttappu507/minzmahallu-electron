@@ -45,6 +45,18 @@ jobs:
       - name: Install npm packages
         run: npm install --no-audit --no-fund
 
+      - name: Run hardcoded English audit
+        run: |
+          node scripts/i18n-audit.mjs > hardcoded-english-audit.txt
+          cat hardcoded-english-audit.txt
+
+      - name: Upload hardcoded English audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: hardcoded-english-audit-${{ matrix.target }}
+          path: hardcoded-english-audit.txt
+          if-no-files-found: error
+
       - name: Rebuild native modules for Electron
         run: npx electron-builder install-app-deps
 
