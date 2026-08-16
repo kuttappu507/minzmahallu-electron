@@ -10,8 +10,7 @@ function requireAdmin(actor: Actor) {
   if (actor.role !== "Administrator") throw new Error("Administrator permission is required for this operation");
 }
 function history(actor: Actor, entityType: string, entityId: number, action: string, summary: string, changes: Record<string, unknown> = {}, reason = "") {
-  getDB().prepare(`INSERT INTO record_history (entity_type, entity_id, action, user_id, username, summary, changes_json, reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(entityType, entityId, action, actor.id, actor.username, summary, JSON.stringify(changes), reason);
+  getDB().prepare(`INSERT INTO record_history (entity_type, entity_id, action, user_id, username, summary, changes_json, reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(entityType, entityId, action, actor.id, actor.username, summary, JSON.stringify(changes), reason);
 }
 function changedFields(before: any, after: any, fields: string[]) {
   const changes: Record<string, { old: unknown; new: unknown }> = {};
@@ -26,8 +25,7 @@ export const security = {
     const before = db.prepare("SELECT * FROM families WHERE id=?").get(familyId) as any;
     if (!before) throw new Error("Family not found");
     if (before.status === "Archived") throw new Error("Archived families cannot be edited; restore the family first");
-    db.prepare(`UPDATE families SET house_name=?, house_number=?, ward=?, area=?, address=?, pincode=?, phone=?, alternative_phone=?, status=?, notes=?, updated_at=datetime('now') WHERE id=?`)
-      .run(data.houseName ?? "", data.houseNumber ?? "", data.ward ?? "", data.area ?? "", data.address ?? "", data.pincode ?? "", data.phone ?? "", data.altPhone ?? "", "Active", data.notes ?? "", familyId);
+    db.prepare(`UPDATE families SET house_name=?, house_number=?, ward=?, area=?, address=?, pincode=?, phone=?, alternative_phone=?, status=?, notes=?, updated_at=datetime('now') WHERE id=?`).run(data.houseName ?? "", data.houseNumber ?? "", data.ward ?? "", data.area ?? "", data.address ?? "", data.pincode ?? "", data.phone ?? "", data.altPhone ?? "", "Active", data.notes ?? "", familyId);
     const after = db.prepare("SELECT * FROM families WHERE id=?").get(familyId) as any;
     const changes = changedFields(before, after, ["house_name","house_number","ward","area","address","pincode","phone","alternative_phone","notes"]);
     if (Object.keys(changes).length) history(actor, "family", familyId, "EDIT", "Family details updated", changes);
@@ -40,8 +38,7 @@ export const security = {
     const before = db.prepare("SELECT * FROM members WHERE id=?").get(memberId) as any;
     if (!before) throw new Error("Member not found");
     if (before.archive_state) throw new Error("Archived members cannot be edited; restore the member first");
-    db.prepare(`UPDATE members SET family_id=?, name=?, arabic_name=?, gender=?, date_of_birth=?, age=?, blood_group=?, occupation=?, education=?, marital_status=?, mobile=?, email=?, emergency_contact=?, relationship=?, status=?, nationality=?, address=?, updated_at=datetime('now') WHERE id=?`)
-      .run(data.familyId, data.name, data.arabicName ?? "", data.gender, data.dateOfBirth, data.age, data.bloodGroup, data.occupation, data.education, data.maritalStatus, data.mobile, data.email, data.emergencyContact, data.relationship, data.status, data.nationality, data.address, memberId);
+    db.prepare(`UPDATE members SET family_id=?, name=?, arabic_name=?, gender=?, date_of_birth=?, age=?, blood_group=?, occupation=?, education=?, marital_status=?, mobile=?, email=?, emergency_contact=?, relationship=?, status=?, nationality=?, address=?, updated_at=datetime('now') WHERE id=?`).run(data.familyId, data.name, data.arabicName ?? "", data.gender, data.dateOfBirth, data.age, data.bloodGroup, data.occupation, data.education, data.maritalStatus, data.mobile, data.email, data.emergencyContact, data.relationship, data.status, data.nationality, data.address, memberId);
     const after = db.prepare("SELECT * FROM members WHERE id=?").get(memberId) as any;
     const changes = changedFields(before, after, ["family_id","name","arabic_name","gender","date_of_birth","age","blood_group","occupation","education","marital_status","mobile","email","emergency_contact","relationship","status","nationality","address"]);
     if (Object.keys(changes).length) history(actor, "member", memberId, "EDIT", "Member details updated", changes);
@@ -56,8 +53,10 @@ export const security = {
       const family = db.prepare("SELECT * FROM families WHERE id=?").get(familyId) as any;
       if (!family) throw new Error("Family not found");
       if (family.status === "Archived") return { id: familyId, alreadyArchived: true, membersArchived: 0 };
-      const members = db.prepare("SELECT id FROM members WHERE family_id=? AND archive_state=0").all(familyId) as any[];
+      const members = db.prepare("SELECT id, archive_state FROM members WHERE family_id=? AND archive_state=0").all(familyId) as any[];
       db.prepare(`UPDATE families SET status='Archived', archived_at=datetime('now'), archived_by=?, archive_reason=?, updated_at=datetime('now') WHERE id=?`).run(actor.id, reason.trim(), familyId);
+      // Every currently active member of an archived family is archived with it.
+      db.prepare(`UPDATE members SET archive_state=1, archive_source='family', archived_at=datetime('now'), archived_by=?, archive_reason=?, updated_at=datetime('now') WHERE family_id=? AND archive_state=0`).run(actor.id, reason.trim(), familyId);
       history(actor, "family", familyId, "ARCHIVE", "Family archived", { previousStatus: family.status, newStatus: "Archived", membersArchived: members.length }, reason.trim());
       for (const m of members) history(actor, "member", m.id, "ARCHIVE", "Member archived with family", { archiveSource: "family", familyId }, reason.trim());
       return { id: familyId, alreadyArchived: false, membersArchived: members.length };
@@ -104,6 +103,7 @@ export const security = {
       const member = db.prepare("SELECT * FROM members WHERE id=?").get(memberId) as any;
       if (!member) throw new Error("Member not found");
       if (!member.archive_state) return { id: memberId, alreadyActive: true };
+      if (member.archive_source === "family") throw new Error("This member was archived with the family. Restore the family instead.");
       const source = member.archive_source;
       db.prepare(`UPDATE members SET archive_state=0, archive_source=NULL, archived_at=NULL, archived_by=NULL, archive_reason=NULL, updated_at=datetime('now') WHERE id=?`).run(memberId);
       history(actor, "member", memberId, "RESTORE", "Member restored", { previousArchiveSource: source }, reason.trim());
@@ -144,9 +144,7 @@ export const security = {
     const db = getDB();
     const tx = db.transaction(() => {
       const familyNumber = db.prepare("SELECT 'FAM-' || printf('%04d', COALESCE(MAX(id),0)+1) AS n FROM families").get() as any;
-      const result = db.prepare(`INSERT INTO families (family_number, house_name, house_number, ward, area, address, pincode, phone, alternative_phone, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?)`).run(
-        familyNumber.n, familyData.houseName ?? "", familyData.houseNumber ?? "", familyData.ward ?? "", familyData.area ?? "", familyData.address ?? "", familyData.pincode ?? "", familyData.phone ?? "", familyData.altPhone ?? "", familyData.notes ?? ""
-      );
+      const result = db.prepare(`INSERT INTO families (family_number, house_name, house_number, ward, area, address, pincode, phone, alternative_phone, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?)`).run(familyNumber.n, familyData.houseName ?? "", familyData.houseNumber ?? "", familyData.ward ?? "", familyData.area ?? "", familyData.address ?? "", familyData.pincode ?? "", familyData.phone ?? "", familyData.altPhone ?? "", familyData.notes ?? "");
       const newFamilyId = Number(result.lastInsertRowid);
       history(actor, "family", newFamilyId, "CREATE_FROM_MEMBERS", "New family created from existing members", { memberIds, headMemberId, familyNumber: familyNumber.n }, reason.trim());
       for (const memberId of [...new Set(memberIds)]) {
