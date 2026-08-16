@@ -97,10 +97,14 @@ jobs:
         shell: bash
         run: |
           echo "=== release/ contents ==="
-          ls -lh release/ 2>/dev/null || true
-          echo ""
-          echo "=== release/ subdirs ==="
-          find release/ -maxdepth 3 -type f 2>/dev/null | head -50
+          if [ -d release ]; then
+            ls -lh release/ || true
+            echo ""
+            echo "=== release/ files ==="
+            find release/ -maxdepth 3 -type f -print | head -50 || true
+          else
+            echo "release/ does not exist (build/package may have failed above)"
+          fi
 
   release:
     name: Release
