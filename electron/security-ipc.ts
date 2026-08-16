@@ -2,7 +2,7 @@ import { app, ipcMain } from "electron";
 import path from "node:path";
 import { security, type Actor } from "./services/security.service.js";
 import { createBackup, listBackups, verifyBackup, extractVerifiedBackup } from "./services/backup.service.js";
-import { closeDB } from "./db/connection.js";
+import { closeDB, getDB } from "./db/connection.js";
 
 type ActorProvider = () => Actor | null;
 function register(name: string, handler: (...args: any[]) => any) { try { ipcMain.removeHandler(name); } catch {} ipcMain.handle(name, async (_event, ...args) => handler(...args)); }
@@ -19,6 +19,75 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("marriages:remove", ()=>{throw new Error("Marriage records cannot be permanently deleted. Correct or revoke the record instead.");});
   register("deaths:remove", ()=>{throw new Error("Death records cannot be permanently deleted. Correct or revoke the record instead.");});
   register("certificates:remove", ()=>{throw new Error("Issued certificates cannot be permanently deleted. Revoke the certificate instead.");});
+
+  // Temporary event tokens are the only historical data allowed to be removed.
+  // This deliberately re-registers the same IPC channel used by the renderer so
+  // the insecure legacy handler in main.ts is replaced before the window opens.
+  // Authorization, event expiry, reason validation, deletion and audit logging
+  // all happen in this single transaction.
+  register("tokens:remove", (tokenId:number, reason:string) => {
+    const a = actor();
+    if (a.role !== "Administrator") throw new Error("Administrator permission is required to delete tokens");
+    if (!Number.isInteger(tokenId) || tokenId <= 0) throw new Error("Invalid token");
+    if (!reason?.trim()) throw new Error("A deletion reason is required");
+
+    const db = getDB();
+    const token = db.prepare(`
+      SELECT ta.id, ta.token_code, ta.status, ta.event_id, ta.family_id,
+             te.event_name, te.event_date, te.event_time,
+             f.family_number
+      FROM token_assignments ta
+      JOIN token_events te ON te.id = ta.event_id
+      LEFT JOIN families f ON f.id = ta.family_id
+      WHERE ta.id = ?
+    `).get(tokenId) as any;
+
+    if (!token) throw new Error("Token not found");
+
+    // Event expiry is based on the local machine's calendar/time, not UTC.
+    const eventDate = String(token.event_date || "");
+    const eventTime = String(token.event_time || "").trim();
+    if (!eventDate) throw new Error("Token event has no valid date");
+    const eventMoment = eventTime
+      ? new Date(`${eventDate}T${/^\d{2}:\d{2}$/.test(eventTime) ? `${eventTime}:00` : eventTime}`)
+      : new Date(`${eventDate}T23:59:59`);
+    if (Number.isNaN(eventMoment.getTime()) || eventMoment >= new Date()) {
+      throw new Error("Tokens can only be deleted after the event has ended");
+    }
+
+    const tx = db.transaction(() => {
+      const metadata = JSON.stringify({
+        tokenCode: token.token_code,
+        eventId: token.event_id,
+        eventName: token.event_name,
+        eventDate: token.event_date,
+        eventTime: token.event_time || null,
+        familyId: token.family_id,
+        familyNumber: token.family_number || null,
+        previousStatus: token.status,
+        deletionType: "temporary_token_after_event",
+      });
+
+      // Audit first, inside the same transaction. If this INSERT fails, the
+      // transaction rolls back and the token remains untouched.
+      db.prepare(`
+        INSERT INTO audit_log
+          (user_id, username, action, module, entity_id, description, metadata, created_at)
+        VALUES (?, ?, 'DELETE', 'tokens', ?, ?, ?, datetime('now'))
+      `).run(
+        a.id,
+        a.username,
+        token.id,
+        `Temporary token ${token.token_code} deleted after event ${token.event_name}`,
+        metadata,
+      );
+
+      db.prepare("DELETE FROM token_assignments WHERE id = ?").run(token.id);
+    });
+
+    tx();
+    return { success: true, tokenId: token.id };
+  });
 
   register("security:archiveFamily",(id:number,reason:string)=>security.archiveFamily(actor(),id,reason));
   register("security:restoreFamily",(id:number,reason?:string)=>security.restoreFamily(actor(),id,reason||""));
