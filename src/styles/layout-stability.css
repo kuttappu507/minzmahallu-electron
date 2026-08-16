@@ -5,12 +5,9 @@
 html.lang-ml .navit b{flex:1 1 auto !important;min-width:0 !important;font-size:13.5px !important;font-weight:600 !important;line-height:18px !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important}
 html.lang-ml .navit{font-size:13.5px !important;line-height:18px !important}
 .sidebar.min .navit,html.lang-ml .sidebar.min .navit{width:100%;margin-left:0 !important;margin-right:0 !important;padding-left:0 !important;padding-right:0 !important;justify-content:center}
-
-/* Collapsed navigation tooltip: viewport layer, never clipped by navscroll. */
 .sidebar-flyout-tip{position:fixed !important;left:92px !important;transform:translateY(-50%) !important;z-index:9999 !important;pointer-events:none !important;background:var(--panel) !important;color:var(--tx) !important;font:500 12px Poppins,sans-serif !important;line-height:18px !important;padding:8px 13px !important;border:1px solid var(--line) !important;border-radius:10px !important;white-space:nowrap !important;box-shadow:0 8px 24px rgba(23,43,32,.16) !important}
 html.lang-ml .sidebar-flyout-tip{font-family:Poppins,"Anek Malayalam Variable",sans-serif !important;font-size:12px !important;font-weight:650 !important;line-height:18px !important}
 
-/* Topbar: search is the flexible element; language/user/window controls keep fixed footprints. */
 .topbar{position:relative !important;padding-right:120px !important;min-width:0 !important;gap:10px !important;overflow:visible !important}
 .topbar .crumb{flex:0 1 auto !important;min-width:0 !important;max-width:34% !important;overflow:hidden !important;white-space:nowrap !important}
 .topbar .crumb b{display:inline-block !important;min-width:0 !important;max-width:100% !important;overflow:hidden !important;text-overflow:ellipsis !important;white-space:nowrap !important}
@@ -31,7 +28,7 @@ html.lang-ml .topbar .langseg button:last-child{font-family:Poppins,"Anek Malaya
 .win-controls{position:absolute !important;top:50% !important;right:8px !important;transform:translateY(-50%) !important;z-index:100 !important;display:flex !important;flex:none !important;width:112px !important;height:32px !important;margin:0 !important;gap:2px !important;-webkit-app-region:no-drag !important}
 .win-controls .win-btn{flex:0 0 36px !important;width:36px !important;min-width:36px !important;height:30px !important}
 
-/* Bilingual metric lock. Poppins comes first so Latin letters/numbers use Poppins; Malayalam falls back to Anek. */
+/* Poppins supplies Latin letters/numbers; Anek supplies Malayalam glyphs through fallback. */
 html.lang-ml .topbar,
 html.lang-ml .topbar button,
 html.lang-ml .topbar input,
@@ -54,7 +51,9 @@ html.lang-ml .tbl td{line-height:20px !important;min-height:50px !important}
 html.lang-ml input,html.lang-ml select,html.lang-ml textarea{line-height:20px !important}
 html.lang-ml .btn{line-height:20px !important}
 
-/* Narrow windows: never let search and language controls compete for the same pixels. */
+/* The token selection table no longer shows a decorative “New” badge. */
+.tbl:has(.token-family-code) tbody td:last-child .t-em{display:none !important}
+
 @media(max-width:1200px){
   .topbar{padding-right:120px !important;gap:8px !important}
   .topbar .tb-right{flex:1 1 auto !important;min-width:0 !important;max-width:360px !important}
@@ -77,7 +76,6 @@ html.lang-ml .btn{line-height:20px !important}
   .topbar .tb-right{max-width:none !important;flex:1 1 auto !important;min-width:0 !important;gap:4px !important}
   .topbar .qwrap{flex:1 1 100px !important;min-width:36px !important;max-width:none !important;padding-left:7px !important;padding-right:7px !important}
   .topbar .qwrap input{font-size:11px !important}
-  .topbar .qwrap .search-icon{flex:0 0 14px !important}
   .topbar .langseg{flex:0 0 72px !important;width:72px !important;min-width:72px !important;max-width:72px !important}
   .topbar .langseg button{flex:0 0 36px !important;width:36px !important;min-width:36px !important;max-width:36px !important;font-size:11px !important}
   .topbar .tb-right>.ibtn,.topbar .tb-right>[data-dropdown]>.ibtn{flex-basis:30px !important;width:30px !important;min-width:30px !important}
