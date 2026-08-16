@@ -13,6 +13,13 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("members:update", (id:number,data:any)=>security.updateMember(actor(),id,data));
   register("families:remove", ()=>{throw new Error("Families cannot be permanently deleted. Archive the family instead.");});
   register("members:remove", ()=>{throw new Error("Members cannot be permanently deleted. Archive the member instead.");});
+
+  // Official registers are historical records. They are never physically deleted.
+  // Corrections must be made through an audited edit/revocation workflow.
+  register("marriages:remove", ()=>{throw new Error("Marriage records cannot be permanently deleted. Correct or revoke the record instead.");});
+  register("deaths:remove", ()=>{throw new Error("Death records cannot be permanently deleted. Correct or revoke the record instead.");});
+  register("certificates:remove", ()=>{throw new Error("Issued certificates cannot be permanently deleted. Revoke the certificate instead.");});
+
   register("security:archiveFamily",(id:number,reason:string)=>security.archiveFamily(actor(),id,reason));
   register("security:restoreFamily",(id:number,reason?:string)=>security.restoreFamily(actor(),id,reason||""));
   register("security:archiveMember",(id:number,reason:string)=>security.archiveMember(actor(),id,reason));
