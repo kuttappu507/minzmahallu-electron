@@ -1,6 +1,7 @@
 import { app, ipcMain } from "electron";
 import path from "node:path";
 import * as data from "./services/data.service.js";
+import { changePassword } from "./services/auth.service.js";
 import { security, type Actor } from "./services/security.service.js";
 import { createBackup, listBackups, verifyBackup, extractVerifiedBackup } from "./services/backup.service.js";
 import { closeDB, getDB } from "./db/connection.js";
@@ -11,6 +12,15 @@ function register(name: string, handler: (...args: any[]) => any) { try { ipcMai
 export function registerSecurityIpc(getActor: ActorProvider) {
   const actor = (): Actor => { const current=getActor(); if(!current) throw new Error("Authentication is required for this operation"); return current; };
   const admin = (): Actor => { const current = actor(); if (current.role !== "Administrator") throw new Error("Administrator permission is required for this operation"); return current; };
+
+  // The legacy main-process password handler is replaced here so a stale
+  // renderer call after logout can never reuse auth.service's old actor state.
+  register("auth:changePassword", (userId:number,newPassword:string)=>{
+    const a = actor();
+    if (userId !== a.id && a.role !== "Administrator") throw new Error("You can only change your own password");
+    changePassword(userId,newPassword);
+    return { success:true };
+  });
 
   // Core household security rules.
   register("families:update", (id:number,data:any)=>security.updateFamily(actor(),id,data));
@@ -25,7 +35,7 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   // never be able to create/update records as the fallback user id 1.
   register("families:create", (d:any)=>{actor();return data.families.create(d);});
   register("members:create", (d:any)=>{actor();return data.members.create(d);});
-  register("subscriptions:create", (d:any)=>{actor();return data.subscriptions.create({...d,collectedBy:actor().id});});
+  register("subscriptions:create", (d:any)=>{const a=actor();return data.subscriptions.create({...d,collectedBy:a.id});});
   register("subscriptions:update", (id:number,d:any)=>{actor();return data.subscriptions.update(id,d);});
   register("subscriptions:remove", (id:number)=>{admin();return data.subscriptions.remove(id);});
   register("subscriptions:markOverdue", ()=>{actor();return data.subscriptions.markOverdue();});
@@ -119,8 +129,6 @@ export function registerSecurityIpc(getActor: ActorProvider) {
         deletionType: "temporary_token_after_event",
       });
 
-      // Audit first, inside the same transaction. If this INSERT fails, the
-      // transaction rolls back and the token remains untouched.
       db.prepare(`
         INSERT INTO audit_log
           (user_id, username, action, module, entity_id, description, metadata, created_at)
@@ -151,7 +159,7 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("security:createFamilyFromMembers",(ids:number[],familyData:any,headMemberId:number,reason:string)=>security.createFamilyFromMembers(actor(),ids,familyData,headMemberId,reason));
 
   register("backup:create", async (destination?:string)=>{
-    const a=admin();
+    admin();
     const file=destination||path.join(app.getPath("userData"),`backup-${new Date().toISOString().replace(/[:.]/g,"-")}.mmbak`);
     return createBackup(file);
   });
