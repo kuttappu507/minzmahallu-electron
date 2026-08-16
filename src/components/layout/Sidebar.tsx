@@ -23,7 +23,7 @@ export function Sidebar(){
  const newLabel=ml?"പുതിയത്":"NEW";
  const collapseLabel=ml?"സൈഡ്ബാർ ചുരുക്കുക":"Collapse sidebar";
  return <aside className={cn("sidebar islamic-pattern",collapsed&&"min")}>
-  <div className="sb-logo"><span className="logo"><b>M</b></span>{!collapsed&&<div className="nm"><b>MMS</b><small>MINZ MAHALLU</small></div>}</div>
+  <div className="sb-logo"><span className="logo"><b>M</b></span>{!collapsed&&<div className="nm"><b>MMS</b><small>{t("app_name")}</small></div>}</div>
   <div className="navscroll" onMouseLeave={()=>setTip(null)}>
    {NAV.map((item,i)=>{if(item.sec)return <div key={`sec-${i}`} className="navsec">{collapsed?"":sectionText(item.sec)}</div>;const Icon=item.icon!;return <NavLink key={item.id} to={item.to!} end={item.to==="/"} className={({isActive})=>cn("navit",TINTS[item.id!],isActive&&"on")} onMouseEnter={e=>{if(collapsed){const r=e.currentTarget.getBoundingClientRect();setTip({text:t(item.key!),top:r.top+r.height/2});}}}><Icon className="ic" size={18} strokeWidth={2}/>{!collapsed&&<b>{t(item.key!)}</b>}{!collapsed&&item.badge&&<span className="navbadge">{newLabel}</span>}</NavLink>})}
   </div>
