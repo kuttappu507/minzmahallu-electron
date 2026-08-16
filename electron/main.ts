@@ -11,6 +11,7 @@ import { closeDB, getDB } from "./db/connection.js";
 import { buildTokenSheetHtml } from "./print/token.template.js";
 import { buildCollectionSheetHtml } from "./print/collection-sheet.template.js";
 import { buildCertificateHtml } from "./print/certificate.template.js";
+import { registerSecurityIpc } from "./security-ipc.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -317,6 +318,10 @@ app.whenReady().then(() => {
       return { success: true, path: saveResult.filePath, count: tokenList.length };
     } catch (err: any) { return { success: false, error: err.message }; }
   });
+
+  // Replace the legacy family/member mutation routes with protected handlers
+  // after every legacy handler has been registered.
+  registerSecurityIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null);
 
   createWindow();
   app.on("activate", () => {
