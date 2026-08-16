@@ -8,18 +8,6 @@
  *
  * Native module (better_sqlite3.node) is unpacked from the asar via
  * `asarUnpack` so Node's `require()` can load it.
- *
- * Migration strategy:
- *  - Fresh install: load schema.sql + seed.sql, then run migrations.
- *  - Existing install: just run pending migrations.
- *  - Each migration is wrapped in a transaction. If the SQL fails
- *    with a benign error (duplicate column / already exists), we
- *    record the version anyway so we don't retry forever.
- *  - Version record uses INSERT OR IGNORE so migration files that
- *    contain their own INSERT INTO schema_version (legacy pattern)
- *    don't cause UNIQUE constraint failures.
- *  - If init fails, we attempt to delete the corrupted DB and retry
- *    once with a fresh install.
  */
 import Database from "better-sqlite3";
 import path from "node:path";
@@ -28,14 +16,11 @@ import { app, dialog } from "electron";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
 export type DB = Database.Database;
-
 let db: DB | null = null;
 
 function resourcesDir(): string {
   const candidates: string[] = [];
-
   if (app.isPackaged) {
     candidates.push(path.join(process.resourcesPath, "resources"));
     candidates.push(process.resourcesPath);
@@ -44,15 +29,10 @@ function resourcesDir(): string {
     candidates.push(path.join(process.cwd(), "resources"));
     candidates.push(path.join(app.getAppPath(), "resources"));
   }
-
   for (const c of candidates) {
-    if (fs.existsSync(path.join(c, "sql", "schema.sql"))) {
-      console.log(`[db] Found SQL files at: ${c}`);
-      return c;
-    }
+    if (fs.existsSync(path.join(c, "sql", "schema.sql"))) return c;
   }
-  console.error("[db] Could not find SQL files in any candidate path:", candidates);
-  return candidates[0];
+  throw new Error(`Could not find SQL resources. Checked: ${candidates.join(", ")}`);
 }
 
 function userDataDir(): string {
@@ -65,22 +45,27 @@ function dbPath(): string {
   return path.join(userDataDir(), "mms.db");
 }
 
-/** Delete the DB file + WAL + SHM. Use when the DB is corrupted. */
-function deleteDb() {
+/**
+ * Never silently delete a user's database. Keep a recoverable backup instead.
+ */
+function backupDb(): string | null {
   const p = dbPath();
-  for (const f of [p, p + "-wal", p + "-shm"]) {
-    if (fs.existsSync(f)) {
-      try { fs.unlinkSync(f); } catch (e) { console.warn(`[db] Could not delete ${f}:`, e); }
+  if (!fs.existsSync(p)) return null;
+  const backup = `${p}.corrupt-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  for (const suffix of ["", "-wal", "-shm"]) {
+    const source = p + suffix;
+    if (!fs.existsSync(source)) continue;
+    const target = backup + suffix;
+    try { fs.renameSync(source, target); } catch (e) {
+      console.warn(`[db] Could not preserve ${source}:`, e);
     }
   }
+  return backup;
 }
 
 export function getDB(): DB {
   if (db) return db;
-
   const p = dbPath();
-  console.log(`[db] Opening database at: ${p}`);
-
   try {
     db = new Database(p);
     db.pragma("journal_mode = WAL");
@@ -88,145 +73,82 @@ export function getDB(): DB {
     initializeSchema(db);
   } catch (err) {
     console.error("[db] First init attempt failed:", err);
-
-    // Close the failed connection
     if (db) { try { db.close(); } catch {} db = null; }
 
-    // Ask the user if they want to reset the database
     const choice = dialog.showMessageBoxSync({
-      type: "question",
+      type: "error",
       title: "MMS — Database Error",
-      message: "Failed to initialize the database.",
+      message: "The existing database could not be opened safely.",
       detail: `Error: ${err instanceof Error ? err.message : String(err)}\n\n` +
-        `This may be due to a corrupted database from a previous build.\n\n` +
-        `Click "Yes" to delete the old database and create a fresh one. ` +
-        `Your existing data will be lost but the app will work.\n\n` +
-        `Click "No" to continue with the broken database (login may fail).`,
-      buttons: ["Yes — Reset Database", "No — Continue Anyway"],
-      defaultId: 0,
+        "Your existing database will NOT be deleted.\n" +
+        "Choose Yes only if you want to preserve the current file as a backup and create a fresh database.",
+      buttons: ["Yes — Create Fresh Database", "No — Exit"],
+      defaultId: 1,
       cancelId: 1,
     });
 
-    if (choice === 0) {
-      console.log("[db] User chose to reset database. Deleting old DB...");
-      deleteDb();
-      try {
-        db = new Database(p);
-        db.pragma("journal_mode = WAL");
-        db.pragma("foreign_keys = ON");
-        initializeSchema(db);
-        console.log("[db] Database reset successful — fresh install created");
-        dialog.showMessageBoxSync({
-          type: "info",
-          title: "MMS — Database Reset",
-          message: "The database has been reset successfully.",
-          detail: "A fresh database was created with seed data. You can now log in with admin / admin123.",
-          buttons: ["OK"],
-        });
-      } catch (retryErr) {
-        console.error("[db] Reset also failed:", retryErr);
-        dialog.showErrorBox(
-          "MMS — Fatal Database Error",
-          `Could not create a fresh database either:\n\n${retryErr instanceof Error ? retryErr.message : String(retryErr)}\n\n` +
-          `Please check write permissions for:\n${p}`
-        );
-        // Create an in-memory dummy DB so the app doesn't crash on startup
-        // (login will still fail, but at least the UI loads)
-        db = new Database(":memory:");
-      }
-    } else {
-      console.log("[db] User chose to continue with broken DB — creating in-memory fallback");
-      // Create an in-memory dummy so the app doesn't crash
-      // Login will fail but the UI will load
-      db = new Database(":memory:");
+    if (choice !== 0) {
+      throw new Error("Database initialization failed; existing data was preserved");
+    }
+
+    const backup = backupDb();
+    try {
+      db = new Database(p);
+      db.pragma("journal_mode = WAL");
+      db.pragma("foreign_keys = ON");
+      initializeSchema(db);
+      dialog.showMessageBoxSync({
+        type: "warning",
+        title: "MMS — Fresh Database Created",
+        message: "A new database was created.",
+        detail: `The previous database was preserved here:\n${backup ?? "(no previous database file found)"}\n\n` +
+          "Do not overwrite or delete that backup until the data has been verified.",
+        buttons: ["OK"],
+      });
+    } catch (retryErr) {
+      if (db) { try { db.close(); } catch {} db = null; }
+      throw new Error(`Could not create a fresh database: ${retryErr instanceof Error ? retryErr.message : String(retryErr)}`);
     }
   }
-
   return db;
 }
 
 function initializeSchema(database: DB) {
-  try {
-    const hasSchemaVersion = database
-      .prepare(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_version'"
-      )
-      .get() as { name: string } | undefined;
+  const hasSchemaVersion = database
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='schema_version'")
+    .get() as { name: string } | undefined;
 
-    if (!hasSchemaVersion) {
-      // Fresh install — load schema + seed
-      const sqlDir = path.join(resourcesDir(), "sql");
-      const schemaPath = path.join(sqlDir, "schema.sql");
-      const seedPath = path.join(sqlDir, "seed.sql");
-
-      if (!fs.existsSync(schemaPath)) {
-        console.error(`[db] Schema file not found at: ${schemaPath}`);
-        throw new Error(`Schema file not found: ${schemaPath}`);
-      }
-
-      console.log(`[db] Fresh install — loading schema from ${schemaPath}`);
-      const schema = fs.readFileSync(schemaPath, "utf-8");
-      database.exec(schema);
-      console.log("[db] Schema loaded");
-
-      if (fs.existsSync(seedPath)) {
-        console.log(`[db] Loading seed data from ${seedPath}`);
-        const seed = fs.readFileSync(seedPath, "utf-8");
-        database.exec(seed);
-        console.log("[db] Seed data loaded");
-      }
-    } else {
-      console.log("[db] Existing database — checking for pending migrations");
-    }
-
-    // ===== ALWAYS run pending migrations (works for both fresh + existing) =====
-    applyMigrations(database);
-
-    // Verify users table exists and has at least one row
-    const userCount = database
-      .prepare("SELECT COUNT(*) AS c FROM users")
-      .get() as { c: number };
-    console.log(`[db] Users table has ${userCount.c} rows`);
-    if (userCount.c === 0) {
-      console.error("[db] WARNING: users table is empty — login will fail!");
-    }
-  } catch (err) {
-    console.error("[db] Schema initialization failed:", err);
-    throw err;
+  if (!hasSchemaVersion) {
+    const sqlDir = path.join(resourcesDir(), "sql");
+    const schemaPath = path.join(sqlDir, "schema.sql");
+    const seedPath = path.join(sqlDir, "seed.sql");
+    if (!fs.existsSync(schemaPath)) throw new Error(`Schema file not found: ${schemaPath}`);
+    database.exec(fs.readFileSync(schemaPath, "utf-8"));
+    if (fs.existsSync(seedPath)) database.exec(fs.readFileSync(seedPath, "utf-8"));
   }
+
+  applyMigrations(database);
+  const userCount = database.prepare("SELECT COUNT(*) AS c FROM users").get() as { c: number };
+  if (userCount.c === 0) console.warn("[db] users table is empty — login may fail");
 }
 
 function applyMigrations(database: DB) {
   const migDir = path.join(resourcesDir(), "sql", "migrations");
-  if (!fs.existsSync(migDir)) {
-    console.log("[db] No migrations directory — skipping");
-    return;
-  }
+  if (!fs.existsSync(migDir)) return;
 
-  const files = fs
-    .readdirSync(migDir)
+  const files = fs.readdirSync(migDir)
     .filter((f) => /^V\d+.*\.sql$/i.test(f))
     .sort();
 
-  const current = (
-    database
-      .prepare("SELECT MAX(version) AS v FROM schema_version")
-      .get() as { v: number | null }
-  ).v ?? 0;
-
-  console.log(`[db] Current schema version: ${current}, available migrations: ${files.length}`);
+  const current = (database.prepare("SELECT MAX(version) AS v FROM schema_version").get() as { v: number | null }).v ?? 0;
 
   for (const f of files) {
     const m = f.match(/^V(\d+)/);
     if (!m) continue;
     const v = parseInt(m[1], 10);
-    if (v <= current) {
-      console.log(`[db] Skipping migration ${f} (already applied)`);
-      continue;
-    }
+    if (v <= current) continue;
 
-    const sqlPath = path.join(migDir, f);
-    const sql = fs.readFileSync(sqlPath, "utf-8");
+    const sql = fs.readFileSync(path.join(migDir, f), "utf-8");
     console.log(`[db] Applying migration ${f} (v${v})...`);
 
     try {
@@ -235,8 +157,10 @@ function applyMigrations(database: DB) {
         database.exec(sql);
       } catch (sqlErr) {
         const msg = String(sqlErr);
+        // A duplicate/already-existing object is safe only when the migration
+        // is otherwise idempotent. Roll back the failed statement and record it.
         if (/duplicate column|already exists/i.test(msg)) {
-          console.warn(`[db] Migration ${f}: SQL had benign error (${msg.split("\n")[0].slice(0, 100)}), recording version anyway`);
+          console.warn(`[db] Migration ${f} reported an existing object; continuing as idempotent: ${msg.split("\n")[0]}`);
           database.exec("ROLLBACK");
           database.exec("BEGIN");
         } else {
@@ -244,48 +168,37 @@ function applyMigrations(database: DB) {
           throw sqlErr;
         }
       }
-      database
-        .prepare(
-          "INSERT OR IGNORE INTO schema_version (version, description) VALUES (?, ?)"
-        )
-        .run(v, f);
+      database.prepare("INSERT OR IGNORE INTO schema_version (version, description) VALUES (?, ?)").run(v, f);
       database.exec("COMMIT");
       console.log(`[db] Applied migration ${f}`);
     } catch (err) {
       try { database.exec("ROLLBACK"); } catch {}
-      console.error(`[db] Migration ${f} failed:`, err);
+      // A failed migration must stop startup. Continuing with a partially
+      // migrated schema is more dangerous than refusing to open the database.
+      throw new Error(`Migration ${f} failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 }
 
 export function closeDB() {
-  if (db) {
-    db.close();
-    db = null;
-  }
+  if (db) { db.close(); db = null; }
 }
 
-// Helper for prepared SELECT-all
 export function all<T = any>(sql: string, params: any[] = []): T[] {
   return getDB().prepare(sql).all(...params) as T[];
 }
 
-// Helper for SELECT-one
 export function one<T = any>(sql: string, params: any[] = []): T | undefined {
   return getDB().prepare(sql).get(...params) as T | undefined;
 }
 
-// Helper for INSERT/UPDATE/DELETE — returns lastInsertRowid / changes
 export function run(sql: string, params: any[] = []): { id: number; changes: number } {
-  const stmt = getDB().prepare(sql);
-  const info = stmt.run(...params);
+  const info = getDB().prepare(sql).run(...params);
   return { id: Number(info.lastInsertRowid), changes: info.changes };
 }
 
-// Scalar
 export function scalar<T = any>(sql: string, params: any[] = []): T {
   const row = one(sql, params) as Record<string, any> | undefined;
   if (!row) return 0 as any;
-  const vals = Object.values(row);
-  return (vals[0] ?? 0) as T;
+  return (Object.values(row)[0] ?? 0) as T;
 }
