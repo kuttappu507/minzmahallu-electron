@@ -26,7 +26,7 @@
     "@radix-ui/react-avatar": "^1.1.1",
     "@radix-ui/react-dialog": "^1.1.1",
     "@radix-ui/react-label": "^1.1.0",
-    "@radix-ui/react-popover": "^1.1.1",
+    "@radix-ui/react-popover": "^1.1.0",
     "@radix-ui/react-select": "^2.1.0",
     "@radix-ui/react-separator": "^1.1.0",
     "@radix-ui/react-slot": "^1.1.0",
@@ -39,8 +39,8 @@
     "date-fns": "^4.1.0",
     "framer-motion": "^13.1.0",
     "lucide-react": "^0.454.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
     "react-router-dom": "^6.28.0",
     "recharts": "^2.13.3",
     "tailwind-merge": "^2.5.4",
@@ -69,44 +69,16 @@
   "build": {
     "appId": "com.mms.minzmahallu",
     "productName": "Minz Mahallu Management System",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "dist-electron/**/*",
-      "resources/**/*"
-    ],
-    "extraResources": [
-      {
-        "from": "resources",
-        "to": "resources"
-      }
-    ],
+    "directories": { "output": "release" },
+    "files": ["dist/**/*", "dist-electron/**/*", "resources/**/*"],
+    "extraResources": [{ "from": "resources", "to": "resources" }],
     "asar": true,
-    "asarUnpack": [
-      "**/*.node",
-      "node_modules/better-sqlite3/**",
-      "node_modules/bindings/**",
-      "node_modules/file-uri-to-path/**"
-    ],
+    "asarUnpack": ["**/*.node", "node_modules/better-sqlite3/**", "node_modules/bindings/**", "node_modules/file-uri-to-path/**"],
     "npmRebuild": true,
     "nodeGypRebuild": false,
     "buildDependenciesFromSource": false,
-    "win": {
-      "target": [
-        "nsis",
-        "portable"
-      ],
-      "icon": "public/icon.ico"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "perMachine": false
-    },
-    "portable": {
-      "artifactName": "MMS-React-Portable-${version}.exe"
-    }
+    "win": { "target": ["nsis", "portable"], "icon": "public/icon.ico" },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "perMachine": false },
+    "portable": { "artifactName": "MMS-React-Portable-${version}.exe" }
   }
 }
