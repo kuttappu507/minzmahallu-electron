@@ -4,26 +4,10 @@ import { useI18n } from "@/i18n";
 import { useNavigate } from "react-router-dom";
 
 type Result = { id: number | string; type: string; title: string; subtitle?: string; route: string; icon: any };
-
-const SOURCES = [
-  ["families", "/families", Home, "families"],
-  ["members", "/members", Users, "members"],
-  ["subscriptions", "/subscriptions", Receipt, "subscriptions"],
-  ["donations", "/donations", Gift, "donations"],
-  ["accounting", "/accounting", Calculator, "accounting"],
-  ["marriages", "/marriages", Gem, "marriages"],
-  ["deaths", "/deaths", Flower, "deaths"],
-  ["welfare", "/welfare", Activity, "welfare"],
-  ["certificates", "/certificates", Award, "certificates"],
-  ["tokens", "/tokens", Ticket, "tokens"],
-] as const;
-
+const SOURCES = [["families", "/families", Home, "families"],["members", "/members", Users, "members"],["subscriptions", "/subscriptions", Receipt, "subscriptions"],["donations", "/donations", Gift, "donations"],["accounting", "/accounting", Calculator, "accounting"],["marriages", "/marriages", Gem, "marriages"],["deaths", "/deaths", Flower, "deaths"],["welfare", "/welfare", Activity, "welfare"],["certificates", "/certificates", Award, "certificates"],["tokens", "/tokens", Ticket, "tokens"]] as const;
 const LABELS: Record<string, [string, string]> = {
-  families: ["Families", "കുടുംബങ്ങൾ"], members: ["Members", "അംഗങ്ങൾ"], subscriptions: ["Subscriptions", "വരിസംഖ്യ"],
-  donations: ["Donations", "സംഭാവനകൾ"], accounting: ["Accounting", "അക്കൗണ്ടിംഗ്"], marriages: ["Marriage", "വിവാഹ രജിസ്റ്റർ"],
-  deaths: ["Death", "മരണ രജിസ്റ്റർ"], welfare: ["Welfare", "ക്ഷേമം"], certificates: ["Certificates", "സർട്ടിഫിക്കറ്റുകൾ"], tokens: ["Tokens", "ടോക്കണുകൾ"],
+  families: ["Families", "കുടുംബങ്ങൾ"], members: ["Members", "അംഗങ്ങൾ"], subscriptions: ["Subscriptions", "വരിസംഖ്യ"], donations: ["Donations", "സംഭാവനകൾ"], accounting: ["Accounting", "അക്കൗണ്ടിംഗ്"], marriages: ["Marriage", "വിവാഹ രജിസ്റ്റർ"], deaths: ["Death", "മരണ രജിസ്റ്റർ"], welfare: ["Welfare", "ക്ഷേമം"], certificates: ["Certificates", "സർട്ടിഫിക്കറ്റുകൾ"], tokens: ["Tokens", "ടോക്കണുകൾ"],
 };
-
 function pickTitle(type: string, row: any) {
   if (type === "families") return row.house_name || row.family_number || "Family";
   if (type === "members") return row.name || row.member_code || "Member";
@@ -37,7 +21,6 @@ function pickTitle(type: string, row: any) {
   if (type === "tokens") return row.token_code || row.token_number || "Token";
   return "Record";
 }
-
 function pickSubtitle(type: string, row: any) {
   if (type === "families") return [row.family_number, row.house_number, row.phone].filter(Boolean).join(" · ");
   if (type === "members") return [row.member_code, row.family_number, row.mobile].filter(Boolean).join(" · ");
@@ -51,15 +34,13 @@ function pickSubtitle(type: string, row: any) {
   if (type === "tokens") return [row.token_code, row.event_name].filter(Boolean).join(" · ");
   return "";
 }
-
 export function GlobalSearch({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [results, setResults] = useState<Result[]>([]);
   const [loading, setLoading] = useState(false);
   const ml = lang === "ml";
-
   useEffect(() => {
     const q = value.trim();
     if (q.length < 2) { setResults([]); setOpen(false); return; }
@@ -69,14 +50,10 @@ export function GlobalSearch({ value, onChange }: { value: string; onChange: (va
       try {
         const api: any = (window as any).mms;
         const found: Result[] = [];
-        await Promise.all(SOURCES.map(async ([type, route, icon, key]) => {
+        await Promise.all(SOURCES.map(async ([type, route, Icon]) => {
           try {
-            const service = api?.[type];
-            if (!service?.list) return;
-            const response = await service.list({ search: q, page: 1, pageSize: 5 });
-            for (const row of response?.rows || []) {
-              found.push({ id: row.id, type: key, title: pickTitle(key, row), subtitle: pickSubtitle(key, row), route, icon });
-            }
+            const result = await api[type].list({ search: q, page: 1, pageSize: 5 });
+            for (const row of (result?.rows || []).slice(0, 5)) found.push({ id: row.id, type, title: pickTitle(type, row), subtitle: pickSubtitle(type, row), route, icon: Icon });
           } catch { /* one unavailable module must not break global search */ }
         }));
         if (!cancelled) { setResults(found.slice(0, 15)); setOpen(true); }
@@ -84,12 +61,9 @@ export function GlobalSearch({ value, onChange }: { value: string; onChange: (va
     }, 220);
     return () => { cancelled = true; window.clearTimeout(timer); };
   }, [value]);
-
   const grouped = useMemo(() => results.reduce<Record<string, Result[]>>((acc, item) => { (acc[item.type] ||= []).push(item); return acc; }, {}), [results]);
-
   const close = () => { setOpen(false); onChange(""); };
   const select = (item: Result) => { setOpen(false); onChange(""); navigate(item.route); };
-
   return <div className="global-search" data-global-search>
     <Search className="global-search-icon" size={16} strokeWidth={2} />
     <input value={value} onChange={e => onChange(e.target.value)} onFocus={() => value.trim().length >= 2 && setOpen(true)} placeholder={ml ? "കുടുംബം, അംഗം, സർട്ടിഫിക്കറ്റ്..." : "Search families, members, certificates..."} aria-label={ml ? "തിരയുക" : "Global search"} />
@@ -99,9 +73,7 @@ export function GlobalSearch({ value, onChange }: { value: string; onChange: (va
       {!loading && results.length === 0 && <div className="global-search-empty">{ml ? "രേഖകൾ കണ്ടെത്തിയില്ല" : "No matching records"}</div>}
       {!loading && Object.entries(grouped).map(([type, items]) => <section key={type} className="global-search-group">
         <div className="global-search-group-title">{ml ? LABELS[type][1] : LABELS[type][0]}</div>
-        {items.map(item => { const Icon = item.icon; return <button key={`${type}-${item.id}`} className="global-search-result" type="button" onMouseDown={e => e.preventDefault()} onClick={() => select(item)}>
-          <span className="global-search-result-icon"><Icon size={15} /></span><span className="global-search-result-copy"><b>{item.title}</b>{item.subtitle && <small>{item.subtitle}</small>}</span>
-        </button>; })}
+        {items.map(item => { const Icon = item.icon; return <button key={`${type}-${item.id}`} className="global-search-result" type="button" onMouseDown={e => e.preventDefault()} onClick={() => select(item)}><div className="global-search-result-icon"><Icon size={15} /></div><div className="global-search-result-body"><b>{item.title}</b><span>{item.subtitle}</span></div></button>; })}
       </section>)}
     </div>}
   </div>;
