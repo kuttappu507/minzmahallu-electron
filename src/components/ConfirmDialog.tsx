@@ -5,6 +5,7 @@
 import { AlertTriangle } from "lucide-react";
 import { Dialog, Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 export interface ConfirmDialogProps {
   open: boolean;
@@ -21,15 +22,21 @@ export function ConfirmDialog({
   open,
   onClose,
   onConfirm,
-  title = "Confirm Delete",
-  description = "Are you sure you want to delete this record? This action cannot be undone.",
-  confirmLabel = "Delete",
-  cancelLabel = "Cancel",
+  title,
+  description,
+  confirmLabel,
+  cancelLabel,
   danger = true,
 }: ConfirmDialogProps) {
+  const { t } = useI18n();
+  const resolvedTitle = title ?? t("ui_confirm_delete");
+  const resolvedDescription = description ?? t("ui_confirm_delete");
+  const resolvedConfirm = confirmLabel ?? t("action_delete");
+  const resolvedCancel = cancelLabel ?? t("action_cancel");
+
   if (!open) return null;
   return (
-    <Dialog open={open} onClose={onClose} title={title}>
+    <Dialog open={open} onClose={onClose} title={resolvedTitle}>
       <div className="dlg-pad">
         <div className={cn("dlg-hero", danger ? "t-rose" : "t-em")}>
           <div className="dlg-hero-ic">
@@ -37,17 +44,17 @@ export function ConfirmDialog({
           </div>
           <div className="dlg-hero-body">
             <div className="dlg-hero-title">
-              {description}
+              {resolvedDescription}
             </div>
             <div className="dlg-hero-sub">
-              This action is permanent — the record will be removed from the database.
+              {t("ui_permanent_action")}
             </div>
           </div>
         </div>
 
         <div className="dlg-actions">
           <Button variant="secondary" onClick={onClose}>
-            {cancelLabel}
+            {resolvedCancel}
           </Button>
           <Button
             variant={danger ? "danger" : "primary"}
@@ -55,7 +62,7 @@ export function ConfirmDialog({
               await onConfirm();
             }}
           >
-            {confirmLabel}
+            {resolvedConfirm}
           </Button>
         </div>
       </div>
