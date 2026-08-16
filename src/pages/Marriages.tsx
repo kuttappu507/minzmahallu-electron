@@ -271,7 +271,7 @@ export function Marriages() {
         <div className="p-6 space-y-5">
           {/* Bride section */}
           <div>
-            <SectionLabel>Bride Details</SectionLabel>
+            <SectionLabel>{t("mrg_bride_details")}</SectionLabel>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>{t("mrg_bride")} *</Label>
@@ -290,7 +290,7 @@ export function Marriages() {
 
           {/* Groom section */}
           <div>
-            <SectionLabel>Groom Details</SectionLabel>
+            <SectionLabel>{t("mrg_groom_details")}</SectionLabel>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>{t("mrg_groom")} *</Label>
@@ -309,7 +309,7 @@ export function Marriages() {
 
           {/* Witnesses */}
           <div>
-            <SectionLabel>Witnesses</SectionLabel>
+            <SectionLabel>{t("mrg_witnesses")}</SectionLabel>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>{t("ui_witness_n")} 1</Label>
@@ -332,7 +332,7 @@ export function Marriages() {
 
           {/* Other details */}
           <div>
-            <SectionLabel>Other Details</SectionLabel>
+            <SectionLabel>{t("mrg_other_details")}</SectionLabel>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>{t("mrg_mahar")}</Label>

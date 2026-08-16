@@ -99,7 +99,7 @@ export function AuditLog() {
         searchPlaceholder="Search by user or description..."
         toolbar={
           <Select value={actionFilter} onChange={(e) => setActionFilter(e.target.value)} className="w-48">
-            <option>All</option>
+            <option value="All">{t("filter_all")}</option>
             <option>CREATE</option>
             <option>UPDATE</option>
             <option>DELETE</option>

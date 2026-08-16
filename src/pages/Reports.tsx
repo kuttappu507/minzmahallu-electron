@@ -353,7 +353,7 @@ export function Reports() {
                   className="btn bs bg"
                   onClick={() => handleExport(rpt, "csv")}
                   disabled={isBusy}
-                  title="Export as CSV"
+                  title={t("rpt_export_csv")}
                 >
                   {isBusy && busyFmt === "csv" ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
                   CSV
@@ -362,7 +362,7 @@ export function Reports() {
                   className="btn bs bg"
                   onClick={() => handleExport(rpt, "excel")}
                   disabled={isBusy}
-                  title="Export as Excel"
+                  title={t("rpt_export_excel")}
                 >
                   {isBusy && busyFmt === "excel" ? <Loader2 size={12} className="animate-spin" /> : <FileSpreadsheet size={12} />}
                   Excel
@@ -371,7 +371,7 @@ export function Reports() {
                   className="btn bs bp"
                   onClick={() => handleExport(rpt, "pdf")}
                   disabled={isBusy}
-                  title="Save as PDF"
+                  title={t("rpt_save_pdf")}
                 >
                   {isBusy && busyFmt === "pdf" ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />}
                   PDF

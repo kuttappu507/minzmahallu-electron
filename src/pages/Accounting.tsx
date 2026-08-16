@@ -153,7 +153,7 @@ export function Accounting() {
     {
       header: t("acc_type"),
       accessor: (r) => (
-        <Badge variant={r.type === "Income" ? "success" : "danger"}>{r.type}</Badge>
+        <Badge variant={r.type === "Income" ? "success" : "danger"}>{t(r.type === "Income" ? "acc_income" : "acc_expense")}</Badge>
       ),
     },
     { header: t("acc_description"), accessor: (r) => r.description || "—" },
@@ -223,7 +223,7 @@ export function Accounting() {
         <div className="stat t-em">
           <div className="srow">
             <span className="sic"><TrendingUp size={18} /></span>
-            <span className="delta">income</span>
+            <span className="delta">{t("acc_income_delta")}</span>
           </div>
           <div className="val">{formatCurrency(totalIncome ?? 0)}</div>
           <div className="slab">{t("acc_income")}</div>
@@ -231,7 +231,7 @@ export function Accounting() {
         <div className="stat t-rose">
           <div className="srow">
             <span className="sic"><TrendingDown size={18} /></span>
-            <span className="delta">expense</span>
+            <span className="delta">{t("acc_expense_delta")}</span>
           </div>
           <div className="val">{formatCurrency(totalExpense ?? 0)}</div>
           <div className="slab">{t("acc_expense")}</div>
@@ -239,7 +239,7 @@ export function Accounting() {
         <div className="stat t-sky">
           <div className="srow">
             <span className="sic"><Scale size={18} /></span>
-            <span className="delta">balance</span>
+            <span className="delta">{t("acc_balance_delta")}</span>
           </div>
           <div className="val">{formatCurrency(balance ?? 0)}</div>
           <div className="slab">{t("acc_balance")}</div>
@@ -261,9 +261,9 @@ export function Accounting() {
         onRowDoubleClick={handleRowDoubleClick}
         toolbar={
           <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-40">
-            <option>All</option>
-            <option>Income</option>
-            <option>Expense</option>
+            <option value="All">{t("filter_all")}</option>
+            <option value="Income">{t("acc_income")}</option>
+            <option value="Expense">{t("acc_expense")}</option>
           </Select>
         }
       />
@@ -286,10 +286,10 @@ export function Accounting() {
                     {previewRow.receipt_number || previewRow.description || "Transaction"}
                   </div>
                   <div className="dlg-hero-sub">
-                    {previewRow.type} · {formatDate(previewRow.txn_date)} · {formatCurrency(previewRow.amount)}
+                    {t(previewRow.type === "Income" ? "acc_income" : "acc_expense")} · {formatDate(previewRow.txn_date)} · {formatCurrency(previewRow.amount)}
                   </div>
                 </div>
-                <Badge variant={previewRow.type === "Income" ? "success" : "danger"}>{previewRow.type}</Badge>
+                <Badge variant={previewRow.type === "Income" ? "success" : "danger"}>{t(previewRow.type === "Income" ? "acc_income" : "acc_expense")}</Badge>
               </div>
               <div className="det-grid">
                 {previewDetails.map((d, i) => (
@@ -328,8 +328,8 @@ export function Accounting() {
             <div>
               <Label>{t("acc_type")}</Label>
               <Select value={form.type || "Income"} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-                <option>Income</option>
-                <option>Expense</option>
+                <option value="Income">{t("acc_income")}</option>
+                <option value="Expense">{t("acc_expense")}</option>
               </Select>
             </div>
             <div>
@@ -339,12 +339,12 @@ export function Accounting() {
             <div>
               <Label>{t("sub_method")}</Label>
               <Select value={form.payment_method || "Cash"} onChange={(e) => setForm({ ...form, payment_method: e.target.value })}>
-                <option>Cash</option>
-                <option>Cheque</option>
-                <option>UPI</option>
-                <option>Bank Transfer</option>
-                <option>Card</option>
-                <option>Other</option>
+                <option value="Cash">{t("payment_cash")}</option>
+                <option value="Cheque">{t("payment_cheque")}</option>
+                <option value="UPI">UPI</option>
+                <option value="Bank Transfer">{t("payment_bank_transfer")}</option>
+                <option value="Card">{t("payment_card")}</option>
+                <option value="Other">{t("payment_other")}</option>
               </Select>
             </div>
             <div>

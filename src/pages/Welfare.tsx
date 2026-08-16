@@ -254,18 +254,18 @@ export function Welfare() {
         <div className="stat t-em">
           <div className="srow">
             <span className="sic"><ShieldCheck size={18} /></span>
-            <span className="delta">requested</span>
+            <span className="delta">{t("wel_requested")}</span>
           </div>
           <div className="val">{formatCurrency(totalRequested)}</div>
-          <div className="slab">Total Requested</div>
+          <div className="slab">{t("wel_total_requested")}</div>
         </div>
         <div className="stat t-gold">
           <div className="srow">
             <span className="sic"><Check size={18} /></span>
-            <span className="delta">approved</span>
+            <span className="delta">{t("wel_approved")}</span>
           </div>
           <div className="val">{formatCurrency(totalApproved)}</div>
-          <div className="slab">Total Approved</div>
+          <div className="slab">{t("wel_total_approved")}</div>
         </div>
       </div>
 
@@ -284,11 +284,11 @@ export function Welfare() {
         onRowDoubleClick={handleRowDoubleClick}
         toolbar={
           <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-40">
-            <option>All</option>
-            <option>Pending</option>
-            <option>Approved</option>
-            <option>Rejected</option>
-            <option>Disbursed</option>
+            <option value="All">{t("filter_all")}</option>
+            <option value="Pending">{t("status_pending")}</option>
+            <option value="Approved">{t("status_approved")}</option>
+            <option value="Rejected">{t("status_rejected")}</option>
+            <option value="Disbursed">{t("status_disbursed")}</option>
           </Select>
         }
       />
@@ -377,10 +377,10 @@ export function Welfare() {
             <div>
               <Label>{t("family_status")}</Label>
               <Select value={form.status || "Pending"} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                <option>Pending</option>
-                <option>Approved</option>
-                <option>Rejected</option>
-                <option>Disbursed</option>
+                <option value="Pending">{t("status_pending")}</option>
+                <option value="Approved">{t("status_approved")}</option>
+                <option value="Rejected">{t("status_rejected")}</option>
+                <option value="Disbursed">{t("status_disbursed")}</option>
               </Select>
             </div>
           </div>

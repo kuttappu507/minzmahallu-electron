@@ -93,7 +93,7 @@ export function GlobalSearch({ value, onChange }: { value: string; onChange: (va
   return <div className="global-search" data-global-search>
     <Search className="global-search-icon" size={16} strokeWidth={2} />
     <input value={value} onChange={e => onChange(e.target.value)} onFocus={() => value.trim().length >= 2 && setOpen(true)} placeholder={ml ? "കുടുംബം, അംഗം, സർട്ടിഫിക്കറ്റ്..." : "Search families, members, certificates..."} aria-label={ml ? "തിരയുക" : "Global search"} />
-    {value && <button className="global-search-clear" type="button" onClick={close} aria-label="Clear"><X size={14} /></button>}
+    {value && <button className="global-search-clear" type="button" onClick={close} aria-label={t("ui_clear")}><X size={14} /></button>}
     {open && <div className="global-search-results">
       {loading && <div className="global-search-empty">{ml ? "തിരയുന്നു..." : "Searching..."}</div>}
       {!loading && results.length === 0 && <div className="global-search-empty">{ml ? "രേഖകൾ കണ്ടെത്തിയില്ല" : "No matching records"}</div>}

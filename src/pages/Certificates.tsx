@@ -353,7 +353,7 @@ export function Certificates() {
                   <button
                     onClick={() => setPickSearch("")}
                     className="pick-search-clear"
-                    title="Clear"
+                    title={t("ui_clear")}
                   >
                     ✕
                   </button>

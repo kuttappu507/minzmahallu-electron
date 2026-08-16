@@ -261,9 +261,9 @@ export function Deaths() {
             <div>
               <Label>{t("member_gender")}</Label>
               <Select value={form.gender || "Male"} onChange={(e) => setForm({ ...form, gender: e.target.value })}>
-                <option>Male</option>
-                <option>Female</option>
-                <option>Other</option>
+                <option value="Male">{t("gender_male")}</option>
+                <option value="Female">{t("gender_female")}</option>
+                <option value="Other">{t("gender_other")}</option>
               </Select>
             </div>
             <div>

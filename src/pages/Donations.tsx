@@ -318,12 +318,12 @@ export function Donations() {
             <div>
               <Label>{t("sub_method")}</Label>
               <Select value={form.payment_method || "Cash"} onChange={(e) => setForm({ ...form, payment_method: e.target.value })}>
-                <option>Cash</option>
-                <option>Cheque</option>
-                <option>UPI</option>
-                <option>Bank Transfer</option>
-                <option>Card</option>
-                <option>Other</option>
+                <option value="Cash">{t("payment_cash")}</option>
+                <option value="Cheque">{t("payment_cheque")}</option>
+                <option value="UPI">UPI</option>
+                <option value="Bank Transfer">{t("payment_bank_transfer")}</option>
+                <option value="Card">{t("payment_card")}</option>
+                <option value="Other">{t("payment_other")}</option>
               </Select>
             </div>
             <div>

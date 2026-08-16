@@ -243,18 +243,18 @@ export function Subscriptions() {
         <div className="stat t-em">
           <div className="srow">
             <span className="sic"><Wallet size={18} /></span>
-            <span className="delta">collected</span>
+            <span className="delta">{t("sub_collected")}</span>
           </div>
           <div className="val">{formatCurrency(totalCollected ?? 0)}</div>
-          <div className="slab">Total Collected</div>
+          <div className="slab">{t("sub_total_collected")}</div>
         </div>
         <div className="stat t-rose">
           <div className="srow">
             <span className="sic"><AlertCircle size={18} /></span>
-            <span className="delta">dues</span>
+            <span className="delta">{t("sub_dues")}</span>
           </div>
           <div className="val">{formatCurrency(totalPending ?? 0)}</div>
-          <div className="slab">Pending Dues</div>
+          <div className="slab">{t("sub_pending_dues")}</div>
         </div>
       </div>
 
@@ -273,11 +273,11 @@ export function Subscriptions() {
         onRowDoubleClick={handleRowDoubleClick}
         toolbar={
           <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-40">
-            <option>All</option>
-            <option>Paid</option>
-            <option>Pending</option>
-            <option>Overdue</option>
-            <option>Partial</option>
+            <option value="All">{t("filter_all")}</option>
+            <option value="Paid">{t("status_paid")}</option>
+            <option value="Pending">{t("status_pending")}</option>
+            <option value="Overdue">{t("status_overdue")}</option>
+            <option value="Partial">{t("status_partial")}</option>
           </Select>
         }
       />
@@ -408,21 +408,21 @@ export function Subscriptions() {
             <div>
               <Label>{t("sub_method")}</Label>
               <Select value={form.payment_method || "Cash"} onChange={(e) => setForm({ ...form, payment_method: e.target.value })}>
-                <option>Cash</option>
-                <option>Cheque</option>
-                <option>UPI</option>
-                <option>Bank Transfer</option>
-                <option>Card</option>
-                <option>Other</option>
+                <option value="Cash">{t("payment_cash")}</option>
+                <option value="Cheque">{t("payment_cheque")}</option>
+                <option value="UPI">UPI</option>
+                <option value="Bank Transfer">{t("payment_bank_transfer")}</option>
+                <option value="Card">{t("payment_card")}</option>
+                <option value="Other">{t("payment_other")}</option>
               </Select>
             </div>
             <div>
               <Label>{t("family_status")}</Label>
               <Select value={form.status || "Pending"} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                <option>Paid</option>
-                <option>Pending</option>
-                <option>Overdue</option>
-                <option>Partial</option>
+                <option value="Paid">{t("status_paid")}</option>
+                <option value="Pending">{t("status_pending")}</option>
+                <option value="Overdue">{t("status_overdue")}</option>
+                <option value="Partial">{t("status_partial")}</option>
               </Select>
             </div>
           </div>
