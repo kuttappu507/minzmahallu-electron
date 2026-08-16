@@ -30,26 +30,11 @@ export function Topbar() {
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => { loadNotifications(); }, [location.pathname]);
-
-  const loadNotifications = async () => {
-    try {
-      const entries = await window.mms.audit.list({ page: 1, pageSize: 5 });
-      setNotifications(entries.rows || []);
-    } catch (e) { console.error("Failed to load notifications:", e); }
-  };
-
+  const loadNotifications = async () => { try { const entries = await window.mms.audit.list({ page: 1, pageSize: 5 }); setNotifications(entries.rows || []); } catch (e) { console.error("Failed to load notifications:", e); } };
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest("[data-dropdown]") && !target.closest("[data-global-search]")) {
-        setNotifOpen(false); setAvatarOpen(false);
-      }
-    };
-    const escHandler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { setNotifOpen(false); setAvatarOpen(false); }
-    };
-    document.addEventListener("mousedown", handler);
-    document.addEventListener("keydown", escHandler);
+    const handler = (e: MouseEvent) => { const target = e.target as HTMLElement; if (!target.closest("[data-dropdown]") && !target.closest("[data-global-search]")) { setNotifOpen(false); setAvatarOpen(false); } };
+    const escHandler = (e: KeyboardEvent) => { if (e.key === "Escape") { setNotifOpen(false); setAvatarOpen(false); } };
+    document.addEventListener("mousedown", handler); document.addEventListener("keydown", escHandler);
     return () => { document.removeEventListener("mousedown", handler); document.removeEventListener("keydown", escHandler); };
   }, []);
 
@@ -57,13 +42,9 @@ export function Topbar() {
     try {
       toast.info(t("tb_creating_backup"));
       const result = await window.mms.backup.create();
-      if (result && result.success === false) {
-        if (result.error !== "cancelled") toast.error(result.error || t("tb_backup_failed"));
-        return;
-      }
+      if (result && result.success === false) { if (result.error !== "cancelled") toast.error(result.error || t("tb_backup_failed")); return; }
       const path: string | undefined = typeof result === "string" ? result : result?.path;
-      if (path) toast.success(t("tb_backup_saved") + ": " + path.split(/[\\/]/).pop());
-      else toast.success(t("tb_backup_created"));
+      if (path) toast.success(t("tb_backup_saved") + ": " + path.split(/[\\/]/).pop()); else toast.success(t("tb_backup_created"));
     } catch (e: any) { toast.error(e.message || t("tb_backup_failed")); }
   };
 
@@ -75,9 +56,9 @@ export function Topbar() {
     setSavingPwd(true);
     try {
       const result: any = await window.mms.auth.changePassword(user.id, newPwd);
-      if (result && result.success === false) throw new Error(result.error || "Failed to change password");
+      if (result && result.success === false) throw new Error(result.error || t("ui_failed_save"));
       toast.success(t("tb_pwd_updated")); setNewPwd(""); setConfirmPwd(""); setProfileOpen(false);
-    } catch (e: any) { toast.error(e.message || "Failed to change password"); }
+    } catch (e: any) { toast.error(e.message || t("ui_failed_save")); }
     finally { setSavingPwd(false); }
   };
 
@@ -94,27 +75,17 @@ export function Topbar() {
       <div className="crumb"><small>{t("app_name")} /</small><b>{pageTitle}</b></div>
       <GlobalSearch value={searchQuery} onChange={setSearchQuery} />
       <div className="tb-right">
-        <div className="langseg">
-          <button type="button" className={lang === "en" ? "on" : ""} onClick={() => setLang("en")} title="English">EN</button>
-          <button type="button" className={lang === "ml" ? "on" : ""} onClick={() => setLang("ml")} title="മലയാളം">മല</button>
-        </div>
+        <div className="langseg"><button type="button" className={lang === "en" ? "on" : ""} onClick={() => setLang("en")} title="English">EN</button><button type="button" className={lang === "ml" ? "on" : ""} onClick={() => setLang("ml")} title="മലയാളം">മല</button></div>
         <button className="ibtn" onClick={toggle} title={t("tb_toggle_theme")}>{theme === "dark" ? <Sun size={17} strokeWidth={2} /> : <Moon size={17} strokeWidth={2} />}</button>
-        <div data-dropdown className="relative">
-          <button className="ibtn" title={t("tb_notifications")} onClick={(e) => { e.stopPropagation(); setNotifOpen(!notifOpen); setAvatarOpen(false); if (!notifOpen) loadNotifications(); }}><Bell size={17} strokeWidth={2} />{notifications.length > 0 && <span className="notif-dot">{notifications.length}</span>}</button>
+        <div data-dropdown className="relative"><button className="ibtn" title={t("tb_notifications")} onClick={(e) => { e.stopPropagation(); setNotifOpen(!notifOpen); setAvatarOpen(false); if (!notifOpen) loadNotifications(); }}><Bell size={17} strokeWidth={2} />{notifications.length > 0 && <span className="notif-dot">{notifications.length}</span>}</button>
           {notifOpen && <div className="dropdown-fixed notif-dropdown"><div className="dropdown-head"><b>{t("tb_notifications")}</b><button onClick={(e) => { e.stopPropagation(); loadNotifications(); }}>{t("action_refresh")}</button></div>{notifications.length === 0 ? <div className="dropdown-empty">{t("tb_no_notifications")}</div> : notifications.map((n, i) => <div key={n.id || i} className="notif-row" onClick={() => { setNotifOpen(false); navigate("/audit"); }}><div className={`notif-ic ${notifTintClass(n.action)}`}><Bell size={14} /></div><div className="notif-body"><b>{n.description || n.action}</b><p>{n.username} · {n.module}</p></div><time className="notif-time">{formatTime(n.created_at)}</time></div>)}</div>}
         </div>
-        <button className="ibtn" title={t("tb_quick_backup")} onClick={handleQuickBackup}><Database size={17} strokeWidth={2} /></button>
-        <div className="tbdiv" />
-        <div data-dropdown className="relative">
-          <button className="avbtn" onClick={(e) => { e.stopPropagation(); setAvatarOpen(!avatarOpen); setNotifOpen(false); }}><span className="av">{initials}</span><b>{user?.username ?? "—"}</b><ChevronDown size={14} className="chev" /></button>
+        <button className="ibtn" title={t("tb_quick_backup")} onClick={handleQuickBackup}><Database size={17} strokeWidth={2} /></button><div className="tbdiv" />
+        <div data-dropdown className="relative"><button className="avbtn" onClick={(e) => { e.stopPropagation(); setAvatarOpen(!avatarOpen); setNotifOpen(false); }}><span className="av">{initials}</span><b>{user?.username ?? "—"}</b><ChevronDown size={14} className="chev" /></button>
           {avatarOpen && <div className="dropdown-fixed avatar-dropdown"><div className="dropdown-head"><b className="dlg-hero-title">{user?.fullName}</b><small className="dlg-hero-sub">{user?.role}</small></div><button className="menuit-btn" onClick={() => { setAvatarOpen(false); setProfileOpen(true); }}><User size={15} /> {t("tb_profile")}</button><button className="menuit-btn" onClick={() => { setAvatarOpen(false); navigate("/settings"); }}><Settings size={15} /> {t("tb_settings")}</button><div className="menu-divider" /><button className="menuit-btn danger" onClick={handleLogout}><LogOut size={15} /> {t("action_logout")}</button></div>}
         </div>
       </div>
-      <div className="win-controls">
-        <button className="win-btn" onClick={() => window.mms.win.minimize()} title={t("tb_minimize")}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M5 12h14" /></svg></button>
-        <button className="win-btn" onClick={() => window.mms.win.maximize()} title={t("tb_maximize")}><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="5" y="5" width="14" height="14" rx="2" /></svg></button>
-        <button className="win-btn win-close" onClick={() => window.mms.win.close()} title={t("ui_close")}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
-      </div>
+      <div className="win-controls"><button className="win-btn" onClick={() => window.mms.win.minimize()} title={t("tb_minimize")}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M5 12h14" /></svg></button><button className="win-btn" onClick={() => window.mms.win.maximize()} title={t("tb_maximize")}><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="5" y="5" width="14" height="14" rx="2" /></svg></button><button className="win-btn win-close" onClick={() => window.mms.win.close()} title={t("ui_close")}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg></button></div>
     </header>
     <Dialog open={profileOpen} onClose={() => { setProfileOpen(false); setNewPwd(""); setConfirmPwd(""); }} title={t("tb_my_profile")}>
       <div className="dlg-pad">{user && <><div className="dlg-hero t-em"><div className="dlg-hero-ic">{user.initials || user.username?.charAt(0).toUpperCase() || "?"}</div><div className="dlg-hero-body"><div className="dlg-hero-title">{user.fullName}</div><div className="dlg-hero-sub">@{user.username}</div></div><Badge variant={user.role === "Administrator" ? "default" : "muted"}>{user.role}</Badge></div><div className="det-grid mb-4"><div className="det"><span className="k">{t("tb_full_name")}</span><span className="v">{user.fullName || "—"}</span></div><div className="det"><span className="k">{t("tb_username")}</span><span className="v">{user.username}</span></div><div className="det"><span className="k">{t("tb_role")}</span><span className="v">{user.role}</span></div><div className="det"><span className="k">{t("tb_status")}</span><span className="v">{user.isActive ? t("tb_active") : t("tb_inactive")}</span></div></div><div className="pwd-section-label t-em"><KeyRound size={14} className="ic" /><b>{t("tb_change_password")}</b></div><div className="flex-col gap-3"><div><Label>{t("tb_new_password")}</Label><Input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} placeholder={t("tb_new_password")} autoFocus /></div><div><Label>{t("tb_confirm_password")}</Label><Input type="password" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} placeholder={t("tb_confirm_password")} /></div></div><div className="dlg-actions"><Button variant="secondary" onClick={() => { setProfileOpen(false); setNewPwd(""); setConfirmPwd(""); }} disabled={savingPwd}>{t("ui_close")}</Button><Button onClick={handleChangePassword} disabled={savingPwd}>{savingPwd ? t("tb_saving") : <><ShieldCheck size={14} />{t("tb_save_password")}</>}</Button></div></>}</div>
