@@ -1,0 +1,79 @@
+/*
+ * Typography hardening
+ *
+ * The base stylesheet historically applied Anek Malayalam to every element
+ * when Malayalam was selected. That also changed Latin text, codes and digits.
+ * Keep the language font scoped to Malayalam text and preserve Poppins for
+ * Latin UI text and numeric values.
+ */
+
+html.lang-ml body,
+html.lang-ml input,
+html.lang-ml textarea,
+html.lang-ml select,
+html.lang-ml button {
+  font-family: Poppins, system-ui, sans-serif !important;
+  font-weight: 500 !important;
+}
+
+html.lang-ml :where(
+  [lang="ml"],
+  .ml-text,
+  .malayalam,
+  .ml,
+  .font-malayalam
+) {
+  font-family: "Anek Malayalam Variable", sans-serif !important;
+}
+
+/* User-visible Malayalam content can opt into the Malayalam face without
+   forcing Latin content elsewhere in the same row/cell to change. */
+html.lang-ml :where(.ml-text, .malayalam, .ml, .font-malayalam) strong,
+html.lang-ml :where(.ml-text, .malayalam, .ml, .font-malayalam) b {
+  font-family: "Anek Malayalam Variable", sans-serif !important;
+}
+
+/* Identifiers, dates, amounts, phone numbers and other Latin/numeric data
+   should remain stable in both languages. */
+html.lang-ml :where(
+  .tabular-nums,
+  .numeric,
+  .number,
+  .amount,
+  .currency,
+  .code,
+  .family-code,
+  .member-code,
+  .receipt-code,
+  .token-code,
+  .certificate-code,
+  [data-numeric="true"],
+  input[type="date"],
+  input[type="number"],
+  input[inputmode="numeric"],
+  input[inputmode="decimal"]
+) {
+  font-family: Poppins, system-ui, sans-serif !important;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Don't let the old universal Malayalam rule force bold Latin text. */
+html.lang-ml .navit b,
+html.lang-ml .navbadge,
+html.lang-ml .token-code,
+html.lang-ml .token-family-code,
+html.lang-ml .stat .val,
+html.lang-ml .stat .delta,
+html.lang-ml .stat .slab {
+  font-family: Poppins, system-ui, sans-serif !important;
+}
+
+html.lang-ml .navit b,
+html.lang-ml .navbadge { font-weight: 500 !important; }
+
+/* Prevent language switches from changing table/code geometry. */
+html.lang-ml .tbl,
+html.lang-ml .data-table,
+html.lang-ml table {
+  font-variant-numeric: tabular-nums;
+}
