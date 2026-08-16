@@ -1,0 +1,122 @@
+name: Final UI and Security Fix
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: ${{ !contains(github.event.head_commit.message, '[skip final-ui]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply final fixes
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          def edit(path, fn):
+              p = Path(path)
+              s = p.read_text(encoding='utf-8')
+              n = fn(s)
+              if n != s:
+                  p.write_text(n, encoding='utf-8')
+                  print('updated', path)
+              else:
+                  print('no change', path)
+
+          # Certificates: no destructive UI action; translate type and relationship labels.
+          def cert(s):
+              s = s.replace('  Trash2, FileText,', '  FileText,')
+              s = s.replace('import { ConfirmDialog } from "@/components/ConfirmDialog";\n', '')
+              s = re.sub(r'\n  const \[confirmOpen, setConfirmOpen\] = useState\(false\);\n  const \[pendingDeleteId, setPendingDeleteId\] = useState<number \| null>\(null\);', '', s)
+              s = re.sub(r'\n  const handleDeleteClick = \(id: number\) => \{.*?\n  \};\n\n  const handleDeleteConfirm = async \(\) => \{.*?\n  \};\n', '\n', s, flags=re.S)
+              s = re.sub(r'\n\s*<button className="act-btn act-del".*?</button>', '', s, flags=re.S)
+              s = s.replace('{r.type}</span>', '{t(`cert_${r.type}`)}</span>')
+              s = s.replace('`Groom: ${r.secondaryName}`', '`${t("cert_groom_prefix")}: ${r.secondaryName}`')
+              s = s.replace('`S/o ${r.secondaryName}`', '`${t("cert_son_of_prefix")}: ${r.secondaryName}`')
+              s = re.sub(r'\n\s*\{\/\* Delete confirmation \*\/\}\n\s*<ConfirmDialog.*?\n\s*\/\>', '', s, flags=re.S)
+              return s
+          edit('src/pages/Certificates.tsx', cert)
+
+          # Marriage/death: remove permanent-delete UI and confirmation dialogs.
+          def record_page(s):
+              s = s.replace('import { Plus, Edit2, Trash2, Eye, Heart } from "lucide-react";', 'import { Plus, Edit2, Eye, Heart } from "lucide-react";')
+              s = s.replace('import { ConfirmDialog } from "@/components/ConfirmDialog";\n', '')
+              s = re.sub(r'\n  const \[confirmOpen, setConfirmOpen\] = useState\(false\);\n  const \[pendingDeleteId, setPendingDeleteId\] = useState<number \| null>\(null\);', '', s)
+              s = re.sub(r'\n  const handleDeleteClick = \(id: number\) => \{.*?\n  \};\n\n  const handleDeleteConfirm = async \(\) => \{.*?\n  \};\n', '\n', s, flags=re.S)
+              s = re.sub(r'\n\s*<button className="act-btn act-del".*?</button>', '', s, flags=re.S)
+              s = re.sub(r'\n\s*\/\* Delete confirmation \*\/\n\s*<ConfirmDialog.*?\n\s*\/\>', '', s, flags=re.S)
+              return s
+          edit('src/pages/Marriages.tsx', record_page)
+          edit('src/pages/Deaths.tsx', record_page)
+
+          # Add certificate-specific translations if missing.
+          p = Path('src/i18n/index.ts')
+          s = p.read_text(encoding='utf-8')
+          marker = '  cert_generate_pdf_btn: { en: "Generate PDF", ml: "PDF തയ്യാറാക്കുക" },'
+          additions = '''\n  cert_groom_prefix: { en: "Groom", ml: "വരൻ" },\n  cert_son_of_prefix: { en: "S/o", ml: "മകൻ" },'''
+          if 'cert_groom_prefix:' not in s:
+              s = s.replace(marker, marker + additions)
+          p.write_text(s, encoding='utf-8')
+
+          # Enforce the same no-permanent-delete policy in the Electron main process.
+          p = Path('electron/main.ts')
+          s = p.read_text(encoding='utf-8')
+          s = re.sub(r'ipcMain\.handle\("marriages:remove", \(_e, id\) => data\.marriages\.remove\(id\)\);', 'ipcMain.handle("marriages:remove", () => { throw new Error("Permanent deletion of marriage records is disabled"); });', s)
+          s = re.sub(r'ipcMain\.handle\("deaths:remove", \(_e, id\) => data\.deaths\.remove\(id\)\);', 'ipcMain.handle("deaths:remove", () => { throw new Error("Permanent deletion of death records is disabled"); });', s)
+          s = re.sub(r'ipcMain\.handle\("certificates:remove", \(_e, id\) => data\.certificates\.remove\(id\)\);', 'ipcMain.handle("certificates:remove", () => { throw new Error("Permanent deletion of certificate records is disabled"); });', s)
+          # Certificate PDF language follows the renderer's current language toggle.
+          s = s.replace('const html = buildCertificateHtml(cert);', 'const lang = await mainWindow!.webContents.executeJavaScript("document.documentElement.classList.contains(\'lang-ml\') ? \'ml\' : \'en\'");\n      const html = buildCertificateHtml(cert, lang);')
+          p.write_text(s, encoding='utf-8')
+
+          # Certificate print template: bilingual output follows current UI language.
+          p = Path('electron/print/certificate.template.ts')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('export function buildCertificateHtml(cert: any): string {', 'export function buildCertificateHtml(cert: any, lang: "en" | "ml" = "en"): string {')
+          s = s.replace("  const labels: Record<string, string> = {\n    membership: 'MEMBERSHIP CERTIFICATE',\n    residence: 'RESIDENCE CERTIFICATE',\n    marriage: 'MARRIAGE CERTIFICATE',\n    death: 'DEATH CERTIFICATE',\n  };", "  const labels: Record<string, string> = lang === 'ml' ? {\n    membership: 'അംഗത്വ സർട്ടിഫിക്കറ്റ്', residence: 'വസതി സർട്ടിഫിക്കറ്റ്', marriage: 'വിവാഹ സർട്ടിഫിക്കറ്റ്', death: 'മരണ സർട്ടിഫിക്കറ്റ്',\n  } : {\n    membership: 'MEMBERSHIP CERTIFICATE', residence: 'RESIDENCE CERTIFICATE', marriage: 'MARRIAGE CERTIFICATE', death: 'DEATH CERTIFICATE',\n  };")
+          s = s.replace("  const purpose = type === 'residence'\n    ? 'This certificate confirms the above person’s registered residence in Minz Mahallu.'\n    : type === 'membership'\n      ? 'This certificate confirms the above person’s registered membership in Minz Mahallu.'\n      : 'This certificate is issued by the Mahallu Management Committee for official purposes.';", "  const purpose = lang === 'ml'\n    ? (type === 'residence' ? 'മുകളിൽ പറഞ്ഞ വ്യക്തിയുടെ മിൻസ് മഹല്ലിലെ രജിസ്റ്റർ ചെയ്ത വസതി സ്ഥിരീകരിക്കുന്നതാണ് ഈ സർട്ടിഫിക്കറ്റ്.' : type === 'membership' ? 'മുകളിൽ പറഞ്ഞ വ്യക്തിയുടെ മിൻസ് മഹല്ലിലെ രജിസ്റ്റർ ചെയ്ത അംഗത്വം സ്ഥിരീകരിക്കുന്നതാണ് ഈ സർട്ടിഫിക്കറ്റ്.' : 'ഔദ്യോഗിക ആവശ്യങ്ങൾക്കായി മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റി നൽകുന്നതാണ് ഈ സർട്ടിഫിക്കറ്റ്.')\n    : (type === 'residence' ? 'This certificate confirms the above person’s registered residence in Minz Mahallu.' : type === 'membership' ? 'This certificate confirms the above person’s registered membership in Minz Mahallu.' : 'This certificate is issued by the Mahallu Management Committee for official purposes.');")
+          replacements = {\
+              '<div class="eyebrow">OFFICIAL DOCUMENT</div>': '<div class="eyebrow">${lang === \'ml\' ? \'ഔദ്യോഗിക രേഖ\' : \'OFFICIAL DOCUMENT\'}</div>',\
+              '<div class="intro">This is to certify that</div>': '<div class="intro">${lang === \'ml\' ? \'ഇതുവഴി സാക്ഷ്യപ്പെടുത്തുന്നത്\' : \'This is to certify that\'}</div>',\
+              '<span>Certificate Type</span>': '<span>${lang === \'ml\' ? \'സർട്ടിഫിക്കറ്റ് തരം\' : \'Certificate Type\'}</span>',\
+              '<span>Certificate No.</span>': '<span>${lang === \'ml\' ? \'സർട്ടിഫിക്കറ്റ് നമ്പർ\' : \'Certificate No.\'}</span>',\
+              '<span>Issued Date</span>': '<span>${lang === \'ml\' ? \'നൽകിയ തീയതി\' : \'Issued Date\'}</span>',\
+              '<span>Mahallu</span>': '<span>${lang === \'ml\' ? \'മഹല്ല്\' : \'Mahallu\'}</span>',\
+              'Certificate No.<br>': '${lang === \'ml\' ? \'സർട്ടിഫിക്കറ്റ് നമ്പർ\' : \'Certificate No.\'}<br>',\
+              'Issued under the authority of the Minz Mahallu Management Committee.': '${lang === \'ml\' ? \'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.\' : \'Issued under the authority of the Minz Mahallu Management Committee.\'}',\
+              'Authorized Signatory': '${lang === \'ml\' ? \'അധികൃത ഒപ്പുവെപ്പുകാരൻ\' : \'Authorized Signatory\'}',\
+              'Mahallu Committee': '${lang === \'ml\' ? \'മഹല്ല് കമ്മിറ്റി\' : \'Mahallu Committee\'}',\
+              'MINZ<br>MAHALLU<br>OFFICIAL': '${lang === \'ml\' ? \'മിൻസ്\<br>മഹല്ല്\<br>ഔദ്യോഗികം\' : \'MINZ<br>MAHALLU<br>OFFICIAL\'}',\
+          }
+          for a,b in replacements.items():
+              s = s.replace(a,b)
+          p.write_text(s, encoding='utf-8')
+
+          # Add final CSS overrides without changing existing responsive sizing.
+          p = Path('src/styles/layout-stability.css')
+          s = p.read_text(encoding='utf-8')
+          extra = '''\n/* Final release fixes: language pill uses one continuous capsule; official records have no delete action. */\n.topbar .langseg{border-radius:999px !important;overflow:hidden !important;align-items:stretch !important}\n.topbar .langseg button{border-radius:0 !important;height:100% !important;display:flex !important;align-items:center !important;justify-content:center !important}\n.topbar .langseg button:first-child{border-radius:999px 0 0 999px !important}\n.topbar .langseg button:last-child{border-radius:0 999px 999px 0 !important}\n.view:has(.cert-issue-grid) .act-del,.view:has(.heart-sep) .act-del,.view:has(.lucide-eye) .act-del{display:none !important}\n'''
+          if 'Final release fixes: language pill' not in s:
+              s += extra
+          p.write_text(s, encoding='utf-8')
+
+      - name: Commit fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Certificates.tsx src/pages/Marriages.tsx src/pages/Deaths.tsx src/i18n/index.ts electron/main.ts electron/print/certificate.template.ts src/styles/layout-stability.css
+          if git diff --cached --quiet; then
+            echo "No final fixes needed"
+          else
+            git commit -m "fix: secure official records and finalize certificate language [skip final-ui]"
+            git push
+          fi
