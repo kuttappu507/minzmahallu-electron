@@ -11,6 +11,26 @@ interface Family { id:number; family_number:string; house_name:string; house_num
 interface HistoryRow { id:number; changed_at:string; action:string; username:string; summary:string; changes_json:string; reason:string; }
 const emptyForm: Partial<Family> = { house_name:"",house_number:"",ward:"",area:"",address:"",pincode:"",phone:"",alt_phone:"",status:"Active",notes:"" };
 
+const formatChangeValue = (value: unknown): string => {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  try { return JSON.stringify(value); } catch { return String(value); }
+};
+
+const formatHistoryChanges = (raw: string): Array<{ field:string; oldValue:string; newValue:string }> => {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return [];
+    return Object.entries(parsed).map(([field, change]: [string, any]) => ({
+      field: field.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+      oldValue: formatChangeValue(change?.old ?? change?.before ?? change?.from),
+      newValue: formatChangeValue(change?.new ?? change?.after ?? change?.to),
+    }));
+  } catch { return []; }
+};
+
 export function Families() {
   const { t, isMalayalam } = useI18n();
   const tx=(en:string,ml:string)=>isMalayalam()?ml:en;
@@ -41,7 +61,7 @@ export function Families() {
     <Dialog open={previewOpen} onClose={()=>setPreviewOpen(false)} title={t("family_title")}>
       <div className="dlg-pad">{previewRow&&<><div className="dlg-hero t-em"><div className="dlg-hero-ic"><Eye size={20}/></div><div className="dlg-hero-body"><div className="dlg-hero-title">{previewRow.house_name}</div><div className="dlg-hero-sub">{previewRow.family_number} · {previewRow.ward||previewRow.area||"—"}</div></div><Badge variant={statusVariant(previewRow.status)}>{previewRow.status}</Badge></div>
       <div className="det-grid">{[[t("family_number"),previewRow.family_number],[t("family_house_name"),previewRow.house_name],[t("family_house_number"),previewRow.house_number||"—"],[t("family_ward"),previewRow.ward||"—"],[t("family_area"),previewRow.area||"—"],[t("family_phone"),previewRow.phone],[t("family_alt_phone"),previewRow.alt_phone||"—"],[t("family_pincode"),previewRow.pincode||"—"],[t("family_members_count"),String(previewRow.member_count||0)],[t("family_address"),previewRow.address||"—"],[t("family_notes"),previewRow.notes||"—"]].map(([k,v],i)=><div className="det" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>)}</div>
-      <div className="mt-5"><div className="flex items-center gap-2 mb-3"><History size={16}/><strong>{tx("Activity & History","പ്രവർത്തനങ്ങളും ചരിത്രവും")}</strong></div><div className="space-y-2 max-h-56 overflow-auto">{history.length?history.map(h=><div key={h.id} className="p-3 rounded-lg border border-border"><div className="flex justify-between gap-3"><b>{h.summary}</b><span className="text-xs text-muted">{h.changed_at}</span></div><div className="text-xs text-muted mt-1">{h.username} · {h.action}{h.reason?` · ${h.reason}`:""}</div>{h.changes_json&&<pre className="text-xs mt-2 whitespace-pre-wrap">{h.changes_json}</pre>}</div>):<div className="text-sm text-muted">{tx("No history recorded","ചരിത്ര രേഖകളില്ല")}</div>}</div></div></>}
+      <div className="mt-5"><div className="flex items-center gap-2 mb-3"><History size={16}/><strong>{tx("Activity & History","പ്രവർത്തനങ്ങളും ചരിത്രവും")}</strong></div><div className="space-y-2 max-h-56 overflow-auto">{history.length?history.map(h=>{const changes=formatHistoryChanges(h.changes_json);return <div key={h.id} className="p-3 rounded-lg border border-border"><div className="flex justify-between gap-3"><b>{h.summary}</b><span className="text-xs text-muted">{h.changed_at}</span></div><div className="text-xs text-muted mt-1">{h.username} · {h.action}{h.reason?` · ${h.reason}`:""}</div>{changes.length>0&&<div className="mt-2 space-y-1">{changes.map((c,i)=><div key={i} className="grid grid-cols-[minmax(90px,0.8fr)_minmax(0,1fr)_minmax(0,1fr)] gap-2 text-xs"><span className="font-medium capitalize">{c.field}</span><span className="rounded bg-muted/30 px-2 py-1 break-words">{c.oldValue}</span><span className="rounded bg-muted/30 px-2 py-1 break-words">{c.newValue}</span></div>)}</div>}{h.reason&&!changes.length&&<div className="text-sm mt-2">{h.reason}</div>}</div>}) : <div className="text-sm text-muted">{tx("No history recorded","ചരിത്ര രേഖകളില്ല")}</div>}</div></div></>}
       <div className="dlg-actions"><Button variant="secondary" onClick={()=>setPreviewOpen(false)}>{t("ui_close")}</Button>{previewRow?.status==="Archived"?<Button onClick={()=>openSecurity("restore")}><RotateCcw size={14}/>{tx("Restore","പുനഃസ്ഥാപിക്കുക")}</Button>:<><Button onClick={()=>edit(previewRow!.id)}><Edit2 size={14}/>{t("action_edit")}</Button><Button variant="secondary" onClick={()=>openSecurity("archive")}><Archive size={14}/>{tx("Archive","ആർക്കൈവ്")}</Button></>}</div>
       </div>
     </Dialog>
