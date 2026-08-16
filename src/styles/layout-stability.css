@@ -8,21 +8,21 @@ html.lang-ml .navit{font-size:13.5px !important;line-height:18px !important}
 
 /* Collapsed navigation tooltip: viewport layer, never clipped by navscroll. */
 .sidebar-flyout-tip{position:fixed !important;left:92px !important;transform:translateY(-50%) !important;z-index:9999 !important;pointer-events:none !important;background:var(--panel) !important;color:var(--tx) !important;font:500 12px Poppins,sans-serif !important;line-height:18px !important;padding:8px 13px !important;border:1px solid var(--line) !important;border-radius:10px !important;white-space:nowrap !important;box-shadow:0 8px 24px rgba(23,43,32,.16) !important}
-html.lang-ml .sidebar-flyout-tip{font-family:Anek Malayalam Variable,Poppins,sans-serif !important;font-size:12px !important;font-weight:650 !important;line-height:18px !important}
+html.lang-ml .sidebar-flyout-tip{font-family:Poppins,"Anek Malayalam Variable",sans-serif !important;font-size:12px !important;font-weight:650 !important;line-height:18px !important}
 
-/* Topbar: controls have their own fixed area; search owns the remaining space. */
-.topbar{position:relative !important;padding-right:120px !important;min-width:0 !important;gap:12px !important;overflow:visible !important}
+/* Topbar: search is the flexible element; language/user/window controls keep fixed footprints. */
+.topbar{position:relative !important;padding-right:120px !important;min-width:0 !important;gap:10px !important;overflow:visible !important}
 .topbar .crumb{flex:0 1 auto !important;min-width:0 !important;max-width:34% !important;overflow:hidden !important;white-space:nowrap !important}
 .topbar .crumb b{display:inline-block !important;min-width:0 !important;max-width:100% !important;overflow:hidden !important;text-overflow:ellipsis !important;white-space:nowrap !important}
-.topbar .tb-right{flex:0 1 430px !important;width:auto !important;min-width:260px !important;max-width:430px !important;display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:8px !important;white-space:nowrap !important}
+.topbar .tb-right{flex:1 1 430px !important;width:auto !important;min-width:0 !important;max-width:430px !important;display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:7px !important;white-space:nowrap !important;overflow:visible !important}
 .topbar .tb-chip{display:none !important}
-.topbar .qwrap{flex:1 1 300px !important;width:auto !important;min-width:90px !important;max-width:300px !important;transition:none !important}
-.topbar .qwrap:focus-within{width:auto !important;min-width:90px !important;max-width:300px !important;box-shadow:none !important;border-color:var(--em) !important;background:var(--panel2) !important}
+.topbar .qwrap{flex:1 1 300px !important;width:auto !important;min-width:48px !important;max-width:300px !important;transition:none !important}
+.topbar .qwrap:focus-within{width:auto !important;min-width:48px !important;max-width:300px !important;box-shadow:none !important;border-color:var(--em) !important;background:var(--panel2) !important}
 .topbar .qwrap input{min-width:0 !important}
 .topbar .qwrap kbd{flex:none !important}
-.topbar .langseg{flex:0 0 84px !important;width:84px !important;min-width:84px !important;max-width:84px !important;display:flex !important;overflow:hidden !important}
+.topbar .langseg{flex:0 0 84px !important;width:84px !important;min-width:84px !important;max-width:84px !important;display:flex !important;overflow:hidden !important;border-radius:9px !important}
 .topbar .langseg button{flex:0 0 42px !important;width:42px !important;min-width:42px !important;max-width:42px !important;padding-left:2px !important;padding-right:2px !important;text-align:center !important;white-space:nowrap !important;overflow:hidden !important;font-size:12px !important;line-height:18px !important}
-html.lang-ml .topbar .langseg button:last-child{font-family:Anek Malayalam Variable,Poppins,sans-serif !important;font-size:12px !important;font-weight:650 !important;line-height:18px !important}
+html.lang-ml .topbar .langseg button:last-child{font-family:Poppins,"Anek Malayalam Variable",sans-serif !important;font-size:12px !important;font-weight:650 !important;line-height:18px !important}
 .topbar .tb-right>.ibtn,.topbar .tb-right>[data-dropdown]>.ibtn{flex:0 0 34px !important;width:34px !important;min-width:34px !important;max-width:34px !important}
 .topbar .tbdiv{flex:0 0 1px !important;width:1px !important;min-width:1px !important}
 .topbar .tb-right>[data-dropdown]:last-child{flex:0 1 122px !important;width:122px !important;min-width:82px !important;max-width:122px !important}
@@ -31,7 +31,7 @@ html.lang-ml .topbar .langseg button:last-child{font-family:Anek Malayalam Varia
 .win-controls{position:absolute !important;top:50% !important;right:8px !important;transform:translateY(-50%) !important;z-index:100 !important;display:flex !important;flex:none !important;width:112px !important;height:32px !important;margin:0 !important;gap:2px !important;-webkit-app-region:no-drag !important}
 .win-controls .win-btn{flex:0 0 36px !important;width:36px !important;min-width:36px !important;height:30px !important}
 
-/* Bilingual metric lock: same line-box geometry, calibrated font metrics. */
+/* Bilingual metric lock. Poppins comes first so Latin letters/numbers use Poppins; Malayalam falls back to Anek. */
 html.lang-ml .topbar,
 html.lang-ml .topbar button,
 html.lang-ml .topbar input,
@@ -47,33 +47,50 @@ html.lang-ml input,
 html.lang-ml select,
 html.lang-ml textarea,
 html.lang-ml .btn,
-html.lang-ml button{font-family:Anek Malayalam Variable,Poppins,sans-serif}
+html.lang-ml button{font-family:Poppins,"Anek Malayalam Variable",sans-serif}
 html.lang-ml .topbar .crumb small,html.lang-ml .topbar .crumb b{line-height:18px !important}
 html.lang-ml .tbl th{line-height:18px !important;min-height:46px !important}
 html.lang-ml .tbl td{line-height:20px !important;min-height:50px !important}
 html.lang-ml input,html.lang-ml select,html.lang-ml textarea{line-height:20px !important}
 html.lang-ml .btn{line-height:20px !important}
 
+/* Narrow windows: never let search and language controls compete for the same pixels. */
 @media(max-width:1200px){
   .topbar{padding-right:120px !important;gap:8px !important}
-  .topbar .tb-right{flex:0 1 300px !important;width:auto !important;min-width:260px !important;max-width:300px !important}
+  .topbar .tb-right{flex:1 1 auto !important;min-width:0 !important;max-width:360px !important}
   .topbar .tb-right>[data-dropdown]:last-child,.topbar .avbtn{width:82px !important;min-width:82px !important;max-width:82px !important}
   .topbar .avbtn b{display:none !important}
-  .topbar .qwrap{flex:1 1 220px !important;width:auto !important;min-width:90px !important;max-width:220px !important}
-  .topbar .qwrap:focus-within{width:auto !important;min-width:90px !important;max-width:220px !important}
+  .topbar .qwrap{flex:1 1 180px !important;min-width:48px !important;max-width:220px !important}
+  .topbar .qwrap:focus-within{min-width:48px !important;max-width:220px !important}
   .topbar .qwrap kbd{display:none !important}
 }
-@media(max-width:1100px){
-  .crumb small{display:none !important}
-  .topbar .tb-right{flex:0 1 260px !important;width:auto !important;min-width:250px !important;max-width:260px !important}
-  .topbar .qwrap{flex:1 1 180px !important;width:auto !important;min-width:90px !important;max-width:180px !important;display:flex !important}
-}
-@media(max-width:850px){
-  .topbar .tb-right{min-width:226px !important;max-width:226px !important;gap:5px !important}
-  .topbar .qwrap{min-width:80px !important;max-width:150px !important;padding-left:10px !important;padding-right:10px !important}
+@media(max-width:900px){
+  .topbar .tb-right{max-width:300px !important;gap:5px !important}
+  .topbar .qwrap{flex:1 1 130px !important;min-width:44px !important;max-width:160px !important;padding-left:8px !important;padding-right:8px !important}
   .topbar .qwrap input{font-size:12px !important}
   .topbar .langseg{flex-basis:76px !important;width:76px !important;min-width:76px !important}
   .topbar .langseg button{flex-basis:38px !important;width:38px !important;min-width:38px !important}
+}
+@media(max-width:700px){
+  .topbar{padding-right:120px !important;gap:4px !important}
+  .topbar .crumb{max-width:24% !important}
+  .topbar .tb-right{max-width:none !important;flex:1 1 auto !important;min-width:0 !important;gap:4px !important}
+  .topbar .qwrap{flex:1 1 100px !important;min-width:36px !important;max-width:none !important;padding-left:7px !important;padding-right:7px !important}
+  .topbar .qwrap input{font-size:11px !important}
+  .topbar .qwrap .search-icon{flex:0 0 14px !important}
+  .topbar .langseg{flex:0 0 72px !important;width:72px !important;min-width:72px !important;max-width:72px !important}
+  .topbar .langseg button{flex:0 0 36px !important;width:36px !important;min-width:36px !important;max-width:36px !important;font-size:11px !important}
+  .topbar .tb-right>.ibtn,.topbar .tb-right>[data-dropdown]>.ibtn{flex-basis:30px !important;width:30px !important;min-width:30px !important}
+  .topbar .tb-right>[data-dropdown]:last-child{width:34px !important;min-width:34px !important;max-width:34px !important}
+  .topbar .avbtn{width:34px !important;min-width:34px !important;max-width:34px !important;padding:0 !important}
+  .topbar .avbtn b{display:none !important}
+}
+@media(max-width:520px){
+  .topbar .crumb{display:none !important}
+  .topbar .tb-right{width:100% !important}
+  .topbar .qwrap{min-width:32px !important}
+  .topbar .langseg{flex-basis:68px !important;width:68px !important;min-width:68px !important;max-width:68px !important}
+  .topbar .langseg button{flex-basis:34px !important;width:34px !important;min-width:34px !important;max-width:34px !important}
 }
 html.lang-ml .sidebar .flap{right:-10px !important;z-index:20 !important}
 html.lang-ml .sidebar.min .flap{right:-10px !important}
