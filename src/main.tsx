@@ -5,6 +5,7 @@ import App from "./App";
 import "@fontsource-variable/anek-malayalam/wght.css";
 import "./styles/globals.css";
 import "./styles/overrides.css";
+import "./styles/typography-fix.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
