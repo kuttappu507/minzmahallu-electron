@@ -17,9 +17,9 @@ export function buildCertificateHtml(cert: any, lang: 'en' | 'ml' = 'en'): strin
   const mahalluLabel = ml ? 'മഹല്ല്' : 'Mahallu';
   const certifyText = ml ? 'ഇതുവഴി സാക്ഷ്യപ്പെടുത്തുന്നത്' : 'This is to certify that';
   const officialDocument = ml ? 'ഔദ്യോഗിക രേഖ' : 'OFFICIAL DOCUMENT';
-  const authorityText = ml ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : '${lang === 'ml' ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : '${lang === 'ml' ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : 'Issued under the authority of the Minz Mahallu Management Committee.'}'}';
-  const signatureText = ml ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : '${lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : '${lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : 'Authorized Signatory'}'}';
-  const committeeText = ml ? 'മഹല്ല് കമ്മിറ്റി' : '${lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : '${lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : 'Mahallu Committee'}'}';
+  const authorityText = ml ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : '${lang === 'ml' ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : '${lang === 'ml' ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : '${lang === 'ml' ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : 'Issued under the authority of the Minz Mahallu Management Committee.'}'}'}';
+  const signatureText = ml ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : '${lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : '${lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : '${lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : 'Authorized Signatory'}'}'}';
+  const committeeText = ml ? 'മഹല്ല് കമ്മിറ്റി' : '${lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : '${lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : '${lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : 'Mahallu Committee'}'}'}';
   const sealText = ml ? 'മിൻസ് മഹല്ല് ഔദ്യോഗികം' : 'MINZ MAHALLU OFFICIAL';
   const purpose = ml
     ? type === 'residence' ? 'മുകളിൽ പറഞ്ഞ വ്യക്തിയുടെ മിൻസ് മഹല്ലിലെ രജിസ്റ്റർ ചെയ്ത വസതി സ്ഥിരീകരിക്കുന്നതാണ് ഈ സർട്ടിഫിക്കറ്റ്.' : type === 'membership' ? 'മുകളിൽ പറഞ്ഞ വ്യക്തിയുടെ മിൻസ് മഹല്ലിലെ രജിസ്റ്റർ ചെയ്ത അംഗത്വം സ്ഥിരീകരിക്കുന്നതാണ് ഈ സർട്ടിഫിക്കറ്റ്.' : 'ഔദ്യോഗിക ആവശ്യങ്ങൾക്കായി മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റി നൽകുന്നതാണ് ഈ സർട്ടിഫിക്കറ്റ്.'
