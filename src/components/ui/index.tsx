@@ -15,11 +15,12 @@ export function Button({
   children,
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "danger" | "ghost";
+  variant?: "primary" | "secondary" | "danger" | "ghost" | "default";
   size?: "default" | "sm" | "lg" | "icon";
 }) {
   const variants = {
     primary: "btn bp",
+    default: "btn bp",
     secondary: "btn bg",
     danger: "btn bd",
     ghost: "btn bgd",
