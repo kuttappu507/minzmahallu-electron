@@ -1,0 +1,145 @@
+name: Fix Token Lifecycle
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Apply token lifecycle fixes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace(path, old, new, label):
+              p = Path(path)
+              s = p.read_text(encoding='utf-8')
+              if old not in s:
+                  raise SystemExit(f'Expected pattern not found: {label} in {path}')
+              p.write_text(s.replace(old, new, 1), encoding='utf-8')
+
+          # Renderer: remove the misleading NEW pill and add post-event deletion.
+          replace(
+              'src/pages/Tokens.tsx',
+              'Plus, Users, AlertTriangle, Check, Ban, RotateCcw,',
+              'Plus, Users, AlertTriangle, Check, Ban, RotateCcw, Trash2,',
+              'Trash2 import'
+          )
+          replace(
+              'src/pages/Tokens.tsx',
+              '    newToken: ml ? "പുതിയത്" : "New",\n',
+              '    newToken: "",\n    deleteToken: ml ? "ടോക്കൺ ഇല്ലാതാക്കുക" : "Delete Token",\n    deleteAfterEvent: ml ? "ഇവന്റ് കഴിഞ്ഞതിനാൽ ഈ താൽക്കാലിക ടോക്കൺ ഇല്ലാതാക്കാം. ഈ പ്രവർത്തനം തിരിച്ചെടുക്കാനാകില്ല." : "This temporary token can be deleted because the event has ended. This action cannot be undone.",\n',
+              'token labels'
+          )
+          replace(
+              'src/pages/Tokens.tsx',
+              '  const selectedEvent = events.find(e => e.id === selectedEventId);\n',
+              '  const selectedEvent = events.find(e => e.id === selectedEventId);\n  const canDeleteTokens = !!selectedEvent?.event_date && selectedEvent.event_date < new Date().toISOString().slice(0, 10);\n',
+              'post-event flag'
+          )
+          replace(
+              'src/pages/Tokens.tsx',
+              '  const [actionDialog, setActionDialog] = useState<{ type: "cancel" | "replace" | null; token: TokenRow | null }>({ type: null, token: null });\n',
+              '  const [actionDialog, setActionDialog] = useState<{ type: "cancel" | "replace" | "delete" | null; token: TokenRow | null }>({ type: null, token: null });\n',
+              'dialog type'
+          )
+          replace(
+              'src/pages/Tokens.tsx',
+              '  const replaceToken = async () => {\n',
+              '''  const deleteToken = async () => {
+    if (!actionDialog.token || !canDeleteTokens) return;
+    try {
+      await window.mms.tokens.remove(actionDialog.token.id, actionReason || (ml ? "ഇവന്റ് കഴിഞ്ഞതിന് ശേഷം താൽക്കാലിക ടോക്കൺ നീക്കം ചെയ്തു" : "Temporary token removed after event"));
+      toast.success(ml ? "ടോക്കൺ ഇല്ലാതാക്കി" : "Token deleted");
+      setActionDialog({ type: null, token: null }); setActionReason(""); await loadTokens();
+    } catch (e: any) { toast.error(e.message || (ml ? "ടോക്കൺ ഇല്ലാതാക്കാൻ കഴിഞ്ഞില്ല" : "Failed to delete token")); }
+  };
+  const replaceToken = async () => {
+''',
+              'delete handler'
+          )
+          replace(
+              'src/pages/Tokens.tsx',
+              '<td><Badge variant={existingTokens.has(f.id) ? "warning" : "success"}>{existingTokens.has(f.id) ? text.hasToken : text.newToken}</Badge></td>',
+              '<td>{existingTokens.has(f.id) ? <Badge variant="warning">{text.hasToken}</Badge> : null}</td>',
+              'remove NEW pill'
+          )
+          replace(
+              'src/pages/Tokens.tsx',
+              '{tk.status !== "CANCELLED" && <><button className="act-btn act-del" onClick={() => setActionDialog({ type: "cancel", token: tk })} title={text.cancelToken}><Ban size={14} /></button><button className="act-btn act-view" onClick={() => setActionDialog({ type: "replace", token: tk })} title={text.replaceToken}><RotateCcw size={14} /></button></>}',
+              '{tk.status !== "CANCELLED" && <><button className="act-btn act-del" onClick={() => setActionDialog({ type: "cancel", token: tk })} title={text.cancelToken}><Ban size={14} /></button><button className="act-btn act-view" onClick={() => setActionDialog({ type: "replace", token: tk })} title={text.replaceToken}><RotateCcw size={14} /></button>{canDeleteTokens && <button className="act-btn act-del" onClick={() => setActionDialog({ type: "delete", token: tk })} title={text.deleteToken}><Trash2 size={14} /></button>}</>}{tk.status === "CANCELLED" && canDeleteTokens && <button className="act-btn act-del" onClick={() => setActionDialog({ type: "delete", token: tk })} title={text.deleteToken}><Trash2 size={14} /></button>}',
+              'delete action'
+          )
+          replace(
+              'src/pages/Tokens.tsx',
+              '<Dialog open={actionDialog.type !== null} onClose={() => { setActionDialog({ type: null, token: null }); setActionReason(""); }} title={actionDialog.type === "cancel" ? text.cancelToken : text.replaceToken}>',
+              '<Dialog open={actionDialog.type !== null} onClose={() => { setActionDialog({ type: null, token: null }); setActionReason(""); }} title={actionDialog.type === "cancel" ? text.cancelToken : actionDialog.type === "delete" ? text.deleteToken : text.replaceToken}>',
+              'delete dialog title'
+          )
+          replace(
+              'src/pages/Tokens.tsx',
+              '{actionDialog.type === "cancel" ? <p className="token-help">{ml ? "ഈ ടോക്കൺ റദ്ദാക്കിയതായി അടയാളപ്പെടുത്തും; ഡാറ്റാബേസിൽ നിന്ന് ഇല്ലാതാക്കില്ല." : "This token will be marked as cancelled; it will not be deleted."}</p> : <p className="token-help">{ml ? "പഴയ ടോക്കൺ റദ്ദാക്കി ഈ കുടുംബത്തിന് പുതിയ കോഡ് സൃഷ്ടിക്കും." : "The old token will be cancelled and a new unique code will be generated for this family."}</p>}',
+              '{actionDialog.type === "cancel" ? <p className="token-help">{ml ? "ഈ ടോക്കൺ റദ്ദാക്കിയതായി അടയാളപ്പെടുത്തും; ഡാറ്റാബേസിൽ നിന്ന് ഇല്ലാതാക്കില്ല." : "This token will be marked as cancelled; it will not be deleted."}</p> : actionDialog.type === "delete" ? <p className="token-help">{text.deleteAfterEvent}</p> : <p className="token-help">{ml ? "പഴയ ടോക്കൺ റദ്ദാക്കി ഈ കുടുംബത്തിന് പുതിയ കോഡ് സൃഷ്ടിക്കും." : "The old token will be cancelled and a new unique code will be generated for this family."}</p>}',
+              'delete dialog message'
+          )
+          replace(
+              'src/pages/Tokens.tsx',
+              '<Button variant={actionDialog.type === "cancel" ? "danger" : "primary"} onClick={actionDialog.type === "cancel" ? cancelToken : replaceToken}>{actionDialog.type === "cancel" ? text.cancelToken : text.replacement}</Button>',
+              '<Button variant={actionDialog.type === "cancel" || actionDialog.type === "delete" ? "danger" : "primary"} onClick={actionDialog.type === "cancel" ? cancelToken : actionDialog.type === "delete" ? deleteToken : replaceToken}>{actionDialog.type === "cancel" ? text.cancelToken : actionDialog.type === "delete" ? text.deleteToken : text.replacement}</Button>',
+              'delete dialog action'
+          )
+
+          # Preload bridge.
+          replace(
+              'electron/preload.mts',
+              'replace:(id:number,r:string)=>ipcRenderer.invoke("tokens:replace",id,r),stats:',
+              'replace:(id:number,r:string)=>ipcRenderer.invoke("tokens:replace",id,r),remove:(id:number,r:string)=>ipcRenderer.invoke("tokens:remove",id,r),stats:',
+              'preload token remove'
+          )
+
+          # Main-process enforcement: deletion is permitted only after the event date.
+          replace(
+              'electron/main.ts',
+              '  ipcMain.handle("tokens:replace", (_e, tokenId, reason) => data.tokens.replace(tokenId, reason, session.user?.id ?? 1));\n',
+              '''  ipcMain.handle("tokens:replace", (_e, tokenId, reason) => data.tokens.replace(tokenId, reason, session.user?.id ?? 1));
+  ipcMain.handle("tokens:remove", (_e, tokenId: number, reason: string) => {
+    const token = data.tokens.list({}).rows.find((r: any) => r.id === tokenId);
+    if (!token) throw new Error("Token not found");
+    const today = new Date().toISOString().slice(0, 10);
+    if (!token.event_date || token.event_date >= today) throw new Error("Tokens can only be deleted after the event has ended");
+    const user = session.user;
+    const result = getDB().prepare("DELETE FROM token_assignments WHERE id = ?").run(tokenId);
+    if (result.changes && user) {
+      try { data.audit.log(user.id, user.username, "DELETE", "tokens", tokenId, reason || "Temporary token removed after event", JSON.stringify({ tokenCode: token.token_code, eventId: token.event_id, eventDate: token.event_date })); } catch {}
+    }
+    return { success: true, changes: result.changes };
+  });
+''',
+              'main token remove'
+          )
+
+          print('Token lifecycle patch applied successfully.')
+      - name: Commit and push
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Tokens.tsx electron/main.ts electron/preload.mts
+          git rm .github/workflows/fix-token-lifecycle.yml
+          git commit -m "fix: remove token new badge and allow post-event deletion"
+          git push origin HEAD:main
+      - name: Trigger full build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run build-electron.yml --ref main
