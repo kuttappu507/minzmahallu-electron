@@ -23,9 +23,9 @@ export function buildCertificateHtml(cert: any, lang: 'en' | 'ml' = 'en'): strin
   const officialDocument = ml ? 'ഔദ്യോഗിക രേഖ' : 'OFFICIAL DOCUMENT';
   const authorityText = ml
     ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.'
-    : '${lang === 'ml' ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : 'Issued under the authority of the Minz Mahallu Management Committee.'}';
-  const signatureText = ml ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : '${lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : 'Authorized Signatory'}';
-  const committeeText = ml ? 'മഹല്ല് കമ്മിറ്റി' : '${lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : 'Mahallu Committee'}';
+    : '${lang === 'ml' ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : '${lang === 'ml' ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : 'Issued under the authority of the Minz Mahallu Management Committee.'}'}';
+  const signatureText = ml ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : '${lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : '${lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : 'Authorized Signatory'}'}';
+  const committeeText = ml ? 'മഹല്ല് കമ്മിറ്റി' : '${lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : '${lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : 'Mahallu Committee'}'}';
   const sealText = ml ? 'മിൻസ് മഹല്ല് ഔദ്യോഗികം' : 'MINZ MAHALLU OFFICIAL';
   const purpose = ml
     ? type === 'residence'
