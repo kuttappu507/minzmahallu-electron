@@ -1,25 +1,18 @@
 import { esc } from './utils.js';
 
-export function buildCertificateHtml(cert: any, lang: "en" | "ml" = "en"): string {
+export function buildCertificateHtml(cert: any, lang: 'en' | 'ml' = 'en'): string {
   const type = String(cert?.type || 'certificate').toLowerCase();
-  const labels: Record<string, string> = lang === 'ml' ? {
-    membership: 'അംഗത്വ സർട്ടിഫിക്കറ്റ്',
-    residence: 'വസതി സർട്ടിഫിക്കറ്റ്',
-    marriage: 'വിവാഹ സർട്ടിഫിക്കറ്റ്',
-    death: 'മരണ സർട്ടിഫിക്കറ്റ്',
-  } : {
-    membership: 'MEMBERSHIP CERTIFICATE',
-    residence: 'RESIDENCE CERTIFICATE',
-    marriage: 'MARRIAGE CERTIFICATE',
-    death: 'DEATH CERTIFICATE',
-  };
+  const labels: Record<string, string> = lang === 'ml'
+    ? { membership: 'അംഗത്വ സർട്ടിഫിക്കറ്റ്', residence: 'വസതി സർട്ടിഫിക്കറ്റ്', marriage: 'വിവാഹ സർട്ടിഫിക്കറ്റ്', death: 'മരണ സർട്ടിഫിക്കറ്റ്' }
+    : { membership: 'MEMBERSHIP CERTIFICATE', residence: 'RESIDENCE CERTIFICATE', marriage: 'MARRIAGE CERTIFICATE', death: 'DEATH CERTIFICATE' };
 
   const title = labels[type] || `${esc(cert?.type || 'CERTIFICATE').toUpperCase()} CERTIFICATE`;
-  const number = cert?.certificate_number || cert?.certificateNo || '—';
-  const name = cert?.issued_to || cert?.member_name || cert?.name || '—';
+  const number = esc(cert?.certificate_number || cert?.certificateNo || '—');
+  const name = esc(cert?.issued_to || cert?.member_name || cert?.name || '—');
+  const mahallu = esc(cert?.mahallu_name || cert?.mahallu || 'Minz Mahallu');
   const issued = cert?.issued_date
     ? new Date(cert.issued_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
-    : '';
+    : '—';
 
   const purpose = lang === 'ml'
     ? type === 'residence'
@@ -35,9 +28,9 @@ export function buildCertificateHtml(cert: any, lang: "en" | "ml" = "en"): strin
 
   const authorityText = lang === 'ml'
     ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.'
-    : '${lang === 'ml' ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : '${lang === 'ml' ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : '${lang === 'ml' ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : '${lang === 'ml' ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : '${lang === 'ml' ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : '${lang === 'ml' ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : '${lang === 'ml' ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : '${lang === 'ml' ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : '${lang === 'ml' ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : '${lang === 'ml' ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : '${lang === 'ml' ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : '${lang === 'ml' ? 'മിൻസ് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിയുടെ അധികാരപ്രകാരം നൽകുന്നു.' : 'Issued under the authority of the Minz Mahallu Management Committee.'}'}'}'}'}'}'}'}'}'}'}'}';
-  const signatureText = lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : '${lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : '${lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : '${lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : '${lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : '${lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : '${lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : '${lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : '${lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : '${lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : '${lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : '${lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : '${lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : 'Authorized Signatory'}'}'}'}'}'}'}'}'}'}'}'}';
-  const committeeText = lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : '${lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : '${lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : '${lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : '${lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : '${lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : '${lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : '${lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : '${lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : '${lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : '${lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : '${lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : '${lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : 'Mahallu Committee'}'}'}'}'}'}'}'}'}'}'}'}';
+    : 'Issued under the authority of the Minz Mahallu Management Committee.';
+  const signatureText = lang === 'ml' ? 'അധികൃത ഒപ്പുവെപ്പുകാരൻ' : 'Authorized Signatory';
+  const committeeText = lang === 'ml' ? 'മഹല്ല് കമ്മിറ്റി' : 'Mahallu Committee';
   const typeLabel = lang === 'ml' ? 'സർട്ടിഫിക്കറ്റ് തരം' : 'Certificate Type';
   const numberLabel = lang === 'ml' ? 'സർട്ടിഫിക്കറ്റ് നമ്പർ' : 'Certificate No.';
   const dateLabel = lang === 'ml' ? 'നൽകിയ തീയതി' : 'Issued Date';
@@ -47,75 +40,29 @@ export function buildCertificateHtml(cert: any, lang: "en" | "ml" = "en"): strin
   const sealText = lang === 'ml' ? 'മിൻസ് മഹല്ല് ഔദ്യോഗികം' : 'MINZ MAHALLU OFFICIAL';
 
   return `<!doctype html>
-<html>
+<html lang="${lang}">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${title}</title>
 <style>
-  @page{size:A4 portrait;margin:0}
-  *{box-sizing:border-box}
-  html,body{margin:0;width:210mm;height:297mm;background:#fff}
-  body{font-family:Poppins,"Segoe UI",Arial,sans-serif;color:#18231e;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .certificate{width:210mm;height:297mm;position:relative;padding:18mm 20mm}
-  .frame{position:absolute;inset:9mm;border:.5mm solid #9fcfbc}
-  .inner{position:absolute;inset:12mm;border:.18mm solid #dce9e3}
-  .corner{position:absolute;width:14mm;height:14mm;border-color:#159b78;border-style:solid}
-  .c1{left:11mm;top:11mm;border-width:.8mm 0 0 .8mm}
-  .c2{right:11mm;top:11mm;border-width:.8mm .8mm 0 0}
-  .c3{left:11mm;bottom:11mm;border-width:0 0 .8mm .8mm}
-  .c4{right:11mm;bottom:11mm;border-width:0 .8mm .8mm 0}
-  .top{position:relative;display:flex;justify-content:space-between;align-items:center}
-  .brand{display:flex;align-items:center;gap:3.2mm}
-  .logo{width:14mm;height:14mm;border-radius:4mm;background:#159b78;color:#fff;display:grid;place-items:center;font-size:7mm;font-weight:800}
-  .brand strong{display:block;font-size:4.3mm;line-height:1.1;letter-spacing:.07em}
-  .brand small{display:block;font-size:2.1mm;color:#718078;margin-top:1.1mm}
-  .meta{text-align:right;font-size:2.2mm;line-height:1.55;color:#718078}
-  .meta b{color:#18231e;font-size:2.7mm}
-  .hero{position:relative;text-align:center;margin-top:27mm}
-  .eyebrow{font-size:2.2mm;letter-spacing:.27em;color:#138466;font-weight:700}
-  .title{font-size:8mm;line-height:1.1;font-weight:700;letter-spacing:.055em;margin-top:3.5mm}
-  .rule{width:44mm;height:.5mm;background:#159b78;margin:5.5mm auto}
-  .intro{font-size:3.4mm;color:#718078;margin-top:15mm}
-  .name{font-size:9mm;line-height:1.15;font-weight:700;margin:5mm auto;color:#18231e;max-width:165mm}
-  .body-copy{width:145mm;margin:auto;font-size:3.5mm;line-height:1.85;color:#42524b}
-  .info{position:relative;margin:18mm 13mm 0;border-top:.25mm solid #dce9e3;border-bottom:.25mm solid #dce9e3;padding:5mm 0;display:grid;grid-template-columns:1fr 1fr;column-gap:13mm;row-gap:4mm}
-  .info div{display:grid;grid-template-columns:1fr auto;gap:5mm;align-items:baseline;font-size:2.65mm}
-  .info span{color:#819088}
-  .info b{font-weight:650;text-align:right}
-  .purpose{position:relative;margin:8mm 25mm 0;text-align:center;font-size:2.45mm;color:#718078;line-height:1.6}
-  .bottom{position:absolute;left:24mm;right:24mm;bottom:20mm;display:flex;justify-content:space-between;align-items:flex-end}
-  .sig{width:46mm;text-align:center;border-top:.25mm solid #718078;padding-top:2.2mm;font-size:2.3mm;color:#50615a}
-  .seal{width:25mm;height:25mm;border:.45mm solid #9fcfbc;border-radius:50%;display:grid;place-items:center;color:#138466;font-size:1.8mm;line-height:1.35;font-weight:700;text-align:center;background:#fbfefd}
+@page{size:A4 portrait;margin:0}*{box-sizing:border-box}html,body{margin:0;width:210mm;min-height:297mm;background:#fff}body{font-family:Poppins,"Noto Sans Malayalam","Nirmala UI","Segoe UI",Arial,sans-serif;color:#18231e;-webkit-print-color-adjust:exact;print-color-adjust:exact}.certificate{width:210mm;height:297mm;position:relative;padding:18mm 20mm;overflow:hidden}.frame{position:absolute;inset:9mm;border:.5mm solid #9fcfbc}.inner{position:absolute;inset:12mm;border:.18mm solid #dce9e3}.corner{position:absolute;width:14mm;height:14mm;border-color:#159b78;border-style:solid}.c1{left:11mm;top:11mm;border-width:.8mm 0 0 .8mm}.c2{right:11mm;top:11mm;border-width:.8mm .8mm 0 0}.c3{left:11mm;bottom:11mm;border-width:0 0 .8mm .8mm}.c4{right:11mm;bottom:11mm;border-width:0 .8mm 0 0}.header{text-align:center;position:relative;z-index:1}.official{display:inline-block;margin-top:2mm;padding:1.5mm 5mm;border:.3mm solid #b9d8cc;border-radius:999px;color:#397260;font-size:9pt;font-weight:600;letter-spacing:1.5px}.brand{margin-top:7mm;font-size:12pt;font-weight:600;letter-spacing:1px;color:#397260}h1{margin:5mm 0 2mm;color:#116f58;font-size:24pt;letter-spacing:1.5px}.subtitle{color:#64736d;font-size:10pt}.divider{width:34mm;height:.6mm;margin:5mm auto 0;background:#159b78}.meta{margin-top:13mm;display:grid;grid-template-columns:1fr 1fr;gap:4mm;text-align:left}.meta-item{padding:4mm;border:.2mm solid #dce9e3;border-radius:2mm}.meta-label{color:#708078;font-size:8pt;text-transform:uppercase;letter-spacing:.7px}.meta-value{margin-top:1.5mm;font-size:10.5pt;font-weight:600}.body-copy{margin-top:16mm;text-align:center;line-height:1.8;font-size:11pt}.certify{color:#66756f;font-size:10pt}.name{margin:4mm 0;color:#126b56;font-size:21pt;font-weight:700}.purpose{max-width:145mm;margin:5mm auto 0;color:#4e5d57;font-size:10.5pt}.authority{margin-top:8mm;color:#5d6d66;font-size:9.5pt}.footer{position:absolute;left:20mm;right:20mm;bottom:18mm;display:flex;justify-content:space-between;align-items:flex-end;z-index:1}.signature{width:48mm;text-align:center}.signature-line{height:13mm;border-bottom:.3mm solid #6f8178}.signature-label{margin-top:2mm;font-size:8.5pt;color:#52635b}.signature-role{margin-top:1mm;font-size:8pt;color:#7a8882}.seal{width:29mm;height:29mm;border:.6mm solid #159b78;border-radius:50%;display:flex;align-items:center;justify-content:center;text-align:center;color:#159b78;font-size:7pt;font-weight:700;letter-spacing:.5px;padding:4mm}.footer-note{width:48mm;font-size:8pt;color:#7a8882}.footer-note strong{display:block;color:#53645c;margin-bottom:1mm}@media print{html,body{width:210mm;height:297mm}}
 </style>
 </head>
 <body>
-<main class="certificate">
-  <div class="frame"></div><div class="inner"></div>
-  <div class="corner c1"></div><div class="corner c2"></div><div class="corner c3"></div><div class="corner c4"></div>
-  <header class="top">
-    <div class="brand"><div class="logo">M</div><div><strong>MINZ MAHALLU</strong><small>Mahallu Management System</small></div></div>
-    <div class="meta">${esc(numberLabel)}<br><b>${esc(number)}</b><br>${esc(issued)}</div>
-  </header>
-  <section class="hero">
-    <div class="eyebrow">${esc(officialDocument)}</div>
-    <div class="title">${esc(title)}</div>
-    <div class="rule"></div>
-    <div class="intro">${esc(certifyText)}</div>
-    <div class="name">${esc(name)}</div>
-    <div class="body-copy">${esc(purpose)}</div>
-  </section>
-  <section class="info">
-    <div><span>${esc(typeLabel)}</span><b>${esc(cert?.type || '—')}</b></div>
-    <div><span>${esc(numberLabel)}</span><b>${esc(number)}</b></div>
-    <div><span>${esc(dateLabel)}</span><b>${esc(issued || '—')}</b></div>
-    <div><span>${esc(mahalluLabel)}</span><b>Minz Mahallu</b></div>
-  </section>
-  <div class="purpose">${esc(authorityText)}</div>
-  <footer class="bottom">
-    <div class="sig">${esc(signatureText)}</div>
-    <div class="seal">${esc(sealText)}</div>
-    <div class="sig">${esc(committeeText)}</div>
-  </footer>
-</main>
+<div class="certificate">
+<div class="frame"></div><div class="inner"></div>
+<div class="corner c1"></div><div class="corner c2"></div><div class="corner c3"></div><div class="corner c4"></div>
+<header class="header"><div class="official">${officialDocument}</div><div class="brand">${mahallu}</div><h1>${title}</h1><div class="subtitle">${certifyText}</div><div class="divider"></div></header>
+<section class="meta">
+<div class="meta-item"><div class="meta-label">${typeLabel}</div><div class="meta-value">${title}</div></div>
+<div class="meta-item"><div class="meta-label">${numberLabel}</div><div class="meta-value">${number}</div></div>
+<div class="meta-item"><div class="meta-label">${mahalluLabel}</div><div class="meta-value">${mahallu}</div></div>
+<div class="meta-item"><div class="meta-label">${dateLabel}</div><div class="meta-value">${esc(issued)}</div></div>
+</section>
+<main class="body-copy"><div class="certify">${certifyText}</div><div class="name">${name}</div><div class="purpose">${purpose}</div><div class="authority">${authorityText}</div></main>
+<footer class="footer"><div class="footer-note"><strong>${committeeText}</strong>${lang === 'ml' ? 'ഔദ്യോഗിക രേഖ' : 'Official document'}</div><div class="seal">${sealText}</div><div class="signature"><div class="signature-line"></div><div class="signature-label">${signatureText}</div><div class="signature-role">${committeeText}</div></div></footer>
+</div>
 </body>
 </html>`;
 }
