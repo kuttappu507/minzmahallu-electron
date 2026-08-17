@@ -20,7 +20,7 @@ import { Marriages } from "@/pages/Marriages";
 import { Deaths } from "@/pages/Deaths";
 import { Welfare } from "@/pages/Welfare";
 import { Certificates } from "@/pages/Certificates";
-import { Tokens } from "@/pages/Tokens";
+import { TokensWithPrint } from "@/pages/TokensWithPrint";
 import { Reports } from "@/pages/Reports";
 import { Settings } from "@/pages/Settings";
 import { Users } from "@/pages/Users";
@@ -46,7 +46,7 @@ function ProtectedLayout() {
             <Route path="/deaths" element={<Deaths />} />
             <Route path="/welfare" element={<Welfare />} />
             <Route path="/certificates" element={<Certificates />} />
-            <Route path="/tokens" element={<Tokens />} />
+            <Route path="/tokens" element={<TokensWithPrint />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/users" element={<Users />} />
