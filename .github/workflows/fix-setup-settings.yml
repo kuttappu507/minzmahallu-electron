@@ -1,0 +1,40 @@
+name: Fix setup and settings
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: contains(github.event.head_commit.message, '[fix-setup-settings]') == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('electron/main.ts'); s=p.read_text()
+          s=s.replace('import { login, changePassword } from "./services/auth.service.js";', 'import { login, changePassword, needsInitialSetup, createInitialAdministrator } from "./services/auth.service.js";')
+          a='ipcMain.handle("auth:currentUser", () => session.user);'
+          b=a+'\n  ipcMain.handle("auth:setupStatus", () => ({ required: needsInitialSetup() }));\n  ipcMain.handle("auth:createInitialAdministrator", (_e, username: string, fullName: string, password: string) => { try { const user = createInitialAdministrator(username, fullName, password); session.user = { id:user.id, username:user.username, fullName:user.fullName, role:user.role }; return { success:true, user }; } catch (err:any) { return { success:false, error:err.message }; } });'
+          if 'auth:setupStatus' not in s: s=s.replace(a,b)
+          p.write_text(s)
+          p=Path('src/pages/Settings.tsx'); s=p.read_text()
+          s=s.replace('interface Settings { mahallu_name: string; phone: string; email: string; address: string; financial_year_start: string; currency_symbol: string; receipt_prefix: string; language: string; auto_backup: boolean; backup_interval_hours: number; }','interface Settings { mahallu_name:string; phone:string; email:string; address:string; financial_year_start:string; currency_symbol:string; receipt_prefix:string; language:string; theme:string; auto_backup:boolean; backup_interval_hours:number; }')
+          s=s.replace('language: "en", auto_backup:', 'language: "en", theme: "light", auto_backup:')
+          s=s.replace('setSettings({ ...emptySettings, ...s, language: lang });','setSettings({ ...emptySettings, ...s, language: s.language || lang, theme: s.theme || theme });')
+          s=s.replace('await window.mms.settings.save(settings);','await window.mms.settings.save({ mahalluName:settings.mahallu_name, address:settings.address, phone:settings.phone, email:settings.email, financialYearStart:settings.financial_year_start, currencySymbol:settings.currency_symbol, theme:settings.theme, language:settings.language, autoBackup:settings.auto_backup, backupIntervalHours:settings.backup_interval_hours, receiptPrefix:settings.receipt_prefix });')
+          s=s.replace('setSettings({ ...settings, language: settings.language });','setSettings({ ...settings, theme: value });')
+          s=s.replace('const handleLangChange = (value: string) => {','const handleLangChange = (value: string) => {')
+          s=s.replace('<Select value={theme} onChange={(e) => handleThemeChange(e.target.value)}>', '<Select value={settings.theme} onChange={(e) => handleThemeChange(e.target.value)}>')
+          p.write_text(s)
+          Path('.github/workflows/fix-setup-settings.yml').unlink()
+      - name: Build
+        run: npm ci && npm run build
+      - name: Commit
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --quiet || (git commit -m "fix setup and settings [fix-setup-settings]" && git push)
