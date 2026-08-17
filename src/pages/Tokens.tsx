@@ -111,7 +111,7 @@ export function Tokens() {
     try {
       const result = await window.mms.tokens.listEvents();
       setEvents(result || []);
-      if (result?.length && !selectedEventId) setSelectedEventId(result[0].id);
+      const requestedEventId=Number(new URLSearchParams(window.location.search).get("event")||0); const requested=result?.find((e:any)=>e.id===requestedEventId); if(requested)setSelectedEventId(requested.id); else if(result?.length&&!selectedEventId)setSelectedEventId(result[0].id);
     } catch (e: any) { toast.error(e.message || "Failed to load events"); }
   }, [selectedEventId]);
 

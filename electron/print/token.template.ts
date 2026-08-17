@@ -10,19 +10,11 @@ const palettes = [
   { head:'#1d4ed8', line:'#22c55e', tokenBg:'#eff6ff', tokenLine:'#bfdbfe', tokenNum:'#1e40af', eventBg:'#eff6ff', eventLine:'#bfdbfe', eventName:'#1e40af', eventTime:'#1d4ed8', sep:'#16a34a', chipBg:'#f3f7fb', acc1:'#16a34a', acc2:'#0891b2' },
 ];
 
-function paletteForEvent(event: any) {
-  const type = String(event?.event_type || '').toLowerCase();
-  const typeMap: Record<string, number> = { eid:1, ramadan:3, welfare:5, general:0 };
-  if (type in typeMap) return palettes[typeMap[type]];
-  const name = String(event?.event_name || '');
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
-  return palettes[hash % palettes.length];
-}
+function paletteForTokenIndex(index:number){return palettes[Math.abs(index)%palettes.length];}
 
 export function buildTokenSheetHtml(tokenList: any[], event: any): string {
-  const p = paletteForEvent(event);
-  const makeCard = (t: any) => `
+  const p = paletteForTokenIndex(0);
+  const makeCard = (t:any,cardIndex:number)=>{const p=paletteForTokenIndex(cardIndex);return `
     <article class="card">
       <header class="head">
         <h1>MINZ MAHALLU</h1>
@@ -34,10 +26,10 @@ export function buildTokenSheetHtml(tokenList: any[], event: any): string {
         <div class="regs"><div class="r1"><small>FAMILY NO</small><b>${esc(t.family_number || '—')}</b></div><div class="r2"><small>WARD NO</small><b>${esc(t.ward || '—')}</b></div></div>
       </div>
       <footer class="event"><h4>${esc(event?.event_name || 'Event')}</h4><p><b>${esc(event?.event_time || '')}</b>${event?.event_time && event?.venue ? `<span class="sep">◆</span>` : ''}${esc(event?.venue || '')}</p></footer>
-    </article>`;
+    </article>`;};
 
   const pages: string[] = [];
-  for (let i = 0; i < tokenList.length; i += 12) pages.push(`<section class="page">${tokenList.slice(i, i + 12).map(makeCard).join('')}</section>`);
+  for (let i = 0; i < tokenList.length; i += 12) pages.push(`<section class="page">${tokenList.slice(i, i + 12).map((t,idx)=>makeCard(t,i+idx)).join('')}</section>`);
 
   return `<!doctype html><html><head><meta charset="utf-8"><style>
     @page{size:A4 portrait;margin:0}

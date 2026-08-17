@@ -5,8 +5,8 @@ import { useTheme } from "@/lib/theme";
 import { Card, CardContent, Button, Input, Label, Select, Textarea, Switch, SectionLabel } from "@/components/ui";
 import { toast } from "@/lib/toast";
 
-interface Settings { mahallu_name: string; phone: string; email: string; address: string; financial_year_start: string; currency_symbol: string; receipt_prefix: string; language: string; auto_backup: boolean; backup_interval_hours: number; }
-const emptySettings: Settings = { mahallu_name: "", phone: "", email: "", address: "", financial_year_start: "04-01", currency_symbol: "₹", receipt_prefix: "RCP", language: "en", auto_backup: false, backup_interval_hours: 24 };
+interface Settings { mahallu_name:string; phone:string; email:string; address:string; financial_year_start:string; currency_symbol:string; receipt_prefix:string; language:string; theme:string; auto_backup:boolean; backup_interval_hours:number; }
+const emptySettings: Settings = { mahallu_name: "", phone: "", email: "", address: "", financial_year_start: "04-01", currency_symbol: "₹", receipt_prefix: "RCP", language: "en", theme: "light", auto_backup: false, backup_interval_hours: 24 };
 
 export function Settings() {
   const { t, setLang, lang } = useI18n();
@@ -17,7 +17,7 @@ export function Settings() {
 
   useEffect(() => {
     window.mms.settings.load().then((s) => {
-      if (s) setSettings({ ...emptySettings, ...s, language: lang });
+      if (s) setSettings({ ...emptySettings, ...s, language: s.language || lang, theme: s.theme || theme });
       setLoading(false);
     }).catch(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -26,7 +26,7 @@ export function Settings() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await window.mms.settings.save(settings);
+      await window.mms.settings.save({ mahalluName:settings.mahallu_name,address:settings.address,phone:settings.phone,email:settings.email,financialYearStart:settings.financial_year_start,currencySymbol:settings.currency_symbol,theme:settings.theme,language:settings.language,autoBackup:settings.auto_backup,backupIntervalHours:settings.backup_interval_hours,receiptPrefix:settings.receipt_prefix });
       toast.success(t("ui_save_changes"));
     } catch (err: any) {
       toast.error(err.message || t("ui_failed_save"));
@@ -35,7 +35,7 @@ export function Settings() {
 
   const handleThemeChange = (value: string) => {
     setTheme(value as "light" | "dark");
-    setSettings({ ...settings, language: settings.language });
+    setSettings({ ...settings, theme: value });
   };
   const handleLangChange = (value: string) => {
     setLang(value as "en" | "ml");
@@ -62,7 +62,7 @@ export function Settings() {
       </div></CardContent></Card>
 
       <Card><CardContent className="p-6 space-y-4"><div className="flex items-center gap-2"><Palette className="h-5 w-5 text-primary" /><SectionLabel className="mb-0">{t("set_appearance_section")}</SectionLabel></div><div className="grid grid-cols-2 gap-4">
-        <div><Label>{t("set_theme")}</Label><Select value={theme} onChange={(e) => handleThemeChange(e.target.value)}><option value="light">{t("set_theme_light")}</option><option value="dark">{t("set_theme_dark")}</option></Select></div>
+        <div><Label>{t("set_theme")}</Label><Select value={settings.theme} onChange={(e) => handleThemeChange(e.target.value)}><option value="light">{t("set_theme_light")}</option><option value="dark">{t("set_theme_dark")}</option></Select></div>
         <div><Label>{t("set_language")}</Label><Select value={lang} onChange={(e) => handleLangChange(e.target.value)}><option value="en">{t("set_lang_english")}</option><option value="ml">{t("set_lang_malayalam")}</option></Select></div>
       </div></CardContent></Card>
 

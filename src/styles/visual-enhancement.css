@@ -106,3 +106,5 @@ html.lang-ml .lbl { font-weight: 550 !important; }
   .tbl th { padding-left: 20px !important; padding-right: 20px !important; }
   .tbl td { padding-left: 20px !important; padding-right: 20px !important; }
 }
+
+.sb-logo .logo{display:flex;align-items:center;justify-content:center;overflow:hidden}.sb-logo .logo img{width:30px;height:30px;display:block}.login-logo-box img,.login-logo-box-sm img{width:100%;height:100%;display:block;object-fit:contain}
