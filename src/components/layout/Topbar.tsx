@@ -32,8 +32,7 @@ export function Topbar() {
   const loadNotifications = async () => {
     try {
       const entries = await window.mms.audit.list({ page: 1, pageSize: 5 });
-      const latest = (entries.rows || []).slice(0, 5);
-      setNotifications(latest);
+      setNotifications((entries.rows || []).slice(0, 5));
     } catch (e) {
       console.error("Failed to load notifications:", e);
     }
@@ -93,7 +92,6 @@ export function Topbar() {
 
   return <>
     <header className="topbar">
-      <div className="crumb"><small>{t("app_name")} /</small><b>{pageTitle}</b></div>
       <GlobalSearch value={searchQuery} onChange={setSearchQuery} />
       <div className="tb-right">
         <div className="langseg"><button type="button" className={lang === "en" ? "on" : ""} onClick={() => setLang("en")} title={t("set_lang_english")}>EN</button><button type="button" className={lang === "ml" ? "on" : ""} onClick={() => setLang("ml")} title="മലയാളം">മല</button></div>
