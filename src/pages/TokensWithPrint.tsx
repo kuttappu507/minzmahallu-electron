@@ -71,20 +71,15 @@ export function TokensWithPrint() {
 
   return (
     <div className="token-print-shell">
-      <div className="token-print-mode" role="group" aria-label={ml ? "പ്രിന്റ് മോഡ്" : "Token print mode"}>
-        <span>{ml ? "പ്രിന്റ്" : "Print"}</span>
-        <button type="button" className={mode === "color" ? "on" : ""} onClick={() => setMode("color")} disabled={printing}>{ml ? "നിറം" : "Color"}</button>
-        <button type="button" className={mode === "bw" ? "on" : ""} onClick={() => setMode("bw")} disabled={printing}>{ml ? "കറുപ്പ് & വെളുപ്പ്" : "B&W"}</button>
-      </div>
-      <Tokens />
+      <Tokens printModeControl={<div className="token-print-mode" role="group" aria-label={ml ? "പ്രിന്റ് മോഡ്" : "Token print mode"}><span>{ml ? "പ്രിന്റ്" : "Print"}</span><button type="button" className={mode === "color" ? "on" : ""} onClick={() => setMode("color")} disabled={printing}>{ml ? "നിറം" : "Color"}</button><button type="button" className={mode === "bw" ? "on" : ""} onClick={() => setMode("bw")} disabled={printing}>{ml ? "കറുപ്പ് & വെളുപ്പ്" : "B&W"}</button></div>} />
       <style>{`
         .token-print-shell{position:relative}
-        .token-print-mode{position:absolute;right:0;top:-1px;z-index:10;display:flex;align-items:center;gap:3px;padding:3px;border:1px solid var(--line);background:var(--panel);border-radius:11px;box-shadow:var(--sh);font:500 11px Poppins;color:var(--mut)}
+        .token-print-mode{display:inline-flex;align-items:center;gap:3px;padding:3px;border:1px solid var(--line);background:var(--panel);border-radius:9px;box-shadow:var(--sh);font:500 11px Poppins;color:var(--mut);white-space:nowrap}
         .token-print-mode>span{padding:0 5px 0 7px;color:var(--fnt)}
         .token-print-mode button{border:0;background:transparent;color:var(--mut);border-radius:8px;padding:5px 9px;cursor:pointer;font:500 11px Poppins}
         .token-print-mode button.on{background:var(--em);color:#fff;box-shadow:0 2px 0 var(--emdd)}
         .token-print-mode button:disabled{opacity:.5;cursor:not-allowed}
-        @media(max-width:1100px){.token-print-mode{position:relative;top:auto;right:auto;width:max-content;margin:0 0 8px auto}}
+        
       `}</style>
     </div>
   );

@@ -40,3 +40,5 @@ html.lang-ml .langseg button {
 html.lang-ml .langseg button.on {
   line-height: 1 !important;
 }
+
+.langseg{display:inline-flex;align-items:center;justify-content:center;height:32px;padding:3px;gap:2px;border:1px solid var(--line);border-radius:10px;background:var(--panel);box-sizing:border-box}.langseg button{height:26px;min-width:36px;padding:0 8px;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:7px;background:transparent;color:var(--mut);font:700 11px/1 Poppins,"Noto Sans Malayalam",sans-serif;white-space:nowrap}.langseg button:last-child{min-width:44px}.langseg button.on{background:var(--em);color:#fff}

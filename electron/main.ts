@@ -5,7 +5,7 @@ import { app, BrowserWindow, ipcMain, nativeTheme, dialog } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import { login, changePassword } from "./services/auth.service.js";
+import { login, changePassword, needsInitialSetup, createInitialAdministrator } from "./services/auth.service.js";
 import * as data from "./services/data.service.js";
 import { closeDB, getDB } from "./db/connection.js";
 import { buildTokenSheetHtml } from "./print/token.template.js";
@@ -59,6 +59,8 @@ app.whenReady().then(() => {
   ipcMain.handle("auth:login", (_e, username: string, password: string) => { try { const user = login(username, password); session.user = { id: user.id, username: user.username, fullName: user.fullName, role: user.role }; try { data.audit.log(user.id, user.username, "LOGIN", "auth", user.id, "User logged in", ""); } catch {} return { success: true, user }; } catch (err: any) { return { success: false, error: err.message }; } });
   ipcMain.handle("auth:logout", () => { if (session.user) { try { data.audit.log(session.user.id, session.user.username, "LOGOUT", "auth", session.user.id, "User logged out", ""); } catch {} } session.user = null; return { success: true }; });
   ipcMain.handle("auth:currentUser", () => session.user);
+  ipcMain.handle("auth:setupStatus", () => ({ required: needsInitialSetup() }));
+  ipcMain.handle("auth:createInitialAdministrator", (_e, username: string, fullName: string, password: string) => { try { const user = createInitialAdministrator(username, fullName, password); session.user = { id:user.id, username:user.username, fullName:user.fullName, role:user.role }; return { success:true, user }; } catch (err:any) { return { success:false, error:err.message }; } });
   ipcMain.handle("auth:changePassword", (_e, userId: number, newPassword: string) => { try { changePassword(userId, newPassword); return { success: true }; } catch (err: any) { return { success: false, error: err.message }; } });
 
   ipcMain.handle("families:list", (_e, filter) => data.families.list(filter || {}));

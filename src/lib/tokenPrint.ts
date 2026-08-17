@@ -17,25 +17,17 @@ const palettes = [
   { head: "#1d4ed8", line: "#22c55e", tokenBg: "#eff6ff", tokenLine: "#bfdbfe", tokenNum: "#1e40af", eventBg: "#eff6ff", eventLine: "#bfdbfe", eventName: "#1e40af", eventTime: "#1d4ed8", sep: "#16a34a", chipBg: "#f3f7fb", acc1: "#16a34a", acc2: "#0891b2" },
 ];
 
-function paletteForEvent(event: any) {
-  const type = String(event?.event_type || "").toLowerCase();
-  const typeMap: Record<string, number> = { eid: 1, ramadan: 3, welfare: 5, general: 0 };
-  if (type in typeMap) return palettes[typeMap[type]];
-  const name = String(event?.event_name || "");
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
-  return palettes[hash % palettes.length];
-}
+function paletteForTokenIndex(index:number){return palettes[Math.abs(index)%palettes.length];}
 
 export function buildTokenSheetHtml(tokenList: any[], event: any, settings: any = {}, mode: TokenPrintMode = "color"): string {
-  const base = paletteForEvent(event);
+  const base = paletteForTokenIndex(0);
   const p = mode === "bw"
     ? { head: "#111", line: "#111", tokenBg: "#f3f3f3", tokenLine: "#999", tokenNum: "#111", eventBg: "#f4f4f4", eventLine: "#999", eventName: "#111", eventTime: "#333", sep: "#555", chipBg: "#f1f1f1", acc1: "#333", acc2: "#666" }
     : base;
   const mahallu = esc(settings?.mahallu_name || "Minz Mahallu");
   const contact = [settings?.address, settings?.phone].filter(Boolean).map(esc).join("  |  ");
 
-  const makeCard = (t: any) => `
+  const makeCard = (t:any,cardIndex:number)=>{const p=paletteForTokenIndex(cardIndex);return `
     <article class="card">
       <header class="head">
         <h1>${mahallu}</h1>
@@ -57,11 +49,11 @@ export function buildTokenSheetHtml(tokenList: any[], event: any, settings: any 
         <h4>${esc(event?.event_name || "Event")}</h4>
         <p><b>${esc(event?.event_time || "")}</b>${event?.event_time && event?.venue ? `<span class="sep">◆</span>` : ""}${esc(event?.venue || "")}</p>
       </footer>
-    </article>`;
+    </article>`;};
 
   const pages: string[] = [];
   for (let i = 0; i < tokenList.length; i += 12) {
-    pages.push(`<section class="page">${tokenList.slice(i, i + 12).map(makeCard).join("")}</section>`);
+    pages.push(`<section class="page">${tokenList.slice(i, i + 12).map((t,idx)=>makeCard(t,i+idx)).join("")}</section>`);
   }
 
   return `<!doctype html><html><head><meta charset="utf-8"><style>

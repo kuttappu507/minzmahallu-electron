@@ -9,6 +9,7 @@ import "@fontsource-variable/anek-malayalam/wght.css";
 import "@/styles/visual-enhancement.css";
 import "@/styles/layout-stability.css";
 import "@/styles/global-search.css";
+import "@/styles/topbar-fixes.css";
 import { LoginPage } from "@/pages/LoginPage";
 import { Dashboard } from "@/pages/Dashboard";
 import { Families } from "@/pages/Families";
@@ -21,6 +22,7 @@ import { Deaths } from "@/pages/Deaths";
 import { Welfare } from "@/pages/Welfare";
 import { Certificates } from "@/pages/Certificates";
 import { TokensWithPrint } from "@/pages/TokensWithPrint";
+import { TokenEvents } from "@/pages/TokenEvents";
 import { Reports } from "@/pages/Reports";
 import { Settings } from "@/pages/Settings";
 import { Users } from "@/pages/Users";
@@ -29,42 +31,30 @@ import { Backup } from "@/pages/Backup";
 import { useEffect, useState } from "react";
 
 function ProtectedLayout() {
-  return (
-    <div id="app" className="app-shell">
-      <Sidebar />
-      <div className="maincol">
-        <Topbar />
-        <div id="content">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/families" element={<Families />} />
-            <Route path="/members" element={<Members />} />
-            <Route path="/subscriptions" element={<Subscriptions />} />
-            <Route path="/donations" element={<Donations />} />
-            <Route path="/accounting" element={<Accounting />} />
-            <Route path="/marriages" element={<Marriages />} />
-            <Route path="/deaths" element={<Deaths />} />
-            <Route path="/welfare" element={<Welfare />} />
-            <Route path="/certificates" element={<Certificates />} />
-            <Route path="/tokens" element={<TokensWithPrint />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/users" element={<Users />} />
-            <Route path="/audit" element={<AuditLog />} />
-            <Route path="/backup" element={<Backup />} />
-          </Routes>
-        </div>
-      </div>
-    </div>
-  );
+  return <div id="app" className="app-shell"><Sidebar /><div className="maincol"><Topbar /><div id="content"><Routes>
+    <Route path="/" element={<Dashboard />} />
+    <Route path="/families" element={<Families />} />
+    <Route path="/members" element={<Members />} />
+    <Route path="/subscriptions" element={<Subscriptions />} />
+    <Route path="/donations" element={<Donations />} />
+    <Route path="/accounting" element={<Accounting />} />
+    <Route path="/marriages" element={<Marriages />} />
+    <Route path="/deaths" element={<Deaths />} />
+    <Route path="/welfare" element={<Welfare />} />
+    <Route path="/certificates" element={<Certificates />} />
+    <Route path="/tokens" element={<TokenEvents />} />
+    <Route path="/tokens/manage" element={<TokensWithPrint />} />
+    <Route path="/reports" element={<Reports />} />
+    <Route path="/settings" element={<Settings />} />
+    <Route path="/users" element={<Users />} />
+    <Route path="/audit" element={<AuditLog />} />
+    <Route path="/backup" element={<Backup />} />
+  </Routes></div></div></div>;
 }
 
 export default function App() {
-  const { apply } = useTheme();
-  const { user } = useAuth();
-  const [splashDone, setSplashDone] = useState(false);
-  useEffect(() => { apply(); }, [apply]);
-  useEffect(() => { if (splashDone) document.body.classList.add("app-loaded"); }, [splashDone]);
+  const { apply } = useTheme(); const { user } = useAuth(); const [splashDone, setSplashDone] = useState(false);
+  useEffect(() => { apply(); }, [apply]); useEffect(() => { if (splashDone) document.body.classList.add("app-loaded"); }, [splashDone]);
   if (!splashDone) return <Splash onDone={() => setSplashDone(true)} />;
   return <><Routes><Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} /><Route path="/*" element={user ? <ProtectedLayout /> : <Navigate to="/login" />} /></Routes><ToastContainer /></>;
 }

@@ -1,11 +1,1 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#e3f6ec"/>
-      <stop offset="100%" stop-color="#bfe8d4"/>
-    </linearGradient>
-  </defs>
-  <rect width="256" height="256" rx="56" fill="url(#bg)" stroke="#0eab7f" stroke-width="4"/>
-  <text x="128" y="178" font-family="Poppins, Arial, sans-serif" font-size="140" font-weight="800" fill="#0eab7f" text-anchor="middle">M</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><defs><linearGradient id="g" x1="8" y1="8" x2="56" y2="56"><stop stop-color="#2563eb"/><stop offset="1" stop-color="#0f766e"/></linearGradient></defs><rect x="4" y="4" width="56" height="56" rx="16" fill="url(#g)"/><path d="M18 48V29.5L32 18l14 11.5V48M25 48V35h14v13M29 29h6M32 18v-5M28.5 13h7M14 48h36" stroke="white" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
