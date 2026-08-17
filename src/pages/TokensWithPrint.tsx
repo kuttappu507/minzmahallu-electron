@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Tokens } from "@/pages/Tokens";
-import { buildTokenSheetHtml, TokenPrintMode } from "@/lib/tokenPrint";
+import { buildTokenSheetHtml, type TokenPrintMode } from "@/lib/tokenPrint";
 import { toast } from "@/lib/toast";
 import { useI18n } from "@/i18n";
 
@@ -8,7 +8,19 @@ export function TokensWithPrint() {
   const { lang } = useI18n();
   const [mode, setMode] = useState<TokenPrintMode>("color");
   const [printing, setPrinting] = useState(false);
+  const lastEventId = useRef(0);
   const ml = lang === "ml";
+
+  useEffect(() => {
+    const rememberEvent = () => {
+      const select = document.querySelector(".vhead select") as HTMLSelectElement | null;
+      const id = Number(select?.value || 0);
+      if (id) lastEventId.current = id;
+    };
+    rememberEvent();
+    const timer = window.setInterval(rememberEvent, 250);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const onClickCapture = async (event: MouseEvent) => {
@@ -23,7 +35,7 @@ export function TokensWithPrint() {
       event.stopImmediatePropagation();
 
       const select = document.querySelector(".vhead select") as HTMLSelectElement | null;
-      const eventId = Number(select?.value || 0);
+      const eventId = Number(select?.value || 0) || lastEventId.current;
       if (!eventId) {
         toast.error(ml ? "ആദ്യം ഒരു ഇവന്റ് തിരഞ്ഞെടുക്കുക" : "Please select an event first");
         return;
