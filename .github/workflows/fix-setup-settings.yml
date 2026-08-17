@@ -6,7 +6,6 @@ permissions:
   contents: write
 jobs:
   fix:
-    if: contains(github.event.head_commit.message, '[fix-setup-settings]') == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +25,6 @@ jobs:
           s=s.replace('setSettings({ ...emptySettings, ...s, language: lang });','setSettings({ ...emptySettings, ...s, language: s.language || lang, theme: s.theme || theme });')
           s=s.replace('await window.mms.settings.save(settings);','await window.mms.settings.save({ mahalluName:settings.mahallu_name, address:settings.address, phone:settings.phone, email:settings.email, financialYearStart:settings.financial_year_start, currencySymbol:settings.currency_symbol, theme:settings.theme, language:settings.language, autoBackup:settings.auto_backup, backupIntervalHours:settings.backup_interval_hours, receiptPrefix:settings.receipt_prefix });')
           s=s.replace('setSettings({ ...settings, language: settings.language });','setSettings({ ...settings, theme: value });')
-          s=s.replace('const handleLangChange = (value: string) => {','const handleLangChange = (value: string) => {')
           s=s.replace('<Select value={theme} onChange={(e) => handleThemeChange(e.target.value)}>', '<Select value={settings.theme} onChange={(e) => handleThemeChange(e.target.value)}>')
           p.write_text(s)
           Path('.github/workflows/fix-setup-settings.yml').unlink()
@@ -37,4 +35,4 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
-          git diff --cached --quiet || (git commit -m "fix setup and settings [fix-setup-settings]" && git push)
+          git diff --cached --quiet || (git commit -m "fix setup and settings [skip-fix-workflow]" && git push)
