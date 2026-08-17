@@ -9,7 +9,7 @@ const NAV = [
   { sec:"Overview" }, { id:"dash",to:"/",icon:LayoutDashboard,key:"nav_dashboard" }, { sec:"Management" },
   { id:"families",to:"/families",icon:Home,key:"nav_families" }, { id:"members",to:"/members",icon:User,key:"nav_members" }, { id:"subs",to:"/subscriptions",icon:Receipt,key:"nav_subscriptions" }, { id:"dons",to:"/donations",icon:Gift,key:"nav_donations" },
   { sec:"Finance" }, { id:"acct",to:"/accounting",icon:Calculator,key:"nav_accounting" }, { sec:"Registers" },
-  { id:"marriage",to:"/marriages",icon:Gem,key:"nav_marriage" }, { id:"death",to:"/deaths",icon:Flower,key:"nav_death" }, { id:"welfare",to:"/welfare",icon:Activity,key:"nav_welfare" }, { id:"certs",to:"/certificates",icon:Award,key:"nav_certificates" }, { id:"tokens",to:"/tokens",icon:Ticket,key:"nav_tokens",badge:true},
+  { id:"marriage",to:"/marriages",icon:Gem,key:"nav_marriage" }, { id:"death",to:"/deaths",icon:Flower,key:"nav_death" }, { id:"welfare",to:"/welfare",icon:Activity,key:"nav_welfare" }, { id:"certs",to:"/certificates",icon:Award,key:"nav_certificates" }, { id:"tokens",to:"/tokens",icon:Ticket,key:"nav_tokens"},
   { sec:"System" }, { id:"reports",to:"/reports",icon:BarChart3,key:"nav_reports" }, { id:"settings",to:"/settings",icon:Sliders,key:"nav_settings" }, { id:"users",to:"/users",icon:Users,key:"nav_users" }, { id:"audit",to:"/audit",icon:FileText,key:"nav_audit" }, { id:"backup",to:"/backup",icon:Database,key:"nav_backup" },
 ];
 const TINTS:Record<string,string>={dash:"t-em",families:"t-em",members:"t-teal",subs:"t-gold",dons:"t-pink",acct:"t-sky",marriage:"t-vio",death:"t-slate",welfare:"t-orange",certs:"t-cyan",tokens:"t-pink",reports:"t-blue",settings:"t-vio",users:"t-blue",audit:"t-gold",backup:"t-teal"};
@@ -20,12 +20,11 @@ export function Sidebar(){
  const {t,lang}=useI18n(); const {user,logout}=useAuth(); const navigate=useNavigate(); const [collapsed,setCollapsed]=useState(false); const [tip,setTip]=useState<{text:string;top:number}|null>(null); const ml=lang==="ml";
  const handleLogout=async()=>{await logout();navigate("/login");};
  const sectionText=(section:string)=>ml?sectionLabel[section]||section:section;
- const newLabel=ml?"പുതിയത്":"NEW";
  const collapseLabel=ml?"സൈഡ്ബാർ ചുരുക്കുക":"Collapse sidebar";
  return <aside className={cn("sidebar islamic-pattern",collapsed&&"min")}>
   <div className="sb-logo"><span className="logo"><b>M</b></span>{!collapsed&&<div className="nm"><b>MMS</b><small>{t("app_name")}</small></div>}</div>
   <div className="navscroll" onMouseLeave={()=>setTip(null)}>
-   {NAV.map((item,i)=>{if(item.sec)return <div key={`sec-${i}`} className="navsec">{collapsed?"":sectionText(item.sec)}</div>;const Icon=item.icon!;return <NavLink key={item.id} to={item.to!} end={item.to==="/"} className={({isActive})=>cn("navit",TINTS[item.id!],isActive&&"on")} onMouseEnter={e=>{if(collapsed){const r=e.currentTarget.getBoundingClientRect();setTip({text:t(item.key!),top:r.top+r.height/2});}}}><Icon className="ic" size={18} strokeWidth={2}/>{!collapsed&&<b>{t(item.key!)}</b>}{!collapsed&&item.badge&&<span className="navbadge">{newLabel}</span>}</NavLink>})}
+   {NAV.map((item,i)=>{if(item.sec)return <div key={`sec-${i}`} className="navsec">{collapsed?"":sectionText(item.sec)}</div>;const Icon=item.icon!;return <NavLink key={item.id} to={item.to!} end={item.to==="/"} className={({isActive})=>cn("navit",TINTS[item.id!],isActive&&"on")} onMouseEnter={e=>{if(collapsed){const r=e.currentTarget.getBoundingClientRect();setTip({text:t(item.key!),top:r.top+r.height/2});}}}><Icon className="ic" size={18} strokeWidth={2}/>{!collapsed&&<b>{t(item.key!)}</b>}</NavLink>})}
   </div>
   {collapsed&&tip&&<div className="sidebar-flyout-tip" style={{top:tip.top}} role="tooltip">{tip.text}</div>}
   <div className="sb-user"><span className="av">{user?.initials??"?"}</span>{!collapsed&&<div className="nm"><b>{user?.fullName??"—"}</b><small>{roleLabel(user?.role,ml)}</small></div>}<button className="ibtn" onClick={handleLogout} title={t("action_logout")}><LogOut size={16} strokeWidth={2}/></button></div>
