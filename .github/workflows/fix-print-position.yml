@@ -1,0 +1,38 @@
+name: Fix print control position
+on:
+  push:
+    branches: [fix/requested-mms-ui-token]
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('src/pages/Tokens.tsx'); s=p.read_text()
+          s=s.replace('import { useState, useEffect, useMemo, useCallback } from "react";','import { useState, useEffect, useMemo, useCallback, type ReactNode } from "react";')
+          s=s.replace('export function Tokens() {','export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = {}) {')
+          s=s.replace('{text.collectionSheet}</Button><span className="toolbar-spacer"','{text.collectionSheet}</Button>{printModeControl}<span className="toolbar-spacer"')
+          s=s.replace('{text.collectionSheet}</Button><Button variant="ghost"','{text.collectionSheet}</Button>{printModeControl}<Button variant="ghost"')
+          p.write_text(s)
+          p=Path('src/pages/TokensWithPrint.tsx'); s=p.read_text()
+          import re
+          control='<div className="token-print-mode" role="group" aria-label={ml ? "പ്രിന്റ് മോഡ്" : "Token print mode"}><span>{ml ? "പ്രിന്റ്" : "Print"}</span><button type="button" className={mode === "color" ? "on" : ""} onClick={() => setMode("color")} disabled={printing}>{ml ? "നിറം" : "Color"}</button><button type="button" className={mode === "bw" ? "on" : ""} onClick={() => setMode("bw")} disabled={printing}>{ml ? "കറുപ്പ് & വെളുപ്പ്" : "B&W"}</button></div>'
+          s=re.sub(r'\s*<div className="token-print-mode" role="group".*?</div>\s*<Tokens />', '\n      <Tokens printModeControl={'+control+'} />', s, count=1, flags=re.S)
+          s=s.replace('.token-print-mode{position:absolute;right:0;top:-1px;z-index:10;display:flex;align-items:center;gap:3px;padding:3px;border:1px solid var(--line);background:var(--panel);border-radius:11px;box-shadow:var(--sh);font:500 11px Poppins;color:var(--mut)}','.token-print-mode{display:inline-flex;align-items:center;gap:3px;padding:3px;border:1px solid var(--line);background:var(--panel);border-radius:9px;box-shadow:var(--sh);font:500 11px Poppins;color:var(--mut);white-space:nowrap}')
+          s=s.replace('.token-print-mode>span{padding:0 5px 0 7px;color:var(--fnt)}','.token-print-mode>span{padding:0 5px 0 7px;color:var(--fnt)}')
+          s=s.replace('@media(max-width:1100px){.token-print-mode{position:relative;top:auto;right:auto;width:max-content;margin:0 0 8px auto}}','')
+          p.write_text(s)
+          Path('.github/workflows/fix-print-position.yml').unlink()
+      - name: Build
+        run: npm install && npm run build
+      - name: Commit
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --quiet || (git commit -m "fix token print control position" && git push)
