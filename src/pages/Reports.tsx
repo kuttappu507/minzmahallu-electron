@@ -1,94 +1,41 @@
 import { useState } from "react";
-import { Download, FileSpreadsheet, FileText, Home, Users, Wallet, Gift, Gem, Flower, Heart, Skull, ScrollText, ShieldCheck, BarChart3, Loader2 } from "lucide-react";
+import { Download, FileSpreadsheet, FileText, Home, Users, Wallet, Gift, Gem, Flower, ScrollText, ShieldCheck, BarChart3, Loader2, CalendarRange } from "lucide-react";
 import { useI18n } from "@/i18n";
+import { Select, Input } from "@/components/ui";
 import { toast } from "@/lib/toast";
 
-type Tint = "t-em" | "t-gold" | "t-sky" | "t-rose" | "t-vio" | "t-pink" | "t-orange" | "t-teal" | "t-blue" | "t-slate";
-interface ReportType { id: string; title: string; description: string; tint: Tint; icon: typeof Home; fetch: () => Promise<any[]>; columns?: string[]; }
+type Tint = "t-em"|"t-gold"|"t-sky"|"t-rose"|"t-vio"|"t-pink"|"t-orange"|"t-teal"|"t-blue"|"t-slate";
+interface ReportType { id:string; title:string; description:string; tint:Tint; icon:any; fetch:()=>Promise<any[]>; columns?:string[]; dateKeys:string[]; }
 
-const REPORTS: ReportType[] = [
-  { id: "families", title: "Family Register", description: "All registered families with house, ward, contact and member count.", tint: "t-em", icon: Home, fetch: async () => (await window.mms.families.list({ pageSize: 100000 })).rows || [], columns: ["family_number", "house_name", "house_number", "ward", "area", "phone", "alternative_phone", "status", "member_count"] },
-  { id: "members", title: "Member Directory", description: "Complete member roster with code, family, demographics and contact.", tint: "t-teal", icon: Users, fetch: async () => (await window.mms.members.list({ pageSize: 100000 })).rows || [], columns: ["member_code", "name", "gender", "age", "blood_group", "mobile", "email", "house_name", "family_number", "status"] },
-  { id: "subscriptions", title: "Subscription Summary", description: "All subscription receipts with plan, amount, period and payment status.", tint: "t-gold", icon: Wallet, fetch: async () => (await window.mms.subscriptions.list({ pageSize: 100000 })).rows || [] },
-  { id: "donations", title: "Donation Report", description: "Donations by category, donor, date and purpose — includes totals.", tint: "t-pink", icon: Gift, fetch: async () => (await window.mms.donations.list({ pageSize: 100000 })).rows || [] },
-  { id: "accounting", title: "Financial Statement", description: "Income & expense ledger transactions with running balance summary.", tint: "t-sky", icon: BarChart3, fetch: async () => {
-    const [listRes, inc, exp, bal] = await Promise.all([window.mms.accounting.list({ pageSize: 100000 }), window.mms.accounting.totalIncome(), window.mms.accounting.totalExpense(), window.mms.accounting.balance()]);
-    const rows = (listRes?.rows || []).map((r: any) => ({ date: r.txn_date || r.date || "", type: r.type, description: r.description, amount: r.amount, method: r.payment_method || r.method || "" }));
-    rows.push({ date: "—", type: "SUMMARY", description: "TOTAL INCOME", amount: inc ?? 0, method: "" }, { date: "—", type: "SUMMARY", description: "TOTAL EXPENSE", amount: exp ?? 0, method: "" }, { date: "—", type: "SUMMARY", description: "NET BALANCE", amount: bal ?? 0, method: "" });
-    return rows;
-  } },
-  { id: "marriages", title: "Marriage Register", description: "Nikah registrations — bride, groom, witnesses, mahar and dates.", tint: "t-vio", icon: Gem, fetch: async () => (await window.mms.marriages.list({ pageSize: 100000 })).rows || [], columns: ["marriage_number", "nikah_date", "bride_name", "bride_father", "groom_name", "groom_father", "place", "mahar"] },
-  { id: "deaths", title: "Death Register", description: "Death and burial records with deceased, date and burial place.", tint: "t-slate", icon: Flower, fetch: async () => (await window.mms.deaths.list({ pageSize: 100000 })).rows || [], columns: ["death_number", "deceased_name", "father_name", "gender", "date_of_death", "burial_date", "burial_place"] },
-  { id: "welfare", title: "Welfare Report", description: "Welfare assistance requests with approved amounts and disbursement status.", tint: "t-orange", icon: ShieldCheck, fetch: async () => (await window.mms.welfare.list({ pageSize: 100000 })).rows || [] },
-  { id: "certificates", title: "Certificate Log", description: "Issued certificates with dates and recipients.", tint: "t-blue", icon: ScrollText, fetch: async () => (await window.mms.certificates.list({ pageSize: 100000 })).rows || [], columns: ["certificate_number", "type", "issued_to", "issued_date", "issued_by"] },
-  { id: "audit", title: "Audit Log", description: "All user actions across modules — full tamper-evident trail.", tint: "t-rose", icon: ShieldCheck, fetch: async () => (await window.mms.audit.list({ pageSize: 100000 })).rows || [], columns: ["created_at", "username", "action", "module", "description"] },
-  { id: "deaths_extra", title: "Burial Sites Index", description: "Quick index of burial places referenced in the death register.", tint: "t-teal", icon: Skull, fetch: async () => {
-    const rows = (await window.mms.deaths.list({ pageSize: 100000 })).rows || [];
-    const seen = new Map<string, { place: string; count: number; latest: string }>();
-    for (const r of rows as any[]) { const place = (r.burial_place || "Unknown").trim(); const cur = seen.get(place) || { place, count: 0, latest: "" }; cur.count++; if (!cur.latest || (r.burial_date || "") > cur.latest) cur.latest = r.burial_date || ""; seen.set(place, cur); }
-    return [...seen.values()].sort((a, b) => b.count - a.count);
-  } },
-  { id: "marriages_extra", title: "Nikah Officiant Index", description: "Marriage events grouped by place with annual counts.", tint: "t-pink", icon: Heart, fetch: async () => {
-    const rows = (await window.mms.marriages.list({ pageSize: 100000 })).rows || [];
-    const seen = new Map<string, { place: string; count: number; latest: string }>();
-    for (const r of rows as any[]) { const place = (r.place || "Unknown").trim(); const cur = seen.get(place) || { place, count: 0, latest: "" }; cur.count++; if (!cur.latest || (r.nikah_date || "") > cur.latest) cur.latest = r.nikah_date || ""; seen.set(place, cur); }
-    return [...seen.values()].sort((a, b) => b.count - a.count);
-  } },
+const REPORTS:ReportType[]=[
+{id:"families",title:"Family Register",description:"All registered families with house, ward, contact and member count.",tint:"t-em",icon:Home,fetch:async()=>((await window.mms.families.list({pageSize:100000})).rows||[]),columns:["family_number","house_name","house_number","ward","area","phone","status","member_count"],dateKeys:["created_at"]},
+{id:"members",title:"Member Directory",description:"Complete member roster with demographics and contact.",tint:"t-teal",icon:Users,fetch:async()=>((await window.mms.members.list({pageSize:100000})).rows||[]),columns:["member_code","name","gender","age","blood_group","mobile","email","house_name","family_number","status"],dateKeys:["created_at"]},
+{id:"subscriptions",title:"Subscription Summary",description:"Subscription receipts, periods, payments and status.",tint:"t-gold",icon:Wallet,fetch:async()=>((await window.mms.subscriptions.list({pageSize:100000})).rows||[]),dateKeys:["payment_date","period_start","created_at"]},
+{id:"donations",title:"Donation Report",description:"Donations by donor, category, date and purpose.",tint:"t-pink",icon:Gift,fetch:async()=>((await window.mms.donations.list({pageSize:100000})).rows||[]),dateKeys:["donation_date","created_at"]},
+{id:"accounting",title:"Financial Statement",description:"Income and expense ledger transactions with totals.",tint:"t-sky",icon:BarChart3,fetch:async()=>{const [r,inc,exp,bal]=await Promise.all([window.mms.accounting.list({pageSize:100000}),window.mms.accounting.totalIncome(),window.mms.accounting.totalExpense(),window.mms.accounting.balance()]);return [...(r?.rows||[]).map((x:any)=>({date:x.txn_date,type:x.type,description:x.description,amount:x.amount,payment_method:x.payment_method||""})),{date:"—",type:"SUMMARY",description:"TOTAL INCOME",amount:inc??0},{date:"—",type:"SUMMARY",description:"TOTAL EXPENSE",amount:exp??0},{date:"—",type:"SUMMARY",description:"NET BALANCE",amount:bal??0}]},dateKeys:["date","txn_date","created_at"]},
+{id:"marriages",title:"Marriage Register",description:"Nikah registrations and parties.",tint:"t-vio",icon:Gem,fetch:async()=>((await window.mms.marriages.list({pageSize:100000})).rows||[]),columns:["marriage_number","nikah_date","bride_name","groom_name","place","mahar"],dateKeys:["nikah_date","registration_date","created_at"]},
+{id:"deaths",title:"Death Register",description:"Death and burial records.",tint:"t-slate",icon:Flower,fetch:async()=>((await window.mms.deaths.list({pageSize:100000})).rows||[]),columns:["death_number","deceased_name","gender","date_of_death","burial_date","burial_place"],dateKeys:["date_of_death","burial_date","created_at"]},
+{id:"welfare",title:"Welfare Report",description:"Welfare requests and assistance status.",tint:"t-orange",icon:ShieldCheck,fetch:async()=>((await window.mms.welfare.list({pageSize:100000})).rows||[]),dateKeys:["request_date","created_at"]},
+{id:"certificates",title:"Certificate Log",description:"Issued certificates and dates.",tint:"t-blue",icon:ScrollText,fetch:async()=>((await window.mms.certificates.list({pageSize:100000})).rows||[]),columns:["certificate_number","type","issued_to","issued_date","issued_by"],dateKeys:["issued_date","created_at"]},
+{id:"audit",title:"Audit Log",description:"User actions across modules.",tint:"t-rose",icon:ShieldCheck,fetch:async()=>((await window.mms.audit.list({pageSize:100000})).rows||[]),columns:["created_at","username","action","module","description"],dateKeys:["created_at"]},
 ];
 
-const escapeCsv = (v: any) => { if (v === null || v === undefined) return ""; const s = String(v); return /[,\n"]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-const escapeHtml = (v: any) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const pickColumns = (rows: any[], preferred?: string[]) => preferred?.length ? preferred.filter(c => Object.prototype.hasOwnProperty.call(rows[0] || {}, c)) : [];
-const columnsFor = (rows: any[], preferred?: string[]) => pickColumns(rows, preferred).length ? pickColumns(rows, preferred) : Object.keys(rows[0] || {});
-const buildCsv = (rows: any[], cols: string[]) => [cols.join(","), ...rows.map(r => cols.map(c => escapeCsv(r[c])).join(","))].join("\n");
-const buildExcel = (rows: any[], cols: string[]) => `<html><head><meta charset="utf-8"></head><body><table border="1"><thead><tr>${cols.map(c => `<th>${escapeHtml(c)}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${cols.map(c => `<td>${escapeHtml(r[c])}</td>`).join("")}</tr>`).join("")}</tbody></table></body></html>`;
-const downloadBlob = (content: string, mime: string, filename: string) => { const blob = new Blob([content], { type: mime }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
-const stamp = () => new Date().toISOString().slice(0, 10);
+const esc=(v:any)=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;");
+const escapeCsv=(v:any)=>{const s=String(v??"");return /[,\n\"]/.test(s)?`"${s.replace(/\"/g,'\"\"')}"`:s;};
+const cols=(rows:any[],preferred?:string[])=>{const present=preferred?.filter(k=>Object.prototype.hasOwnProperty.call(rows[0]||{},k))||[];return present.length?present:Object.keys(rows[0]||{});};
+const csv=(rows:any[],c:string[])=>[c.join(","),...rows.map(r=>c.map(k=>escapeCsv(r[k])).join(","))].join("\n");
+const excel=(rows:any[],c:string[])=>`<html><head><meta charset="utf-8"></head><body><table border="1"><tr>${c.map(k=>`<th>${esc(k)}</th>`).join("")}</tr>${rows.map(r=>`<tr>${c.map(k=>`<td>${esc(r[k])}</td>`).join("")}</tr>`).join("")}</table></body></html>`;
+const download=(content:string,mime:string,name:string)=>{const url=URL.createObjectURL(new Blob([content],{type:mime}));const a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+const rowDate=(row:any,keys:string[])=>{for(const k of keys){if(row?.[k]){const d=new Date(row[k]);if(!Number.isNaN(d.getTime()))return d;}}return null;};
 
-function buildPdfHtml(title: string, rows: any[], cols: string[]) {
-  const landscape = cols.length >= 7;
-  const head = cols.map(c => `<th>${escapeHtml(c.replace(/_/g, " "))}</th>`).join("");
-  const body = rows.map(r => `<tr>${cols.map(c => `<td>${escapeHtml(r[c])}</td>`).join("")}</tr>`).join("");
-  return `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:A4 ${landscape ? "landscape" : "portrait"};margin:10mm}*{box-sizing:border-box}body{font:12px Poppins,system-ui,sans-serif;color:#1e2b25}h1{font-size:18px;margin:0 0 4px}.sub{color:#5f7268;margin-bottom:12px}table{width:100%;border-collapse:collapse}th,td{padding:5px 6px;border:1px solid #dfe8e1;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#f6f9f6;text-transform:uppercase;font-size:11px}tr:nth-child(even) td{background:#f8faf8}</style></head><body><h1>${escapeHtml(title)}</h1><div class="sub">Minz Mahallu Management System · Generated ${new Date().toLocaleString("en-IN")} · ${rows.length} records</div><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></body></html>`;
-}
-
-export function Reports() {
-  const { t } = useI18n();
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [busyFmt, setBusyFmt] = useState<"csv" | "excel" | "pdf" | null>(null);
-
-  const handleExport = async (rpt: ReportType, fmt: "csv" | "excel" | "pdf") => {
-    setBusyId(rpt.id); setBusyFmt(fmt);
-    try {
-      const rows = await rpt.fetch();
-      if (!rows.length) { toast.warning(`${t("rpt_no_records")} "${rpt.title}"`); return; }
-      const cols = columnsFor(rows, rpt.columns);
-      const base = `${rpt.id}_${stamp()}`;
-      if (fmt === "csv") {
-        downloadBlob("\ufeff" + buildCsv(rows, cols), "text/csv;charset=utf-8", `${base}.csv`);
-        toast.success(`${rpt.title}: ${rows.length} ${t("rpt_exported_as")} CSV`);
-      } else if (fmt === "excel") {
-        downloadBlob(buildExcel(rows, cols), "application/vnd.ms-excel;charset=utf-8", `${base}.xls`);
-        toast.success(`${rpt.title}: ${rows.length} ${t("rpt_exported_as")} Excel`);
-      } else {
-        const result = await window.mms.pdf.generate(buildPdfHtml(rpt.title, rows, cols), `${base}.pdf`);
-        if (result?.success === false && !result?.cancelled) throw new Error(result.error || t("rpt_pdf_failed"));
-        if (!result?.cancelled) toast.success(`${rpt.title}: ${t("rpt_pdf_generated")}`);
-      }
-    } catch (err: any) {
-      toast.error(err.message || (fmt === "pdf" ? t("rpt_pdf_failed") : `Failed to export ${rpt.title}`));
-    } finally { setBusyId(null); setBusyFmt(null); }
-  };
-
-  return <div className="view view-enter">
-    <div className="vhead"><div className="modic t-em"><BarChart3 size={20} /></div><div><h1>{t("rpt_title")}</h1><div className="vs">{t("rpt_subtitle")}</div></div></div>
-    <div className="rep-sec"><b>{t("rpt_catalogue")}</b></div>
-    <div className="rep-grid">{REPORTS.map(rpt => { const Icon = rpt.icon; const busy = busyId === rpt.id; return <div key={rpt.id} className={`rep-card ${rpt.tint}`}><div className="ric"><Icon size={20} /></div><div className="rtitle">{rpt.title}</div><div className="rdesc">{rpt.description}</div><div className="rexps">
-      <button className="btn bs bg" onClick={() => handleExport(rpt, "csv")} disabled={busy} title={t("rpt_export_csv")}>{busy && busyFmt === "csv" ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}CSV</button>
-      <button className="btn bs bg" onClick={() => handleExport(rpt, "excel")} disabled={busy} title={t("rpt_export_excel")}>{busy && busyFmt === "excel" ? <Loader2 size={12} className="animate-spin" /> : <FileSpreadsheet size={12} />}Excel</button>
-      <button className="btn bs bp" onClick={() => handleExport(rpt, "pdf")} disabled={busy} title={t("rpt_save_pdf")}>{busy && busyFmt === "pdf" ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />}PDF</button>
-    </div></div>; })}</div>
-    <div className="rep-sec mt-4"><b>{t("rpt_how_works")}</b></div>
-    <div className="card card-pad-5"><div className="rep-info"><p><b>CSV</b> — {t("rpt_csv_desc")}</p><p><b>Excel</b> — {t("rpt_excel_desc")}</p><p><b>PDF</b> — {t("rpt_pdf_desc")}</p><p className="rep-info-foot">{t("rpt_foot")}</p></div></div>
-  </div>;
+export function Reports(){
+ const {t,lang}=useI18n(); const ml=lang==="ml";
+ const [range,setRange]=useState<"all"|"thisMonth"|"lastMonth"|"custom">("all"); const [from,setFrom]=useState(""); const [to,setTo]=useState(""); const [busy,setBusy]=useState<string|null>(null); const [busyFmt,setBusyFmt]=useState<string|null>(null);
+ const bounds=()=>{const now=new Date();if(range==="all")return [null,null] as const;if(range==="custom")return [from?new Date(`${from}T00:00:00`):null,to?new Date(`${to}T23:59:59`):null] as const;const y=now.getFullYear(),m=now.getMonth();return range==="thisMonth"?[new Date(y,m,1),new Date(y,m+1,0,23,59,59)] as const:[new Date(y,m-1,1),new Date(y,m,0,23,59,59)] as const;};
+ const filtered=(rows:any[],r:ReportType)=>{const [a,b]=bounds();if(!a&&!b)return rows;return rows.filter(x=>{const d=rowDate(x,r.dateKeys);return d?(!a||d>=a)&&(!b||d<=b):false;});};
+ const exportReport=async(r:ReportType,f:"csv"|"excel"|"pdf")=>{setBusy(r.id);setBusyFmt(f);try{const raw=await r.fetch();const rows=filtered(raw,r);if(!rows.length){toast.warning(`${t("rpt_no_records")} "${r.title}"`);return;}const c=cols(rows,r.columns);const stamp=new Date().toISOString().slice(0,10);const name=`${r.id}_${range}_${stamp}`;if(f==="csv")download("\ufeff"+csv(rows,c),"text/csv;charset=utf-8",`${name}.csv`);else if(f==="excel")download(excel(rows,c),"application/vnd.ms-excel;charset=utf-8",`${name}.xls`);else{const html=`<!doctype html><html><head><meta charset="utf-8"><style>@page{size:A4 landscape;margin:10mm}body{font:12px Poppins,Arial,sans-serif;color:#1e2b25}h1{font-size:18px}table{width:100%;border-collapse:collapse}th,td{padding:5px;border:1px solid #dfe8e1;text-align:left;vertical-align:top}th{background:#f6f9f6}</style></head><body><h1>${esc(r.title)}</h1><p>Minz Mahallu Management System · ${rows.length} records · ${range}</p><table><tr>${c.map(k=>`<th>${esc(k.replace(/_/g," "))}</th>`).join("")}</tr>${rows.map(x=>`<tr>${c.map(k=>`<td>${esc(x[k])}</td>`).join("")}</tr>`).join("")}</table></body></html>`;const result=await window.mms.pdf.generate(html,`${name}.pdf`);if(result?.success===false&&!result?.cancelled)throw new Error(result.error||t("rpt_pdf_failed"));}toast.success(`${r.title}: ${rows.length} ${f.toUpperCase()}`);}catch(e:any){toast.error(e.message||t("ui_failed_save"));}finally{setBusy(null);setBusyFmt(null);}};
+ const labels=ml?{all:"എല്ലാ തീയതികളും",thisMonth:"ഈ മാസം",lastMonth:"കഴിഞ്ഞ മാസം",custom:"ഇഷ്ടാനുസൃതം"}:{all:"All time",thisMonth:"This month",lastMonth:"Last month",custom:"Custom dates"};
+ return <div className="view view-enter"><div className="vhead"><div className="modic t-em"><BarChart3 size={20}/></div><div><h1>{t("rpt_title")}</h1><div className="vs">{t("rpt_subtitle")}</div></div></div>
+ <div className="card card-pad-4 mb-4"><div className="flex items-end gap-3 flex-wrap"><div className="flex items-center gap-2"><CalendarRange size={18}/><b>{ml?"റിപ്പോർട്ട് തീയതി":"Report date"}</b></div><Select value={range} onChange={e=>setRange(e.target.value as any)} className="w-44">{Object.entries(labels).map(([k,v])=><option key={k} value={k}>{v}</option>)}</Select>{range==="custom"&&<><div><label className="lbl">{ml?"മുതൽ":"From"}</label><Input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></div><div><label className="lbl">{ml?"വരെ":"To"}</label><Input type="date" value={to} onChange={e=>setTo(e.target.value)}/></div></>}</div></div>
+ <div className="rep-sec"><b>{t("rpt_catalogue")}</b></div><div className="rep-grid">{REPORTS.map(r=>{const Icon=r.icon;const loading=busy===r.id;return <div key={r.id} className={`rep-card ${r.tint}`}><div className="ric"><Icon size={20}/></div><div className="rtitle">{r.title}</div><div className="rdesc">{r.description}</div><div className="rexps"><button className="btn bs bg" onClick={()=>exportReport(r,"csv")} disabled={loading}>{loading&&busyFmt==="csv"?<Loader2 size={12} className="animate-spin"/>:<Download size={12}/>}CSV</button><button className="btn bs bg" onClick={()=>exportReport(r,"excel")} disabled={loading}>{loading&&busyFmt==="excel"?<Loader2 size={12} className="animate-spin"/>:<FileSpreadsheet size={12}/>}Excel</button><button className="btn bs bp" onClick={()=>exportReport(r,"pdf")} disabled={loading}>{loading&&busyFmt==="pdf"?<Loader2 size={12} className="animate-spin"/>:<FileText size={12}/>}PDF</button></div></div>})}</div></div>;
 }
