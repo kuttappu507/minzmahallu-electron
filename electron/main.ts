@@ -49,7 +49,7 @@ async function renderHtmlToPdf(html: string): Promise<Buffer> {
   const pdfWin = new BrowserWindow({ show: false, width: 794, height: 1123, useContentSize: true, backgroundColor: "#ffffff", webPreferences: { offscreen: false, sandbox: false } });
   try {
     await pdfWin.loadURL("data:text/html;charset=UTF-8," + encodeURIComponent(html));
-    await pdfWin.webContents.executeJavaScript(`document.documentElement.style.width = '210mm'; document.body.style.width = '210mm'; void document.body.offsetHeight; ({bodyWidth: document.body.scrollWidth, bodyHeight: document.body.scrollHeight});`);
+    await pdfWin.webContents.executeJavaScript(`document.documentElement.style.width = 'auto'; document.body.style.width = 'auto'; void document.body.offsetHeight; ({bodyWidth: document.body.scrollWidth, bodyHeight: document.body.scrollHeight});`);
     await new Promise(resolve => setTimeout(resolve, 150));
     return await pdfWin.webContents.printToPDF({ pageSize: "A4", printBackground: true, margins: { top: 0, bottom: 0, left: 0, right: 0 }, preferCSSPageSize: true });
   } finally { if (!pdfWin.isDestroyed()) pdfWin.destroy(); }

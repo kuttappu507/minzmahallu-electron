@@ -239,7 +239,7 @@ function buildPdfHtml(title: string, rows: any[], columns: string[]): string {
     body { font: 400 12px Poppins, system-ui, sans-serif; color: #1e2b25; margin: 0; }
     h1 { font: 600 18px Poppins, sans-serif; margin: 0 0 4px; }
     .sub { color: #5f7268; font-size: 12px; margin-bottom: 12px; }
-    table { width: 100%; border-collapse: collapse; font-size: ${landscape ? "12" : "12"}px; table-layout: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: auto; }
     thead { display: table-header-group; }
     tr { break-inside: avoid; page-break-inside: avoid; }
     th { background: #f6f9f6; text-align: left; padding: 5px 6px; border: 1px solid #dfe8e1; text-transform: uppercase; font-size: 12px; letter-spacing: .06em; color: #5f7268; font-weight: 600; }
