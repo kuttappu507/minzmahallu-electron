@@ -1,0 +1,84 @@
+name: Apply Integrity Fixes 2
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-integrity-fixes2.yml'
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply fixes
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          def replace_once(path, old, new):
+              p=Path(path); s=p.read_text(encoding='utf-8'); assert old in s, f'Pattern not found: {path}: {old[:80]}'; p.write_text(s.replace(old,new,1),encoding='utf-8')
+
+          # Database compatibility for the fields used by the current UI/service.
+          Path('resources/sql/migrations/V011_fix_module_schema_compatibility.sql').write_text('''-- V011: align module CRUD fields with the production schema\nALTER TABLE marriages ADD COLUMN updated_at TEXT;\nALTER TABLE deaths ADD COLUMN updated_at TEXT;\nALTER TABLE welfare_requests ADD COLUMN request_date TEXT;\nALTER TABLE welfare_requests ADD COLUMN rejection_reason TEXT;\nALTER TABLE welfare_requests ADD COLUMN processed_by INTEGER;\nALTER TABLE welfare_requests ADD COLUMN processed_date TEXT;\nUPDATE welfare_requests SET request_date = created_at WHERE request_date IS NULL;\n''', encoding='utf-8')
+
+          # Welfare categories are an enum in schema.sql, not a separate table.
+          replace_once('electron/services/data.service.ts', 'categories: () => all<any>("SELECT * FROM welfare_categories WHERE is_active = 1 ORDER BY name"),', 'categories: () => ["Medical Aid", "Education Aid", "Marriage Assistance", "Financial Assistance"],')
+
+          # Token event deletion: token_assignments has ON DELETE CASCADE, so deleting the event is safe.
+          replace_once('electron/main.ts', 'ipcMain.handle("tokens:updateEvent", (_e, id, d) => data.tokens.updateEvent(id, d));', 'ipcMain.handle("tokens:updateEvent", (_e, id, d) => data.tokens.updateEvent(id, d));\n  ipcMain.handle("tokens:removeEvent", (_e, id: number) => { getDB().prepare("DELETE FROM token_events WHERE id = ?").run(id); return { success: true }; });')
+          replace_once('electron/preload.mts', 'updateEvent:(id:number,d:any)=>ipcRenderer.invoke("tokens:updateEvent",id,d),', 'updateEvent:(id:number,d:any)=>ipcRenderer.invoke("tokens:updateEvent",id,d),removeEvent:(id:number)=>ipcRenderer.invoke("tokens:removeEvent",id),')
+
+          # Token Events UI: explicit Delete Event action.
+          replace_once('src/pages/Tokens.tsx', '  const [eventDialogOpen, setEventDialogOpen] = useState(false);', '  const [eventDialogOpen, setEventDialogOpen] = useState(false);\n  const [deleteEventBusy, setDeleteEventBusy] = useState(false);')
+          replace_once('src/pages/Tokens.tsx', '  const saveEvent = async () => {', '''  const deleteEvent = async () => {\n    if (!selectedEventId || deleteEventBusy) return;\n    const ev = events.find(e => e.id === selectedEventId);\n    if (!ev) return;\n    const ok = window.confirm(ml ? `"${ev.event_name}" ഇവന്റും അതിലെ എല്ലാ ടോക്കണുകളും ഇല്ലാതാക്കണോ? ഇത് തിരിച്ചെടുക്കാനാകില്ല.` : `Delete event "${ev.event_name}" and all its tokens? This cannot be undone.`);\n    if (!ok) return;\n    setDeleteEventBusy(true);\n    try {\n      await window.mms.tokens.removeEvent(selectedEventId);\n      toast.success(ml ? "ഇവന്റ് ഇല്ലാതാക്കി" : "Event deleted");\n      setSelectedEventId(null);\n      setTokens([]);\n      setStats({ total: 0, collected: 0, remaining: 0, rate: 0 });\n      await loadEvents();\n    } catch (e: any) { toast.error(e.message || (ml ? "ഇവന്റ് ഇല്ലാതാക്കാനായില്ല" : "Failed to delete event")); }\n    finally { setDeleteEventBusy(false); }\n  };\n\n  const saveEvent = async () => {''')
+          replace_once('src/pages/Tokens.tsx', '{selectedEventId && <Button variant="secondary" onClick={() => editEvent(selectedEventId)}>{text.editEvent}</Button>}', '{selectedEventId && <><Button variant="secondary" onClick={() => editEvent(selectedEventId)}>{text.editEvent}</Button><Button variant="danger" onClick={deleteEvent} disabled={deleteEventBusy}><Trash2 size={14} /> {ml ? "ഇവന്റ് ഇല്ലാതാക്കുക" : "Delete Event"}</Button></>}')
+
+          # Welfare page no longer queries a nonexistent welfare_categories table.
+          replace_once('src/pages/Welfare.tsx', '    window.mms.welfare.categories().then((r) => setCategories(r || [])).catch(() => {});', '    setCategories(["Medical Aid", "Education Aid", "Marriage Assistance", "Financial Assistance"].map((name) => ({ name })));')
+
+          # Certificate template accepts both canonical values and UI translation-key-style values such as cert_marriage.
+          replace_once('electron/print/certificate.template.ts', "const type = String(cert?.type || 'certificate').toLowerCase();", "const rawType = String(cert?.type || 'certificate').toLowerCase(); const type = ({cert_membership:'membership',cert_residence:'residence',cert_marriage:'marriage',cert_death:'death'} as Record<string,string>)[rawType] || rawType;")
+
+          # PDF engine honors @page orientation.
+          replace_once('electron/main.ts', 'preferCSSPageSize: false', 'preferCSSPageSize: true')
+
+          # Replace the entire generic report PDF builder with a landscape-aware, human-readable version.
+          p=Path('src/pages/Reports.tsx'); s=p.read_text(encoding='utf-8')
+          start=s.index('function buildPdfHtml('); end=s.index('\nfunction downloadBlob(', start)
+          fn=r'''function buildPdfHtml(title: string, rows: any[], columns: string[]): string {\n  const landscape = columns.length >= 7 || ["donation", "subscription", "financial", "member", "family", "welfare", "audit"].some((x) => title.toLowerCase().includes(x));\n  const labels: Record<string,string> = {\n    family_number:"Family No.", house_name:"House Name", house_number:"House No.", ward:"Ward", area:"Area", phone:"Phone", alt_phone:"Alt. Phone", member_count:"Members",\n    code:"Member Code", name:"Name", gender:"Gender", age:"Age", blood_group:"Blood Group", mobile:"Mobile", email:"Email",\n    receipt_number:"Receipt No.", plan_name:"Plan", amount:"Amount", amount_paid:"Paid", payment_date:"Payment Date", payment_method:"Payment Method", status:"Status",\n    donor_name:"Donor", donor_phone:"Phone", category_name:"Category", donation_date:"Donation Date", purpose:"Purpose", date:"Date", type:"Type", description:"Description", method:"Method",\n    marriage_number:"Marriage No.", nikah_date:"Nikah Date", bride_name:"Bride", bride_father:"Bride Father", groom_name:"Groom", groom_father:"Groom Father", place:"Place", mahar:"Mahar",\n    death_number:"Death No.", deceased_name:"Deceased", father_name:"Father", date_of_death:"Date of Death", burial_date:"Burial Date", burial_place:"Burial Place",\n    request_number:"Request No.", applicant_name:"Applicant", category:"Category", amount_requested:"Requested", amount_approved:"Approved",\n    certificate_number:"Certificate No.", issued_to:"Issued To", issued_date:"Issued Date", issued_by:"Issued By", created_at:"Created", username:"User", action:"Action", module:"Module"\n  };\n  const pretty = (c:string) => labels[c] || c.replace(/_/g," ").replace(/\\b\\w/g,m=>m.toUpperCase());\n  const head = columns.map((c) => `<th>${escapeHtml(pretty(c))}</th>`).join("");\n  const body = rows.map((r) => `<tr>${columns.map((c) => `<td>${escapeHtml(r[c])}</td>`).join("")}</tr>`).join("");\n  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>\n<style>\n  @page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: 10mm; }\n  * { box-sizing: border-box; }\n  body { font: 400 10px Poppins, system-ui, sans-serif; color: #1e2b25; margin: 0; }\n  h1 { font: 600 18px Poppins, sans-serif; margin: 0 0 4px; }\n  .sub { color: #5f7268; font-size: 9px; margin-bottom: 12px; }\n  table { width: 100%; border-collapse: collapse; font-size: ${landscape ? "8.5" : "9.5"}px; table-layout: auto; }\n  thead { display: table-header-group; }\n  tr { break-inside: avoid; page-break-inside: avoid; }\n  th { background: #f6f9f6; text-align: left; padding: 5px 6px; border: 1px solid #dfe8e1; text-transform: uppercase; font-size: ${landscape ? "7.5" : "8.5"}px; letter-spacing: .06em; color: #5f7268; font-weight: 600; }\n  td { padding: 5px 6px; border: 1px solid #e6ede7; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; }\n  tr:nth-child(even) td { background: #f8faf8; }\n  .foot { margin-top: 12px; color: #8ba096; font-size: 8px; }\n</style></head><body>\n  <h1>${escapeHtml(title)}</h1>\n  <div class="sub">Minz Mahallu Management System · Generated ${new Date().toLocaleString("en-IN")} · ${rows.length} records</div>\n  <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>\n  <div class="foot">Printed report</div>\n</body></html>`;\n}\n'''
+          # The raw string above uses escaped newlines only for the workflow source; turn them into real newlines before writing TS.
+          fn=fn.replace('\\n','\n')
+          p.write_text(s[:start]+fn+s[end:],encoding='utf-8')
+
+          # Fresh-install demo data: replace placeholder family/member names and keep all relationships intact.
+          p=Path('resources/sql/seed.sql'); s=p.read_text(encoding='utf-8')
+          houses=['Darul Aman','Rahmath','Noor Manzil','Al Huda','Mubarak','Darussalam','Manzil','Safiya House','Hiba','Fathima Manzil','Naseema','Madinah House','Safa','Rahma','Amina House']
+          areas=['Kozhikode Beach','Moozhikkal','Vellimadukunnu','Nadakkavu','Kallai','Puthiyangadi','West Hill','Kottooli','Eranhipalam','Chevayur','Malaparamba','Medical College','Feroke','Ramanattukara','Pantheerankavu']
+          for i,(house,area) in enumerate(zip(houses,areas),1):
+              s=s.replace(f"'House{i}'",f"'{house}'",1).replace(f"'Area{i}'",f"'{area}'",1).replace(f"'Address{i}'",f"'{house}, {area}, Kozhikode'",1)
+          names=['Abdul Rahman','Fathima','Muhammed Shafi','Rukiya','Niyas','Shahana','Afsal','Suhara','Rashid','Sameera','Junaid','Haseena','Shameer','Nazeera','Basheer','Ameena','Shabeer','Rasiya','Faisal','Huda','Muneer','Sajida','Naufal','Aaliya','Irfan','Mariya','Salman','Safiya','Ashraf','Khadija']
+          occupations=['Civil Contractor','Teacher','Business Owner','Homemaker','Accountant','Teacher','Engineer','Homemaker','Electrician','Nurse','Shop Owner','Homemaker','Driver','Tailor','Retired Clerk','Homemaker','Technician','Teacher','Business Owner','Homemaker','Pharmacist','Homemaker','Bank Employee','Teacher','Designer','Nurse','Business Owner','Homemaker','Retired Teacher','Homemaker']
+          for i,(name,occ) in enumerate(zip(names,occupations),1):
+              s=s.replace(f"'Member{i}'",f"'{name}'",1)
+              s=s.replace("'Worker'",f"'{occ}'",1)
+          p.write_text(s,encoding='utf-8')
+
+      - name: Verify source wiring
+        run: |
+          grep -q 'tokens:removeEvent' electron/preload.mts
+          grep -q 'tokens:removeEvent' electron/main.ts
+          grep -q 'V011' resources/sql/migrations/V011_fix_module_schema_compatibility.sql
+          grep -q 'Medical Aid' src/pages/Welfare.tsx
+          grep -q 'preferCSSPageSize: true' electron/main.ts
+          grep -q 'cert_marriage' electron/print/certificate.template.ts
+
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m 'fix: verify module wiring reports welfare and demo data' || exit 0
+          git push
