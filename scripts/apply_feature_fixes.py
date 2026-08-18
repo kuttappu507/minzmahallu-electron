@@ -4,171 +4,127 @@ import re
 
 def edit(path, fn):
     p = Path(path)
-    if not p.exists():
-        return
+    if not p.exists(): return
     s = p.read_text(encoding="utf-8")
     n = fn(s)
-    if n != s:
-        p.write_text(n, encoding="utf-8")
+    if n != s: p.write_text(n, encoding="utf-8")
 
-# Token data: include the family head's name for the printed token card.
+# Keep all earlier feature repairs idempotent.
 def token_data(s):
-    old = '''SELECT ta.token_code, ta.status, ta.collected_at, ta.created_at,
+    old='''SELECT ta.token_code, ta.status, ta.collected_at, ta.created_at,
        f.family_number, f.house_name, f.ward, f.house_number, f.phone,
        te.event_name, te.event_date, te.venue, te.event_time'''
-    new = '''SELECT ta.token_code, ta.status, ta.collected_at, ta.created_at,
+    new='''SELECT ta.token_code, ta.status, ta.collected_at, ta.created_at,
        f.family_number, f.house_name, f.ward, f.house_number, f.phone,
        (SELECT m.name FROM members m WHERE m.family_id = f.id AND m.is_head = 1 AND m.status = 'Active' ORDER BY m.id LIMIT 1) AS house_head_name,
        te.event_name, te.event_date, te.venue, te.event_time'''
-    return s.replace(old, new, 1)
-edit("electron/services/data.service.ts", token_data)
+    return s.replace(old,new,1)
+edit("electron/services/data.service.ts",token_data)
 
-# Marriage NOC certificate API.
 def cert_data(s):
-    if "issueMarriageNoc:" in s:
-        return s
-    marker = "  issueDeath:"
-    idx = s.find(marker)
-    if idx < 0:
-        return s
-    method = '''  issueMarriageNoc: (marriageNum: string, userId: number) => {
+    if "issueMarriageNoc:" in s: return s
+    marker="  issueDeath:"; idx=s.find(marker)
+    if idx<0:return s
+    method='''  issueMarriageNoc: (marriageNum: string, userId: number) => {
     const marriage = one<any>("SELECT * FROM marriages WHERE marriage_number = ?", [marriageNum]);
     if (!marriage) throw new Error("Marriage record not found");
     const certificateNumber = scalar<string>("SELECT 'NOC-' || printf('%04d', COALESCE(MAX(id),0)+1) FROM certificates");
     const issuedTo = [marriage.bride_name, marriage.groom_name].filter(Boolean).join(" & ");
-    const result = run(
-      `INSERT INTO certificates (certificate_number, type, marriage_id, issued_to, issued_date, issued_by, notes)
-       VALUES (?, 'NOC', ?, ?, date('now'), ?, ?)`,
-      [certificateNumber, marriage.id, issuedTo, userId, `No Objection Certificate for marriage ${marriage.marriage_number}`]
-    );
+    const result = run(`INSERT INTO certificates (certificate_number, type, marriage_id, issued_to, issued_date, issued_by, notes) VALUES (?, 'NOC', ?, ?, date('now'), ?, ?)`, [certificateNumber, marriage.id, issuedTo, userId, `No Objection Certificate for marriage ${marriage.marriage_number}`]);
     return { id: result.id, certificate_number: certificateNumber };
   },
 '''
-    return s[:idx] + method + s[idx:]
-edit("electron/services/data.service.ts", cert_data)
+    return s[:idx]+method+s[idx:]
+edit("electron/services/data.service.ts",cert_data)
 
-# Main-process IPC bridge for the NOC.
-edit("electron/main.ts", lambda s: s if "certificates:issueMarriageNoc" in s else s.replace(
-    '  ipcMain.handle("certificates:issueMarriage", (_e, marriageNum) => data.certificates.issueMarriage(marriageNum, session.user?.id ?? 1));',
-    '  ipcMain.handle("certificates:issueMarriage", (_e, marriageNum) => data.certificates.issueMarriage(marriageNum, session.user?.id ?? 1));\n  ipcMain.handle("certificates:issueMarriageNoc", (_e, marriageNum) => data.certificates.issueMarriageNoc(marriageNum, session.user?.id ?? 1));', 1))
+# NOC renderer bridge/template repairs.
+edit("electron/main.ts",lambda s:s if "certificates:issueMarriageNoc" in s else s.replace('  ipcMain.handle("certificates:issueMarriage", (_e, marriageNum) => data.certificates.issueMarriage(marriageNum, session.user?.id ?? 1));','  ipcMain.handle("certificates:issueMarriage", (_e, marriageNum) => data.certificates.issueMarriage(marriageNum, session.user?.id ?? 1));\n  ipcMain.handle("certificates:issueMarriageNoc", (_e, marriageNum) => data.certificates.issueMarriageNoc(marriageNum, session.user?.id ?? 1));',1))
+edit("electron/preload.mts",lambda s:s if "issueMarriageNoc" in s else s.replace('issueMarriage:(m:string)=>ipcRenderer.invoke("certificates:issueMarriage",m),','issueMarriage:(m:string)=>ipcRenderer.invoke("certificates:issueMarriage",m),issueMarriageNoc:(m:string)=>ipcRenderer.invoke("certificates:issueMarriageNoc",m),',1))
 
-# Renderer bridge for the NOC.
-edit("electron/preload.mts", lambda s: s if "issueMarriageNoc" in s else s.replace(
-    'issueMarriage:(m:string)=>ipcRenderer.invoke("certificates:issueMarriage",m),',
-    'issueMarriage:(m:string)=>ipcRenderer.invoke("certificates:issueMarriage",m),issueMarriageNoc:(m:string)=>ipcRenderer.invoke("certificates:issueMarriageNoc",m),', 1))
-
-# Certificates screen: add NOC as a marriage-record based certificate.
 def cert_page(s):
-    s = s.replace('type IssueType = "membership" | "residence" | "marriage" | "death";',
-                  'type IssueType = "membership" | "residence" | "marriage" | "marriage_noc" | "death";')
-    needle = '''    death: {
+    s=s.replace('type IssueType = "membership" | "residence" | "marriage" | "death";','type IssueType = "membership" | "residence" | "marriage" | "marriage_noc" | "death";')
+    needle='''    death: {
       title: `${t("cert_death")} ${t("cert_title")}`,'''
     if "marriage_noc:" not in s and needle in s:
-        noc = '''    marriage_noc: {
+        noc='''    marriage_noc: {
       title: `Marriage NOC ${t("cert_title")}`,
-      codeLabel: t("cert_marriage_number"),
-      needsIssuedTo: false,
-      loader: async () => {
-        const r = await window.mms.marriages.list({ pageSize: 100 });
-        return (r?.rows || []).map((m: any) => ({
-          id: m.id,
-          code: m.marriage_number || "",
-          primaryName: m.bride_name || "—",
-          secondaryName: m.groom_name,
-          sub: m.nikah_date ? formatDate(m.nikah_date) : "",
-        }));
-      },
+      codeLabel: t("cert_marriage_number"), needsIssuedTo: false,
+      loader: async () => { const r=await window.mms.marriages.list({pageSize:100}); return (r?.rows||[]).map((m:any)=>({id:m.id,code:m.marriage_number||"",primaryName:m.bride_name||"—",secondaryName:m.groom_name,sub:m.nikah_date?formatDate(m.nikah_date):""})); },
     },
 '''
-        s = s.replace(needle, noc + needle, 1)
-    s = s.replace('''        case "marriage":
+        s=s.replace(needle,noc+needle,1)
+    s=s.replace('''        case "marriage":
           result = await window.mms.certificates.issueMarriage(selectedRow.code);
-          break;''', '''        case "marriage":
+          break;''','''        case "marriage":
           result = await window.mms.certificates.issueMarriage(selectedRow.code);
           break;
         case "marriage_noc":
           result = await window.mms.certificates.issueMarriageNoc(selectedRow.code);
-          break;''', 1)
+          break;''',1)
     if 'label: "Marriage NOC"' not in s:
-        s = s.replace('''    { type: "marriage" as IssueType, label: t("cert_marriage"), icon: Heart, tint: "t-pink" },''',
-                      '''    { type: "marriage" as IssueType, label: t("cert_marriage"), icon: Heart, tint: "t-pink" },
-    { type: "marriage_noc" as IssueType, label: "Marriage NOC", icon: FileCheck2, tint: "t-vio" },''', 1)
+        s=s.replace('''    { type: "marriage" as IssueType, label: t("cert_marriage"), icon: Heart, tint: "t-pink" },''','''    { type: "marriage" as IssueType, label: t("cert_marriage"), icon: Heart, tint: "t-pink" },
+    { type: "marriage_noc" as IssueType, label: "Marriage NOC", icon: FileCheck2, tint: "t-vio" },''',1)
     return s
-edit("src/pages/Certificates.tsx", cert_page)
+edit("src/pages/Certificates.tsx",cert_page)
 
-# Certificate template: NOC title and wording.
 def cert_template(s):
-    s = s.replace("membership:'അംഗത്വ സർട്ടിഫിക്കറ്റ്',residence:'വസതി സർട്ടിഫിക്കറ്റ്',marriage:'വിവാഹ സർട്ടിഫിക്കറ്റ്',death:'മരണ സർട്ടിഫിക്കറ്റ്',certificate:'സർട്ടിഫിക്കറ്റ്'", "membership:'അംഗത്വ സർട്ടിഫിക്കറ്റ്',residence:'വസതി സർട്ടിഫിക്കറ്റ്',marriage:'വിവാഹ സർട്ടിഫിക്കറ്റ്',noc:'വിവാഹത്തിനുള്ള എതിർപ്പില്ലാ സർട്ടിഫിക്കറ്റ്',death:'മരണ സർട്ടിഫിക്കറ്റ്',certificate:'സർട്ടിഫിക്കറ്റ്'", 1)
-    s = s.replace("membership:'MEMBERSHIP CERTIFICATE',residence:'RESIDENCE CERTIFICATE',marriage:'MARRIAGE CERTIFICATE',death:'DEATH CERTIFICATE',certificate:'CERTIFICATE'", "membership:'MEMBERSHIP CERTIFICATE',residence:'RESIDENCE CERTIFICATE',marriage:'MARRIAGE CERTIFICATE',noc:'NO OBJECTION CERTIFICATE FOR MARRIAGE',death:'DEATH CERTIFICATE',certificate:'CERTIFICATE'", 1)
+    s=s.replace("membership:'അംഗത്വ സർട്ടിഫിക്കറ്റ്',residence:'വസതി സർട്ടിഫിക്കറ്റ്',marriage:'വിവാഹ സർട്ടിഫിക്കറ്റ്',death:'മരണ സർട്ടിഫിക്കറ്റ്',certificate:'സർട്ടിഫിക്കറ്റ്'","membership:'അംഗത്വ സർട്ടിഫിക്കറ്റ്',residence:'വസതി സർട്ടിഫിക്കറ്റ്',marriage:'വിവാഹ സർട്ടിഫിക്കറ്റ്',noc:'വിവാഹത്തിനുള്ള എതിർപ്പില്ലാ സർട്ടിഫിക്കറ്റ്',death:'മരണ സർട്ടിഫിക്കറ്റ്',certificate:'സർട്ടിഫിക്കറ്റ്'",1)
+    s=s.replace("membership:'MEMBERSHIP CERTIFICATE',residence:'RESIDENCE CERTIFICATE',marriage:'MARRIAGE CERTIFICATE',death:'DEATH CERTIFICATE',certificate:'CERTIFICATE'","membership:'MEMBERSHIP CERTIFICATE',residence:'RESIDENCE CERTIFICATE',marriage:'MARRIAGE CERTIFICATE',noc:'NO OBJECTION CERTIFICATE FOR MARRIAGE',death:'DEATH CERTIFICATE',certificate:'CERTIFICATE'",1)
     return s
-edit("electron/print/certificate.template.ts", cert_template)
+edit("electron/print/certificate.template.ts",cert_template)
 
-# Runtime-safe token stats: do not call a missing IPC channel. Calculate stats
-# from the already-supported token list API instead.
+# Avoid the missing token stats IPC and calculate from the supported list API.
 def token_stats_runtime(s):
-    old = '      setStats(await window.mms.tokens.stats(selectedEventId));'
-    new = '''      const allResult = await window.mms.tokens.list({ eventId: selectedEventId, pageSize: 100000 });
+    old='      setStats(await window.mms.tokens.stats(selectedEventId));'
+    new='''      const allResult = await window.mms.tokens.list({ eventId: selectedEventId, pageSize: 100000 });
       const statRows = allResult?.rows || [];
       const total = statRows.filter((r: any) => r.status !== "CANCELLED").length;
       const collected = statRows.filter((r: any) => r.status === "COLLECTED").length;
       const remaining = total - collected;
       setStats({ total, collected, remaining, rate: total ? Math.round((collected / total) * 1000) / 10 : 0 });'''
-    return s.replace(old, new, 1)
-edit("src/pages/Tokens.tsx", token_stats_runtime)
+    return s.replace(old,new,1)
+edit("src/pages/Tokens.tsx",token_stats_runtime)
 
-# Report PDFs: keep their existing A4/landscape structure but never use tiny
-# body/table text. Tables already have generous cell space, so increase type.
-def report_pdf_type(s):
-    replacements = {
-        'body { font: 400 10px Poppins, system-ui, sans-serif;': 'body { font: 400 12px Poppins, system-ui, sans-serif;',
-        '.sub { color: #5f7268; font-size: 9px;': '.sub { color: #5f7268; font-size: 12px;',
-        'font-size: ${landscape ? "8.5" : "9.5"}px;': 'font-size: ${landscape ? "12" : "12"}px;',
-        'font-size: ${landscape ? "7.5" : "8.5"}px;': 'font-size: 12px;',
-        '.foot { margin-top: 12px; color: #8ba096; font-size: 8px; }': '.foot { margin-top: 12px; color: #8ba096; font-size: 12px; }',
+# Report PDF typography and renderer orientation.
+def report_pdf(s):
+    reps={
+      'body { font: 400 10px Poppins, system-ui, sans-serif;':'body { font: 400 12px Poppins, system-ui, sans-serif;',
+      '.sub { color: #5f7268; font-size: 9px;':'.sub { color: #5f7268; font-size: 12px;',
+      'font-size: ${landscape ? "8.5" : "9.5"}px;':'font-size: 12px;',
+      'font-size: ${landscape ? "7.5" : "8.5"}px;':'font-size: 12px;',
+      '.foot { margin-top: 12px; color: #8ba096; font-size: 8px; }':'.foot { margin-top: 12px; color: #8ba096; font-size: 12px; }',
     }
-    for a,b in replacements.items():
-        s=s.replace(a,b)
+    for a,b in reps.items():s=s.replace(a,b)
     return s
-edit("src/pages/Reports.tsx", report_pdf_type)
+edit("src/pages/Reports.tsx",report_pdf)
 
-# Defensive, idempotent cleanup. Earlier automated passes inserted duplicate
-# declarations/IPC handlers. Clean the generated source before TypeScript runs.
-preload = Path("electron/preload.mts")
+def pdf_renderer(s):
+    old="await pdfWin.webContents.executeJavaScript(`document.documentElement.style.width = '210mm'; document.body.style.width = '210mm'; void document.body.offsetHeight; ({bodyWidth: document.body.scrollWidth, bodyHeight: document.body.scrollHeight});`);"
+    new="await pdfWin.webContents.executeJavaScript(`document.documentElement.style.width = 'auto'; document.body.style.width = 'auto'; void document.body.offsetHeight; ({bodyWidth: document.body.scrollWidth, bodyHeight: document.body.scrollHeight});`);"
+    return s.replace(old,new,1)
+edit("electron/main.ts",pdf_renderer)
+
+# Defensive idempotent cleanup for duplicate generated registrations/declarations.
+preload=Path("electron/preload.mts")
 if preload.exists():
-    s = preload.read_text(encoding="utf-8")
-    repeated = ',removeEvent:(id:number)=>ipcRenderer.invoke("tokens:removeEvent",id)'
-    while s.count(repeated) > 1:
-        s = s.replace(repeated, '', 1)
-    preload.write_text(s, encoding="utf-8")
-
-main = Path("electron/main.ts")
+    s=preload.read_text(encoding="utf-8"); repeated=',removeEvent:(id:number)=>ipcRenderer.invoke("tokens:removeEvent",id)'
+    while s.count(repeated)>1:s=s.replace(repeated,'',1)
+    preload.write_text(s,encoding="utf-8")
+main=Path("electron/main.ts")
 if main.exists():
-    s = main.read_text(encoding="utf-8")
-    seen = set(); out = []
+    s=main.read_text(encoding="utf-8"); seen=set(); out=[]
     for line in s.splitlines(keepends=True):
-        m = re.search(r'ipcMain\.handle\("([^"]+)"', line)
+        m=re.search(r'ipcMain\.handle\("([^"]+)"',line)
         if m:
-            channel = m.group(1)
-            if channel in seen: continue
-            seen.add(channel)
+            ch=m.group(1)
+            if ch in seen:continue
+            seen.add(ch)
         out.append(line)
-    s = ''.join(out)
-    if 'ipcMain.handle("tokens:removeEvent"' not in s:
-        marker = '  ipcMain.handle("tokens:list", (_e, filter) => data.tokens.list(filter || {}));'
-        if marker in s:
-            s = s.replace(marker, '  ipcMain.handle("tokens:removeEvent", (_e, id: number) => { const result = getDB().prepare("DELETE FROM token_events WHERE id = ?").run(id); return { success: true, changes: result.changes }; });\n' + marker, 1)
-    main.write_text(s, encoding="utf-8")
-
-tokens = Path("src/pages/Tokens.tsx")
+    main.write_text(''.join(out),encoding="utf-8")
+tokens=Path("src/pages/Tokens.tsx")
 if tokens.exists():
-    s = tokens.read_text(encoding="utf-8")
-    decl = '  const [deleteEventBusy, setDeleteEventBusy] = useState(false);\n'
-    first_decl = s.find(decl)
-    if first_decl >= 0:
-        s = s[:first_decl + len(decl)] + s[first_decl + len(decl):].replace(decl, '')
-    pattern = re.compile(r'  const deleteEvent = async \(\) => \{.*?^  \};\n', re.MULTILINE | re.DOTALL)
-    matches = list(pattern.finditer(s))
-    if len(matches) > 1:
-        first = matches[0]
-        s = s[:first.end()] + re.sub(r'  const deleteEvent = async \(\) => \{.*?^  \};\n', '', s[first.end():], flags=re.MULTILINE | re.DOTALL)
-    tokens.write_text(s, encoding="utf-8")
+    s=tokens.read_text(encoding="utf-8"); decl='  const [deleteEventBusy, setDeleteEventBusy] = useState(false);\n'; first=s.find(decl)
+    if first>=0:s=s[:first+len(decl)]+s[first+len(decl):].replace(decl,'')
+    pattern=re.compile(r'  const deleteEvent = async \(\) => \{.*?^  \};\n',re.MULTILINE|re.DOTALL); matches=list(pattern.finditer(s))
+    if len(matches)>1:s=s[:matches[0].end()]+re.sub(r'  const deleteEvent = async \(\) => \{.*?^  \};\n','',s[matches[0].end():],flags=re.MULTILINE|re.DOTALL)
+    tokens.write_text(s,encoding="utf-8")
