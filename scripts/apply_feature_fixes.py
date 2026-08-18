@@ -105,7 +105,7 @@ def cert_template(s):
     return s
 edit("electron/print/certificate.template.ts", cert_template)
 
-# Defensive cleanup: earlier automated passes duplicated generated declarations.
+# Defensive cleanup: previous automated passes duplicated declarations/blocks.
 preload = Path("electron/preload.mts")
 if preload.exists():
     s = preload.read_text(encoding="utf-8")
@@ -117,13 +117,25 @@ if preload.exists():
 tokens = Path("src/pages/Tokens.tsx")
 if tokens.exists():
     s = tokens.read_text(encoding="utf-8")
+
+    # Keep exactly one deleteEventBusy declaration.
     decl = '  const [deleteEventBusy, setDeleteEventBusy] = useState(false);\n'
-    while s.count(decl) > 1:
-        s = s.replace(decl, '', 1)
-    start = s.find('  const deleteEvent = async () => {')
-    save = s.find('  const saveEvent = async () => {', start)
-    if start >= 0 and save > start:
-        block = s[start:save]
-        while s.count(block) > 1:
-            s = s.replace(block, '', 1)
+    first_decl = s.find(decl)
+    if first_decl >= 0:
+        before = s[:first_decl + len(decl)]
+        after = s[first_decl + len(decl):].replace(decl, '')
+        s = before + after
+
+    # Keep exactly one complete deleteEvent function. The duplicated functions
+    # are contiguous and all occur before saveEvent.
+    pattern = re.compile(r'  const deleteEvent = async \(\) => \{.*?^  \};\n', re.MULTILINE | re.DOTALL)
+    matches = list(pattern.finditer(s))
+    if len(matches) > 1:
+        first = matches[0]
+        prefix = s[:first.end()]
+        suffix = s[matches[-1].end():]
+        # Remove every duplicate deleteEvent block between the first and saveEvent.
+        suffix = re.sub(r'^(?:\n)?  const deleteEvent = async \(\) => \{.*?^  \};\n', '', suffix, flags=re.MULTILINE | re.DOTALL)
+        s = prefix + suffix
+
     tokens.write_text(s, encoding="utf-8")
