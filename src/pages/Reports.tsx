@@ -236,16 +236,16 @@ function buildPdfHtml(title: string, rows: any[], columns: string[]): string {
   return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
     @page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: 10mm; }
     * { box-sizing: border-box; }
-    body { font: 400 10px Poppins, system-ui, sans-serif; color: #1e2b25; margin: 0; }
+    body { font: 400 12px Poppins, system-ui, sans-serif; color: #1e2b25; margin: 0; }
     h1 { font: 600 18px Poppins, sans-serif; margin: 0 0 4px; }
-    .sub { color: #5f7268; font-size: 9px; margin-bottom: 12px; }
-    table { width: 100%; border-collapse: collapse; font-size: ${landscape ? "8.5" : "9.5"}px; table-layout: auto; }
+    .sub { color: #5f7268; font-size: 12px; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: ${landscape ? "12" : "12"}px; table-layout: auto; }
     thead { display: table-header-group; }
     tr { break-inside: avoid; page-break-inside: avoid; }
-    th { background: #f6f9f6; text-align: left; padding: 5px 6px; border: 1px solid #dfe8e1; text-transform: uppercase; font-size: ${landscape ? "7.5" : "8.5"}px; letter-spacing: .06em; color: #5f7268; font-weight: 600; }
+    th { background: #f6f9f6; text-align: left; padding: 5px 6px; border: 1px solid #dfe8e1; text-transform: uppercase; font-size: 12px; letter-spacing: .06em; color: #5f7268; font-weight: 600; }
     td { padding: 5px 6px; border: 1px solid #e6ede7; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; }
     tr:nth-child(even) td { background: #f8faf8; }
-    .foot { margin-top: 12px; color: #8ba096; font-size: 8px; }
+    .foot { margin-top: 12px; color: #8ba096; font-size: 12px; }
   </style></head><body><h1>${escapeHtml(title)}</h1><div class="sub">Minz Mahallu Management System · Generated ${new Date().toLocaleString("en-IN")} · ${rows.length} records</div><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table><div class="foot">Printed report</div></body></html>`;
 }
 

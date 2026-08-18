@@ -125,7 +125,12 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
       if (search) filter.search = search;
       const result = await window.mms.tokens.list(filter);
       setTokens(result.rows || []);
-      setStats(await window.mms.tokens.stats(selectedEventId));
+      const allResult = await window.mms.tokens.list({ eventId: selectedEventId, pageSize: 100000 });
+      const statRows = allResult?.rows || [];
+      const total = statRows.filter((r: any) => r.status !== "CANCELLED").length;
+      const collected = statRows.filter((r: any) => r.status === "COLLECTED").length;
+      const remaining = total - collected;
+      setStats({ total, collected, remaining, rate: total ? Math.round((collected / total) * 1000) / 10 : 0 });
     } catch (e: any) { toast.error(e.message || "Failed to load tokens"); }
     finally { setLoading(false); }
   }, [selectedEventId, statusFilter, search]);
@@ -155,6 +160,7 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
       setDeleteEventBusy(false);
     }
   };
+
 
 
 
