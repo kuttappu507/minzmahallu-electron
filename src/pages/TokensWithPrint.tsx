@@ -29,42 +29,26 @@ export function TokensWithPrint() {
       if (!button || printing) return;
       const label = (button.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
       if (!label.includes(ml ? "ടോക്കൺ pdf" : "token pdf")) return;
-
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-
+      event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
       const select = document.querySelector(".vhead select") as HTMLSelectElement | null;
       const eventId = Number(select?.value || 0) || lastEventId.current;
-      if (!eventId) {
-        toast.error(ml ? "ആദ്യം ഒരു ഇവന്റ് തിരഞ്ഞെടുക്കുക" : "Please select an event first");
-        return;
-      }
-
+      if (!eventId) { toast.error(ml ? "ആദ്യം ഒരു ഇവന്റ് തിരഞ്ഞെടുക്കുക" : "Please select an event first"); return; }
       setPrinting(true);
       try {
-        const [tokenList, eventData, settings] = await Promise.all([
+        const [tokenList, eventData, loadedSettings] = await Promise.all([
           window.mms.tokens.listForPdf(eventId),
           window.mms.tokens.getEvent(eventId),
           window.mms.settings.load(),
         ]);
-        if (!tokenList?.length) {
-          toast.error(ml ? "ഈ ഇവന്റിന് ടോക്കണുകളൊന്നുമില്ല" : "No tokens found for this event");
-          return;
-        }
+        if (!tokenList?.length) { toast.error(ml ? "ഈ ഇവന്റിന് ടോക്കണുകളൊന്നുമില്ല" : "No tokens found for this event"); return; }
+        const settings = { ...(loadedSettings || {}), language: lang };
         const html = buildTokenSheetHtml(tokenList, eventData, settings, mode);
         const safeName = String(eventData?.event_name || eventId).replace(/[^a-z0-9_-]+/gi, "-").replace(/^-|-$/g, "") || String(eventId);
         const result = await window.mms.pdf.generate(html, `tokens-${safeName}${mode === "bw" ? "-bw" : ""}.pdf`);
-        if (result?.success) {
-          toast.success(ml ? `${tokenList.length} ടോക്കണുകളുടെ PDF തയ്യാറാക്കി` : `${mode === "bw" ? "Black & white token PDF" : "Token PDF"} generated (${tokenList.length} tokens)`);
-        }
-      } catch (e: any) {
-        toast.error(e.message || (ml ? "PDF തയ്യാറാക്കാൻ കഴിഞ്ഞില്ല" : "Failed to generate PDF"));
-      } finally {
-        setPrinting(false);
-      }
+        if (result?.success) toast.success(ml ? `${tokenList.length} ടോക്കണുകളുടെ PDF തയ്യാറാക്കി` : `${mode === "bw" ? "Black & white token PDF" : "Token PDF"} generated (${tokenList.length} tokens)`);
+      } catch (e: any) { toast.error(e.message || (ml ? "PDF തയ്യാറാക്കാൻ കഴിഞ്ഞില്ല" : "Failed to generate PDF")); }
+      finally { setPrinting(false); }
     };
-
     document.addEventListener("click", onClickCapture, true);
     return () => document.removeEventListener("click", onClickCapture, true);
   }, [lang, ml, mode, printing]);
@@ -79,7 +63,6 @@ export function TokensWithPrint() {
         .token-print-mode button{border:0;background:transparent;color:var(--mut);border-radius:8px;padding:5px 9px;cursor:pointer;font:500 11px Poppins}
         .token-print-mode button.on{background:var(--em);color:#fff;box-shadow:0 2px 0 var(--emdd)}
         .token-print-mode button:disabled{opacity:.5;cursor:not-allowed}
-        
       `}</style>
     </div>
   );
