@@ -19,7 +19,7 @@ interface Certificate {
   reference_id: number;
 }
 
-type IssueType = "membership" | "residence" | "marriage" | "death";
+type IssueType = "membership" | "residence" | "marriage" | "marriage_noc" | "death";
 
 interface PickRow {
   id: number;
@@ -87,6 +87,21 @@ export function Certificates() {
     },
     marriage: {
       title: `${t("cert_marriage")} ${t("cert_title")}`,
+      codeLabel: t("cert_marriage_number"),
+      needsIssuedTo: false,
+      loader: async () => {
+        const r = await window.mms.marriages.list({ pageSize: 100 });
+        return (r?.rows || []).map((m: any) => ({
+          id: m.id,
+          code: m.marriage_number || "",
+          primaryName: m.bride_name || "—",
+          secondaryName: m.groom_name,
+          sub: m.nikah_date ? formatDate(m.nikah_date) : "",
+        }));
+      },
+    },
+    marriage_noc: {
+      title: `Marriage NOC ${t("cert_title")}`,
       codeLabel: t("cert_marriage_number"),
       needsIssuedTo: false,
       loader: async () => {
@@ -191,6 +206,9 @@ export function Certificates() {
         case "marriage":
           result = await window.mms.certificates.issueMarriage(selectedRow.code);
           break;
+        case "marriage_noc":
+          result = await window.mms.certificates.issueMarriageNoc(selectedRow.code);
+          break;
         case "death":
           result = await window.mms.certificates.issueDeath(selectedRow.code);
           break;
@@ -226,6 +244,7 @@ export function Certificates() {
     { type: "membership" as IssueType, label: t("cert_membership"), icon: FileText, tint: "t-blue" },
     { type: "residence" as IssueType, label: t("cert_residence"), icon: Home, tint: "t-em" },
     { type: "marriage" as IssueType, label: t("cert_marriage"), icon: Heart, tint: "t-pink" },
+    { type: "marriage_noc" as IssueType, label: "Marriage NOC", icon: FileCheck2, tint: "t-vio" },
     { type: "death" as IssueType, label: t("cert_death"), icon: Skull, tint: "t-slate" },
   ];
 
@@ -238,9 +257,12 @@ export function Certificates() {
           membership: "t-blue",
           residence: "t-em",
           marriage: "t-pink",
+          marriage_noc: "t-vio",
+          noc: "t-vio",
           death: "t-slate",
         };
-        return <span className={`pill ${tintMap[r.type?.toLowerCase()] || "t-slate"}`}>{t(`cert_${r.type}`)}</span>;
+        const certType = r.type?.toLowerCase();
+        return <span className={`pill ${tintMap[certType] || "t-slate"}`}>{certType === "noc" ? "Marriage NOC" : t(`cert_${r.type}`)}</span>;
       },
     },
     { header: t("cert_issued_to"), accessor: (r) => r.issued_to || "—" },

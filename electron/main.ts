@@ -122,6 +122,7 @@ app.whenReady().then(() => {
   ipcMain.handle("certificates:issueMembership", (_e, code) => data.certificates.issueMembership(code, session.user?.id ?? 1));
   ipcMain.handle("certificates:issueResidence", (_e, familyNum, issuedTo) => data.certificates.issueResidence(familyNum, issuedTo, session.user?.id ?? 1));
   ipcMain.handle("certificates:issueMarriage", (_e, marriageNum) => data.certificates.issueMarriage(marriageNum, session.user?.id ?? 1));
+  ipcMain.handle("certificates:issueMarriageNoc", (_e, marriageNum) => data.certificates.issueMarriageNoc(marriageNum, session.user?.id ?? 1));
   ipcMain.handle("certificates:issueDeath", (_e, deathNum) => data.certificates.issueDeath(deathNum, session.user?.id ?? 1));
   ipcMain.handle("certificates:remove", () => { throw new Error("Permanent deletion of certificate records is disabled"); });
 
@@ -154,6 +155,7 @@ app.whenReady().then(() => {
   ipcMain.handle("tokens:getEvent", (_e, id) => data.tokens.getEvent(id));
   ipcMain.handle("tokens:createEvent", (_e, d) => data.tokens.createEvent(d));
   ipcMain.handle("tokens:updateEvent", (_e, id, d) => data.tokens.updateEvent(id, d));
+  ipcMain.handle("tokens:removeEvent", (_e, id: number) => { getDB().prepare("DELETE FROM token_events WHERE id = ?").run(id); return { success: true }; });
   ipcMain.handle("tokens:removeEvent", (_e, id: number) => { getDB().prepare("DELETE FROM token_events WHERE id = ?").run(id); return { success: true }; });
   ipcMain.handle("tokens:removeEvent", (_e, id: number) => { getDB().prepare("DELETE FROM token_events WHERE id = ?").run(id); return { success: true }; });
   ipcMain.handle("tokens:removeEvent", (_e, id: number) => { getDB().prepare("DELETE FROM token_events WHERE id = ?").run(id); return { success: true }; });

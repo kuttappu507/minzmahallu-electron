@@ -582,6 +582,18 @@ export const certificates = {
     );
     return { id, certificateNumber: certNum };
   },
+  issueMarriageNoc: (marriageNum: string, userId: number) => {
+    const marriage = one<any>("SELECT * FROM marriages WHERE marriage_number = ?", [marriageNum]);
+    if (!marriage) throw new Error("Marriage record not found");
+    const certificateNumber = scalar<string>("SELECT 'NOC-' || printf('%04d', COALESCE(MAX(id),0)+1) FROM certificates");
+    const issuedTo = [marriage.bride_name, marriage.groom_name].filter(Boolean).join(" & ");
+    const result = run(
+      `INSERT INTO certificates (certificate_number, type, marriage_id, issued_to, issued_date, issued_by, notes)
+       VALUES (?, 'NOC', ?, ?, date('now'), ?, ?)`,
+      [certificateNumber, marriage.id, issuedTo, userId, `No Objection Certificate for marriage ${marriage.marriage_number}`]
+    );
+    return { id: result.id, certificate_number: certificateNumber };
+  },
   issueDeath: (deathNumber: string, userId: number) => {
     const d = one<any>("SELECT * FROM deaths WHERE death_number = ?", [deathNumber]);
     if (!d) throw new Error("Death record not found");
@@ -879,6 +891,7 @@ export const tokens = {
   listForPdf: (eventId: number) => all<any>(
     `SELECT ta.token_code, ta.status, ta.collected_at, ta.created_at,
        f.family_number, f.house_name, f.ward, f.house_number, f.phone,
+       (SELECT m.name FROM members m WHERE m.family_id = f.id AND m.is_head = 1 AND m.status = 'Active' ORDER BY m.id LIMIT 1) AS house_head_name,
        te.event_name, te.event_date, te.venue, te.event_time
      FROM token_assignments ta
      LEFT JOIN families f ON f.id = ta.family_id
