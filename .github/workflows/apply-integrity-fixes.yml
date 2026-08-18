@@ -1,0 +1,74 @@
+name: Apply Integrity Fixes
+on:
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply fixes
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          def edit(path, fn):
+              p=Path(path); s=p.read_text(encoding='utf-8'); n=fn(s); assert n!=s, f'No change made to {path}'; p.write_text(n,encoding='utf-8')
+
+          # 1) Database compatibility migration: align welfare + marriage/death update fields and preserve token-event deletion safely.
+          mig=Path('resources/sql/migrations/V011_fix_module_schema_compatibility.sql')
+          mig.write_text('''-- v11: align UI/service fields with the production schema\nALTER TABLE marriages ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime(\\'now\\'));\nALTER TABLE deaths ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime(\\'now\\'));\nALTER TABLE welfare_requests ADD COLUMN request_date TEXT;\nALTER TABLE welfare_requests ADD COLUMN rejection_reason TEXT;\nALTER TABLE welfare_requests ADD COLUMN processed_by INTEGER;\nALTER TABLE welfare_requests ADD COLUMN processed_date TEXT;\nUPDATE welfare_requests SET request_date=COALESCE(request_date, created_at);\n''',encoding='utf-8')
+
+          # 2) Fix the service's welfare category lookup (there is no welfare_categories table) and keep workflow fields valid.
+          edit('electron/services/data.service.ts', lambda s: s.replace('categories: () => all<any>("SELECT * FROM welfare_categories WHERE is_active = 1 ORDER BY name"),', 'categories: () => ["Medical Aid", "Education Aid", "Marriage Assistance", "Financial Assistance"],'))
+
+          # 3) Token events: expose a safe event deletion operation. Tokens are removed first in a transaction.
+          edit('electron/main.ts', lambda s: s.replace('ipcMain.handle("tokens:updateEvent", (_e, id, d) => data.tokens.updateEvent(id, d));', 'ipcMain.handle("tokens:updateEvent", (_e, id, d) => data.tokens.updateEvent(id, d));\n  ipcMain.handle("tokens:removeEvent", (_e, id: number) => { const db = getDB(); const tx = db.transaction(() => { db.prepare("DELETE FROM tokens WHERE event_id = ?").run(id); db.prepare("DELETE FROM token_events WHERE id = ?").run(id); }); tx(id); return { success: true }; });'))
+          edit('electron/preload.mts', lambda s: s.replace('updateEvent:(id:number,d:any)=>ipcRenderer.invoke("tokens:updateEvent",id,d),', 'updateEvent:(id:number,d:any)=>ipcRenderer.invoke("tokens:updateEvent",id,d),removeEvent:(id:number)=>ipcRenderer.invoke("tokens:removeEvent",id),'))
+
+          # 4) Token Events UI: add explicit Delete Event beside Edit Event, with confirmation and refresh.
+          edit('src/pages/Tokens.tsx', lambda s: s.replace('const [eventDialogOpen, setEventDialogOpen] = useState(false);', 'const [eventDialogOpen, setEventDialogOpen] = useState(false);\n  const [deleteEventBusy, setDeleteEventBusy] = useState(false);'))
+          edit('src/pages/Tokens.tsx', lambda s: s.replace('  const saveEvent = async () => {', '  const deleteEvent = async () => {\n    if (!selectedEventId || deleteEventBusy) return;\n    const ev = events.find(e => e.id === selectedEventId);\n    if (!ev) return;\n    if (!window.confirm(ml ? `\\"${ev.event_name}\\" ഇവന്റ് അതിന്റെ എല്ലാ ടോക്കണുകളോടും കൂടി ഇല്ലാതാക്കണോ?` : `Delete event \\"${ev.event_name}\\" and all its tokens? This cannot be undone.`)) return;\n    setDeleteEventBusy(true);\n    try { await window.mms.tokens.removeEvent(selectedEventId); toast.success(ml ? "ഇവന്റ് ഇല്ലാതാക്കി" : "Event deleted"); setSelectedEventId(null); await loadEvents(); setTokens([]); setStats({total:0,collected:0,remaining:0,rate:0}); } catch(e:any) { toast.error(e.message || (ml ? "ഇവന്റ് ഇല്ലാതാക്കാനായില്ല" : "Failed to delete event")); } finally { setDeleteEventBusy(false); }\n  };\n\n  const saveEvent = async () => {')
+          edit('src/pages/Tokens.tsx', lambda s: s.replace('{selectedEventId && <Button variant="secondary" onClick={() => editEvent(selectedEventId)}>{text.editEvent}</Button>}', '{selectedEventId && <><Button variant="secondary" onClick={() => editEvent(selectedEventId)}>{text.editEvent}</Button><Button variant="danger" onClick={deleteEvent} disabled={deleteEventBusy}><Trash2 size={14} /> {ml ? "ഇവന്റ് ഇല്ലാതാക്കുക" : "Delete Event"}</Button></>}'))
+
+          # 5) Welfare UI: use the schema's CHECK values directly instead of querying a nonexistent table.
+          edit('src/pages/Welfare.tsx', lambda s: s.replace('    window.mms.welfare.categories().then((r) => setCategories(r || [])).catch(() => {});', '    setCategories(["Medical Aid", "Education Aid", "Marriage Assistance", "Financial Assistance"].map((name) => ({ name })));'))
+
+          # 6) Reports: human-readable headings, landscape automatically for wide tables, and robust column widths.
+          edit('src/pages/Reports.tsx', lambda s: s.replace('function buildPdfHtml(title: string, rows: any[], columns: string[]): string {', 'function buildPdfHtml(title: string, rows: any[], columns: string[]): string {\n  const landscape = columns.length >= 7 || ["donations", "subscriptions", "accounting", "members", "families", "welfare", "audit"].some((x) => title.toLowerCase().includes(x));\n  const labels: Record<string,string> = { family_number:"Family No.", house_name:"House Name", house_number:"House No.", ward:"Ward", area:"Area", phone:"Phone", alt_phone:"Alt. Phone", member_count:"Members", code:"Member Code", name:"Name", gender:"Gender", age:"Age", blood_group:"Blood Group", mobile:"Mobile", email:"Email", house_name:"House Name", family_number:"Family No.", receipt_number:"Receipt No.", plan_name:"Plan", amount:"Amount", amount_paid:"Paid", payment_date:"Payment Date", payment_method:"Payment Method", status:"Status", donor_name:"Donor", donor_phone:"Phone", category_name:"Category", donation_date:"Date", purpose:"Purpose", date:"Date", type:"Type", description:"Description", method:"Method", marriage_number:"Marriage No.", nikah_date:"Nikah Date", bride_name:"Bride", bride_father:"Bride Father", groom_name:"Groom", groom_father:"Groom Father", place:"Place", mahar:"Mahar", death_number:"Death No.", deceased_name:"Deceased", father_name:"Father", date_of_death:"Date of Death", burial_date:"Burial Date", burial_place:"Burial Place", request_number:"Request No.", applicant_name:"Applicant", category:"Category", amount_requested:"Requested", amount_approved:"Approved", certificate_number:"Certificate No.", issued_to:"Issued To", issued_date:"Issued Date", issued_by:"Issued By", created_at:"Created", username:"User", action:"Action", module:"Module" };\n  const pretty = (c:string) => labels[c] || c.replace(/_/g," ").replace(/\\b\\w/g,m=>m.toUpperCase());')
+          edit('src/pages/Reports.tsx', lambda s: s.replace('  const head = columns.map((c) => `<th>${escapeHtml(c)}</th>`).join("");', '  const head = columns.map((c) => `<th>${escapeHtml(pretty(c))}</th>`).join("");', 1))
+          edit('src/pages/Reports.tsx', lambda s: s.replace('  table { width: 100%; border-collapse: collapse; font-size: 11px; }', '  @page { size: A4 '+('landscape' if False else 'portrait')+'; margin: 10mm; }\n  @media print { @page { size: A4 '+('landscape' if False else 'portrait')+'; margin: 10mm; } }\n  table { width: 100%; border-collapse: collapse; font-size: 10px; table-layout: auto; }'))
+          # Replace the static portrait page rule above with a runtime-safe CSS class.
+          edit('src/pages/Reports.tsx', lambda s: s.replace('  @page { size: A4 portrait; margin: 10mm; }\\n  @media print { @page { size: A4 portrait; margin: 10mm; } }', '  @page { size: A4 '+"${landscape ? 'landscape' : 'portrait'}"+'; margin: 10mm; }\\n  @media print { @page { size: A4 '+"${landscape ? 'landscape' : 'portrait'}"+'; margin: 10mm; } }'))
+          edit('src/pages/Reports.tsx', lambda s: s.replace('  td { padding: 7px 10px; border: 1px solid #e6ede7; vertical-align: top; }', '  td { padding: 6px 7px; border: 1px solid #e6ede7; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; }'))
+
+          # 7) Certificate type aliases: cert_marriage/cert_death/etc. normalize to the canonical template types.
+          edit('electron/print/certificate.template.ts', lambda s: s.replace('const type = String(cert?.type || \'certificate\').toLowerCase();', 'const rawType = String(cert?.type || \'certificate\').toLowerCase(); const type = ({cert_membership:\'membership\',cert_residence:\'residence\',cert_marriage:\'marriage\',cert_death:\'death\'} as Record<string,string>)[rawType] || rawType;'))
+
+          # 8) PDF engine: allow CSS @page landscape to take effect.
+          edit('electron/main.ts', lambda s: s.replace('preferCSSPageSize: false', 'preferCSSPageSize: true'))
+
+          # 9) Replace placeholder seed family/member names with realistic demo records so every module is populated on a fresh install.
+          seed=Path('resources/sql/seed.sql'); s=seed.read_text(encoding='utf-8')
+          family_names=['Kozhikodan','Puthalath','Kallayi','Mangalassery','Nellikkode','Vellimadukunnu','Puthiyangadi','Moozhikkal','Kottooli','Kunduparamba','Nadakkavu','Eranhipalam','West Hill','Chevarambalam','Malaparamba']
+          houses=['Darul Aman','Rahmath','Noor Manzil','Al Huda','Mubarak','Darussalam','Manzil','Safiya House','Hiba','Fathima Manzil','Naseema','Madinah House','Safa','Rahma','Amina House']
+          for i,(hn,house) in enumerate(zip(family_names,houses),1):
+              s=s.replace(f"'{['House1','House2','House3','House4','House5','House6','House7','House8','House9','House10','House11','House12','House13','House14','House15'][i-1]}'",f"'{house}'",1)
+              s=s.replace(f"'Area{i}'",f"'{hn}'",1).replace(f"'Address{i}'",f"'{house}, {hn}, Kozhikode'",1)
+          names=[('Abdul Rahman','Male','1980-02-12','Civil Contractor'),('Fathima','Female','1984-07-18','Teacher'),('Muhammed Shafi','Male','1978-11-05','Business'),('Rukiya','Female','1982-03-21','Homemaker'),('Niyas','Male','1986-06-10','Accountant'),('Shahana','Female','1988-09-14','Teacher'),('Afsal','Male','1975-01-27','Engineer'),('Suhara','Female','1979-12-08','Homemaker'),('Rashid','Male','1983-05-19','Electrician'),('Sameera','Female','1987-10-03','Nurse'),('Junaid','Male','1981-08-22','Shop Owner'),('Haseena','Female','1985-04-16','Homemaker'),('Shameer','Male','1977-02-09','Driver'),('Nazeera','Female','1980-06-28','Tailor'),('Basheer','Male','1972-09-30','Retired Clerk'),('Ameena','Female','1976-01-11','Homemaker'),('Shabeer','Male','1984-12-25','Technician'),('Rasiya','Female','1986-05-07','Teacher'),('Faisal','Male','1979-03-17','Business'),('Huda','Female','1983-11-29','Homemaker'),('Muneer','Male','1982-07-13','Pharmacist'),('Sajida','Female','1985-08-26','Homemaker'),('Naufal','Male','1976-10-15','Bank Employee'),('Aaliya','Female','1981-04-03','Teacher'),('Irfan','Male','1987-01-20','Designer'),('Mariya','Female','1989-06-12','Nurse'),('Salman','Male','1974-05-24','Business'),('Safiya','Female','1978-08-09','Homemaker'),('Ashraf','Male','1970-11-18','Retired Teacher'),('Khadija','Female','1975-03-06','Homemaker')]
+          # Replace placeholder member names/occupations while preserving all other seeded relationships.
+          for i,(name,gender,dob,occ) in enumerate(names,1):
+              s=s.replace(f"'Member{i}'",f"'{name}'",1).replace("'Worker'",f"'{occ}'",1)
+              s=s.replace(f"'1980-01-15'",f"'{dob}'",1)
+          seed.write_text(s,encoding='utf-8')
+
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m 'fix: repair module wiring, reports, welfare and seeded demo data' || exit 0
+          git push
