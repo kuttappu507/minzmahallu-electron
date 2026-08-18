@@ -4,10 +4,10 @@ import re
 
 def edit(path, fn):
     p = Path(path)
-    s = p.read_text(encoding='utf-8')
+    s = p.read_text(encoding="utf-8")
     n = fn(s)
     if n != s:
-        p.write_text(n, encoding='utf-8')
+        p.write_text(n, encoding="utf-8")
 
 # ---------------------------------------------------------------------------
 # Token data: include the family head's name for the printed token card.
@@ -21,15 +21,15 @@ def token_data(s):
        (SELECT m.name FROM members m WHERE m.family_id = f.id AND m.is_head = 1 AND m.status = 'Active' ORDER BY m.id LIMIT 1) AS house_head_name,
        te.event_name, te.event_date, te.venue, te.event_time'''
     return s.replace(old, new, 1)
-edit('electron/services/data.service.ts', token_data)
+edit("electron/services/data.service.ts", token_data)
 
 # ---------------------------------------------------------------------------
 # Marriage NOC certificate API.
 # ---------------------------------------------------------------------------
 def cert_data(s):
-    if 'issueMarriageNoc:' in s:
+    if "issueMarriageNoc:" in s:
         return s
-    marker = '  issueDeath:'
+    marker = "  issueDeath:"
     idx = s.find(marker)
     if idx < 0:
         return s
@@ -37,7 +37,7 @@ def cert_data(s):
     const marriage = one<any>("SELECT * FROM marriages WHERE marriage_number = ?", [marriageNum]);
     if (!marriage) throw new Error("Marriage record not found");
     const certificateNumber = scalar<string>("SELECT 'NOC-' || printf('%04d', COALESCE(MAX(id),0)+1) FROM certificates");
-    const issuedTo = [marriage.bride_name, marriage.groom_name].filter(Boolean).join(' & ');
+    const issuedTo = [marriage.bride_name, marriage.groom_name].filter(Boolean).join(" & ");
     const result = run(
       `INSERT INTO certificates (certificate_number, type, marriage_id, issued_to, issued_date, issued_by, notes)
        VALUES (?, 'NOC', ?, ?, date('now'), ?, ?)`,
@@ -47,15 +47,15 @@ def cert_data(s):
   },
 '''
     return s[:idx] + method + s[idx:]
-edit('electron/services/data.service.ts', cert_data)
+edit("electron/services/data.service.ts", cert_data)
 
 # Main-process IPC bridge.
-edit('electron/main.ts', lambda s: s if 'certificates:issueMarriageNoc' in s else s.replace(
+edit("electron/main.ts", lambda s: s if "certificates:issueMarriageNoc" in s else s.replace(
     '  ipcMain.handle("certificates:issueMarriage", (_e, marriageNum) => data.certificates.issueMarriage(marriageNum, session.user?.id ?? 1));',
     '  ipcMain.handle("certificates:issueMarriage", (_e, marriageNum) => data.certificates.issueMarriage(marriageNum, session.user?.id ?? 1));\n  ipcMain.handle("certificates:issueMarriageNoc", (_e, marriageNum) => data.certificates.issueMarriageNoc(marriageNum, session.user?.id ?? 1));', 1))
 
 # Renderer bridge.
-edit('electron/preload.mts', lambda s: s if 'issueMarriageNoc' in s else s.replace(
+edit("electron/preload.mts", lambda s: s if "issueMarriageNoc" in s else s.replace(
     'issueMarriage:(m:string)=>ipcRenderer.invoke("certificates:issueMarriage",m),',
     'issueMarriage:(m:string)=>ipcRenderer.invoke("certificates:issueMarriage",m),issueMarriageNoc:(m:string)=>ipcRenderer.invoke("certificates:issueMarriageNoc",m),', 1))
 
@@ -65,7 +65,7 @@ def cert_page(s):
                   'type IssueType = "membership" | "residence" | "marriage" | "marriage_noc" | "death";')
     needle = '''    death: {
       title: `${t("cert_death")} ${t("cert_title")}`,'''
-    if 'marriage_noc:' not in s and needle in s:
+    if "marriage_noc:" not in s and needle in s:
         noc = '''    marriage_noc: {
       title: `Marriage NOC ${t("cert_title")}`,
       codeLabel: t("cert_marriage_number"),
@@ -104,19 +104,21 @@ def cert_page(s):
                   '''const certType = r.type?.toLowerCase();
         return <span className={`pill ${tintMap[certType] || "t-slate"}`}>{certType === "noc" ? "Marriage NOC" : t(`cert_${r.type}`)}</span>;''', 1)
     return s
-edit('src/pages/Certificates.tsx', cert_page)
+edit("src/pages/Certificates.tsx", cert_page)
 
 # Certificate template: NOC title and wording, including Malayalam.
-edit('electron/print/certificate.template.ts', lambda s: s.replace(
-    "membership:'അംഗത്വ സർട്ടിഫിക്കറ്റ്',residence:'വസതി സർട്ടിഫിക്കറ്റ്',marriage:'വിവാഹ സർട്ടിഫിക്കറ്റ്',death:'മരണ സർട്ടിഫിക്കറ്റ്',certificate:'സർട്ടിഫിക്കറ്റ്'",
-    "membership:'അംഗത്വ സർട്ടിഫിക്കറ്റ്',residence:'വസതി സർട്ടിഫിക്കറ്റ്',marriage:'വിവാഹ സർട്ടിഫിക്കറ്റ്',noc:'വിവാഹത്തിനുള്ള എതിർപ്പില്ലാ സർട്ടിഫിക്കറ്റ്',death:'മരണ സർട്ടിഫിക്കറ്റ്',certificate:'സർട്ടിഫിക്കറ്റ്'", 1).replace(
-    "membership:'MEMBERSHIP CERTIFICATE',residence:'RESIDENCE CERTIFICATE',marriage:'MARRIAGE CERTIFICATE',death:'DEATH CERTIFICATE',certificate:'CERTIFICATE'",
-    "membership:'MEMBERSHIP CERTIFICATE',residence:'RESIDENCE CERTIFICATE',marriage:'MARRIAGE CERTIFICATE',noc:'NO OBJECTION CERTIFICATE FOR MARRIAGE',death:'DEATH CERTIFICATE',certificate:'CERTIFICATE'", 1).replace(
-    ":type==='marriage'?'മുകളിൽ പറഞ്ഞ വിവരങ്ങൾ മഹല്ല് രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയിരിക്കുന്നതാണെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.":type==='death'",
-    ":type==='marriage'?'മുകളിൽ പറഞ്ഞ വിവരങ്ങൾ മഹല്ല് രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയിരിക്കുന്നതാണെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.':type==='noc'?'മുകളിൽ പരാമർശിച്ച വിവാഹത്തിന് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിക്ക് യാതൊരു എതിർപ്പുമില്ലെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.':type==='death'", 1).replace(
-    ":type==='marriage'?'This certifies that the above details are recorded in the Mahallu register.':type==='death'",
-    ":type==='marriage'?'This certifies that the above details are recorded in the Mahallu register.':type==='noc'?'This is to certify that the Mahallu Management Committee has no objection to the above marriage.':type==='death'", 1))
-
-# Normalize NOC type in the template's alias map if the source uses the map form.
-edit('electron/print/certificate.template.ts', lambda s: s.replace(
-    "cert_marriage:'marriage',cert_death:'death'", "cert_marriage:'marriage',cert_noc:'noc',cert_marriage_noc:'noc',cert_death:'death'", 1))
+def cert_template(s):
+    s = s.replace(
+        "membership:'അംഗത്വ സർട്ടിഫിക്കറ്റ്',residence:'വസതി സർട്ടിഫിക്കറ്റ്',marriage:'വിവാഹ സർട്ടിഫിക്കറ്റ്',death:'മരണ സർട്ടിഫിക്കറ്റ്',certificate:'സർട്ടിഫിക്കറ്റ്'",
+        "membership:'അംഗത്വ സർട്ടിഫിക്കറ്റ്',residence:'വസതി സർട്ടിഫിക്കറ്റ്',marriage:'വിവാഹ സർട്ടിഫിക്കറ്റ്',noc:'വിവാഹത്തിനുള്ള എതിർപ്പില്ലാ സർട്ടിഫിക്കറ്റ്',death:'മരണ സർട്ടിഫിക്കറ്റ്',certificate:'സർട്ടിഫിക്കറ്റ്'", 1)
+    s = s.replace(
+        "membership:'MEMBERSHIP CERTIFICATE',residence:'RESIDENCE CERTIFICATE',marriage:'MARRIAGE CERTIFICATE',death:'DEATH CERTIFICATE',certificate:'CERTIFICATE'",
+        "membership:'MEMBERSHIP CERTIFICATE',residence:'RESIDENCE CERTIFICATE',marriage:'MARRIAGE CERTIFICATE',noc:'NO OBJECTION CERTIFICATE FOR MARRIAGE',death:'DEATH CERTIFICATE',certificate:'CERTIFICATE'", 1)
+    s = s.replace(
+        ":type==='marriage'?'മുകളിൽ പറഞ്ഞ വിവരങ്ങൾ മഹല്ല് രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയിരിക്കുന്നതാണെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.':type==='death'",
+        ":type==='marriage'?'മുകളിൽ പറഞ്ഞ വിവരങ്ങൾ മഹല്ല് രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയിരിക്കുന്നതാണെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.':type==='noc'?'മുകളിൽ പരാമർശിച്ച വിവാഹത്തിന് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിക്ക് യാതൊരു എതിർപ്പുമില്ലെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.':type==='death'", 1)
+    s = s.replace(
+        ":type==='marriage'?'This certifies that the above details are recorded in the Mahallu register.':type==='death'",
+        ":type==='marriage'?'This certifies that the above details are recorded in the Mahallu register.':type==='noc'?'This is to certify that the Mahallu Management Committee has no objection to the above marriage.':type==='death'", 1)
+    return s
+edit("electron/print/certificate.template.ts", cert_template)
