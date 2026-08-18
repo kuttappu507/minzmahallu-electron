@@ -260,6 +260,9 @@ export function Certificates() {
         case "marriage_noc":
           result = await window.mms.certificates.issueMarriageNoc(selectedRow.code);
           break;
+        case "marriage_noc":
+          result = await window.mms.certificates.issueMarriageNoc(selectedRow.code);
+          break;
         case "death":
           result = await window.mms.certificates.issueDeath(selectedRow.code);
           break;
