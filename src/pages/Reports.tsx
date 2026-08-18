@@ -220,26 +220,33 @@ function escapeHtml(v: any): string {
 }
 
 function buildPdfHtml(title: string, rows: any[], columns: string[]): string {
-  const head = columns.map((c) => `<th>${escapeHtml(c)}</th>`).join("");
-  const body = rows
-    .map((r) => `<tr>${columns.map((c) => `<td>${escapeHtml(r[c])}</td>`).join("")}</tr>`)
-    .join("");
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
-<style>
-  body { font: 400 12px Poppins, system-ui, sans-serif; color: #1e2b25; margin: 24px; }
-  h1 { font: 600 20px Poppins, sans-serif; margin: 0 0 4px; }
-  .sub { color: #5f7268; font-size: 11px; margin-bottom: 16px; }
-  table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  th { background: #f6f9f6; text-align: left; padding: 8px 10px; border: 1px solid #e6ede7; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.1em; color: #5f7268; font-weight: 500; }
-  td { padding: 7px 10px; border: 1px solid #e6ede7; vertical-align: top; }
-  tr:nth-child(even) td { background: #f8faf8; }
-  .foot { margin-top: 18px; color: #8ba096; font-size: 10px; }
-</style></head><body>
-  <h1>${escapeHtml(title)}</h1>
-  <div class="sub">Generated ${new Date().toLocaleString("en-IN")} · ${rows.length} records</div>
-  <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
-  <div class="foot">Minz Mahallu Management System · Printed report</div>
-</body></html>`;
+  const lowerTitle = title.toLowerCase();
+  const landscape = columns.length >= 7 || ["donation", "subscription", "financial", "member", "family", "welfare", "audit", "marriage", "death"].some((x) => lowerTitle.includes(x));
+  const labels: Record<string, string> = {
+    family_number: "Family No.", house_name: "House Name", house_number: "House No.", ward: "Ward", area: "Area", phone: "Phone", alt_phone: "Alt. Phone", member_count: "Members", status: "Status",
+    code: "Member Code", name: "Name", gender: "Gender", age: "Age", blood_group: "Blood Group", mobile: "Mobile", email: "Email", occupation: "Occupation", relationship: "Relationship",
+    receipt_number: "Receipt No.", plan_name: "Plan", amount: "Amount", amount_paid: "Paid", payment_date: "Payment Date", payment_method: "Payment Method", donor_name: "Donor", donor_phone: "Phone", category_name: "Category", category: "Category", donation_date: "Donation Date", purpose: "Purpose",
+    date: "Date", type: "Type", description: "Description", method: "Method", marriage_number: "Marriage No.", nikah_date: "Nikah Date", bride_name: "Bride", bride_father: "Bride Father", groom_name: "Groom", groom_father: "Groom Father", place: "Place", mahar: "Mahar",
+    death_number: "Death No.", deceased_name: "Deceased", father_name: "Father", date_of_death: "Date of Death", burial_date: "Burial Date", burial_place: "Burial Place", request_number: "Request No.", applicant_name: "Applicant", amount_requested: "Requested", amount_approved: "Approved",
+    certificate_number: "Certificate No.", issued_to: "Issued To", issued_date: "Issued Date", issued_by: "Issued By", created_at: "Created", username: "User", action: "Action", module: "Module", count: "Count", latest: "Latest"
+  };
+  const pretty = (c: string) => labels[c] || c.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+  const head = columns.map((c) => `<th>${escapeHtml(pretty(c))}</th>`).join("");
+  const body = rows.map((r) => `<tr>${columns.map((c) => `<td>${escapeHtml(r[c])}</td>`).join("")}</tr>`).join("");
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
+    @page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: 10mm; }
+    * { box-sizing: border-box; }
+    body { font: 400 10px Poppins, system-ui, sans-serif; color: #1e2b25; margin: 0; }
+    h1 { font: 600 18px Poppins, sans-serif; margin: 0 0 4px; }
+    .sub { color: #5f7268; font-size: 9px; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: ${landscape ? "8.5" : "9.5"}px; table-layout: auto; }
+    thead { display: table-header-group; }
+    tr { break-inside: avoid; page-break-inside: avoid; }
+    th { background: #f6f9f6; text-align: left; padding: 5px 6px; border: 1px solid #dfe8e1; text-transform: uppercase; font-size: ${landscape ? "7.5" : "8.5"}px; letter-spacing: .06em; color: #5f7268; font-weight: 600; }
+    td { padding: 5px 6px; border: 1px solid #e6ede7; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; }
+    tr:nth-child(even) td { background: #f8faf8; }
+    .foot { margin-top: 12px; color: #8ba096; font-size: 8px; }
+  </style></head><body><h1>${escapeHtml(title)}</h1><div class="sub">Minz Mahallu Management System · Generated ${new Date().toLocaleString("en-IN")} · ${rows.length} records</div><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table><div class="foot">Printed report</div></body></html>`;
 }
 
 function downloadBlob(content: string, mime: string, filename: string) {

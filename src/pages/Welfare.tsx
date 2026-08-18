@@ -58,7 +58,7 @@ export function Welfare() {
 
   useEffect(() => {
     window.mms.families.list({ pageSize: 1000 }).then((r) => setFamilies(r.rows || [])).catch(() => {});
-    window.mms.welfare.categories().then((r) => setCategories(r || [])).catch(() => {});
+    window.mms.welfare.categories().then((r) => setCategories((r || []).map((name: any) => typeof name === "string" ? { name } : name))).catch(() => {});
   }, []);
 
   const totalRequested = (rows as Welfare[]).reduce((s, r) => s + (r.amount_requested || 0), 0);

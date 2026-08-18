@@ -529,7 +529,7 @@ export const welfare = {
       [nowDate(), userId, id]
     ),
   remove: (id: number) => run("DELETE FROM welfare_requests WHERE id = ?", [id]),
-  categories: () => all<any>("SELECT * FROM welfare_categories WHERE is_active = 1 ORDER BY name"),
+  categories: () => ["Medical Aid", "Education Aid", "Marriage Assistance", "Financial Assistance"],
 };
 
 // ================= CERTIFICATES =================

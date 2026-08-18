@@ -97,6 +97,7 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
   const [wardFilter, setWardFilter] = useState("All");
   const [existingTokens, setExistingTokens] = useState<Set<number>>(new Set());
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
+  const [deleteEventBusy, setDeleteEventBusy] = useState(false);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
   const [eventForm, setEventForm] = useState({ event_name: "", event_type: "general", event_date: "", event_time: "", venue: "", description: "" });
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -131,6 +132,29 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
 
   useEffect(() => { loadEvents(); }, [loadEvents]);
   useEffect(() => { if (selectedEventId && viewMode === "list") loadTokens(); }, [selectedEventId, viewMode, loadTokens]);
+
+  const deleteEvent = async () => {
+    if (!selectedEventId || deleteEventBusy) return;
+    const ev = events.find(e => e.id === selectedEventId);
+    if (!ev) return;
+    const message = ml
+      ? `"${ev.event_name}" ഇവന്റും അതിലെ എല്ലാ ടോക്കണുകളും ഇല്ലാതാക്കണോ? ഇത് തിരിച്ചെടുക്കാനാകില്ല.`
+      : `Delete event "${ev.event_name}" and all its tokens? This cannot be undone.`;
+    if (!window.confirm(message)) return;
+    setDeleteEventBusy(true);
+    try {
+      await window.mms.tokens.removeEvent(selectedEventId);
+      toast.success(ml ? "ഇവന്റ് ഇല്ലാതാക്കി" : "Event deleted");
+      setSelectedEventId(null);
+      setTokens([]);
+      setStats({ total: 0, collected: 0, remaining: 0, rate: 0 });
+      await loadEvents();
+    } catch (e: any) {
+      toast.error(e.message || (ml ? "ഇവന്റ് ഇല്ലാതാക്കാനായില്ല" : "Failed to delete event"));
+    } finally {
+      setDeleteEventBusy(false);
+    }
+  };
 
   const saveEvent = async () => {
     if (!eventForm.event_name.trim() || !eventForm.event_date) {
@@ -265,7 +289,7 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
 
   return (
     <div className="view view-enter">
-      <div className="vhead"><span className="modic t-pink"><Ticket size={22} /></span><div><h1>{text.title}</h1><div className="vs">{text.subtitle}</div></div><div className="vr"><Select value={selectedEventId || ""} onChange={e => setSelectedEventId(Number(e.target.value))} className="w-48"><option value="">{text.selectEvent}</option>{events.map(ev => <option key={ev.id} value={ev.id}>{ev.event_name} ({formatDate(ev.event_date)})</option>)}</Select><Button variant="secondary" onClick={() => { setEditingEventId(null); setEventForm({ event_name: "", event_type: "general", event_date: "", event_time: "", venue: "", description: "" }); setEventDialogOpen(true); }}><Plus size={14} /> {text.newEvent}</Button>{selectedEventId && <Button variant="secondary" onClick={() => editEvent(selectedEventId)}>{text.editEvent}</Button>}</div></div>
+      <div className="vhead"><span className="modic t-pink"><Ticket size={22} /></span><div><h1>{text.title}</h1><div className="vs">{text.subtitle}</div></div><div className="vr"><Select value={selectedEventId || ""} onChange={e => setSelectedEventId(Number(e.target.value))} className="w-48"><option value="">{text.selectEvent}</option>{events.map(ev => <option key={ev.id} value={ev.id}>{ev.event_name} ({formatDate(ev.event_date)})</option>)}</Select><Button variant="secondary" onClick={() => { setEditingEventId(null); setEventForm({ event_name: "", event_type: "general", event_date: "", event_time: "", venue: "", description: "" }); setEventDialogOpen(true); }}><Plus size={14} /> {text.newEvent}</Button>{selectedEventId && <><Button variant="secondary" onClick={() => editEvent(selectedEventId)}>{text.editEvent}</Button><Button variant="danger" onClick={deleteEvent} disabled={deleteEventBusy}><Trash2 size={14} /> {ml ? "ഇവന്റ് ഇല്ലാതാക്കുക" : "Delete Event"}</Button></>}</div></div>
       {selectedEventId ? <>
         <div className="stat-grid token-stat-grid"><div className="stat t-em"><div className="srow"><span className="sic"><Ticket size={18} /></span><span className="delta">{stats.rate}%</span></div><div className="val">{stats.total}</div><div className="slab">{text.total}</div></div><div className="stat t-teal"><div className="srow"><span className="sic"><CheckCircle2 size={18} /></span></div><div className="val">{stats.collected}</div><div className="slab">{text.collected}</div></div><div className="stat t-gold"><div className="srow"><span className="sic"><Users size={18} /></span></div><div className="val">{stats.remaining}</div><div className="slab">{text.remaining}</div></div><div className="stat t-sky"><div className="srow"><span className="sic"><RefreshCw size={18} /></span></div><div className="val">{stats.rate}%</div><div className="slab">{text.rate}</div></div></div>
         <div className="toolbar"><Button onClick={startSelection}><Plus size={14} /> {text.generate}</Button><Button variant="secondary" onClick={() => generatePdf(false)} disabled={pdfLoading || !stats.total}>{pdfLoading ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}{text.tokenPdf}</Button><Button variant="secondary" onClick={() => generatePdf(true)} disabled={collectionSheetLoading || !stats.total}>{collectionSheetLoading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}{text.collectionSheet}</Button>{printModeControl}<span className="toolbar-spacer" /><Input className="w-48" placeholder={text.searchToken} value={search} onChange={e => setSearch(e.target.value)} /><Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-32"><option value="All">{text.all}</option><option value="GENERATED">{ml ? "സൃഷ്ടിച്ചത്" : "GENERATED"}</option><option value="COLLECTED">{ml ? "ശേഖരിച്ചത്" : "COLLECTED"}</option><option value="CANCELLED">{ml ? "റദ്ദാക്കിയത്" : "CANCELLED"}</option></Select><Button variant="ghost" onClick={loadTokens} title={t("action_refresh")}><RefreshCw size={14} /></Button></div>
