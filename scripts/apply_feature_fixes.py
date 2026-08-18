@@ -4,6 +4,8 @@ import re
 
 def edit(path, fn):
     p = Path(path)
+    if not p.exists():
+        return
     s = p.read_text(encoding="utf-8")
     n = fn(s)
     if n != s:
@@ -45,12 +47,12 @@ def cert_data(s):
     return s[:idx] + method + s[idx:]
 edit("electron/services/data.service.ts", cert_data)
 
-# Main-process IPC bridge.
+# Main-process IPC bridge for the NOC.
 edit("electron/main.ts", lambda s: s if "certificates:issueMarriageNoc" in s else s.replace(
     '  ipcMain.handle("certificates:issueMarriage", (_e, marriageNum) => data.certificates.issueMarriage(marriageNum, session.user?.id ?? 1));',
     '  ipcMain.handle("certificates:issueMarriage", (_e, marriageNum) => data.certificates.issueMarriage(marriageNum, session.user?.id ?? 1));\n  ipcMain.handle("certificates:issueMarriageNoc", (_e, marriageNum) => data.certificates.issueMarriageNoc(marriageNum, session.user?.id ?? 1));', 1))
 
-# Renderer bridge.
+# Renderer bridge for the NOC.
 edit("electron/preload.mts", lambda s: s if "issueMarriageNoc" in s else s.replace(
     'issueMarriage:(m:string)=>ipcRenderer.invoke("certificates:issueMarriage",m),',
     'issueMarriage:(m:string)=>ipcRenderer.invoke("certificates:issueMarriage",m),issueMarriageNoc:(m:string)=>ipcRenderer.invoke("certificates:issueMarriageNoc",m),', 1))
@@ -94,18 +96,17 @@ def cert_page(s):
     return s
 edit("src/pages/Certificates.tsx", cert_page)
 
-# Certificate template: NOC title and wording, including Malayalam.
+# Certificate template: NOC title and wording.
 def cert_template(s):
-    s = s.replace(
-        "membership:'അംഗത്വ സർട്ടിഫിക്കറ്റ്',residence:'വസതി സർട്ടിഫിക്കറ്റ്',marriage:'വിവാഹ സർട്ടിഫിക്കറ്റ്',death:'മരണ സർട്ടിഫിക്കറ്റ്',certificate:'സർട്ടിഫിക്കറ്റ്'",
-        "membership:'അംഗത്വ സർട്ടിഫിക്കറ്റ്',residence:'വസതി സർട്ടിഫിക്കറ്റ്',marriage:'വിവാഹ സർട്ടിഫിക്കറ്റ്',noc:'വിവാഹത്തിനുള്ള എതിർപ്പില്ലാ സർട്ടിഫിക്കറ്റ്',death:'മരണ സർട്ടിഫിക്കറ്റ്',certificate:'സർട്ടിഫിക്കറ്റ്'", 1)
-    s = s.replace(
-        "membership:'MEMBERSHIP CERTIFICATE',residence:'RESIDENCE CERTIFICATE',marriage:'MARRIAGE CERTIFICATE',death:'DEATH CERTIFICATE',certificate:'CERTIFICATE'",
-        "membership:'MEMBERSHIP CERTIFICATE',residence:'RESIDENCE CERTIFICATE',marriage:'MARRIAGE CERTIFICATE',noc:'NO OBJECTION CERTIFICATE FOR MARRIAGE',death:'DEATH CERTIFICATE',certificate:'CERTIFICATE'", 1)
+    s = s.replace("membership:'അംഗത്വ സർട്ടിഫിക്കറ്റ്',residence:'വസതി സർട്ടിഫിക്കറ്റ്',marriage:'വിവാഹ സർട്ടിഫിക്കറ്റ്',death:'മരണ സർട്ടിഫിക്കറ്റ്',certificate:'സർട്ടിഫിക്കറ്റ്'", "membership:'അംഗത്വ സർട്ടിഫിക്കറ്റ്',residence:'വസതി സർട്ടിഫിക്കറ്റ്',marriage:'വിവാഹ സർട്ടിഫിക്കറ്റ്',noc:'വിവാഹത്തിനുള്ള എതിർപ്പില്ലാ സർട്ടിഫിക്കറ്റ്',death:'മരണ സർട്ടിഫിക്കറ്റ്',certificate:'സർട്ടിഫിക്കറ്റ്'", 1)
+    s = s.replace("membership:'MEMBERSHIP CERTIFICATE',residence:'RESIDENCE CERTIFICATE',marriage:'MARRIAGE CERTIFICATE',death:'DEATH CERTIFICATE',certificate:'CERTIFICATE'", "membership:'MEMBERSHIP CERTIFICATE',residence:'RESIDENCE CERTIFICATE',marriage:'MARRIAGE CERTIFICATE',noc:'NO OBJECTION CERTIFICATE FOR MARRIAGE',death:'DEATH CERTIFICATE',certificate:'CERTIFICATE'", 1)
     return s
 edit("electron/print/certificate.template.ts", cert_template)
 
-# Defensive cleanup: previous automated passes duplicated declarations/blocks.
+# ---------------------------------------------------------------------------
+# Defensive, idempotent cleanup. Earlier automated passes inserted duplicate
+# declarations/IPC handlers. Clean the generated source before TypeScript runs.
+# ---------------------------------------------------------------------------
 preload = Path("electron/preload.mts")
 if preload.exists():
     s = preload.read_text(encoding="utf-8")
@@ -114,28 +115,41 @@ if preload.exists():
         s = s.replace(repeated, '', 1)
     preload.write_text(s, encoding="utf-8")
 
+main = Path("electron/main.ts")
+if main.exists():
+    s = main.read_text(encoding="utf-8")
+    # Deduplicate every one-line IPC registration while preserving the first.
+    seen = set()
+    out = []
+    for line in s.splitlines(keepends=True):
+        m = re.search(r'ipcMain\.handle\("([^"]+)"', line)
+        if m:
+            channel = m.group(1)
+            if channel in seen:
+                continue
+            seen.add(channel)
+        out.append(line)
+    s = ''.join(out)
+    # The canonical token-event delete handler is intentionally kept as one line.
+    if 'ipcMain.handle("tokens:removeEvent"' not in s:
+        marker = '  ipcMain.handle("tokens:list", (_e, filter) => data.tokens.list(filter || {}));'
+        if marker in s:
+            s = s.replace(marker, '  ipcMain.handle("tokens:removeEvent", (_e, id: number) => { const result = getDB().prepare("DELETE FROM token_events WHERE id = ?").run(id); return { success: true, changes: result.changes }; });\n' + marker, 1)
+    main.write_text(s, encoding="utf-8")
+
 tokens = Path("src/pages/Tokens.tsx")
 if tokens.exists():
     s = tokens.read_text(encoding="utf-8")
-
-    # Keep exactly one deleteEventBusy declaration.
     decl = '  const [deleteEventBusy, setDeleteEventBusy] = useState(false);\n'
     first_decl = s.find(decl)
     if first_decl >= 0:
-        before = s[:first_decl + len(decl)]
-        after = s[first_decl + len(decl):].replace(decl, '')
-        s = before + after
-
-    # Keep exactly one complete deleteEvent function. The duplicated functions
-    # are contiguous and all occur before saveEvent.
+        s = s[:first_decl + len(decl)] + s[first_decl + len(decl):].replace(decl, '')
     pattern = re.compile(r'  const deleteEvent = async \(\) => \{.*?^  \};\n', re.MULTILINE | re.DOTALL)
     matches = list(pattern.finditer(s))
     if len(matches) > 1:
         first = matches[0]
-        prefix = s[:first.end()]
-        suffix = s[matches[-1].end():]
-        # Remove every duplicate deleteEvent block between the first and saveEvent.
-        suffix = re.sub(r'^(?:\n)?  const deleteEvent = async \(\) => \{.*?^  \};\n', '', suffix, flags=re.MULTILINE | re.DOTALL)
-        s = prefix + suffix
-
+        keep = first.group(0)
+        s = s[:first.end()] + re.sub(r'  const deleteEvent = async \(\) => \{.*?^  \};\n', '', s[first.end():], flags=re.MULTILINE | re.DOTALL)
+        # keep was already present; variable is intentionally used to document intent
+        _ = keep
     tokens.write_text(s, encoding="utf-8")
