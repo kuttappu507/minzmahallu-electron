@@ -7,17 +7,25 @@ type ActorContext={id:number;username:string;role:string};
 let currentActor:ActorContext|null=null; let currentUser:AuthUser|null=null;
 const globals=globalThis as typeof globalThis & {__mmsGetActor?:()=>ActorContext|null;__mmsGetUser?:()=>AuthUser|null;__mmsClearActor?:()=>void};
 globals.__mmsGetActor=()=>currentActor; globals.__mmsGetUser=()=>currentUser; globals.__mmsClearActor=()=>{currentActor=null;currentUser=null;};
+const SEEDED_ADMIN_HASH="pbkdf2_sha256$200000$c2FsdC1mb3ItbW1zLWFkbWluLXVzZXI=$dJvtGdhlhx7H/9KuwAZs4U/j/DjiiDA88txKk9SnqTU=";
 function parseStoredHash(stored:string){const p=stored.split("$");if(p.length!==4||p[0]!=="pbkdf2_sha256")return null;const iter=parseInt(p[1],10),salt=Buffer.from(p[2],"base64"),hash=Buffer.from(p[3],"base64");return Number.isFinite(iter)&&iter>0&&salt.length&&hash.length?{iter,salt,hash}:null;}
 function verifyPassword(plain:string,stored:string){const p=parseStoredHash(stored);if(!p)return false;try{const d=crypto.pbkdf2Sync(plain,p.salt,p.iter,p.hash.length,"sha256");return d.length===p.hash.length&&crypto.timingSafeEqual(d,p.hash);}catch{return false;}}
 function makeInitials(name:string){if(!name)return"?";const p=name.trim().split(/\s+/);return p.length===1?p[0].substring(0,1).toUpperCase():(p[0][0]+p[p.length-1][0]).toUpperCase();}
+function seededAdmin(): UserRow|undefined { return one<UserRow>("SELECT id,username,full_name,password_hash,password_salt,role,is_active,is_locked,failed_attempts,locked_until,must_change_pwd FROM users WHERE id=1 AND username='admin' AND password_hash=?",[SEEDED_ADMIN_HASH]); }
 export function validatePassword(password:string){if(!password||password.length<8)throw new Error("Password must be at least 8 characters");if(!/[A-Z]/.test(password)||!/[a-z]/.test(password)||!/\d/.test(password)||!/[^A-Za-z0-9]/.test(password))throw new Error("Password must include uppercase, lowercase, digit, and special character");}
 function hashPassword(password:string){validatePassword(password);const salt=crypto.randomBytes(16),iter=200000,hash=crypto.pbkdf2Sync(password,salt,iter,32,"sha256");return {stored:`pbkdf2_sha256$${iter}$${salt.toString("base64")}$${hash.toString("base64")}`,salt:salt.toString("base64")};}
-export function needsInitialSetup(){return Number(scalar<number>("SELECT COUNT(*) FROM users")||0)===0;}
+export function needsInitialSetup(){
+  const count=Number(scalar<number>("SELECT COUNT(*) FROM users")||0);
+  return count===0 || (!!seededAdmin() && count===1);
+}
 export function createInitialAdministrator(username:string,fullName:string,password:string):AuthUser{
  if(!needsInitialSetup())throw new Error("Initial setup has already been completed");
  username=String(username||"").trim(); fullName=String(fullName||"").trim(); if(!/^[A-Za-z0-9._-]{3,32}$/.test(username))throw new Error("Username must be 3-32 characters and contain only letters, numbers, dot, underscore or hyphen"); if(!fullName)throw new Error("Full name is required");
- const {stored,salt}=hashPassword(password); const r=run("INSERT INTO users (username,full_name,password_hash,password_salt,role,is_active,is_locked,failed_attempts,must_change_pwd) VALUES (?,?,?,?, 'Administrator',1,0,0,0)",[username,fullName,stored,salt]);
- const user:AuthUser={id:r.id,username,fullName,role:"Administrator",isActive:true,mustChangePwd:false,initials:makeInitials(fullName)}; currentActor={id:user.id,username:user.username,role:user.role}; currentUser=user; return user;
+ const {stored,salt}=hashPassword(password); const placeholder=seededAdmin();
+ const r=placeholder
+   ? run("UPDATE users SET username=?,full_name=?,password_hash=?,password_salt=?,role='Administrator',is_active=1,is_locked=0,failed_attempts=0,locked_until=NULL,must_change_pwd=0,updated_at=datetime('now') WHERE id=?",[username,fullName,stored,salt,placeholder.id])
+   : run("INSERT INTO users (username,full_name,password_hash,password_salt,role,is_active,is_locked,failed_attempts,must_change_pwd) VALUES (?,?,?,?, 'Administrator',1,0,0,0)",[username,fullName,stored,salt]);
+ const id=placeholder?.id??r.id; const user:AuthUser={id,username,fullName,role:"Administrator",isActive:true,mustChangePwd:false,initials:makeInitials(fullName)}; currentActor={id:user.id,username:user.username,role:user.role}; currentUser=user; return user;
 }
 export function login(username:string,password:string):AuthUser{
  if(!username||!password)throw new Error("Username and password are required");
