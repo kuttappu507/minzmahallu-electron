@@ -103,10 +103,36 @@ def cert_template(s):
     return s
 edit("electron/print/certificate.template.ts", cert_template)
 
-# ---------------------------------------------------------------------------
+# Runtime-safe token stats: do not call a missing IPC channel. Calculate stats
+# from the already-supported token list API instead.
+def token_stats_runtime(s):
+    old = '      setStats(await window.mms.tokens.stats(selectedEventId));'
+    new = '''      const allResult = await window.mms.tokens.list({ eventId: selectedEventId, pageSize: 100000 });
+      const statRows = allResult?.rows || [];
+      const total = statRows.filter((r: any) => r.status !== "CANCELLED").length;
+      const collected = statRows.filter((r: any) => r.status === "COLLECTED").length;
+      const remaining = total - collected;
+      setStats({ total, collected, remaining, rate: total ? Math.round((collected / total) * 1000) / 10 : 0 });'''
+    return s.replace(old, new, 1)
+edit("src/pages/Tokens.tsx", token_stats_runtime)
+
+# Report PDFs: keep their existing A4/landscape structure but never use tiny
+# body/table text. Tables already have generous cell space, so increase type.
+def report_pdf_type(s):
+    replacements = {
+        'body { font: 400 10px Poppins, system-ui, sans-serif;': 'body { font: 400 12px Poppins, system-ui, sans-serif;',
+        '.sub { color: #5f7268; font-size: 9px;': '.sub { color: #5f7268; font-size: 12px;',
+        'font-size: ${landscape ? "8.5" : "9.5"}px;': 'font-size: ${landscape ? "12" : "12"}px;',
+        'font-size: ${landscape ? "7.5" : "8.5"}px;': 'font-size: 12px;',
+        '.foot { margin-top: 12px; color: #8ba096; font-size: 8px; }': '.foot { margin-top: 12px; color: #8ba096; font-size: 12px; }',
+    }
+    for a,b in replacements.items():
+        s=s.replace(a,b)
+    return s
+edit("src/pages/Reports.tsx", report_pdf_type)
+
 # Defensive, idempotent cleanup. Earlier automated passes inserted duplicate
 # declarations/IPC handlers. Clean the generated source before TypeScript runs.
-# ---------------------------------------------------------------------------
 preload = Path("electron/preload.mts")
 if preload.exists():
     s = preload.read_text(encoding="utf-8")
@@ -118,19 +144,15 @@ if preload.exists():
 main = Path("electron/main.ts")
 if main.exists():
     s = main.read_text(encoding="utf-8")
-    # Deduplicate every one-line IPC registration while preserving the first.
-    seen = set()
-    out = []
+    seen = set(); out = []
     for line in s.splitlines(keepends=True):
         m = re.search(r'ipcMain\.handle\("([^"]+)"', line)
         if m:
             channel = m.group(1)
-            if channel in seen:
-                continue
+            if channel in seen: continue
             seen.add(channel)
         out.append(line)
     s = ''.join(out)
-    # The canonical token-event delete handler is intentionally kept as one line.
     if 'ipcMain.handle("tokens:removeEvent"' not in s:
         marker = '  ipcMain.handle("tokens:list", (_e, filter) => data.tokens.list(filter || {}));'
         if marker in s:
@@ -148,8 +170,5 @@ if tokens.exists():
     matches = list(pattern.finditer(s))
     if len(matches) > 1:
         first = matches[0]
-        keep = first.group(0)
         s = s[:first.end()] + re.sub(r'  const deleteEvent = async \(\) => \{.*?^  \};\n', '', s[first.end():], flags=re.MULTILINE | re.DOTALL)
-        # keep was already present; variable is intentionally used to document intent
-        _ = keep
     tokens.write_text(s, encoding="utf-8")
