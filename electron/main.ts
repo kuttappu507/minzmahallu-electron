@@ -156,7 +156,6 @@ app.whenReady().then(() => {
   ipcMain.handle("tokens:createEvent", (_e, d) => data.tokens.createEvent(d));
   ipcMain.handle("tokens:updateEvent", (_e, id, d) => data.tokens.updateEvent(id, d));
   ipcMain.handle("tokens:removeEvent", (_e, id: number) => { getDB().prepare("DELETE FROM token_events WHERE id = ?").run(id); return { success: true }; });
-  ipcMain.handle("tokens:removeEvent", (_e, id: number) => { const result = getDB().prepare("DELETE FROM token_events WHERE id = ?").run(id); return { success: true, changes: result.changes }; });
   ipcMain.handle("tokens:list", (_e, filter) => data.tokens.list(filter || {}));
   ipcMain.handle("tokens:checkExisting", (_e, eventId) => data.tokens.checkExisting(eventId));
   ipcMain.handle("tokens:generate", (_e, eventId, familyIds) => data.tokens.generate(eventId, familyIds, session.user?.id ?? 1));
