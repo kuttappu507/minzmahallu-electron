@@ -5,14 +5,8 @@
   outline: none !important;
   box-shadow: none !important;
 }
+.global-search:focus-within { outline: none !important; box-shadow: none !important; }
 
-.global-search:focus-within {
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-/* Language toggle: both options occupy exactly the same geometry.
-   Do not let Malayalam glyph width determine the selected-pill size. */
 .langseg {
   display: inline-flex;
   align-items: center;
@@ -28,7 +22,6 @@
   box-sizing: border-box;
   overflow: hidden;
 }
-
 .langseg button,
 .langseg button:last-child,
 html.lang-ml .langseg button,
@@ -52,28 +45,12 @@ html.lang-ml .langseg button:last-child {
   color: var(--mut);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: clip;
   line-height: 24px !important;
-  font-size: 11px !important;
+  font-size: 12px !important;
   font-weight: 700 !important;
   font-family: Poppins, "Anek Malayalam Variable", sans-serif !important;
   -webkit-font-smoothing: antialiased;
 }
-
-/* Malayalam needs its own font, but not its own size, width, padding or line box. */
-html.lang-ml .langseg button:last-child {
-  font-family: "Anek Malayalam Variable", Poppins, sans-serif !important;
-  font-size: 11px !important;
-  font-weight: 700 !important;
-  line-height: 24px !important;
-}
-
-.langseg button.on {
-  background: var(--em) !important;
-  color: #fff !important;
-}
-
-.langseg button:hover:not(.on) {
-  background: var(--panel2);
-  color: var(--tx);
-}
+/* Keep one font stack and one line box: Poppins renders EN and Anek is the glyph fallback for Malayalam. */
+.langseg button.on { background: var(--em) !important; color: #fff !important; }
+.langseg button:hover:not(.on) { background: var(--panel2); color: var(--tx); }
