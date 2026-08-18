@@ -9,9 +9,7 @@ def edit(path, fn):
     if n != s:
         p.write_text(n, encoding="utf-8")
 
-# ---------------------------------------------------------------------------
 # Token data: include the family head's name for the printed token card.
-# ---------------------------------------------------------------------------
 def token_data(s):
     old = '''SELECT ta.token_code, ta.status, ta.collected_at, ta.created_at,
        f.family_number, f.house_name, f.ward, f.house_number, f.phone,
@@ -23,9 +21,7 @@ def token_data(s):
     return s.replace(old, new, 1)
 edit("electron/services/data.service.ts", token_data)
 
-# ---------------------------------------------------------------------------
 # Marriage NOC certificate API.
-# ---------------------------------------------------------------------------
 def cert_data(s):
     if "issueMarriageNoc:" in s:
         return s
@@ -95,14 +91,6 @@ def cert_page(s):
         s = s.replace('''    { type: "marriage" as IssueType, label: t("cert_marriage"), icon: Heart, tint: "t-pink" },''',
                       '''    { type: "marriage" as IssueType, label: t("cert_marriage"), icon: Heart, tint: "t-pink" },
     { type: "marriage_noc" as IssueType, label: "Marriage NOC", icon: FileCheck2, tint: "t-vio" },''', 1)
-    s = s.replace('''          marriage: "t-pink",
-          death: "t-slate",''', '''          marriage: "t-pink",
-          marriage_noc: "t-vio",
-          noc: "t-vio",
-          death: "t-slate",''', 1)
-    s = s.replace('''return <span className={`pill ${tintMap[r.type?.toLowerCase()] || "t-slate"}`}>{t(`cert_${r.type}`)}</span>;''',
-                  '''const certType = r.type?.toLowerCase();
-        return <span className={`pill ${tintMap[certType] || "t-slate"}`}>{certType === "noc" ? "Marriage NOC" : t(`cert_${r.type}`)}</span>;''', 1)
     return s
 edit("src/pages/Certificates.tsx", cert_page)
 
@@ -114,11 +102,28 @@ def cert_template(s):
     s = s.replace(
         "membership:'MEMBERSHIP CERTIFICATE',residence:'RESIDENCE CERTIFICATE',marriage:'MARRIAGE CERTIFICATE',death:'DEATH CERTIFICATE',certificate:'CERTIFICATE'",
         "membership:'MEMBERSHIP CERTIFICATE',residence:'RESIDENCE CERTIFICATE',marriage:'MARRIAGE CERTIFICATE',noc:'NO OBJECTION CERTIFICATE FOR MARRIAGE',death:'DEATH CERTIFICATE',certificate:'CERTIFICATE'", 1)
-    s = s.replace(
-        ":type==='marriage'?'മുകളിൽ പറഞ്ഞ വിവരങ്ങൾ മഹല്ല് രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയിരിക്കുന്നതാണെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.':type==='death'",
-        ":type==='marriage'?'മുകളിൽ പറഞ്ഞ വിവരങ്ങൾ മഹല്ല് രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയിരിക്കുന്നതാണെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.':type==='noc'?'മുകളിൽ പരാമർശിച്ച വിവാഹത്തിന് മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിക്ക് യാതൊരു എതിർപ്പുമില്ലെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.':type==='death'", 1)
-    s = s.replace(
-        ":type==='marriage'?'This certifies that the above details are recorded in the Mahallu register.':type==='death'",
-        ":type==='marriage'?'This certifies that the above details are recorded in the Mahallu register.':type==='noc'?'This is to certify that the Mahallu Management Committee has no objection to the above marriage.':type==='death'", 1)
     return s
 edit("electron/print/certificate.template.ts", cert_template)
+
+# Defensive cleanup: earlier automated passes duplicated generated declarations.
+preload = Path("electron/preload.mts")
+if preload.exists():
+    s = preload.read_text(encoding="utf-8")
+    repeated = ',removeEvent:(id:number)=>ipcRenderer.invoke("tokens:removeEvent",id)'
+    while s.count(repeated) > 1:
+        s = s.replace(repeated, '', 1)
+    preload.write_text(s, encoding="utf-8")
+
+tokens = Path("src/pages/Tokens.tsx")
+if tokens.exists():
+    s = tokens.read_text(encoding="utf-8")
+    decl = '  const [deleteEventBusy, setDeleteEventBusy] = useState(false);\n'
+    while s.count(decl) > 1:
+        s = s.replace(decl, '', 1)
+    start = s.find('  const deleteEvent = async () => {')
+    save = s.find('  const saveEvent = async () => {', start)
+    if start >= 0 and save > start:
+        block = s[start:save]
+        while s.count(block) > 1:
+            s = s.replace(block, '', 1)
+    tokens.write_text(s, encoding="utf-8")
