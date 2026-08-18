@@ -138,3 +138,5 @@ Module integrity, report layout, welfare CRUD compatibility and demo seed covera
 ## License
 
 MIT
+
+<!-- integrity-check -->
