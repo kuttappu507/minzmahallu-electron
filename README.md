@@ -131,6 +131,10 @@ This branch (`react-electron-port`) was created from the original Qt/QML `master
 branch. The SQL schema, seed data, and migration files are identical, so the
 React/Electron edition is fully compatible with databases created by the Qt version.
 
+## Verification
+
+Module integrity, report layout, welfare CRUD compatibility and demo seed coverage are continuously verified in CI.
+
 ## License
 
 MIT
