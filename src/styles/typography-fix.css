@@ -1,10 +1,6 @@
-/*
- * Typography hardening
- *
- * Malayalam uses Anek Malayalam consistently while Latin identifiers,
- * dates, amounts and numeric values stay on Poppins.  This prevents the
- * language toggle from changing number geometry or making Latin UI text
- * appear heavier/lighter.
+/* Typography hardening for bilingual UI.
+ * Keep Latin text on Poppins in both modes. Malayalam glyphs fall back to Anek
+ * Malayalam automatically, so switching languages does not resize English UI.
  */
 
 html.lang-ml body,
@@ -13,12 +9,26 @@ html.lang-ml textarea,
 html.lang-ml select,
 html.lang-ml button,
 html.lang-ml [contenteditable="true"] {
-  font-family: "Anek Malayalam Variable", Poppins, sans-serif !important;
-  font-weight: 450 !important;
+  font-family: Poppins, "Anek Malayalam Variable", sans-serif !important;
+  font-weight: 400;
   line-height: 1.45;
 }
 
-/* Latin/numeric content remains stable in Malayalam mode. */
+html.lang-ml strong,
+html.lang-ml b,
+html.lang-ml .font-semibold,
+html.lang-ml .font-bold,
+html.lang-ml h1,
+html.lang-ml h2,
+html.lang-ml h3,
+html.lang-ml h4,
+html.lang-ml h5,
+html.lang-ml h6 {
+  font-family: Poppins, "Anek Malayalam Variable", sans-serif !important;
+  line-height: 1.35 !important;
+}
+
+/* Numeric / code content stays exactly on Poppins in both languages. */
 html.lang-ml :where(
   .tabular-nums,
   .numeric,
@@ -46,25 +56,10 @@ html.lang-ml :where(
   font-variant-numeric: tabular-nums;
 }
 
-html.lang-ml .navit b,
-html.lang-ml .navbadge { font-weight: 500 !important; }
-
-html.lang-ml strong,
-html.lang-ml b,
-html.lang-ml .font-semibold,
-html.lang-ml .font-bold,
-html.lang-ml h1,
-html.lang-ml h2,
-html.lang-ml h3,
-html.lang-ml h4,
-html.lang-ml h5,
-html.lang-ml h6 {
-  font-family: "Anek Malayalam Variable", Poppins, sans-serif !important;
-  font-weight: 650 !important;
-  line-height: 1.35 !important;
-}
-
-/* Table/cell Malayalam text stays on Anek; numeric selectors above still win. */
+/* Do not replace table Latin text with Anek; Malayalam glyphs still fall back. */
+html.lang-ml .tbl,
+html.lang-ml .data-table,
+html.lang-ml table,
 html.lang-ml .tbl th,
 html.lang-ml .tbl thead th,
 html.lang-ml table th,
@@ -72,16 +67,23 @@ html.lang-ml thead th,
 html.lang-ml .tbl td,
 html.lang-ml table td,
 html.lang-ml tbody td {
-  font-family: "Anek Malayalam Variable", Poppins, sans-serif !important;
+  font-family: Poppins, "Anek Malayalam Variable", sans-serif !important;
 }
 
 html.lang-ml .tbl th,
 html.lang-ml .tbl thead th,
 html.lang-ml table th,
-html.lang-ml thead th { font-weight: 650 !important; line-height: 1.5 !important; }
+html.lang-ml thead th {
+  font-weight: 600 !important;
+  line-height: 1.5 !important;
+}
+
 html.lang-ml .tbl td,
 html.lang-ml table td,
-html.lang-ml tbody td { font-weight: 450 !important; line-height: 1.5 !important; }
+html.lang-ml tbody td {
+  font-weight: 400 !important;
+  line-height: 1.5 !important;
+}
 
 html.lang-ml .lbl,
 html.lang-ml .navit b,
@@ -91,19 +93,19 @@ html.lang-ml .count-chip,
 html.lang-ml .pill,
 html.lang-ml .tok-board .tb-head b,
 html.lang-ml .rep-sec b {
-  font-family: "Anek Malayalam Variable", Poppins, sans-serif !important;
-  font-weight: 550 !important;
+  font-family: Poppins, "Anek Malayalam Variable", sans-serif !important;
   line-height: 1.4 !important;
 }
 
 html.lang-ml input::placeholder,
 html.lang-ml textarea::placeholder {
-  font-family: "Anek Malayalam Variable", Poppins, sans-serif !important;
+  font-family: Poppins, "Anek Malayalam Variable", sans-serif !important;
   font-weight: 400 !important;
   line-height: 1.45 !important;
 }
 
-/* Prevent language switches from changing table/code geometry. */
 html.lang-ml .tbl,
 html.lang-ml .data-table,
-html.lang-ml table { font-variant-numeric: tabular-nums; }
+html.lang-ml table {
+  font-variant-numeric: tabular-nums;
+}
