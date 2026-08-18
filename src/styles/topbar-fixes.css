@@ -1,4 +1,4 @@
-/* Topbar/search polish: one focus surface, stable language pill sizing. */
+/* Topbar/search polish: one focus surface and a single, symmetric language control. */
 .global-search input,
 .global-search input:focus,
 .global-search input:focus-visible {
@@ -7,38 +7,73 @@
 }
 
 .global-search:focus-within {
-  outline: none;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
+/* Language toggle: both options occupy exactly the same geometry.
+   Do not let Malayalam glyph width determine the selected-pill size. */
 .langseg {
-  height: 32px;
-  min-width: 78px;
-  box-sizing: border-box;
-  padding: 3px;
-  gap: 2px;
-  align-items: stretch;
-}
-
-.langseg button,
-html.lang-ml .langseg button {
-  box-sizing: border-box;
-  width: 35px;
-  min-width: 35px;
-  height: 24px;
-  min-height: 24px;
-  padding: 0 !important;
-  margin: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  line-height: 1 !important;
-  border-radius: 999px;
-  white-space: nowrap;
+  flex: 0 0 82px;
+  width: 82px;
+  height: 32px;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  box-sizing: border-box;
   overflow: hidden;
 }
 
-html.lang-ml .langseg button.on {
-  line-height: 1 !important;
+.langseg button,
+.langseg button:last-child,
+html.lang-ml .langseg button,
+html.lang-ml .langseg button:last-child {
+  flex: 0 0 37px;
+  width: 37px;
+  min-width: 37px;
+  max-width: 37px;
+  height: 24px;
+  min-height: 24px;
+  max-height: 24px;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  background: transparent;
+  color: var(--mut);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  line-height: 24px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  font-family: Poppins, "Anek Malayalam Variable", sans-serif !important;
+  -webkit-font-smoothing: antialiased;
 }
 
-.langseg{display:inline-flex;align-items:center;justify-content:center;height:32px;padding:3px;gap:2px;border:1px solid var(--line);border-radius:10px;background:var(--panel);box-sizing:border-box}.langseg button{height:26px;min-width:36px;padding:0 8px;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:7px;background:transparent;color:var(--mut);font:700 11px/1 Poppins,"Noto Sans Malayalam",sans-serif;white-space:nowrap}.langseg button:last-child{min-width:44px}.langseg button.on{background:var(--em);color:#fff}
+/* Malayalam needs its own font, but not its own size, width, padding or line box. */
+html.lang-ml .langseg button:last-child {
+  font-family: "Anek Malayalam Variable", Poppins, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 24px !important;
+}
+
+.langseg button.on {
+  background: var(--em) !important;
+  color: #fff !important;
+}
+
+.langseg button:hover:not(.on) {
+  background: var(--panel2);
+  color: var(--tx);
+}
