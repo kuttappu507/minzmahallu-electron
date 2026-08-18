@@ -13,7 +13,7 @@ DELETE FROM donations;
 DELETE FROM subscriptions;
 DELETE FROM members;
 DELETE FROM families;
-DELETE FROM audit_log;
+-- audit_log is intentionally preserved because it is append-only historical evidence.
 DELETE FROM notifications;
 
 INSERT INTO families (id,family_number,house_name,house_number,ward,area,address,pincode,phone,status,notes) VALUES (1,'FAM-001','Darussalam','1','1','Nadakkavu','Darussalam, Nadakkavu, Kozhikode','673011','9847001001','Active','Demo dataset');
