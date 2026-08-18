@@ -98,6 +98,7 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
   const [existingTokens, setExistingTokens] = useState<Set<number>>(new Set());
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const [deleteEventBusy, setDeleteEventBusy] = useState(false);
+  const [deleteEventBusy, setDeleteEventBusy] = useState(false);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
   const [eventForm, setEventForm] = useState({ event_name: "", event_type: "general", event_date: "", event_time: "", venue: "", description: "" });
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -132,6 +133,29 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
 
   useEffect(() => { loadEvents(); }, [loadEvents]);
   useEffect(() => { if (selectedEventId && viewMode === "list") loadTokens(); }, [selectedEventId, viewMode, loadTokens]);
+
+  const deleteEvent = async () => {
+    if (!selectedEventId || deleteEventBusy) return;
+    const ev = events.find(e => e.id === selectedEventId);
+    if (!ev) return;
+    const message = ml
+      ? `"${ev.event_name}" ഇവന്റും അതിലെ എല്ലാ ടോക്കണുകളും ഇല്ലാതാക്കണോ? ഇത് തിരിച്ചെടുക്കാനാകില്ല.`
+      : `Delete event "${ev.event_name}" and all its tokens? This cannot be undone.`;
+    if (!window.confirm(message)) return;
+    setDeleteEventBusy(true);
+    try {
+      await window.mms.tokens.removeEvent(selectedEventId);
+      toast.success(ml ? "ഇവന്റ് ഇല്ലാതാക്കി" : "Event deleted");
+      setSelectedEventId(null);
+      setTokens([]);
+      setStats({ total: 0, collected: 0, remaining: 0, rate: 0 });
+      await loadEvents();
+    } catch (e: any) {
+      toast.error(e.message || (ml ? "ഇവന്റ് ഇല്ലാതാക്കാനായില്ല" : "Failed to delete event"));
+    } finally {
+      setDeleteEventBusy(false);
+    }
+  };
 
   const deleteEvent = async () => {
     if (!selectedEventId || deleteEventBusy) return;
