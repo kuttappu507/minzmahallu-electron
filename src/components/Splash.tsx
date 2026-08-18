@@ -10,7 +10,7 @@ export function Splash({ onDone }: { onDone: () => void }) {
 
   return (
     <div className={`splash-box-only ${out ? "out" : ""}`}>
-      <div className="splash-logo"><img src="/logo.svg" alt="MMS" style={{ width: "100%", height: "100%", display: "block", objectFit: "contain" }} /></div>
+      <div className="splash-logo"><img src="./logo.svg" alt="MMS" style={{ width: "100%", height: "100%", display: "block", objectFit: "contain" }} /></div>
       <div className="splash-text-group"><div className="splash-title">MMS</div><div className="splash-sub">{t("app_name")}</div></div>
       <div className="splash-progress"><i /></div>
       <div className="splash-status">{status}</div>
