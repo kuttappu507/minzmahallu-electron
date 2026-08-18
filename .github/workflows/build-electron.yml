@@ -8,6 +8,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build (${{ matrix.os }})
@@ -44,11 +47,11 @@ jobs:
         run: python scripts/apply_integrity_fixes.py
 
       - name: Persist integrity fixes
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && github.actor != 'github-actions[bot]' && github.event_name != 'pull_request'
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add electron src resources .github/workflows/build-electron.yml scripts/apply_integrity_fixes.py
+          git add electron src resources scripts/apply_integrity_fixes.py
           git diff --cached --quiet || (git commit -m 'fix: repair module wiring reports welfare and demo data' && git push)
 
       - name: Install dependencies (Linux)
