@@ -13,8 +13,9 @@ const palettes = [
 function paletteForTokenIndex(index:number){return palettes[Math.abs(index)%palettes.length];}
 
 export function buildTokenSheetHtml(tokenList: any[], event: any): string {
+  const eventOffset = Math.max(0, Number(event?.id || 1) - 1);
   const makeCard = (t:any,cardIndex:number)=>{
-    const p=paletteForTokenIndex(cardIndex);
+    const p=paletteForTokenIndex(cardIndex + eventOffset);
     const headName=t.house_head_name || t.head_name || '—';
     const time=event?.event_time || '';
     const timeWithAmPm=time && !/\b(?:AM|PM)\b/i.test(time) ? `${time} AM` : time;
