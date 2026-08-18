@@ -1,76 +1,33 @@
 /* Final visual refinement layer — presentation only. */
-:root {
-  --ui-radius: 14px;
-  --ui-radius-sm: 10px;
-  --ui-shadow: 0 8px 24px rgba(20, 70, 52, .06);
-  --ui-shadow-hover: 0 12px 30px rgba(20, 70, 52, .10);
-}
-
+:root { --ui-radius: 14px; --ui-radius-sm: 10px; --ui-shadow: 0 8px 24px rgba(20, 70, 52, .06); --ui-shadow-hover: 0 12px 30px rgba(20, 70, 52, .10); }
 #app { min-height: 100vh; }
 #content { padding: 22px 26px 28px; }
-
-/* Page headers */
 .vhead { margin-bottom: 20px !important; }
 .vhead h1, .page-title, .vhead .title { font-size: 24px !important; line-height: 1.25 !important; font-weight: 700 !important; letter-spacing: -.015em; }
 .vhead p, .vhead .sub, .page-subtitle { font-size: 13.5px !important; line-height: 1.55 !important; }
-
-/* Main cards */
-.card, .stat, .chart-card, .hero, .panel, .rep-card {
-  border-radius: var(--ui-radius) !important;
-  box-shadow: var(--ui-shadow);
-  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-}
+.card, .stat, .chart-card, .hero, .panel, .rep-card { border-radius: var(--ui-radius) !important; box-shadow: var(--ui-shadow); transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
 .card:hover, .stat:hover, .chart-card:hover, .rep-card:hover { box-shadow: var(--ui-shadow-hover); }
-
-/* Dashboard */
 .hero { padding: 24px !important; }
 .stat { min-height: 132px; padding: 19px 20px !important; }
 .stat .val, .stat .value, .stat b { font-size: 30px !important; line-height: 1.05 !important; font-weight: 700 !important; letter-spacing: -.02em; }
 .stat .lbl, .stat .label { font-size: 11px !important; line-height: 1.35 !important; font-weight: 650 !important; }
 .stat .delta { font-size: 11px !important; }
 .chart-card { padding: 18px 20px !important; }
-
-/* Sidebar / topbar */
 .sidebar { border-right: 1px solid var(--line) !important; }
 .navit { min-height: 42px !important; margin: 2px 10px !important; border-radius: 10px !important; }
 .navit b, .navit span { font-size: 13.5px !important; }
 .navsec { font-size: 10px !important; letter-spacing: .11em; font-weight: 700 !important; }
 .topbar { min-height: 62px !important; padding: 0 22px !important; border-bottom: 1px solid var(--line) !important; }
-
-/* Malayalam sidebar: never allow long labels to shrink/hide Lucide icons. */
 html.lang-ml .sidebar { width: 260px; }
 html.lang-ml .sidebar.min { width: 80px; }
 html.lang-ml .navit { gap: 10px; padding-left: 12px !important; padding-right: 10px !important; }
-html.lang-ml .navit .ic,
-html.lang-ml .navit > svg {
-  flex: 0 0 20px !important;
-  width: 20px !important;
-  height: 20px !important;
-  min-width: 20px !important;
-  min-height: 20px !important;
-  max-width: 20px !important;
-  max-height: 20px !important;
-  display: block !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-  stroke-width: 2 !important;
-}
-html.lang-ml .navit b {
-  flex: 1 1 auto !important;
-  min-width: 0 !important;
-  font-size: 14px !important;
-  line-height: 1.35 !important;
-  font-weight: 550 !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-}
+html.lang-ml .navit .ic, html.lang-ml .navit > svg { flex: 0 0 20px !important; width: 20px !important; height: 20px !important; min-width: 20px !important; min-height: 20px !important; max-width: 20px !important; max-height: 20px !important; display: block !important; opacity: 1 !important; visibility: visible !important; stroke-width: 2 !important; }
+/* Poppins stays primary in ML mode; Anek Malayalam is used as the glyph fallback. */
+html.lang-ml body { font-family: Poppins, "Anek Malayalam Variable", sans-serif !important; }
+html.lang-ml .navit b { flex: 1 1 auto !important; min-width: 0 !important; font-size: 13.5px !important; line-height: 1.4 !important; font-weight: 650 !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
 html.lang-ml .navbadge { flex: 0 0 auto !important; }
 html.lang-ml .sidebar.min .navit { padding-left: 0 !important; padding-right: 0 !important; }
-html.lang-ml .sidebar.min .navit .ic,
-html.lang-ml .sidebar.min .navit > svg { flex-basis: 20px !important; }
-
-/* Tables: readable, aligned, spacious */
+html.lang-ml .sidebar.min .navit .ic, html.lang-ml .sidebar.min .navit > svg { flex-basis: 20px !important; }
 .tbl { width: 100%; table-layout: auto; border-collapse: separate !important; border-spacing: 0; overflow: hidden; border-radius: 12px !important; }
 .tbl th { height: 46px !important; padding: 11px 18px !important; font-size: 12.5px !important; line-height: 1.3 !important; font-weight: 700 !important; text-align: left; vertical-align: middle; white-space: nowrap; }
 .tbl td { height: 50px !important; padding: 11px 18px !important; font-size: 14px !important; line-height: 1.45 !important; vertical-align: middle; }
@@ -79,32 +36,18 @@ html.lang-ml .sidebar.min .navit > svg { flex-basis: 20px !important; }
 .tbl tbody tr { transition: background .14s ease; }
 .tbl tbody tr:hover { background: var(--panel2); }
 .tbl .act-btn { width: 30px !important; height: 30px !important; }
-
-/* Forms */
 .lbl { font-size: 12px !important; line-height: 1.35 !important; font-weight: 650 !important; }
 .inp { min-height: 42px !important; padding: 9px 12px !important; font-size: 15px !important; line-height: 1.45 !important; border-radius: 10px !important; }
 textarea.inp { min-height: 92px !important; }
 .btn { min-height: 40px; border-radius: 10px !important; font-size: 13px !important; font-weight: 650 !important; }
 .btn.bs { min-height: 34px; font-size: 12px !important; }
 .toolbar { gap: 10px !important; margin-bottom: 16px !important; }
-
-/* Dialogs */
 .modal { border-radius: 16px !important; box-shadow: 0 22px 70px rgba(16, 45, 34, .18) !important; }
 .m-h { padding: 18px 22px !important; }
 .m-b { padding: 20px 22px !important; }
-
-/* Malayalam: Anek only, with sensible hierarchy */
-html.lang-ml body { font-family: "Anek Malayalam Variable", Poppins, sans-serif !important; }
 html.lang-ml .tbl th { font-weight: 650 !important; line-height: 1.35 !important; }
 html.lang-ml .tbl td { font-weight: 450 !important; line-height: 1.5 !important; }
 html.lang-ml .stat .val, html.lang-ml .stat .value { font-weight: 650 !important; }
 html.lang-ml .lbl { font-weight: 550 !important; }
-
-/* Responsive desktop density */
-@media (min-width: 1500px) {
-  #content { padding-left: 32px; padding-right: 32px; }
-  .tbl th { padding-left: 20px !important; padding-right: 20px !important; }
-  .tbl td { padding-left: 20px !important; padding-right: 20px !important; }
-}
-
+@media (min-width: 1500px) { #content { padding-left: 32px; padding-right: 32px; } .tbl th { padding-left: 20px !important; padding-right: 20px !important; } .tbl td { padding-left: 20px !important; padding-right: 20px !important; } }
 .sb-logo .logo{display:flex;align-items:center;justify-content:center;overflow:hidden}.sb-logo .logo img{width:30px;height:30px;display:block}.login-logo-box img,.login-logo-box-sm img{width:100%;height:100%;display:block;object-fit:contain}
