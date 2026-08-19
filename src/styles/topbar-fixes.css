@@ -4,17 +4,28 @@
 .global-search input:focus-visible { outline:none !important; box-shadow:none !important; }
 .global-search:focus-within { outline:none !important; box-shadow:none !important; }
 
-.langseg { display:inline-flex; align-items:center; justify-content:center; flex:0 0 70px; width:70px; height:30px; padding:3px; gap:2px; border:1px solid var(--line); border-radius:9px; background:var(--panel); box-sizing:border-box; overflow:hidden; }
+.langseg { display:inline-flex; align-items:center; justify-content:center; flex:0 0 76px; width:76px; height:32px; padding:3px; gap:2px; border:1px solid var(--line); border-radius:10px; background:var(--panel); box-sizing:border-box; overflow:hidden; }
 .langseg button,
 .langseg button:last-child,
 html.lang-ml .langseg button,
 html.lang-ml .langseg button:last-child {
-  flex:1 1 0; width:0; min-width:0; max-width:none; height:24px; min-height:24px; margin:0 !important; padding:0 !important; border:0; border-radius:7px; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; background:transparent; color:var(--mut); white-space:nowrap; overflow:hidden; line-height:24px !important; font-size:0 !important; font-weight:650 !important; font-family:Poppins,"Anek Malayalam Variable",sans-serif !important; transition:background .16s ease,color .16s ease;
+  position:relative; flex:1 1 0; width:0; min-width:0; max-width:none; height:26px; min-height:26px; margin:0 !important; padding:0 !important; border:0; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; background:transparent; color:transparent !important; white-space:nowrap; overflow:hidden; line-height:26px !important; font-size:0 !important; font-weight:650 !important; font-family:Poppins,sans-serif !important; text-shadow:none !important; transition:background .16s ease,color .16s ease;
 }
-.langseg button:first-child::after { content:"EN"; font:650 11px/1 Poppins,sans-serif; letter-spacing:.2px; }
-.langseg button:last-child::after { content:"Ma"; font:650 11px/1 Poppins,sans-serif; letter-spacing:.2px; }
-.langseg button.on { background:var(--em) !important; color:#fff !important; }
-.langseg button:hover:not(.on) { background:var(--panel2); color:var(--tx); }
+.langseg button:first-child::after,
+.langseg button:last-child::after { position:absolute; inset:0; display:grid; place-items:center; color:var(--mut); font:650 11px/1 Poppins,sans-serif; letter-spacing:.1px; content:""; }
+.langseg button:first-child::after { content:"EN"; }
+.langseg button:last-child::after { content:"Ma"; }
+.langseg button.on { background:var(--em) !important; color:transparent !important; }
+.langseg button.on::after { color:#fff !important; }
+.langseg button:hover:not(.on) { background:var(--panel2); }
+.langseg button:hover:not(.on)::after { color:var(--tx); }
 
 /* Official/history records do not expose a destructive delete affordance. */
 .act-del { display:none !important; }
+
+/* Report date-range toolbar alignment. */
+.view .card.card-pad-4.mb-4 > .flex.items-end { align-items:center !important; min-height:44px; }
+.view .card.card-pad-4.mb-4 > .flex.items-end > .flex.items-center { height:36px; align-items:center; white-space:nowrap; }
+.view .card.card-pad-4.mb-4 > .flex.items-end .lbl { display:block; margin-bottom:4px; }
+.view .card.card-pad-4.mb-4 > .flex.items-end select,
+.view .card.card-pad-4.mb-4 > .flex.items-end input { height:36px; }
