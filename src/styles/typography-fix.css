@@ -56,7 +56,8 @@ html.lang-ml :where(
   font-variant-numeric: tabular-nums;
 }
 
-/* Do not replace table Latin text with Anek; Malayalam glyphs still fall back. */
+/* Tables: give Malayalam glyphs a small optical size compensation while
+ * keeping Latin/numeric content on the same Poppins metrics as English mode. */
 html.lang-ml .tbl,
 html.lang-ml .data-table,
 html.lang-ml table,
@@ -69,6 +70,10 @@ html.lang-ml table td,
 html.lang-ml tbody td {
   font-family: Poppins, "Anek Malayalam Variable", sans-serif !important;
 }
+
+html.lang-ml .tbl,
+html.lang-ml .data-table,
+html.lang-ml table { font-size: 1.06em; }
 
 html.lang-ml .tbl th,
 html.lang-ml .tbl thead th,
@@ -84,6 +89,13 @@ html.lang-ml tbody td {
   font-weight: 400 !important;
   line-height: 1.5 !important;
 }
+
+html.lang-ml .tbl .member-code,
+html.lang-ml .tbl .family-code,
+html.lang-ml .tbl .token-code,
+html.lang-ml table .member-code,
+html.lang-ml table .family-code,
+html.lang-ml table .token-code { font-size: 0.945em; }
 
 html.lang-ml .lbl,
 html.lang-ml .navit b,
@@ -106,6 +118,4 @@ html.lang-ml textarea::placeholder {
 
 html.lang-ml .tbl,
 html.lang-ml .data-table,
-html.lang-ml table {
-  font-variant-numeric: tabular-nums;
-}
+html.lang-ml table { font-variant-numeric: tabular-nums; }
