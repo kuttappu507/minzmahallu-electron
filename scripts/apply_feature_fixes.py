@@ -73,7 +73,6 @@ def cert_template(s):
     return s
 edit("electron/print/certificate.template.ts",cert_template)
 
-# Avoid the missing token stats IPC and calculate from the supported list API.
 def token_stats_runtime(s):
     old='      setStats(await window.mms.tokens.stats(selectedEventId));'
     new='''      const allResult = await window.mms.tokens.list({ eventId: selectedEventId, pageSize: 100000 });
@@ -85,15 +84,8 @@ def token_stats_runtime(s):
     return s.replace(old,new,1)
 edit("src/pages/Tokens.tsx",token_stats_runtime)
 
-# Report PDF typography and renderer orientation.
 def report_pdf(s):
-    reps={
-      'body { font: 400 10px Poppins, system-ui, sans-serif;':'body { font: 400 12px Poppins, system-ui, sans-serif;',
-      '.sub { color: #5f7268; font-size: 9px;':'.sub { color: #5f7268; font-size: 12px;',
-      'font-size: ${landscape ? "8.5" : "9.5"}px;':'font-size: 12px;',
-      'font-size: ${landscape ? "7.5" : "8.5"}px;':'font-size: 12px;',
-      '.foot { margin-top: 12px; color: #8ba096; font-size: 8px; }':'.foot { margin-top: 12px; color: #8ba096; font-size: 12px; }',
-    }
+    reps={'body { font: 400 10px Poppins, system-ui, sans-serif;':'body { font: 400 12px Poppins, system-ui, sans-serif;','.sub { color: #5f7268; font-size: 9px;':'.sub { color: #5f7268; font-size: 12px;','font-size: ${landscape ? "8.5" : "9.5"}px;':'font-size: 12px;','font-size: ${landscape ? "7.5" : "8.5"}px;':'font-size: 12px;','.foot { margin-top: 12px; color: #8ba096; font-size: 8px; }':'.foot { margin-top: 12px; color: #8ba096; font-size: 12px; }'}
     for a,b in reps.items():s=s.replace(a,b)
     return s
 edit("src/pages/Reports.tsx",report_pdf)
@@ -104,12 +96,7 @@ def pdf_renderer(s):
     return s.replace(old,new,1)
 edit("electron/main.ts",pdf_renderer)
 
-# Defensive idempotent cleanup for duplicate generated registrations/declarations.
-preload=Path("electron/preload.mts")
-if preload.exists():
-    s=preload.read_text(encoding="utf-8"); repeated=',removeEvent:(id:number)=>ipcRenderer.invoke("tokens:removeEvent",id)'
-    while s.count(repeated)>1:s=s.replace(repeated,'',1)
-    preload.write_text(s,encoding="utf-8")
+# Final idempotent cleanup. This runs on every build and converges the source to one canonical form.
 main=Path("electron/main.ts")
 if main.exists():
     s=main.read_text(encoding="utf-8"); seen=set(); out=[]
@@ -117,14 +104,41 @@ if main.exists():
         m=re.search(r'ipcMain\.handle\("([^"]+)"',line)
         if m:
             ch=m.group(1)
-            if ch in seen:continue
+            if ch in seen: continue
             seen.add(ch)
         out.append(line)
     main.write_text(''.join(out),encoding="utf-8")
+
+preload=Path("electron/preload.mts")
+if preload.exists():
+    s=preload.read_text(encoding="utf-8")
+    # Remove repeated bridge entries, retaining the first occurrence.
+    for token in ['issueMarriageNoc:(m:string)=>ipcRenderer.invoke("certificates:issueMarriageNoc",m),','removeEvent:(id:number)=>ipcRenderer.invoke("tokens:removeEvent",id),']:
+        first=s.find(token)
+        if first>=0:
+            s=s[:first+len(token)]+s[first+len(token):].replace(token,'')
+    preload.write_text(s,encoding="utf-8")
+
+# Certificates.tsx: retain exactly one marriage_noc switch branch even if older repair passes duplicated it.
+certs=Path("src/pages/Certificates.tsx")
+if certs.exists():
+    s=certs.read_text(encoding="utf-8")
+    branch=re.compile(r'\s*case "marriage_noc":\s*result = await window\.mms\.certificates\.issueMarriageNoc\(selectedRow\.code\);\s*break;',re.MULTILINE)
+    matches=list(branch.finditer(s))
+    if len(matches)>1:
+        first_end=matches[0].end()
+        tail=s[first_end:]
+        tail=branch.sub('',tail)
+        s=s[:first_end]+tail
+    certs.write_text(s,encoding="utf-8")
+
 tokens=Path("src/pages/Tokens.tsx")
 if tokens.exists():
-    s=tokens.read_text(encoding="utf-8"); decl='  const [deleteEventBusy, setDeleteEventBusy] = useState(false);\n'; first=s.find(decl)
+    s=tokens.read_text(encoding="utf-8")
+    decl='  const [deleteEventBusy, setDeleteEventBusy] = useState(false);\n'
+    first=s.find(decl)
     if first>=0:s=s[:first+len(decl)]+s[first+len(decl):].replace(decl,'')
-    pattern=re.compile(r'  const deleteEvent = async \(\) => \{.*?^  \};\n',re.MULTILINE|re.DOTALL); matches=list(pattern.finditer(s))
-    if len(matches)>1:s=s[:matches[0].end()]+re.sub(r'  const deleteEvent = async \(\) => \{.*?^  \};\n','',s[matches[0].end():],flags=re.MULTILINE|re.DOTALL)
+    pattern=re.compile(r'  const deleteEvent = async \(\) => \{.*?^  \};\n',re.MULTILINE|re.DOTALL)
+    matches=list(pattern.finditer(s))
+    if len(matches)>1:s=s[:matches[0].end()]+pattern.sub('',s[matches[0].end():],count=0)
     tokens.write_text(s,encoding="utf-8")
