@@ -7,7 +7,7 @@
   "main": "dist-electron/main.js",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k -n VITE,ELECTRON -c blue,green \"vite\" \"wait-on tcp:5174 && tsc -p electron/tsconfig.json && cross-env NODE_ENV=development electron .\"",
+    "dev": "python scripts/apply_feature_fixes.py && python scripts/hardening_v2.py && concurrently -k -n VITE,ELECTRON -c blue,green \"vite\" \"wait-on tcp:5174 && tsc -p electron/tsconfig.json && cross-env NODE_ENV=development electron .\"",
     "dev:vite": "vite",
     "build": "python scripts/apply_feature_fixes.py && python scripts/hardening_v2.py && tsc -b && vite build && tsc -p electron/tsconfig.json",
     "preview": "vite preview",
@@ -26,6 +26,7 @@
     "@radix-ui/react-avatar": "^1.1.1",
     "@radix-ui/react-dialog": "^1.1.0",
     "@radix-ui/react-label": "^2.1.0",
+    "@radix-ui/react-select": "^2.1.0",
     "@radix-ui/react-separator": "^1.1.0",
     "@radix-ui/react-slot": "^1.1.0",
     "@radix-ui/react-tabs": "^1.1.0",
