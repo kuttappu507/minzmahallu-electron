@@ -1,5 +1,13 @@
 -- V014: reset disposable demo data and populate a broad realistic test dataset.
 PRAGMA foreign_keys=OFF;
+
+-- V014 is a development/demo reset. The normal application must never hard-delete
+-- members, families, or issued certificates, so temporarily suspend those guard
+-- triggers for this controlled seed operation and recreate them immediately after.
+DROP TRIGGER IF EXISTS trg_block_member_delete;
+DROP TRIGGER IF EXISTS trg_block_family_delete;
+DROP TRIGGER IF EXISTS trg_block_certificate_delete;
+
 ALTER TABLE transactions ADD COLUMN transaction_ref TEXT;
 ALTER TABLE transactions ADD COLUMN updated_at TEXT;
 DELETE FROM token_assignments;
@@ -11,6 +19,7 @@ DELETE FROM welfare_requests;
 DELETE FROM transactions;
 DELETE FROM donations;
 DELETE FROM subscriptions;
+DELETE FROM family_moves;
 DELETE FROM members;
 DELETE FROM families;
 -- audit_log is intentionally preserved because it is append-only historical evidence.
@@ -61,3 +70,25 @@ INSERT INTO members (id,family_id,member_code,name,gender,date_of_birth,age,bloo
 INSERT INTO members (id,family_id,member_code,name,gender,date_of_birth,age,blood_group,occupation,education,marital_status,mobile,email,nationality,relationship,is_head,status) VALUES (6,2,'MEM-006','Ibrahim Shafi','Male','2007-08-19',19,'B+','Software Developer','BCA','Single','9847200006','demo006@example.com','Indian','Son',0,'Active');
 INSERT INTO members (id,family_id,member_code,name,gender,date_of_birth,age,blood_group,occupation,education,marital_status,mobile,email,nationality,relationship,is_head,status) VALUES (7,3,'MEM-007','Niyas','Male','1973-01-15',53,'O+','Accountant','M.Com','Married','9847200007','demo007@example.com','Indian','Head',1,'Active');
 INSERT INTO members (id,family_id,member_code,name,gender,date_of_birth,age,blood_group,occupation,education,marital_status,mobile,email,nationality,relationship,is_head,status) VALUES (8,3,'MEM-008','Shahana','Female','1980-02-22',46,'A+','Teacher','M.A.','Married','9847200008','demo008@example.com','Indian','Spouse',0,'Active');
+
+-- Restore normal application protections after the controlled reset.
+CREATE TRIGGER IF NOT EXISTS trg_block_family_delete
+BEFORE DELETE ON families
+BEGIN
+  SELECT RAISE(ABORT, 'Families cannot be permanently deleted; archive the family instead');
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_block_member_delete
+BEFORE DELETE ON members
+BEGIN
+  SELECT RAISE(ABORT, 'Members cannot be permanently deleted; archive the member instead');
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_block_certificate_delete
+BEFORE DELETE ON certificates
+WHEN OLD.status IN ('Issued','Revoked') OR OLD.status IS NULL
+BEGIN
+  SELECT RAISE(ABORT, 'Certificates cannot be permanently deleted; revoke the certificate instead');
+END;
+
+PRAGMA foreign_keys=ON;
