@@ -1,6 +1,6 @@
-/* Typography hardening for bilingual UI.
- * Keep Latin text on Poppins in both modes. Malayalam glyphs fall back to Anek
- * Malayalam automatically, so switching languages does not resize English UI.
+/* Bilingual typography — one metric system for English and Malayalam.
+ * Latin text always uses Poppins. Malayalam glyphs fall back to Anek Malayalam.
+ * Never scale an entire table just because Malayalam is active.
  */
 
 html.lang-ml body,
@@ -28,7 +28,7 @@ html.lang-ml h6 {
   line-height: 1.35 !important;
 }
 
-/* Numeric / code content stays exactly on Poppins in both languages. */
+/* Numbers, codes and identifiers must have identical metrics in both modes. */
 html.lang-ml :where(
   .tabular-nums,
   .numeric,
@@ -56,8 +56,7 @@ html.lang-ml :where(
   font-variant-numeric: tabular-nums;
 }
 
-/* Tables: give Malayalam glyphs a small optical size compensation while
- * keeping Latin/numeric content on the same Poppins metrics as English mode. */
+/* Tables intentionally keep the same base size as English mode. */
 html.lang-ml .tbl,
 html.lang-ml .data-table,
 html.lang-ml table,
@@ -73,7 +72,10 @@ html.lang-ml tbody td {
 
 html.lang-ml .tbl,
 html.lang-ml .data-table,
-html.lang-ml table { font-size: 1.06em; }
+html.lang-ml table {
+  font-size: inherit !important;
+  font-variant-numeric: tabular-nums;
+}
 
 html.lang-ml .tbl th,
 html.lang-ml .tbl thead th,
@@ -90,12 +92,17 @@ html.lang-ml tbody td {
   line-height: 1.5 !important;
 }
 
+/* Codes retain the normal code size; no Malayalam-mode shrinking. */
 html.lang-ml .tbl .member-code,
 html.lang-ml .tbl .family-code,
 html.lang-ml .tbl .token-code,
 html.lang-ml table .member-code,
 html.lang-ml table .family-code,
-html.lang-ml table .token-code { font-size: 0.945em; }
+html.lang-ml table .token-code {
+  font-family: Poppins, system-ui, sans-serif !important;
+  font-size: inherit !important;
+  font-variant-numeric: tabular-nums;
+}
 
 html.lang-ml .lbl,
 html.lang-ml .navit b,
@@ -115,7 +122,3 @@ html.lang-ml textarea::placeholder {
   font-weight: 400 !important;
   line-height: 1.45 !important;
 }
-
-html.lang-ml .tbl,
-html.lang-ml .data-table,
-html.lang-ml table { font-variant-numeric: tabular-nums; }
