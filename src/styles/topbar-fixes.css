@@ -4,59 +4,84 @@
 .global-search input:focus-visible { outline:none !important; box-shadow:none !important; }
 .global-search:focus-within { outline:none !important; box-shadow:none !important; }
 
-/* Professional bilingual segmented control: both active halves fit flush inside one pill. */
-.langseg {
-  display:inline-flex;
-  align-items:stretch;
-  justify-content:stretch;
-  flex:0 0 84px;
-  width:84px;
-  height:30px;
-  padding:0;
-  gap:0;
-  border:1px solid var(--line);
-  border-radius:99px;
-  background:var(--panel);
-  box-sizing:border-box;
-  overflow:hidden;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.35);
+/* Language selector — flat professional tab control. No nested pills, no capsule-overflow problem. */
+#root .topbar .langseg {
+  display:inline-flex !important;
+  align-items:stretch !important;
+  justify-content:stretch !important;
+  flex:0 0 88px !important;
+  width:88px !important;
+  min-width:88px !important;
+  max-width:88px !important;
+  height:32px !important;
+  padding:2px !important;
+  gap:1px !important;
+  border:1px solid var(--line) !important;
+  border-radius:9px !important;
+  background:var(--panel) !important;
+  box-sizing:border-box !important;
+  overflow:hidden !important;
+  box-shadow:0 1px 2px rgba(20,40,30,.06) !important;
 }
-.langseg button,
-html.lang-ml .langseg button {
-  position:relative;
-  flex:1 1 50%;
-  width:50%;
-  min-width:0;
-  max-width:50%;
-  height:100%;
-  min-height:0;
+#root .topbar .langseg button,
+#root html.lang-ml .topbar .langseg button {
+  position:relative !important;
+  flex:1 1 50% !important;
+  width:auto !important;
+  min-width:0 !important;
+  max-width:none !important;
+  height:26px !important;
+  min-height:26px !important;
+  max-height:26px !important;
   margin:0 !important;
-  padding:0 !important;
+  padding:0 6px !important;
   border:0 !important;
-  border-radius:99px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  box-sizing:border-box;
-  background:transparent;
+  border-radius:6px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  box-sizing:border-box !important;
+  background:transparent !important;
   color:var(--mut) !important;
-  white-space:nowrap;
-  overflow:hidden;
-  line-height:1 !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  line-height:26px !important;
   font-size:12px !important;
   font-weight:600 !important;
   font-family:Poppins,"Anek Malayalam Variable",sans-serif !important;
+  cursor:pointer !important;
   text-shadow:none !important;
-  cursor:pointer;
-  transition:background .16s ease,color .16s ease,box-shadow .16s ease;
+  transition:background .16s ease,color .16s ease,box-shadow .16s ease !important;
 }
-.langseg button.on { background:var(--em) !important; color:#fff !important; box-shadow:0 1px 3px rgba(0,0,0,.12); }
-.langseg button.on:hover { background:var(--emdd) !important; color:#fff !important; }
-.langseg button:hover:not(.on) { background:var(--selbg) !important; color:var(--tx) !important; }
-.langseg button:focus-visible { outline:2px solid var(--em) !important; outline-offset:-2px; }
+#root .topbar .langseg button.on {
+  background:var(--selbg) !important;
+  color:var(--emdd) !important;
+  box-shadow:inset 0 -2px 0 var(--em) !important;
+}
+#root .topbar .langseg button.on:hover {
+  background:var(--selbg) !important;
+  color:var(--emdd) !important;
+}
+#root .topbar .langseg button:hover:not(.on) {
+  background:var(--panel2) !important;
+  color:var(--tx) !important;
+}
+#root .topbar .langseg button:focus-visible {
+  outline:2px solid var(--em) !important;
+  outline-offset:-2px !important;
+}
 
-@media (max-width:900px) { .langseg { flex-basis:84px; width:84px; } }
-@media (max-width:520px) { .langseg { flex-basis:76px; width:76px; } }
+@media (max-width:900px) {
+  #root .topbar .langseg { flex-basis:80px !important; width:80px !important; min-width:80px !important; max-width:80px !important; }
+}
+@media (max-width:700px) {
+  #root .topbar .langseg { flex-basis:76px !important; width:76px !important; min-width:76px !important; max-width:76px !important; }
+  #root .topbar .langseg button { font-size:11px !important; padding:0 4px !important; }
+}
+@media (max-width:520px) {
+  #root .topbar .langseg { flex-basis:72px !important; width:72px !important; min-width:72px !important; max-width:72px !important; }
+  #root .topbar .langseg button { font-size:11px !important; padding:0 3px !important; }
+}
 
 /* Official/history records do not expose a destructive delete affordance. */
 .act-del { display:none !important; }
