@@ -4,7 +4,7 @@
 .global-search input:focus-visible { outline:none !important; box-shadow:none !important; }
 .global-search:focus-within { outline:none !important; box-shadow:none !important; }
 
-/* Professional bilingual segmented control. Outer pill hugs inner pills with no gap or overflow. */
+/* Professional bilingual segmented control: both active halves fit flush inside one pill. */
 .langseg {
   display:inline-flex;
   align-items:stretch;
@@ -21,7 +21,8 @@
   overflow:hidden;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.35);
 }
-.langseg button {
+.langseg button,
+html.lang-ml .langseg button {
   position:relative;
   flex:1 1 50%;
   width:50%;
@@ -29,42 +30,33 @@
   max-width:50%;
   height:100%;
   min-height:0;
-  margin:0;
-  padding:0;
-  border:0;
+  margin:0 !important;
+  padding:0 !important;
+  border:0 !important;
   border-radius:99px;
   display:inline-flex;
   align-items:center;
   justify-content:center;
   box-sizing:border-box;
   background:transparent;
-  color:var(--mut);
+  color:var(--mut) !important;
   white-space:nowrap;
   overflow:hidden;
-  line-height:1;
-  font-size:12px;
-  font-weight:600;
-  font-family:Poppins,"Anek Malayalam Variable",sans-serif;
-  text-shadow:none;
+  line-height:1 !important;
+  font-size:12px !important;
+  font-weight:600 !important;
+  font-family:Poppins,"Anek Malayalam Variable",sans-serif !important;
+  text-shadow:none !important;
   cursor:pointer;
   transition:background .16s ease,color .16s ease,box-shadow .16s ease;
 }
-.langseg button.on {
-  background:var(--em);
-  color:#fff;
-  box-shadow:0 1px 3px rgba(0,0,0,.12);
-}
-.langseg button.on:hover { background:var(--emdd); color:#fff; }
-.langseg button:hover:not(.on) { background:var(--selbg); color:var(--tx); }
-.langseg button:focus-visible { outline:2px solid var(--em); outline-offset:-2px; }
+.langseg button.on { background:var(--em) !important; color:#fff !important; box-shadow:0 1px 3px rgba(0,0,0,.12); }
+.langseg button.on:hover { background:var(--emdd) !important; color:#fff !important; }
+.langseg button:hover:not(.on) { background:var(--selbg) !important; color:var(--tx) !important; }
+.langseg button:focus-visible { outline:2px solid var(--em) !important; outline-offset:-2px; }
 
-@media (max-width:900px) {
-  .langseg { flex-basis:84px; width:84px; }
-}
-@media (max-width:520px) {
-  .langseg { flex-basis:76px; width:76px; }
-  .langseg button { font-size:12px; }
-}
+@media (max-width:900px) { .langseg { flex-basis:84px; width:84px; } }
+@media (max-width:520px) { .langseg { flex-basis:76px; width:76px; } }
 
 /* Official/history records do not expose a destructive delete affordance. */
 .act-del { display:none !important; }
