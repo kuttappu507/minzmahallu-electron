@@ -4,15 +4,15 @@
 .global-search input:focus-visible { outline:none !important; box-shadow:none !important; }
 .global-search:focus-within { outline:none !important; box-shadow:none !important; }
 
-/* Professional bilingual segmented control. One geometry, one cascade. */
+/* Professional bilingual segmented control. Outer pill hugs inner pills with no gap or overflow. */
 .langseg {
   display:inline-flex;
-  align-items:center;
-  justify-content:center;
+  align-items:stretch;
+  justify-content:stretch;
   flex:0 0 84px;
   width:84px;
-  height:34px;
-  padding:0 8px;
+  height:30px;
+  padding:0;
   gap:0;
   border:1px solid var(--line);
   border-radius:99px;
@@ -23,10 +23,12 @@
 }
 .langseg button {
   position:relative;
-  flex:1 1 0;
+  flex:1 1 50%;
   width:50%;
   min-width:0;
-  height:28px;
+  max-width:50%;
+  height:100%;
+  min-height:0;
   margin:0;
   padding:0;
   border:0;
@@ -60,7 +62,7 @@
   .langseg { flex-basis:84px; width:84px; }
 }
 @media (max-width:520px) {
-  .langseg { flex-basis:76px; width:76px; padding:0 6px; }
+  .langseg { flex-basis:76px; width:76px; }
   .langseg button { font-size:12px; }
 }
 
