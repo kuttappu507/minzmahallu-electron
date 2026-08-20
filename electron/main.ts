@@ -49,8 +49,22 @@ async function renderHtmlToPdf(html: string): Promise<Buffer> {
   const pdfWin = new BrowserWindow({ show: false, width: 794, height: 1123, useContentSize: true, backgroundColor: "#ffffff", webPreferences: { offscreen: false, sandbox: false } });
   try {
     await pdfWin.loadURL("data:text/html;charset=UTF-8," + encodeURIComponent(html));
-    await pdfWin.webContents.executeJavaScript(`document.documentElement.style.width = 'auto'; document.body.style.width = 'auto'; void document.body.offsetHeight; ({bodyWidth: document.body.scrollWidth, bodyHeight: document.body.scrollHeight});`);
-    await new Promise(resolve => setTimeout(resolve, 150));
+    await pdfWin.webContents.executeJavaScript(`
+      (async () => {
+        if (document.fonts) {
+          await document.fonts.ready;
+          await Promise.all([
+            document.fonts.load('700 12pt "Anek Malayalam"'),
+            document.fonts.load('400 12pt "Anek Malayalam"')
+          ]);
+        }
+        document.documentElement.style.width = 'auto';
+        document.body.style.width = 'auto';
+        void document.body.offsetHeight;
+        return { bodyWidth: document.body.scrollWidth, bodyHeight: document.body.scrollHeight };
+      })()
+    `);
+    await new Promise(resolve => setTimeout(resolve, 50));
     return await pdfWin.webContents.printToPDF({ pageSize: "A4", printBackground: true, margins: { top: 0, bottom: 0, left: 0, right: 0 }, preferCSSPageSize: true });
   } finally { if (!pdfWin.isDestroyed()) pdfWin.destroy(); }
 }
@@ -148,36 +162,21 @@ app.whenReady().then(() => {
   ipcMain.handle("dashboard:recentActivity", (_e, limit) => data.dashboard.recentActivity(limit || 10));
 
   ipcMain.handle("backup:create", async () => { try { const defaultName = `mms-backup-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.db`; const result = await dialog.showSaveDialog(mainWindow!, { title: "Save Backup", defaultPath: defaultName, filters: [{ name: "SQLite Database", extensions: ["db"] }] }); if (result.canceled || !result.filePath) return { success: false, error: "cancelled" }; const db = getDB(); db.backup(result.filePath); const stats = fs.statSync(result.filePath); return { success: true, path: result.filePath, size: stats.size }; } catch (err: any) { return { success: false, error: err.message, }; } });
-  ipcMain.handle("backup:list", () => { try { const userData = app.getPath("userData"); const files = fs.readdirSync(userData).filter(f => f.startsWith("backup-") && f.endsWith(".db")).map(f => { const fullPath = path.join(userData, f); const stats = fs.statSync(fullPath); return { name: f, path: fullPath, size: stats.size, time: stats.mtime.toISOString() }; }).sort((a, b) => b.time.localeCompare(a.time)); return { success: true, backups: files }; } catch (err: any) { return { success: false, error: err.message, backups: [] }; } });
-  ipcMain.handle("dialog:showSave", async (_e, defaultName: string, filters: any[]) => { try { const result = await dialog.showSaveDialog(mainWindow!, { title: "Save File", defaultPath: defaultName, filters: filters || [{ name: "All Files", extensions: ["*"] }] }); if (result.canceled || !result.filePath) return { success: false, cancelled: true }; return { success: true, path: result.filePath }; } catch (err: any) { return { success: false, error: err.message }; } });
-
+  ipcMain.handle("backup:list", () => { try { const userData = app.getPath("userData"); const files = fs.readdirSync(userData).filter((f: string) => f.endsWith(".db")).map((f: string) => { const p = path.join(userData, f); const s = fs.statSync(p); return { name: f, path: p, size: s.size, modified: s.mtime.toISOString() }; }); return files; } catch { return []; } });
+  ipcMain.handle("backup:restore", async (_e, backupPath: string) => { try { if (!backupPath || !fs.existsSync(backupPath)) return { success: false, error: "Backup file not found" }; return { success: false, error: "Restore requires application restart and is not available in this build" }; } catch (err: any) { return { success: false, error: err.message }; } });
   ipcMain.handle("tokens:listEvents", () => data.tokens.listEvents());
   ipcMain.handle("tokens:getEvent", (_e, id) => data.tokens.getEvent(id));
   ipcMain.handle("tokens:createEvent", (_e, d) => data.tokens.createEvent(d));
   ipcMain.handle("tokens:updateEvent", (_e, id, d) => data.tokens.updateEvent(id, d));
-  ipcMain.handle("tokens:removeEvent", (_e, id: number) => { getDB().prepare("DELETE FROM token_events WHERE id = ?").run(id); return { success: true }; });
   ipcMain.handle("tokens:list", (_e, filter) => data.tokens.list(filter || {}));
-  ipcMain.handle("tokens:checkExisting", (_e, eventId) => data.tokens.checkExisting(eventId));
+  ipcMain.handle("tokens:checkExisting", (_e, eventId) => Array.from(data.tokens.checkExisting(eventId)));
   ipcMain.handle("tokens:generate", (_e, eventId, familyIds) => data.tokens.generate(eventId, familyIds, session.user?.id ?? 1));
   ipcMain.handle("tokens:collect", (_e, tokenId) => data.tokens.collect(tokenId, session.user?.id ?? 1));
   ipcMain.handle("tokens:cancel", (_e, tokenId, reason) => data.tokens.cancel(tokenId, reason));
   ipcMain.handle("tokens:replace", (_e, tokenId, reason) => data.tokens.replace(tokenId, reason, session.user?.id ?? 1));
-  ipcMain.handle("tokens:remove", (_e, tokenId: number, reason: string) => {
-    const token = data.tokens.list({}).rows.find((r: any) => r.id === tokenId);
-    if (!token) throw new Error("Token not found");
-    const today = new Date().toISOString().slice(0, 10);
-    if (!token.event_date || token.event_date >= today) throw new Error("Tokens can only be deleted after the event has ended");
-    const user = session.user;
-    const result = getDB().prepare("DELETE FROM token_assignments WHERE id = ?").run(tokenId);
-    if (result.changes && user) {
-      try { data.audit.log(user.id, user.username, "DELETE", "tokens", tokenId, reason || "Temporary token removed after event", JSON.stringify({ tokenCode: token.token_code, eventId: token.event_id, eventDate: token.event_date })); } catch {}
-    }
-    return { success: true, changes: result.changes };
-  });
   ipcMain.handle("tokens:stats", (_e, eventId) => data.tokens.stats(eventId));
-  ipcMain.handle("tokens:listForPdf", (_e, eventId) => data.tokens.listForPdf(eventId));
-  ipcMain.handle("tokens:generateTokenPdf", async (_e, eventId: number) => { try { const tokenList = data.tokens.listForPdf(eventId); if (!tokenList || tokenList.length === 0) return { success: false, error: "No tokens found for this event" }; const event = data.tokens.getEvent(eventId); const html = buildTokenSheetHtml(tokenList, event); const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Token PDF", defaultPath: `tokens-${event?.event_name?.replace(/\s+/g, "-") || eventId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] }); if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true }; const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer); return { success: true, path: saveResult.filePath, count: tokenList.length }; } catch (err: any) { return { success: false, error: err.message }; } });
-  ipcMain.handle("tokens:generateCollectionSheet", async (_e, eventId: number) => { try { const tokenList = data.tokens.listForPdf(eventId); if (!tokenList || tokenList.length === 0) return { success: false, error: "No tokens found for this event" }; const event = data.tokens.getEvent(eventId); const html = buildCollectionSheetHtml(tokenList, event); const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Collection Sheet PDF", defaultPath: `collection-sheet-${event?.event_name?.replace(/\s+/g, "-") || eventId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] }); if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true }; const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer); return { success: true, path: saveResult.filePath, count: tokenList.length }; } catch (err: any) { return { success: false, error: err.message }; } });
+  ipcMain.handle("tokens:generatePdf", async (_e, eventId: number) => { try { const tokenList = data.tokens.listForPdf(eventId); if (!tokenList || tokenList.length === 0) return { success: false, error: "No tokens found for this event" }; const event = data.tokens.getEvent(eventId); const html = buildTokenSheetHtml(tokenList, event); const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Token Sheet PDF", defaultPath: `tokens-${event?.event_name?.replace(/\s+/g, "-") || eventId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] }); if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true }; const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer); return { success: true, path: saveResult.filePath, count: tokenList.length }; } catch (err: any) { return { success: false, error: err.message }; } });
+  ipcMain.handle("tokens:generateCollectionSheet", async (_e, eventId: number) => { try { const tokenList = data.tokens.listForPdf(eventId); if (!tokenList || tokenList.length === 0) return { success: false, error: "No tokens found for this event" }; const event = data.tokens.getEvent(eventId); const html = buildCollectionSheetHtml(tokenList, event); const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Collection Sheet PDF", defaultPath: `collection-sheet-${event?.event_name?.replace(/\s+/g, "-") || eventId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }]); if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true }; const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer); return { success: true, path: saveResult.filePath, count: tokenList.length }; } catch (err: any) { return { success: false, error: err.message }; } });
 
   registerSecurityIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null);
   createWindow();
