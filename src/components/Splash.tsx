@@ -16,7 +16,7 @@ export function Splash({ onDone }: { onDone: () => void }) {
 
   return (
     <div className={`splash-box-only ${out ? "out" : ""}`} aria-label="Minz Mahallu Management System">
-      <div className="splash-logo"><img src="./logo.svg" alt="MMS" /></div>
+      <div className="splash-logo"><img src="./logo.png" alt="MMS" /></div>
       <div className="splash-text-group">
         <div className="splash-title">MMS</div>
         <div className="splash-sub">{t("app_name")}</div>
