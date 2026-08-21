@@ -59,13 +59,13 @@ export function DataTable<T>({
       {(onSearchChange || toolbar) && (
         <div className="flex items-center gap-3 flex-wrap">
           {onSearchChange && (
-            <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary transition-colors group-focus-within:text-primary" />
+            <div className="relative group shrink-0">
+              <Search className="absolute left-3 top-1/2 z-10 -translate-y-1/2 h-4 w-4 text-text-tertiary transition-colors pointer-events-none group-focus-within:text-primary" aria-hidden="true" />
               <Input
                 placeholder={searchPlaceholder || t("search_placeholder")}
                 value={searchValue || ""}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="pl-9 w-64"
+                className="!pl-10 w-64"
               />
             </div>
           )}
