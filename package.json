@@ -9,10 +9,11 @@
   "scripts": {
     "dev": "python scripts/apply_feature_fixes.py && python scripts/hardening_v2.py && concurrently -k -n VITE,ELECTRON -c blue,green \"vite\" \"wait-on tcp:5174 && tsc -p electron/tsconfig.json && cross-env NODE_ENV=development electron .\"",
     "dev:vite": "vite",
-    "build": "python scripts/apply_feature_fixes.py && python scripts/hardening_v2.py && tsc -b && vite build && tsc -p electron/tsconfig.json",
+    "dev:vite": "vite",
     "preview": "vite preview",
     "postinstall": "electron-builder install-app-deps",
     "rebuild:native": "electron-builder install-app-deps",
+    "build": "python scripts/apply_feature_fixes.py && python scripts/hardening_v2.py && tsc -b && vite build && tsc -p electron/tsconfig.json",
     "package": "npm run build && electron-builder --publish never",
     "package:win": "npm run build && electron-builder --win nsis portable --publish never",
     "package:portable": "npm run build && electron-builder --win portable --publish never",
@@ -26,13 +27,12 @@
     "@radix-ui/react-avatar": "^1.1.1",
     "@radix-ui/react-dialog": "^1.1.0",
     "@radix-ui/react-label": "^2.1.0",
-    "@radix-ui/react-select": "^2.1.0",
     "@radix-ui/react-separator": "^1.1.0",
     "@radix-ui/react-slot": "^1.1.0",
     "@radix-ui/react-tabs": "^1.1.0",
     "@radix-ui/react-toast": "^1.2.2",
+    "@radix-ui/react-tooltip": "^1.0.0",
     "@radix-ui/react-tooltip": "^1.2.2",
-    "better-sqlite3": "^11.3.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
@@ -43,8 +43,9 @@
     "react-router-dom": "^6.28.0",
     "recharts": "^2.13.3",
     "tailwind-merge": "^2.5.4",
-    "tailwindcss-animate": "^1.0.7",
-    "zustand": "^5.0.1"
+    "tailwindcss-animate": "^1.0.0",
+    "zustand": "^5.0.1",
+    "better-sqlite3": "^11.3.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.11",
@@ -74,7 +75,7 @@
     "npmRebuild": true,
     "nodeGypRebuild": false,
     "buildDependenciesFromSource": false,
-    "win": { "target": ["nsis", "portable"], "icon": "public/icon.ico" },
+    "win": { "target": ["nsis", "portable"], "icon": "public/logo.svg" },
     "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "perMachine": false },
     "portable": { "artifactName": "MMS-React-Portable-${version}.exe" }
   }
