@@ -1,0 +1,140 @@
+/* Unified MinZ Mahallu brand treatment. */
+.sb-logo .logo,
+.login-logo-box,
+.login-logo-box-sm,
+.splash-logo {
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.sb-logo .logo img,
+.login-logo-box img,
+.login-logo-box-sm img,
+.splash-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+/* Emerald on light surfaces; white on dark/emerald surfaces. */
+html.dark .sb-logo .logo img,
+html.dark .splash-logo img,
+.login-left .login-logo-box img {
+  filter: brightness(0) invert(1) !important;
+}
+
+/* Splash: genuinely transparent window with a subtle elevated glass card. */
+html:has(.splash-box-only),
+html:has(.splash-box-only) body,
+html:has(.splash-box-only) #root {
+  background: transparent !important;
+}
+
+.splash-box-only {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  overflow: hidden;
+  background: transparent !important;
+  color: var(--tx);
+  isolation: isolate;
+}
+
+.splash-box-only::before {
+  content: "";
+  position: absolute;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(14,171,127,.17) 0%, rgba(14,171,127,.07) 35%, transparent 72%);
+  filter: blur(4px);
+  z-index: -2;
+}
+
+html.dark .splash-box-only::before {
+  background: radial-gradient(circle, rgba(44,196,151,.20) 0%, rgba(44,196,151,.08) 36%, transparent 72%);
+}
+
+.splash-box-only::after {
+  content: "";
+  position: absolute;
+  width: 270px;
+  height: 210px;
+  border-radius: 32px;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+  box-shadow: 0 28px 70px rgba(10,35,26,.14), inset 0 1px 0 rgba(255,255,255,.28);
+  backdrop-filter: blur(18px);
+  z-index: -1;
+}
+
+html.dark .splash-box-only::after {
+  box-shadow: 0 28px 80px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.04);
+}
+
+.splash-logo {
+  width: 92px;
+  height: 92px;
+  margin-bottom: 12px;
+  filter: drop-shadow(0 10px 20px rgba(14,171,127,.20));
+}
+
+.splash-title {
+  font: 700 24px/1 Poppins, sans-serif !important;
+  letter-spacing: .08em;
+  text-align: center;
+}
+
+.splash-sub {
+  margin-top: 7px;
+  color: var(--mut);
+  font: 500 12px/1.4 Poppins, "Anek Malayalam Variable", sans-serif !important;
+  text-align: center;
+}
+
+.splash-progress {
+  width: 150px;
+  height: 4px;
+  margin-top: 22px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--line2) 75%, transparent);
+}
+
+.splash-progress i {
+  display: block;
+  width: 42%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--em);
+  animation: splashProgress 1.45s ease-in-out infinite;
+}
+
+.splash-status {
+  margin-top: 11px;
+  color: var(--fnt);
+  font: 500 10.5px/1.4 Poppins, "Anek Malayalam Variable", sans-serif !important;
+}
+
+.splash-credit {
+  position: absolute;
+  bottom: calc(50% - 126px);
+  color: var(--fnt);
+  font: 500 9.5px/1.3 Poppins, "Anek Malayalam Variable", sans-serif !important;
+  letter-spacing: .04em;
+}
+
+@keyframes splashProgress {
+  0% { transform: translateX(-125%); }
+  55% { transform: translateX(130%); }
+  100% { transform: translateX(300%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-progress i { animation: none; width: 100%; }
+}
