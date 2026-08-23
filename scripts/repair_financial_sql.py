@@ -57,3 +57,20 @@ def users(s):
     return s.replace(old, new)
 edit('src/pages/Users.tsx', users)
 edit('electron/services/data.service.ts', lambda s: s.replace('data.role || "Viewer"', 'data.role || "Staff"'))
+
+# Build-time safety: this script also edits preload. Collapse duplicate IPC
+# properties after all of its insertions so repeated CI runs stay idempotent.
+def normalize_preload(s):
+    import re
+    for pattern in [
+        r'ensureCurrentMonth\s*:\s*\(\)\s*=>\s*ipcRenderer\.invoke\("subscriptions:ensureCurrentMonth"\)',
+        r'categoriesAll\s*:\s*\(\)\s*=>\s*ipcRenderer\.invoke\("donations:categoriesAll"\)',
+        r'memberBalance\s*:\s*\(fid:number,mid\?:number\)\s*=>\s*ipcRenderer\.invoke\("donations:memberBalance",fid,mid\)',
+    ]:
+        matches = list(re.finditer(pattern, s))
+        if len(matches) > 1:
+            tail = s[matches[0].end():]
+            tail = re.sub(r',?\s*' + pattern, '', tail)
+            s = s[:matches[0].end()] + tail
+    return s
+edit('electron/preload.mts', normalize_preload)
