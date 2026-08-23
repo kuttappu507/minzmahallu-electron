@@ -20,6 +20,7 @@ function nowDate(): string {
 
 export const families = {
   list: (filter: { search?: string; status?: string; page?: number; pageSize?: number } = {}) => {
+    subscriptions.ensureCurrentMonth();
     const where: string[] = ["1=1"];
     const params: any[] = [];
     if (filter.search) {
@@ -151,6 +152,35 @@ export const members = {
 };
 
 // ================= SUBSCRIPTIONS =================
+  ensureCurrentMonth: () => {
+    const first = new Date();
+    first.setDate(1);
+    const periodStart = first.toISOString().slice(0, 10);
+    const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
+    const periodEnd = last.toISOString().slice(0, 10);
+    const configured = scalar<number>("SELECT COALESCE(subscription_monthly_amount, 0) FROM settings WHERE id = 1") || 0;
+    const plan = one<any>("SELECT * FROM subscription_plans WHERE frequency = 'Monthly' AND is_active = 1 ORDER BY id LIMIT 1");
+    if (!plan || configured <= 0) return { created: 0, amount: configured };
+    const families = all<any>("SELECT id FROM families WHERE status = 'Active' ORDER BY id");
+    let created = 0;
+    const insert = getDB().prepare(`INSERT INTO subscriptions (family_id, member_id, plan_id, period_start, period_end, amount, amount_paid, status, collected_by, remarks) VALUES (?, ?, ?, ?, ?, ?, 0, 'Pending', NULL, '')`);
+    const tx = getDB().transaction(() => {
+      for (const f of families) {
+        const exists = one<any>("SELECT id FROM subscriptions WHERE family_id = ? AND period_start = ? LIMIT 1", [f.id, periodStart]);
+        if (exists) continue;
+        const head = one<any>("SELECT id FROM members WHERE family_id = ? AND status = 'Active' ORDER BY CASE WHEN is_head = 1 THEN 0 WHEN relationship = 'Head' THEN 1 ELSE 2 END, id LIMIT 1", [f.id]);
+        insert.run(f.id, head?.id ?? null, plan.id, periodStart, periodEnd, configured);
+        created++;
+      }
+    });
+    tx();
+    return { created, amount: configured, periodStart, periodEnd };
+  },
+  memberBalance: (familyId: number, memberId?: number) => {
+    if (!familyId) return 0;
+    return scalar<number>("SELECT COALESCE(SUM(amount - amount_paid),0) FROM subscriptions WHERE family_id = ? AND amount > amount_paid AND status IN ('Pending','Partial','Overdue')", [familyId]) || 0;
+  },
+
 
 export const subscriptions = {
   list: (filter: { search?: string; status?: string; page?: number; pageSize?: number } = {}) => {
@@ -263,11 +293,11 @@ export const donations = {
     );
     const { id } = run(
       `INSERT INTO donations
-        (donor_name, donor_phone, donor_address, family_id, category_id, amount, donation_date, receipt_number, purpose, payment_method, transaction_ref, received_by, remarks)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (donor_name, donor_phone, donor_address, family_id, member_id, category_id, amount, donation_date, receipt_number, purpose, payment_method, transaction_ref, received_by, remarks)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.donorName, data.donorPhone ?? "", data.donorAddress ?? "",
-        data.familyId ?? null, data.categoryId, data.amount,
+        data.familyId ?? null, data.memberId ?? null, data.categoryId, data.amount,
         data.donationDate || nowDate(), receipt,
         data.purpose ?? "", data.paymentMethod ?? "Cash",
         data.transactionRef ?? "", data.receivedBy ?? 1,
@@ -278,16 +308,35 @@ export const donations = {
   },
   update: (id: number, data: any) =>
     run(
-      `UPDATE donations SET donor_name = ?, donor_phone = ?, donor_address = ?, family_id = ?, category_id = ?, amount = ?, donation_date = ?, purpose = ?, payment_method = ?, transaction_ref = ?, remarks = ?, updated_at = datetime('now') WHERE id = ?`,
+      `UPDATE donations SET donor_name = ?, donor_phone = ?, donor_address = ?, family_id = ?, member_id = ?, category_id = ?, amount = ?, donation_date = ?, purpose = ?, payment_method = ?, transaction_ref = ?, remarks = ?, updated_at = datetime('now') WHERE id = ?`,
       [
         data.donorName, data.donorPhone, data.donorAddress,
-        data.familyId, data.categoryId, data.amount,
+        data.familyId, data.memberId ?? null, data.categoryId, data.amount,
         data.donationDate, data.purpose, data.paymentMethod,
         data.transactionRef, data.remarks, id
       ]
     ),
   remove: (id: number) => run("DELETE FROM donations WHERE id = ?", [id]),
   categories: () => all<any>("SELECT * FROM donation_categories WHERE is_active = 1 ORDER BY name"),
+  categoriesAll: () => all<any>("SELECT dc.*, (SELECT COUNT(*) FROM donations d WHERE d.category_id = dc.id) AS donation_count FROM donation_categories dc ORDER BY dc.is_active DESC, dc.name"),
+  createCategory: (name: string, description = "") => {
+    const clean = String(name || "").trim();
+    if (!clean) throw new Error("Category name is required");
+    const { id } = run("INSERT INTO donation_categories (name, description, is_active) VALUES (?, ?, 1)", [clean, description]);
+    return { id };
+  },
+  updateCategory: (id: number, name: string, description = "") => {
+    const clean = String(name || "").trim();
+    if (!clean) throw new Error("Category name is required");
+    return run("UPDATE donation_categories SET name = ?, description = ? WHERE id = ?", [clean, description, id]);
+  },
+  setCategoryActive: (id: number, active: boolean) => run("UPDATE donation_categories SET is_active = ? WHERE id = ?", [active ? 1 : 0, id]),
+  removeCategory: (id: number) => {
+    const used = scalar<number>("SELECT COUNT(*) FROM donations WHERE category_id = ?", [id]) || 0;
+    if (used > 0) throw new Error("This category cannot be deleted because donations already exist in it. Deactivate it instead.");
+    return run("DELETE FROM donation_categories WHERE id = ?", [id]);
+  },
+  memberBalance: (familyId: number, memberId?: number) => subscriptions.memberBalance(familyId, memberId),
   totalThisMonth: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM donations WHERE strftime('%Y-%m', donation_date) = strftime('%Y-%m','now')"),
 };
 
@@ -686,13 +735,13 @@ export const settings = {
     run(
       `UPDATE settings SET
         mahallu_name = ?, address = ?, phone = ?, email = ?,
-        financial_year_start = ?, currency_symbol = ?, theme = ?, language = ?,
+        financial_year_start = ?, currency_symbol = ?, subscription_monthly_amount = ?, theme = ?, language = ?,
         auto_backup = ?, backup_interval_hours = ?, receipt_prefix = ?,
         updated_at = datetime('now')
        WHERE id = 1`,
       [
         data.mahalluName ?? "", data.address ?? "", data.phone ?? "", data.email ?? "",
-        data.financialYearStart ?? "", data.currencySymbol ?? "₹",
+        data.financialYearStart ?? "", data.currencySymbol ?? "₹", Number(data.subscriptionMonthlyAmount ?? 0),
         data.theme ?? "light", data.language ?? "en",
         data.autoBackup ? 1 : 0, data.backupIntervalHours ?? 24,
         data.receiptPrefix ?? "RCP"
