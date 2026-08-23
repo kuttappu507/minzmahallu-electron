@@ -37,7 +37,6 @@ def cert_data(s):
     return s[:idx]+method+s[idx:]
 edit("electron/services/data.service.ts",cert_data)
 
-# NOC renderer bridge/template repairs.
 edit("electron/main.ts",lambda s:s if "certificates:issueMarriageNoc" in s else s.replace('  ipcMain.handle("certificates:issueMarriage", (_e, marriageNum) => data.certificates.issueMarriage(marriageNum, session.user?.id ?? 1));','  ipcMain.handle("certificates:issueMarriage", (_e, marriageNum) => data.certificates.issueMarriage(marriageNum, session.user?.id ?? 1));\n  ipcMain.handle("certificates:issueMarriageNoc", (_e, marriageNum) => data.certificates.issueMarriageNoc(marriageNum, session.user?.id ?? 1));',1))
 edit("electron/preload.mts",lambda s:s if "issueMarriageNoc" in s else s.replace('issueMarriage:(m:string)=>ipcRenderer.invoke("certificates:issueMarriage",m),','issueMarriage:(m:string)=>ipcRenderer.invoke("certificates:issueMarriage",m),issueMarriageNoc:(m:string)=>ipcRenderer.invoke("certificates:issueMarriageNoc",m),',1))
 
@@ -137,7 +136,6 @@ def data_service_business_rules(s):
     subscriptions.ensureCurrentMonth();
     const where: string[] = ["1=1"];'''
     s=s.replace(old,new,1)
-    # Add donation member linkage only if the current insert still lacks it.
     s=s.replace('''(donor_name, donor_phone, donor_address, family_id, category_id, amount, donation_date, receipt_number, purpose, payment_method, transaction_ref, received_by, remarks)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''','''(donor_name, donor_phone, donor_address, family_id, member_id, category_id, amount, donation_date, receipt_number, purpose, payment_method, transaction_ref, received_by, remarks)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',1)
@@ -154,8 +152,13 @@ def data_service_business_rules(s):
   createCategory: (name: string, description = "") => {
     const clean = String(name || "").trim();
     if (!clean) throw new Error("Category name is required");
+    const existing = one<any>("SELECT id, is_active FROM donation_categories WHERE name = ? COLLATE NOCASE", [clean]);
+    if (existing) {
+      if (!existing.is_active) run("UPDATE donation_categories SET is_active = 1 WHERE id = ?", [existing.id]);
+      return { id: existing.id, existing: true };
+    }
     const { id } = run("INSERT INTO donation_categories (name, description, is_active) VALUES (?, ?, 1)", [clean, description]);
-    return { id };
+    return { id, existing: false };
   },
   updateCategory: (id: number, name: string, description = "") => {
     const clean = String(name || "").trim();
@@ -182,6 +185,9 @@ def main_apis(s):
         s=s.replace('  ipcMain.handle("subscriptions:plans", () => data.subscriptions.plans());','  ipcMain.handle("subscriptions:plans", () => data.subscriptions.plans());\n  ipcMain.handle("subscriptions:ensureCurrentMonth", () => data.subscriptions.ensureCurrentMonth());',1)
     if 'donations:categoriesAll' not in s:
         s=s.replace('  ipcMain.handle("donations:categories", () => data.donations.categories());','  ipcMain.handle("donations:categories", () => data.donations.categories());\n  ipcMain.handle("donations:categoriesAll", () => data.donations.categoriesAll());\n  ipcMain.handle("donations:createCategory", (_e, name, description) => data.donations.createCategory(name, description));\n  ipcMain.handle("donations:updateCategory", (_e, id, name, description) => data.donations.updateCategory(id, name, description));\n  ipcMain.handle("donations:setCategoryActive", (_e, id, active) => data.donations.setCategoryActive(id, active));\n  ipcMain.handle("donations:removeCategory", (_e, id) => data.donations.removeCategory(id));\n  ipcMain.handle("donations:memberBalance", (_e, familyId, memberId) => data.donations.memberBalance(familyId, memberId));',1)
+    # Generate the current month's family dues at application startup too, not only when the page is opened.
+    if 'data.subscriptions.ensureCurrentMonth();' not in s:
+        s=s.replace('app.whenReady().then(() => {','app.whenReady().then(() => {\n  try { data.subscriptions.ensureCurrentMonth(); } catch (err) { console.warn("[subscriptions] monthly generation deferred:", err); }',1)
     return s
 edit("electron/main.ts",main_apis)
 
@@ -191,7 +197,6 @@ def preload_apis(s):
     return s
 edit("electron/preload.mts",preload_apis)
 
-# Final idempotent cleanup. This runs on every build and converges the source to one canonical form.
 main=Path("electron/main.ts")
 if main.exists():
     s=main.read_text(encoding="utf-8"); seen=set(); out=[]
