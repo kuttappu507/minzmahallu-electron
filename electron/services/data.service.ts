@@ -20,7 +20,7 @@ function nowDate(): string {
 
 export const families = {
   list: (filter: { search?: string; status?: string; page?: number; pageSize?: number } = {}) => {
-    subscriptions.ensureCurrentMonth();
+    ensureCurrentMonth();
     const where: string[] = ["1=1"];
     const params: any[] = [];
     if (filter.search) {
@@ -152,37 +152,39 @@ export const members = {
 };
 
 // ================= SUBSCRIPTIONS =================
-  ensureCurrentMonth: () => {
-    const first = new Date();
-    first.setDate(1);
-    const periodStart = first.toISOString().slice(0, 10);
-    const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
-    const periodEnd = last.toISOString().slice(0, 10);
-    const configured = scalar<number>("SELECT COALESCE(subscription_monthly_amount, 0) FROM settings WHERE id = 1") || 0;
-    const plan = one<any>("SELECT * FROM subscription_plans WHERE frequency = 'Monthly' AND is_active = 1 ORDER BY id LIMIT 1");
-    if (!plan || configured <= 0) return { created: 0, amount: configured };
-    const families = all<any>("SELECT id FROM families WHERE status = 'Active' ORDER BY id");
-    let created = 0;
-    const insert = getDB().prepare(`INSERT INTO subscriptions (family_id, member_id, plan_id, period_start, period_end, amount, amount_paid, status, collected_by, remarks) VALUES (?, ?, ?, ?, ?, ?, 0, 'Pending', NULL, '')`);
-    const tx = getDB().transaction(() => {
-      for (const f of families) {
-        const exists = one<any>("SELECT id FROM subscriptions WHERE family_id = ? AND period_start = ? LIMIT 1", [f.id, periodStart]);
-        if (exists) continue;
-        const head = one<any>("SELECT id FROM members WHERE family_id = ? AND status = 'Active' ORDER BY CASE WHEN is_head = 1 THEN 0 WHEN relationship = 'Head' THEN 1 ELSE 2 END, id LIMIT 1", [f.id]);
-        insert.run(f.id, head?.id ?? null, plan.id, periodStart, periodEnd, configured);
-        created++;
-      }
-    });
-    tx();
-    return { created, amount: configured, periodStart, periodEnd };
-  },
-  memberBalance: (familyId: number, memberId?: number) => {
-    if (!familyId) return 0;
-    return scalar<number>("SELECT COALESCE(SUM(amount - amount_paid),0) FROM subscriptions WHERE family_id = ? AND amount > amount_paid AND status IN ('Pending','Partial','Overdue')", [familyId]) || 0;
-  },
 
+function ensureCurrentMonth() {
+  const first = new Date();
+  first.setDate(1);
+  const periodStart = first.toISOString().slice(0, 10);
+  const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
+  const periodEnd = last.toISOString().slice(0, 10);
+  const configured = scalar<number>("SELECT COALESCE(subscription_monthly_amount, 0) FROM settings WHERE id = 1") || 0;
+  const plan = one<any>("SELECT * FROM subscription_plans WHERE frequency = 'Monthly' AND is_active = 1 ORDER BY id LIMIT 1");
+  if (!plan || configured <= 0) return { created: 0, amount: configured, periodStart, periodEnd };
+  const families = all<any>("SELECT id FROM families WHERE status = 'Active' ORDER BY id");
+  let created = 0;
+  const insert = getDB().prepare(`INSERT INTO subscriptions (family_id, member_id, plan_id, period_start, period_end, amount, amount_paid, status, collected_by, remarks) VALUES (?, ?, ?, ?, ?, ?, 0, 'Pending', NULL, '')`);
+  getDB().transaction(() => {
+    for (const f of families) {
+      const exists = one<any>("SELECT id FROM subscriptions WHERE family_id = ? AND period_start = ? LIMIT 1", [f.id, periodStart]);
+      if (exists) continue;
+      const head = one<any>("SELECT id FROM members WHERE family_id = ? AND status = 'Active' ORDER BY CASE WHEN is_head = 1 THEN 0 WHEN relationship = 'Head' THEN 1 ELSE 2 END, id LIMIT 1", [f.id]);
+      insert.run(f.id, head?.id ?? null, plan.id, periodStart, periodEnd, configured);
+      created++;
+    }
+  })();
+  return { created, amount: configured, periodStart, periodEnd };
+}
+
+function memberSubscriptionBalance(familyId: number) {
+  if (!familyId) return 0;
+  return scalar<number>("SELECT COALESCE(SUM(amount - amount_paid),0) FROM subscriptions WHERE family_id = ? AND amount > amount_paid AND status IN ('Pending','Partial','Overdue')", [familyId]) || 0;
+}
 
 export const subscriptions = {
+  ensureCurrentMonth: () => ensureCurrentMonth(),
+  memberBalance: (familyId: number, _memberId?: number) => memberSubscriptionBalance(familyId),
   list: (filter: { search?: string; status?: string; page?: number; pageSize?: number } = {}) => {
     const where: string[] = ["1=1"];
     const params: any[] = [];
@@ -279,7 +281,7 @@ export const donations = {
       const pageSql = `${sql} LIMIT ? OFFSET ?`;
       const rows = all<any>(pageSql, [...params, filter.pageSize, offset]);
       const totalRow = one<{ c: number }>(
-        `SELECT COUNT(*) AS c FROM donations d WHERE ${where.join(" AND ")}`,
+        `SELECT COUNT(*) AS c FROM donations d LEFT JOIN donation_categories c ON c.id = d.category_id WHERE ${where.join(" AND ")}`,
         params
       );
       return { rows, total: totalRow?.c ?? 0 };
@@ -670,7 +672,7 @@ export const users = {
       "INSERT INTO users (username, full_name, password_hash, password_salt, role, is_active, must_change_pwd) VALUES (?, ?, ?, ?, ?, 1, ?)",
       [
         data.username, data.fullName, stored, salt.toString("base64"),
-        data.role || "Viewer", data.mustChangePwd ? 1 : 1
+        data.role || "Staff", data.mustChangePwd ? 1 : 1
       ]
     );
     return { id };

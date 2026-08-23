@@ -13,13 +13,13 @@ interface UserRow {
   last_login: string | null; created_at: string | null;
 }
 
-const emptyForm = { username: "", full_name: "", role: "Viewer", password: "" };
+const emptyForm = { username: "", full_name: "", role: "Staff", password: "" };
 const locked = (u: UserRow) => !u.is_active;
 
 export function Users() {
   const { t, lang } = useI18n();
   const ml = lang === "ml";
-  const roleLabel = (role: string) => ml ? ({ Administrator: "അഡ്മിനിസ്ട്രേറ്റർ", Editor: "എഡിറ്റർ", Manager: "മാനേജർ", Operator: "ഓപ്പറേറ്റർ", Viewer: "വ്യൂവർ" } as Record<string, string>)[role] || role : role;
+  const roleLabel = (role: string) => ml ? ({ Administrator: "അഡ്മിനിസ്ട്രേറ്റർ", President: "പ്രസിഡന്റ്", Secretary: "സെക്രട്ടറി", Treasurer: "ട്രഷറർ", Imam: "ഇമാം", Staff: "സ്റ്റാഫ്", Auditor: "ഓഡിറ്റർ" } as Record<string, string>)[role] || role : role;
   const activeLabel = ml ? "സജീവം" : "Active";
   const lockedLabel = ml ? "ലോക്ക് ചെയ്തു" : "Locked";
   const yesNo = (v: boolean | number) => v ? (ml ? "അതെ" : "Yes") : (ml ? "ഇല്ല" : "No");
@@ -99,7 +99,7 @@ export function Users() {
     </Dialog>
 
     <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editingId ? t("action_edit") : t("usr_add")}>
-      <div className="m-b"><div className="grid-2"><div><Label>{t("usr_username")} *</Label><Input value={form.username} disabled={!!editingId} onChange={e => setForm({ ...form, username: e.target.value })} /></div><div><Label>{t("usr_full_name")} *</Label><Input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} /></div><div><Label>{t("usr_role")}</Label><Select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}><option value="Administrator">{roleLabel("Administrator")}</option><option value="Editor">{roleLabel("Editor")}</option><option value="Viewer">{roleLabel("Viewer")}</option></Select></div>{!editingId && <div><Label>{t("login_password")} *</Label><Input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></div>}</div></div><div className="m-f"><Button variant="secondary" onClick={() => setDialogOpen(false)}>{t("action_cancel")}</Button><Button onClick={save}>{t("action_save")}</Button></div>
+      <div className="m-b"><div className="grid-2"><div><Label>{t("usr_username")} *</Label><Input value={form.username} disabled={!!editingId} onChange={e => setForm({ ...form, username: e.target.value })} /></div><div><Label>{t("usr_full_name")} *</Label><Input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} /></div><div><Label>{t("usr_role")}</Label><Select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}><option value="Administrator">{roleLabel("Administrator")}</option><option value="President">{roleLabel("President")}</option><option value="Secretary">{roleLabel("Secretary")}</option><option value="Treasurer">{roleLabel("Treasurer")}</option><option value="Imam">{roleLabel("Imam")}</option><option value="Staff">{roleLabel("Staff")}</option><option value="Auditor">{roleLabel("Auditor")}</option></Select></div>{!editingId && <div><Label>{t("login_password")} *</Label><Input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></div>}</div></div><div className="m-f"><Button variant="secondary" onClick={() => setDialogOpen(false)}>{t("action_cancel")}</Button><Button onClick={save}>{t("action_save")}</Button></div>
     </Dialog>
 
     <Dialog open={resetUserId !== null} onClose={() => { setResetUserId(null); setNewPwd(""); }} title={t("usr_reset_password")}>
