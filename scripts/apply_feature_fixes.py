@@ -96,6 +96,112 @@ def pdf_renderer(s):
     return s.replace(old,new,1)
 edit("electron/main.ts",pdf_renderer)
 
+# ================= SUBSCRIPTION + DONATION SETTINGS =================
+
+def data_service_business_rules(s):
+    # Monthly subscription amount is a Mahallu setting. Every active family gets one pending row
+    # for the current calendar month, linked to its active family head. Existing rows are never duplicated.
+    marker='// ================= SUBSCRIPTIONS ================='
+    if marker not in s or 'ensureCurrentMonth:' in s:
+        return s
+    s=s.replace('subscription_plans.list', 'subscription_plans.list')
+    insert='''\n  ensureCurrentMonth: () => {
+    const first = new Date();
+    first.setDate(1);
+    const periodStart = first.toISOString().slice(0, 10);
+    const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
+    const periodEnd = last.toISOString().slice(0, 10);
+    const configured = scalar<number>("SELECT COALESCE(subscription_monthly_amount, 0) FROM settings WHERE id = 1") || 0;
+    const plan = one<any>("SELECT * FROM subscription_plans WHERE frequency = 'Monthly' AND is_active = 1 ORDER BY id LIMIT 1");
+    if (!plan || configured <= 0) return { created: 0, amount: configured };
+    const families = all<any>("SELECT id FROM families WHERE status = 'Active' ORDER BY id");
+    let created = 0;
+    const insert = getDB().prepare(`INSERT INTO subscriptions (family_id, member_id, plan_id, period_start, period_end, amount, amount_paid, status, collected_by, remarks) VALUES (?, ?, ?, ?, ?, ?, 0, 'Pending', NULL, '')`);
+    const tx = getDB().transaction(() => {
+      for (const f of families) {
+        const exists = one<any>("SELECT id FROM subscriptions WHERE family_id = ? AND period_start = ? LIMIT 1", [f.id, periodStart]);
+        if (exists) continue;
+        const head = one<any>("SELECT id FROM members WHERE family_id = ? AND status = 'Active' ORDER BY CASE WHEN is_head = 1 THEN 0 WHEN relationship = 'Head' THEN 1 ELSE 2 END, id LIMIT 1", [f.id]);
+        insert.run(f.id, head?.id ?? null, plan.id, periodStart, periodEnd, configured);
+        created++;
+      }
+    });
+    tx();
+    return { created, amount: configured, periodStart, periodEnd };
+  },
+  memberBalance: (familyId: number, memberId?: number) => {
+    if (!familyId) return 0;
+    return scalar<number>("SELECT COALESCE(SUM(amount - amount_paid),0) FROM subscriptions WHERE family_id = ? AND amount > amount_paid AND status IN ('Pending','Partial','Overdue')", [familyId]) || 0;
+  },
+'''
+    s=s.replace(marker,marker+insert,1)
+    # Subscription list always has the current month's generated dues available.
+    s=s.replace('export const subscriptions = {\n  list:', 'export const subscriptions = {\n  list:',1)
+    old='''  list: (filter: { search?: string; status?: string; page?: number; pageSize?: number } = {}) => {
+    const where: string[] = ["1=1"];'''
+    new='''  list: (filter: { search?: string; status?: string; page?: number; pageSize?: number } = {}) => {
+    subscriptions.ensureCurrentMonth();
+    const where: string[] = ["1=1"];'''
+    s=s.replace(old,new,1)
+    # Member-aware donation data.
+    s=s.replace('''        data.donorName, data.donorPhone ?? "", data.donorAddress ?? "",
+        data.familyId ?? null, data.categoryId, data.amount,''','''        data.donorName, data.donorPhone ?? "", data.donorAddress ?? "",
+        data.familyId ?? null, data.memberId ?? null, data.categoryId, data.amount,''',1)
+    s=s.replace('''        (donor_name, donor_phone, donor_address, family_id, category_id, amount, donation_date, receipt_number, purpose, payment_method, transaction_ref, received_by, remarks)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''','''        (donor_name, donor_phone, donor_address, family_id, member_id, category_id, amount, donation_date, receipt_number, purpose, payment_method, transaction_ref, received_by, remarks)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',1)
+    s=s.replace('''      `UPDATE donations SET donor_name = ?, donor_phone = ?, donor_address = ?, family_id = ?, category_id = ?, amount = ?, donation_date = ?, purpose = ?, payment_method = ?, transaction_ref = ?, remarks = ?, updated_at = datetime('now') WHERE id = ?`,
+      [
+        data.donorName, data.donorPhone, data.donorAddress,
+        data.familyId, data.categoryId, data.amount,''','''      `UPDATE donations SET donor_name = ?, donor_phone = ?, donor_address = ?, family_id = ?, member_id = ?, category_id = ?, amount = ?, donation_date = ?, purpose = ?, payment_method = ?, transaction_ref = ?, remarks = ?, updated_at = datetime('now') WHERE id = ?`,
+      [
+        data.donorName, data.donorPhone, data.donorAddress,
+        data.familyId, data.memberId ?? null, data.categoryId, data.amount,''',1)
+    s=s.replace('''  categories: () => all<any>("SELECT * FROM donation_categories WHERE is_active = 1 ORDER BY name"),
+  totalThisMonth:''','''  categories: () => all<any>("SELECT * FROM donation_categories WHERE is_active = 1 ORDER BY name"),
+  categoriesAll: () => all<any>("SELECT dc.*, (SELECT COUNT(*) FROM donations d WHERE d.category_id = dc.id) AS donation_count FROM donation_categories dc ORDER BY dc.is_active DESC, dc.name"),
+  createCategory: (name: string, description = "") => {
+    const clean = String(name || "").trim();
+    if (!clean) throw new Error("Category name is required");
+    const { id } = run("INSERT INTO donation_categories (name, description, is_active) VALUES (?, ?, 1)", [clean, description]);
+    return { id };
+  },
+  updateCategory: (id: number, name: string, description = "") => {
+    const clean = String(name || "").trim();
+    if (!clean) throw new Error("Category name is required");
+    return run("UPDATE donation_categories SET name = ?, description = ? WHERE id = ?", [clean, description, id]);
+  },
+  setCategoryActive: (id: number, active: boolean) => run("UPDATE donation_categories SET is_active = ? WHERE id = ?", [active ? 1 : 0, id]),
+  removeCategory: (id: number) => {
+    const used = scalar<number>("SELECT COUNT(*) FROM donations WHERE category_id = ?", [id]) || 0;
+    if (used > 0) throw new Error("This category cannot be deleted because donations already exist in it. Deactivate it instead.");
+    return run("DELETE FROM donation_categories WHERE id = ?", [id]);
+  },
+  memberBalance: (familyId: number, memberId?: number) => subscriptions.memberBalance(familyId, memberId),
+  totalThisMonth:''',1)
+    # Settings CRUD for the new amount.
+    s=s.replace('''        financial_year_start = ?, currency_symbol = ?, theme = ?, language = ?,''','''        financial_year_start = ?, currency_symbol = ?, subscription_monthly_amount = ?, theme = ?, language = ?,''',1)
+    s=s.replace('''        data.financialYearStart ?? "", data.currencySymbol ?? "₹",
+        data.theme ?? "light",''','''        data.financialYearStart ?? "", data.currencySymbol ?? "₹", Number(data.subscriptionMonthlyAmount ?? 0),
+        data.theme ?? "light",''',1)
+    return s
+edit("electron/services/data.service.ts",data_service_business_rules)
+
+# IPC/preload APIs for the new business rules.
+def main_apis(s):
+    if 'subscriptions:ensureCurrentMonth' not in s:
+        s=s.replace('  ipcMain.handle("subscriptions:plans", () => data.subscriptions.plans());','  ipcMain.handle("subscriptions:plans", () => data.subscriptions.plans());\n  ipcMain.handle("subscriptions:ensureCurrentMonth", () => data.subscriptions.ensureCurrentMonth());',1)
+    if 'donations:categoriesAll' not in s:
+        s=s.replace('  ipcMain.handle("donations:categories", () => data.donations.categories());','  ipcMain.handle("donations:categories", () => data.donations.categories());\n  ipcMain.handle("donations:categoriesAll", () => data.donations.categoriesAll());\n  ipcMain.handle("donations:createCategory", (_e, name, description) => data.donations.createCategory(name, description));\n  ipcMain.handle("donations:updateCategory", (_e, id, name, description) => data.donations.updateCategory(id, name, description));\n  ipcMain.handle("donations:setCategoryActive", (_e, id, active) => data.donations.setCategoryActive(id, active));\n  ipcMain.handle("donations:removeCategory", (_e, id) => data.donations.removeCategory(id));\n  ipcMain.handle("donations:memberBalance", (_e, familyId, memberId) => data.donations.memberBalance(familyId, memberId));',1)
+    return s
+edit("electron/main.ts",main_apis)
+
+def preload_apis(s):
+    s=s.replace('plans:()=>ipcRenderer.invoke("subscriptions:plans")','plans:()=>ipcRenderer.invoke("subscriptions:plans"),ensureCurrentMonth:()=>ipcRenderer.invoke("subscriptions:ensureCurrentMonth")',1)
+    s=s.replace('categories:()=>ipcRenderer.invoke("donations:categories"),totalThisMonth', 'categories:()=>ipcRenderer.invoke("donations:categories"),categoriesAll:()=>ipcRenderer.invoke("donations:categoriesAll"),createCategory:(n:string,d?:string)=>ipcRenderer.invoke("donations:createCategory",n,d||""),updateCategory:(id:number,n:string,d?:string)=>ipcRenderer.invoke("donations:updateCategory",id,n,d||""),setCategoryActive:(id:number,a:boolean)=>ipcRenderer.invoke("donations:setCategoryActive",id,a),removeCategory:(id:number)=>ipcRenderer.invoke("donations:removeCategory",id),memberBalance:(fid:number,mid?:number)=>ipcRenderer.invoke("donations:memberBalance",fid,mid),totalThisMonth',1)
+    return s
+edit("electron/preload.mts",preload_apis)
+
 # Final idempotent cleanup. This runs on every build and converges the source to one canonical form.
 main=Path("electron/main.ts")
 if main.exists():
@@ -112,24 +218,18 @@ if main.exists():
 preload=Path("electron/preload.mts")
 if preload.exists():
     s=preload.read_text(encoding="utf-8")
-    # Remove repeated bridge entries, retaining the first occurrence.
     for token in ['issueMarriageNoc:(m:string)=>ipcRenderer.invoke("certificates:issueMarriageNoc",m),','removeEvent:(id:number)=>ipcRenderer.invoke("tokens:removeEvent",id),']:
         first=s.find(token)
-        if first>=0:
-            s=s[:first+len(token)]+s[first+len(token):].replace(token,'')
+        if first>=0:s=s[:first+len(token)]+s[first+len(token):].replace(token,'')
     preload.write_text(s,encoding="utf-8")
 
-# Certificates.tsx: retain exactly one marriage_noc switch branch even if older repair passes duplicated it.
 certs=Path("src/pages/Certificates.tsx")
 if certs.exists():
     s=certs.read_text(encoding="utf-8")
     branch=re.compile(r'\s*case "marriage_noc":\s*result = await window\.mms\.certificates\.issueMarriageNoc\(selectedRow\.code\);\s*break;',re.MULTILINE)
     matches=list(branch.finditer(s))
     if len(matches)>1:
-        first_end=matches[0].end()
-        tail=s[first_end:]
-        tail=branch.sub('',tail)
-        s=s[:first_end]+tail
+        first_end=matches[0].end(); tail=s[first_end:]; tail=branch.sub('',tail); s=s[:first_end]+tail
     certs.write_text(s,encoding="utf-8")
 
 tokens=Path("src/pages/Tokens.tsx")
