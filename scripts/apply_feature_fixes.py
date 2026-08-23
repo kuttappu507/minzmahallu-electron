@@ -99,13 +99,9 @@ edit("electron/main.ts",pdf_renderer)
 # ================= SUBSCRIPTION + DONATION SETTINGS =================
 
 def data_service_business_rules(s):
-    # Monthly subscription amount is a Mahallu setting. Every active family gets one pending row
-    # for the current calendar month, linked to its active family head. Existing rows are never duplicated.
-    marker='// ================= SUBSCRIPTIONS ================='
-    if marker not in s or 'ensureCurrentMonth:' in s:
-        return s
-    s=s.replace('subscription_plans.list', 'subscription_plans.list')
-    insert='''\n  ensureCurrentMonth: () => {
+    if 'ensureCurrentMonth:' not in s:
+        marker='export const subscriptions = {'
+        insert='''  ensureCurrentMonth: () => {
     const first = new Date();
     first.setDate(1);
     const periodStart = first.toISOString().slice(0, 10);
@@ -134,28 +130,23 @@ def data_service_business_rules(s):
     return scalar<number>("SELECT COALESCE(SUM(amount - amount_paid),0) FROM subscriptions WHERE family_id = ? AND amount > amount_paid AND status IN ('Pending','Partial','Overdue')", [familyId]) || 0;
   },
 '''
-    s=s.replace(marker,marker+insert,1)
-    # Subscription list always has the current month's generated dues available.
-    s=s.replace('export const subscriptions = {\n  list:', 'export const subscriptions = {\n  list:',1)
-    old='''  list: (filter: { search?: string; status?: string; page?: number; pageSize?: number } = {}) => {
+        s=s.replace(marker,marker+'\n'+insert,1)
+    old='''  list: (filter: { search?: string; status?: string; page?: number; pageSize?: number } = {}) {
     const where: string[] = ["1=1"];'''
-    new='''  list: (filter: { search?: string; status?: string; page?: number; pageSize?: number } = {}) => {
+    new='''  list: (filter: { search?: string; status?: string; page?: number; pageSize?: number } = {}) {
     subscriptions.ensureCurrentMonth();
     const where: string[] = ["1=1"];'''
     s=s.replace(old,new,1)
-    # Member-aware donation data.
+    # Add donation member linkage only if the current insert still lacks it.
+    s=s.replace('''(donor_name, donor_phone, donor_address, family_id, category_id, amount, donation_date, receipt_number, purpose, payment_method, transaction_ref, received_by, remarks)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''','''(donor_name, donor_phone, donor_address, family_id, member_id, category_id, amount, donation_date, receipt_number, purpose, payment_method, transaction_ref, received_by, remarks)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',1)
     s=s.replace('''        data.donorName, data.donorPhone ?? "", data.donorAddress ?? "",
         data.familyId ?? null, data.categoryId, data.amount,''','''        data.donorName, data.donorPhone ?? "", data.donorAddress ?? "",
         data.familyId ?? null, data.memberId ?? null, data.categoryId, data.amount,''',1)
-    s=s.replace('''        (donor_name, donor_phone, donor_address, family_id, category_id, amount, donation_date, receipt_number, purpose, payment_method, transaction_ref, received_by, remarks)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''','''        (donor_name, donor_phone, donor_address, family_id, member_id, category_id, amount, donation_date, receipt_number, purpose, payment_method, transaction_ref, received_by, remarks)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',1)
-    s=s.replace('''      `UPDATE donations SET donor_name = ?, donor_phone = ?, donor_address = ?, family_id = ?, category_id = ?, amount = ?, donation_date = ?, purpose = ?, payment_method = ?, transaction_ref = ?, remarks = ?, updated_at = datetime('now') WHERE id = ?`,
-      [
-        data.donorName, data.donorPhone, data.donorAddress,
-        data.familyId, data.categoryId, data.amount,''','''      `UPDATE donations SET donor_name = ?, donor_phone = ?, donor_address = ?, family_id = ?, member_id = ?, category_id = ?, amount = ?, donation_date = ?, purpose = ?, payment_method = ?, transaction_ref = ?, remarks = ?, updated_at = datetime('now') WHERE id = ?`,
-      [
-        data.donorName, data.donorPhone, data.donorAddress,
+    s=s.replace('''UPDATE donations SET donor_name = ?, donor_phone = ?, donor_address = ?, family_id = ?, category_id = ?, amount = ?, donation_date = ?, purpose = ?, payment_method = ?, transaction_ref = ?, remarks = ?, updated_at = datetime('now') WHERE id = ?''','''UPDATE donations SET donor_name = ?, donor_phone = ?, donor_address = ?, family_id = ?, member_id = ?, category_id = ?, amount = ?, donation_date = ?, purpose = ?, payment_method = ?, transaction_ref = ?, remarks = ?, updated_at = datetime('now') WHERE id = ?''',1)
+    s=s.replace('''        data.donorName, data.donorPhone, data.donorAddress,
+        data.familyId, data.categoryId, data.amount,''','''        data.donorName, data.donorPhone, data.donorAddress,
         data.familyId, data.memberId ?? null, data.categoryId, data.amount,''',1)
     s=s.replace('''  categories: () => all<any>("SELECT * FROM donation_categories WHERE is_active = 1 ORDER BY name"),
   totalThisMonth:''','''  categories: () => all<any>("SELECT * FROM donation_categories WHERE is_active = 1 ORDER BY name"),
@@ -179,7 +170,6 @@ def data_service_business_rules(s):
   },
   memberBalance: (familyId: number, memberId?: number) => subscriptions.memberBalance(familyId, memberId),
   totalThisMonth:''',1)
-    # Settings CRUD for the new amount.
     s=s.replace('''        financial_year_start = ?, currency_symbol = ?, theme = ?, language = ?,''','''        financial_year_start = ?, currency_symbol = ?, subscription_monthly_amount = ?, theme = ?, language = ?,''',1)
     s=s.replace('''        data.financialYearStart ?? "", data.currencySymbol ?? "₹",
         data.theme ?? "light",''','''        data.financialYearStart ?? "", data.currencySymbol ?? "₹", Number(data.subscriptionMonthlyAmount ?? 0),
@@ -187,7 +177,6 @@ def data_service_business_rules(s):
     return s
 edit("electron/services/data.service.ts",data_service_business_rules)
 
-# IPC/preload APIs for the new business rules.
 def main_apis(s):
     if 'subscriptions:ensureCurrentMonth' not in s:
         s=s.replace('  ipcMain.handle("subscriptions:plans", () => data.subscriptions.plans());','  ipcMain.handle("subscriptions:plans", () => data.subscriptions.plans());\n  ipcMain.handle("subscriptions:ensureCurrentMonth", () => data.subscriptions.ensureCurrentMonth());',1)
