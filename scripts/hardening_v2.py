@@ -16,7 +16,6 @@ def security_ipc(s):
     new = '''  const actor = (): Actor => {
     const current = getActor();
     if (current) return current;
-    // Keep the actor resilient if the renderer/session mirror is briefly out of sync.
     const authActor = (globalThis as any).__mmsGetActor?.() as Actor | null | undefined;
     if (authActor) return authActor;
     throw new Error("Authentication is required for this operation");
@@ -28,7 +27,6 @@ def security_ipc(s):
 
 
 def token_generation(s):
-    # Keep generated tokens random, four characters, and use the database unique index as the final guard.
     old = '''function generateTokenCode(): string {
   let code = "";
   for (let i = 0; i < 4; i++) {
@@ -47,5 +45,36 @@ def token_generation(s):
     return s.replace(old, new, 1)
 
 
+def member_archive_filter(s):
+    old = '''    if (filter.status && filter.status !== "All") {
+      where.push("m.status = ?");
+      params.push(filter.status);
+    }'''
+    new = '''    if (filter.status && filter.status !== "All") {
+      if (filter.status === "Archived") {
+        where.push("m.archive_state = 1");
+      } else {
+        where.push("m.archive_state = 0 AND m.status = ?");
+        params.push(filter.status);
+      }
+    }'''
+    return s.replace(old, new, 1)
+
+
+def member_family_filter_ui(s):
+    old = 'families.filter(f=>f.status!=="Archived").map(f=><option key={f.id} value={String(f.id)}>{f.house_name} ({f.family_number})</option>)'
+    new = 'families.filter(f=>statusFilter==="Archived" ? f.status==="Archived" : f.status!=="Archived").map(f=><option key={f.id} value={String(f.id)}>{f.house_name} ({f.family_number})</option>)'
+    return s.replace(old, new, 1)
+
+
+def unify_logo_assets(s):
+    return s.replace('src="./logo.png"', 'src="./logo.svg"')
+
+
 edit("electron/security-ipc.ts", security_ipc)
 edit("electron/services/data.service.ts", token_generation)
+edit("electron/services/data.service.ts", member_archive_filter)
+edit("src/pages/Members.tsx", member_family_filter_ui)
+edit("src/components/layout/Sidebar.tsx", unify_logo_assets)
+edit("src/pages/LoginPage.tsx", unify_logo_assets)
+edit("src/components/Splash.tsx", unify_logo_assets)
