@@ -1,5 +1,4 @@
 from pathlib import Path
-import re
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -10,7 +9,7 @@ def edit(rel, fn):
     n = fn(s)
     if n != s: p.write_text(n, encoding='utf-8')
 
-# Fix the malformed subscription helper block introduced by an earlier feature pass.
+# Canonical repair of the malformed subscription helper block.
 def data_service(s):
     start = s.find('// ================= SUBSCRIPTIONS =================')
     export = s.find('export const subscriptions = {', start)
@@ -25,23 +24,26 @@ def data_service(s):
     return s
 edit('electron/services/data.service.ts', data_service)
 
-# Ensure the monthly setting exists even in databases created before it was added to schema.sql.
+# Ensure the monthly setting exists in legacy databases.
 def connection(s):
     marker = '    applyMigrations(database);'
     helper = '''    const settingsColumns = database.prepare("PRAGMA table_info(settings)").all() as Array<{name:string}>;\n    if (!settingsColumns.some(c => c.name === "subscription_monthly_amount")) {\n      database.exec("ALTER TABLE settings ADD COLUMN subscription_monthly_amount REAL NOT NULL DEFAULT 100");\n    }\n'''
-    if 'settingsColumns' not in s and marker in s:
-        s = s.replace(marker, helper + marker, 1)
+    if 'settingsColumns' not in s and marker in s: s = s.replace(marker, helper + marker, 1)
     return s
 edit('electron/db/connection.ts', connection)
 
-# IPC bridge additions for settings/category/member-balance functionality.
+# Create the monthly records as soon as the application opens.
 def main(s):
+    marker = 'app.whenReady().then(() => {'
+    if 'data.subscriptions.ensureCurrentMonth' not in s and marker in s:
+        s = s.replace(marker, marker + '\n  try { data.subscriptions.ensureCurrentMonth(); } catch (err) { console.error("[subscriptions] Monthly generation failed:", err); }', 1)
     anchor = '  ipcMain.handle("donations:categories", () => data.donations.categories());'
     additions = '''\n  ipcMain.handle("donations:categoriesAll", () => data.donations.categoriesAll());\n  ipcMain.handle("donations:createCategory", (_e, name, description) => data.donations.createCategory(name, description || ""));\n  ipcMain.handle("donations:updateCategory", (_e, id, name, description) => data.donations.updateCategory(id, name, description || ""));\n  ipcMain.handle("donations:setCategoryActive", (_e, id, active) => data.donations.setCategoryActive(id, active));\n  ipcMain.handle("donations:removeCategory", (_e, id) => data.donations.removeCategory(id));\n  ipcMain.handle("donations:memberBalance", (_e, familyId, memberId) => data.donations.memberBalance(familyId, memberId));'''
     if 'donations:categoriesAll' not in s and anchor in s: s = s.replace(anchor, anchor + additions, 1)
     return s
 edit('electron/main.ts', main)
 
+# Renderer bridge additions.
 def preload(s):
     anchor = 'categories:()=>ipcRenderer.invoke("donations:categories"),'
     additions = 'categoriesAll:()=>ipcRenderer.invoke("donations:categoriesAll"),createCategory:(n:string,d?:string)=>ipcRenderer.invoke("donations:createCategory",n,d||""),updateCategory:(id:number,n:string,d?:string)=>ipcRenderer.invoke("donations:updateCategory",id,n,d||""),setCategoryActive:(id:number,a:boolean)=>ipcRenderer.invoke("donations:setCategoryActive",id,a),removeCategory:(id:number)=>ipcRenderer.invoke("donations:removeCategory",id),memberBalance:(fid:number,mid?:number)=>ipcRenderer.invoke("donations:memberBalance",fid,mid),'
@@ -49,7 +51,7 @@ def preload(s):
     return s
 edit('electron/preload.mts', preload)
 
-# Users UI must use roles accepted by the production SQLite CHECK constraint.
+# Users UI roles must match SQLite's production CHECK constraint.
 def users(s):
     s = s.replace('const emptyForm = { username: "", full_name: "", role: "Viewer", password: "" };', 'const emptyForm = { username: "", full_name: "", role: "Staff", password: "" };')
     s = s.replace('{ Administrator: "അഡ്മിനിസ്ട്രേറ്റർ", Editor: "എഡിറ്റർ", Manager: "മാനേജർ", Operator: "ഓപ്പറേറ്റർ", Viewer: "വ്യൂവർ" }', '{ Administrator: "അഡ്മിനിസ്ട്രേറ്റർ", President: "പ്രസിഡന്റ്", Secretary: "സെക്രട്ടറി", Treasurer: "ട്രഷറർ", Imam: "ഇമാം", Staff: "സ്റ്റാഫ്", Auditor: "ഓഡിറ്റർ" }')
@@ -58,7 +60,5 @@ def users(s):
     return s.replace(old, new)
 edit('src/pages/Users.tsx', users)
 
-# Data service must never default to an invalid SQLite role.
-def role_default(s):
-    return s.replace('data.role || "Viewer"', 'data.role || "Staff"')
-edit('electron/services/data.service.ts', role_default)
+# Data service must never default to an invalid role.
+edit('electron/services/data.service.ts', lambda s: s.replace('data.role || "Viewer"', 'data.role || "Staff"'))
