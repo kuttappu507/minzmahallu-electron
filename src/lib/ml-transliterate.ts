@@ -12,7 +12,7 @@ const common: Record<string,string> = {
   malayalam:'മലയാളം', mahallu:'മഹല്ല്', mahall:'മഹല്ല്', muslimeen:'മുസ്ലിം', muslim:'മുസ്ലിം',
   muhammed:'മുഹമ്മദ്', muhammad:'മുഹമ്മദ്', mohammed:'മുഹമ്മദ്', abdul:'അബ്ദുൽ', rahman:'റഹ്മാൻ', rahmaan:'റഹ്മാൻ',
   hidayath:'ഹിദായത്ത്', hidayathul:'ഹിദായത്തുൽ', islam:'ഇസ്‌ലാം', masjid:'മസ്ജിദ്', madrasa:'മദ്റസ',
-  qaswa:'ഖസ്വ', qaswa:'ഖസ്വ', eid:'ഈദ്', ramadan:'റമദാൻ', dua:'ദുആ', janaza:'ജനാസ', nikah:'നികാഹ്', qazi:'ഖാസി',
+  qaswa:'ഖസ്വ', eid:'ഈദ്', ramadan:'റമദാൻ', dua:'ദുആ', janaza:'ജനാസ', nikah:'നികാഹ്', qazi:'ഖാസി',
   family:'കുടുംബം', house:'വീട്', ward:'വാർഡ്', venue:'വേദി', jamaath:'ജമാഅത്ത്', jamaat:'ജമാഅത്ത്',
 };
 
