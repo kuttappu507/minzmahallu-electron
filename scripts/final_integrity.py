@@ -66,10 +66,12 @@ function memberSubscriptionBalance(familyId: number) {
 
 '''
     s = s[:start] + helper + s[export:]
-    s = s.replace('ensureCurrentMonth: () => ensureCurrentMonth(),', 'ensureCurrentMonth: () => ensureCurrentPeriod(),', 10)
-    s = s.replace('memberBalance: (familyId: number, _memberId?: number) => memberSubscriptionBalance(familyId),', 'memberBalance: (familyId: number, _memberId?: number) => memberSubscriptionBalance(familyId),', 10)
+    # Families.list was written by an earlier repair pass with the old helper name.
+    # Normalize every generated reference so the build can never leave a stale call.
+    s = s.replace('ensureCurrentMonth();', 'ensureCurrentPeriod();')
     # Ensure the public API exists exactly once.
-    s = re.sub(r'\n  ensureCurrentMonth: \(\) => ensureCurrentPeriod\(\),\n', '\n', s)
+    s = re.sub(r'\n  ensureCurrentMonth:\s*\(\)\s*=>\s*ensureCurrentPeriod\(\),', '', s)
+    s = re.sub(r'\n  memberBalance:\s*\(familyId: number, _memberId\?: number\) => memberSubscriptionBalance\(familyId\),', '', s)
     s = s.replace('export const subscriptions = {\n', 'export const subscriptions = {\n  ensureCurrentMonth: () => ensureCurrentPeriod(),\n  memberBalance: (familyId: number, _memberId?: number) => memberSubscriptionBalance(familyId),\n', 1)
     return s
 edit('electron/services/data.service.ts', subscription_service)
