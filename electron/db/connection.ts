@@ -45,6 +45,16 @@ function dbPath(): string {
   return path.join(userDataDir(), "mms.db");
 }
 
+/** Preserve a database as a complete SQLite set (main DB + WAL + SHM). */
+function moveDbSet(base: string, targetBase: string): void {
+  for (const suffix of ["", "-wal", "-shm"]) {
+    const source = base + suffix;
+    if (!fs.existsSync(source)) continue;
+    const target = targetBase + suffix;
+    fs.renameSync(source, target);
+  }
+}
+
 /**
  * Never silently delete a user's database. Keep a recoverable backup instead.
  */
@@ -52,15 +62,82 @@ function backupDb(): string | null {
   const p = dbPath();
   if (!fs.existsSync(p)) return null;
   const backup = `${p}.corrupt-${new Date().toISOString().replace(/[:.]/g, "-")}`;
-  for (const suffix of ["", "-wal", "-shm"]) {
-    const source = p + suffix;
-    if (!fs.existsSync(source)) continue;
-    const target = backup + suffix;
-    try { fs.renameSync(source, target); } catch (e) {
-      console.warn(`[db] Could not preserve ${source}:`, e);
-    }
+  try {
+    moveDbSet(p, backup);
+    return backup;
+  } catch (e) {
+    console.warn("[db] Could not preserve complete database set:", e);
+    return null;
   }
-  return backup;
+}
+
+/**
+ * If an earlier startup created an empty replacement database while a real
+ * database backup exists, recover the newest backup containing family data.
+ * This is deliberately data-driven: a backup is restored only when the live
+ * DB has zero families and the candidate backup has at least one family.
+ */
+function recoverEmptyDatabase(database: DB): DB {
+  try {
+    const familyTable = database
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='families'")
+      .get();
+    if (!familyTable) return database;
+
+    const familyCount = Number((database.prepare("SELECT COUNT(*) AS c FROM families").get() as { c: number }).c);
+    if (familyCount > 0) return database;
+
+    const dir = userDataDir();
+    const candidates = fs.readdirSync(dir)
+      .filter((name) => /^mms\.db\.corrupt-\d{4}-/.test(name))
+      .filter((name) => !name.endsWith("-wal") && !name.endsWith("-shm"))
+      .sort()
+      .reverse();
+
+    for (const name of candidates) {
+      const candidate = path.join(dir, name);
+      let backupDbHandle: DB | null = null;
+      try {
+        backupDbHandle = new Database(candidate, { readonly: true, fileMustExist: true });
+        backupDbHandle.pragma("query_only = ON");
+        const hasFamilies = backupDbHandle
+          .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='families'")
+          .get();
+        if (!hasFamilies) continue;
+        const count = Number((backupDbHandle.prepare("SELECT COUNT(*) AS c FROM families").get() as { c: number }).c);
+        if (count <= 0) continue;
+        backupDbHandle.close();
+        backupDbHandle = null;
+
+        database.close();
+        db = null;
+        const live = dbPath();
+        const emptyBackup = `${live}.empty-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+        if (fs.existsSync(live)) moveDbSet(live, emptyBackup);
+        moveDbSet(candidate, live);
+
+        db = new Database(live);
+        db.pragma("journal_mode = WAL");
+        db.pragma("foreign_keys = ON");
+        console.warn(`[db] Recovered ${count} families from preserved database ${name}`);
+        dialog.showMessageBoxSync({
+          type: "info",
+          title: "MMS — Previous Data Recovered",
+          message: `${count} family records were recovered from the preserved database.`,
+          detail: "Your previous database was restored automatically because the current database was empty. The empty database was preserved as a backup.",
+          buttons: ["OK"],
+        });
+        return db;
+      } catch (err) {
+        console.warn(`[db] Could not inspect recovery candidate ${name}:`, err);
+      } finally {
+        try { backupDbHandle?.close(); } catch {}
+      }
+    }
+  } catch (err) {
+    console.warn("[db] Empty-database recovery check failed:", err);
+  }
+  return database;
 }
 
 export function getDB(): DB {
@@ -71,6 +148,7 @@ export function getDB(): DB {
     db.pragma("journal_mode = WAL");
     db.pragma("foreign_keys = ON");
     initializeSchema(db);
+    db = recoverEmptyDatabase(db);
   } catch (err) {
     console.error("[db] First init attempt failed:", err);
     if (db) { try { db.close(); } catch {} db = null; }
@@ -110,7 +188,7 @@ export function getDB(): DB {
       throw new Error(`Could not create a fresh database: ${retryErr instanceof Error ? retryErr.message : String(retryErr)}`);
     }
   }
-  return db;
+  return db!;
 }
 
 function initializeSchema(database: DB) {
@@ -157,8 +235,6 @@ function applyMigrations(database: DB) {
         database.exec(sql);
       } catch (sqlErr) {
         const msg = String(sqlErr);
-        // A duplicate/already-existing object is safe only when the migration
-        // is otherwise idempotent. Roll back the failed statement and record it.
         if (/duplicate column|already exists/i.test(msg)) {
           console.warn(`[db] Migration ${f} reported an existing object; continuing as idempotent: ${msg.split("\n")[0]}`);
           database.exec("ROLLBACK");
@@ -173,8 +249,6 @@ function applyMigrations(database: DB) {
       console.log(`[db] Applied migration ${f}`);
     } catch (err) {
       try { database.exec("ROLLBACK"); } catch {}
-      // A failed migration must stop startup. Continuing with a partially
-      // migrated schema is more dangerous than refusing to open the database.
       throw new Error(`Migration ${f} failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
