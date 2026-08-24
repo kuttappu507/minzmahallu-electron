@@ -38,25 +38,6 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-
-      - name: Apply feature fixes before build
-        run: python scripts/apply_feature_fixes.py
-
-      - name: Apply SQLite financial CRUD repairs before build
-        run: python scripts/repair_financial_sql.py
-
-      - name: Persist generated source fixes
-        if: runner.os == 'Linux' && github.actor != 'github-actions[bot]' && github.event_name != 'pull_request'
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add electron src resources scripts/apply_feature_fixes.py scripts/repair_financial_sql.py
-          git diff --cached --quiet || (git commit -m 'fix: repair SQLite CRUD compatibility' && git push)
-
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
