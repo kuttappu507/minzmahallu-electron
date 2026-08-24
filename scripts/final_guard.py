@@ -14,6 +14,13 @@ if p.exists():
         tail = s[matches[0].end():]
         tail = re.sub(key, '', tail)
         s = s[:matches[0].end()] + tail
+    # Do not create overlapping dues when an operator changes Monthly to
+    # Quarterly during an already-open period. The next non-overlapping period
+    # will use the new frequency.
+    s = s.replace(
+        'const exists = one<any>("SELECT id FROM subscriptions WHERE family_id = ? AND period_start = ? AND period_end = ? LIMIT 1", [family.id, period.periodStart, period.periodEnd]);',
+        'const exists = one<any>("SELECT id FROM subscriptions WHERE family_id = ? AND period_start <= ? AND period_end >= ? LIMIT 1", [family.id, period.periodEnd, period.periodStart]);'
+    )
     p.write_text(s, encoding="utf-8")
 
 # Ensure every production IPC registration in main is authenticated and tied
