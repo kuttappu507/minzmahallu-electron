@@ -91,6 +91,6 @@
       "category": "Office",
       "maintainer": "MMS"
     },
-    "AppImage": { "artifactName": "MMS-React-Linux-${version}.${ext}" }
+    "appImage": { "artifactName": "MMS-React-Linux-${version}.${ext}" }
   }
 }
