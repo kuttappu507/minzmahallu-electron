@@ -12,6 +12,7 @@ import "@/styles/layout-stability.css";
 import "@/styles/global-search.css";
 import "@/styles/topbar-fixes.css";
 import "@/styles/branding.css";
+import "@/styles/visual-elevations.css";
 import { LoginPage } from "@/pages/LoginPage";
 import { Dashboard } from "@/pages/Dashboard";
 import { Families } from "@/pages/Families";

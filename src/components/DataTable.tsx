@@ -77,14 +77,19 @@ export function DataTable<T>({
       <div className="card overflow-hidden">
         <Table headers={columns.map((c) => c.header)}>
           {loading ? (
-            <tr>
-              <td colSpan={columns.length} className="row-loading">
-                <div className="flex flex-col items-center justify-center gap-3">
-                  <div className="spinner-sm" />
-                  <p className="text-sm text-text-tertiary">{t("ui_loading")}</p>
-                </div>
-              </td>
-            </tr>
+            // Skeleton shimmer rows — feels instant instead of "waiting on a spinner".
+            // Render 8 rows of fake content sized to roughly match real rows.
+            Array.from({ length: 8 }).map((_, ri) => (
+              <tr key={`skel-${ri}`} className="skel-row">
+                {columns.map((col, ci) => {
+                  // First column gets a circle (avatar-ish), others get lines of varying width.
+                  if (ci === 0) return <td key={ci} className="px-4 py-3"><span className="skel skel-circle" /></td>;
+                  const widths = ["skel-line-sm", "skel-line-md", "skel-line-lg"];
+                  const w = widths[(ri + ci) % widths.length];
+                  return <td key={ci} className="px-4 py-3"><span className={`skel skel-line ${w}`} /></td>;
+                })}
+              </tr>
+            ))
           ) : rows.length === 0 ? (
             <tr>
               <td colSpan={columns.length}>
