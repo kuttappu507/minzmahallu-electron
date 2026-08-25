@@ -271,7 +271,19 @@ app.whenReady().then(() => {
   ipcMain.handle("tokens:cancel", (_e, tokenId, reason) => data.tokens.cancel(tokenId, reason));
   ipcMain.handle("tokens:replace", (_e, tokenId, reason) => data.tokens.replace(tokenId, reason, session.user?.id ?? 1));
   ipcMain.handle("tokens:stats", (_e, eventId) => data.tokens.stats(eventId));
-  ipcMain.handle("tokens:generatePdf", async (_e, eventId: number) => {
+  // tokens:listForPdf — returns the raw token rows (no PDF rendering). Used by
+  // TokensWithPrint.tsx to build the HTML client-side and pipe it through
+  // pdf:generate, which lets the renderer pick color/B&W mode and apply i18n.
+  ipcMain.handle("tokens:listForPdf", (_e, eventId: number) => {
+    if (!session.user) throw new Error("Authentication required");
+    return data.tokens.listForPdf(eventId);
+  });
+  // tokens:generateTokenPdf — full server-side render + save dialog. Used by
+  // Tokens.tsx when the user clicks "Token PDF" from the success/list views.
+  // (Was previously registered as "tokens:generatePdf" — singular — which
+  // mismatched the preload's "tokens:generateTokenPdf" invoke and produced
+  // "No handlers registered" errors in the renderer.)
+  ipcMain.handle("tokens:generateTokenPdf", async (_e, eventId: number) => {
     if (!session.user) return { success: false, error: "Authentication required" };
     try { const tokenList = data.tokens.listForPdf(eventId); if (!tokenList || tokenList.length === 0) return { success: false, error: "No tokens found for this event" }; const event = data.tokens.getEvent(eventId); const html = buildTokenSheetHtml(tokenList, event); const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Token Sheet PDF", defaultPath: `tokens-${event?.event_name?.replace(/\s+/g, "-") || eventId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] }); if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true }; const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer); return { success: true, path: saveResult.filePath, count: tokenList.length }; } catch (err: any) { return { success: false, error: err.message }; } });
   ipcMain.handle("tokens:generateCollectionSheet", async (_e, eventId: number) => {
