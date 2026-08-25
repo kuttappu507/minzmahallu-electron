@@ -3,14 +3,10 @@
  * to the Electron renderer via IPC.
  */
 import { all, one, run, scalar, getDB } from "../db/connection.js";
-import { randomBytes } from "node:crypto";
+import { randomInt } from "node:crypto";
+import { hashPasswordForStorage } from "./auth.service.js";
 
 // ================= HELPERS =================
-
-function genCode(prefix: string): string {
-  // E.g. MBR-0007 — based on row count
-  return `${prefix}`;
-}
 
 function nowDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -119,17 +115,19 @@ export const members = {
     const num = scalar<string>(
       "SELECT 'MBR-' || printf('%04d', COALESCE(MAX(id), 0) + 1) AS n FROM members"
     );
+    const isHead = data.relationship === "Head" ? 1 : 0;
     const { id } = run(
       `INSERT INTO members
-        (member_code, family_id, name, arabic_name, gender, date_of_birth, age, blood_group, occupation, education, marital_status, mobile, email, emergency_contact, relationship, status, nationality, address)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (member_code, family_id, name, arabic_name, gender, date_of_birth, age, blood_group, occupation, education, marital_status, mobile, email, emergency_contact, relationship, is_head, status, nationality, address)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         num, data.familyId, data.name ?? "", data.arabicName ?? "",
         data.gender ?? "Male", data.dateOfBirth ?? "", data.age ?? null,
         data.bloodGroup ?? "", data.occupation ?? "", data.education ?? "",
         data.maritalStatus ?? "Single", data.mobile ?? "",
         data.email ?? "", data.emergencyContact ?? "",
-        data.relationship ?? "Other", data.status ?? "Active",
+        data.relationship ?? "Other", isHead,
+        data.status ?? "Active",
         data.nationality ?? "Indian", data.address ?? ""
       ]
     );
@@ -137,14 +135,15 @@ export const members = {
   },
   update: (id: number, data: any) =>
     run(
-      `UPDATE members SET family_id = ?, name = ?, arabic_name = ?, gender = ?, date_of_birth = ?, age = ?, blood_group = ?, occupation = ?, education = ?, marital_status = ?, mobile = ?, email = ?, emergency_contact = ?, relationship = ?, status = ?, nationality = ?, address = ?, updated_at = datetime('now') WHERE id = ?`,
+      `UPDATE members SET family_id = ?, name = ?, arabic_name = ?, gender = ?, date_of_birth = ?, age = ?, blood_group = ?, occupation = ?, education = ?, marital_status = ?, mobile = ?, email = ?, emergency_contact = ?, relationship = ?, is_head = ?, status = ?, nationality = ?, address = ?, updated_at = datetime('now') WHERE id = ?`,
       [
-        data.familyId, data.name, data.arabicName ?? "",
-        data.gender, data.dateOfBirth, data.age, data.bloodGroup,
-        data.occupation, data.education, data.maritalStatus,
-        data.mobile, data.email, data.emergencyContact,
-        data.relationship, data.status, data.nationality,
-        data.address, id
+        data.familyId, data.name ?? "", data.arabicName ?? "",
+        data.gender ?? "Male", data.dateOfBirth ?? "", data.age ?? null, data.bloodGroup ?? "",
+        data.occupation ?? "", data.education ?? "", data.maritalStatus ?? "Single",
+        data.mobile ?? "", data.email ?? "", data.emergencyContact ?? "",
+        data.relationship ?? "Other", data.relationship === "Head" ? 1 : 0,
+        data.status ?? "Active", data.nationality ?? "Indian",
+        data.address ?? "", id
       ]
     ),
   remove: (id: number) => run("DELETE FROM members WHERE id = ?", [id]),
@@ -431,15 +430,15 @@ export const marriages = {
   get: (id: number) => one<any>("SELECT * FROM marriages WHERE id = ?", [id]),
   create: (data: any) => {
     const num = scalar<string>(
-      "SELECT 'MRG-' || strftime('%Y') || '-' || printf('%03d', COALESCE(MAX(id), 0) + 1) AS n FROM marriages"
+      "SELECT 'MRG-' || strftime('%Y') || '-' || printf('%03d', COUNT(*) + 1) AS n FROM marriages WHERE strftime('%Y', nikah_date) = strftime('%Y','now')"
     );
     const { id } = run(
       `INSERT INTO marriages
         (marriage_number, bride_name, bride_father, bride_address, groom_name, groom_father, groom_address, witness1, witness2, witness3, witness4, mahar, nikah_date, registration_date, place, remarks)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        num, data.brideName, data.brideFather ?? "", data.brideAddress ?? "",
-        data.groomName, data.groomFather ?? "", data.groomAddress ?? "",
+        num, data.brideName ?? "", data.brideFather ?? "", data.brideAddress ?? "",
+        data.groomName ?? "", data.groomFather ?? "", data.groomAddress ?? "",
         data.witness1 ?? "", data.witness2 ?? "", data.witness3 ?? "", data.witness4 ?? "",
         data.mahar ?? "", data.nikahDate, data.registrationDate || nowDate(),
         data.place ?? "", data.remarks ?? ""
@@ -451,11 +450,11 @@ export const marriages = {
     run(
       `UPDATE marriages SET bride_name = ?, bride_father = ?, bride_address = ?, groom_name = ?, groom_father = ?, groom_address = ?, witness1 = ?, witness2 = ?, witness3 = ?, witness4 = ?, mahar = ?, nikah_date = ?, registration_date = ?, place = ?, remarks = ?, updated_at = datetime('now') WHERE id = ?`,
       [
-        data.brideName, data.brideFather, data.brideAddress,
-        data.groomName, data.groomFather, data.groomAddress,
-        data.witness1, data.witness2, data.witness3, data.witness4,
-        data.mahar, data.nikahDate, data.registrationDate,
-        data.place, data.remarks, id
+        data.brideName ?? "", data.brideFather ?? "", data.brideAddress ?? "",
+        data.groomName ?? "", data.groomFather ?? "", data.groomAddress ?? "",
+        data.witness1 ?? "", data.witness2 ?? "", data.witness3 ?? "", data.witness4 ?? "",
+        data.mahar ?? "", data.nikahDate ?? "", data.registrationDate ?? nowDate(),
+        data.place ?? "", data.remarks ?? "", id
       ]
     ),
   remove: (id: number) => run("DELETE FROM marriages WHERE id = ?", [id]),
@@ -485,14 +484,14 @@ export const deaths = {
   get: (id: number) => one<any>("SELECT * FROM deaths WHERE id = ?", [id]),
   create: (data: any) => {
     const num = scalar<string>(
-      "SELECT 'DTH-' || strftime('%Y') || '-' || printf('%03d', COALESCE(MAX(id), 0) + 1) AS n FROM deaths"
+      "SELECT 'DTH-' || strftime('%Y') || '-' || printf('%03d', COUNT(*) + 1) AS n FROM deaths WHERE strftime('%Y', date_of_death) = strftime('%Y','now')"
     );
     const { id } = run(
       `INSERT INTO deaths
         (death_number, deceased_name, father_name, gender, date_of_death, burial_date, cause_of_death, burial_place, family_id, remarks)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        num, data.deceasedName, data.fatherName ?? "",
+        num, data.deceasedName ?? "", data.fatherName ?? "",
         data.gender ?? "Male", data.dateOfDeath,
         data.burialDate, data.causeOfDeath ?? "", data.burialPlace ?? "",
         data.familyId ?? null, data.remarks ?? ""
@@ -504,9 +503,9 @@ export const deaths = {
     run(
       `UPDATE deaths SET deceased_name = ?, father_name = ?, gender = ?, date_of_death = ?, burial_date = ?, cause_of_death = ?, burial_place = ?, family_id = ?, remarks = ?, updated_at = datetime('now') WHERE id = ?`,
       [
-        data.deceasedName, data.fatherName, data.gender,
-        data.dateOfDeath, data.burialDate, data.causeOfDeath,
-        data.burialPlace, data.familyId, data.remarks, id
+        data.deceasedName ?? "", data.fatherName ?? "", data.gender ?? "Male",
+        data.dateOfDeath ?? "", data.burialDate ?? "", data.causeOfDeath ?? "",
+        data.burialPlace ?? "", data.familyId ?? null, data.remarks ?? "", id
       ]
     ),
   remove: (id: number) => run("DELETE FROM deaths WHERE id = ?", [id]),
@@ -606,7 +605,7 @@ export const certificates = {
   issueMembership: (memberCode: string, userId: number) => {
     const m = one<any>("SELECT * FROM members WHERE member_code = ?", [memberCode]);
     if (!m) throw new Error("Member not found");
-    const certNum = `MMS-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+    const certNum = `MMS-${new Date().getFullYear()}-${String(scalar<number>("SELECT COALESCE(MAX(id),0)+1 FROM certificates WHERE type='Membership' AND strftime('%Y', issued_date)=strftime('%Y','now')")).padStart(6, "0")}`;
     const { id } = run(
       "INSERT INTO certificates (certificate_number, type, member_id, family_id, issued_to, issued_date, issued_by, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       [certNum, "Membership", m.id, m.family_id, m.name, nowDate(), userId, "Issued"]
@@ -616,7 +615,7 @@ export const certificates = {
   issueResidence: (familyNumber: string, issuedTo: string, userId: number) => {
     const f = one<any>("SELECT * FROM families WHERE family_number = ?", [familyNumber]);
     if (!f) throw new Error("Family not found");
-    const certNum = `RES-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+    const certNum = `RES-${new Date().getFullYear()}-${String(scalar<number>("SELECT COALESCE(MAX(id),0)+1 FROM certificates WHERE type='Residence' AND strftime('%Y', issued_date)=strftime('%Y','now')")).padStart(6, "0")}`;
     const { id } = run(
       "INSERT INTO certificates (certificate_number, type, member_id, family_id, issued_to, issued_date, issued_by, status) VALUES (?, ?, NULL, ?, ?, ?, ?, ?)",
       [certNum, "Residence", f.id, issuedTo || f.house_name, nowDate(), userId, "Issued"]
@@ -626,7 +625,7 @@ export const certificates = {
   issueMarriage: (marriageNumber: string, userId: number) => {
     const m = one<any>("SELECT * FROM marriages WHERE marriage_number = ?", [marriageNumber]);
     if (!m) throw new Error("Marriage record not found");
-    const certNum = `MAR-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+    const certNum = `MAR-${new Date().getFullYear()}-${String(scalar<number>("SELECT COALESCE(MAX(id),0)+1 FROM certificates WHERE type='Marriage' AND strftime('%Y', issued_date)=strftime('%Y','now')")).padStart(6, "0")}`;
     const { id } = run(
       "INSERT INTO certificates (certificate_number, type, member_id, family_id, issued_to, issued_date, issued_by, status) VALUES (?, ?, NULL, NULL, ?, ?, ?, ?)",
       [certNum, "Marriage", m.bride_name + " & " + m.groom_name, nowDate(), userId, "Issued"]
@@ -648,7 +647,7 @@ export const certificates = {
   issueDeath: (deathNumber: string, userId: number) => {
     const d = one<any>("SELECT * FROM deaths WHERE death_number = ?", [deathNumber]);
     if (!d) throw new Error("Death record not found");
-    const certNum = `DTH-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+    const certNum = `DTH-${new Date().getFullYear()}-${String(scalar<number>("SELECT COALESCE(MAX(id),0)+1 FROM certificates WHERE type='Death' AND strftime('%Y', issued_date)=strftime('%Y','now')")).padStart(6, "0")}`;
     const { id } = run(
       "INSERT INTO certificates (certificate_number, type, member_id, family_id, issued_to, issued_date, issued_by, status) VALUES (?, ?, NULL, NULL, ?, ?, ?, ?)",
       [certNum, "Death", d.deceased_name, nowDate(), userId, "Issued"]
@@ -664,14 +663,11 @@ export const users = {
   list: () => all<any>(`SELECT id, username, full_name, role, is_active, must_change_pwd, last_login_at AS last_login, created_at FROM users ORDER BY username`),
   create: (data: any, creatorRole: string) => {
     if (creatorRole !== "Administrator") throw new Error("Only administrators can create users");
-    const salt = randomBytes(16);
-    const iter = 200000;
-    const hash = require("node:crypto").pbkdf2Sync(data.password || "Welcome@123", salt, iter, 32, "sha256");
-    const stored = `pbkdf2_sha256$${iter}$${salt.toString("base64")}$${hash.toString("base64")}`;
+    const { stored, salt } = hashPasswordForStorage(data.password || "Welcome@123");
     const { id } = run(
       "INSERT INTO users (username, full_name, password_hash, password_salt, role, is_active, must_change_pwd) VALUES (?, ?, ?, ?, ?, 1, ?)",
       [
-        data.username, data.fullName, stored, salt.toString("base64"),
+        data.username, data.fullName, stored, salt,
         data.role || "Staff", data.mustChangePwd ? 1 : 1
       ]
     );
@@ -681,14 +677,19 @@ export const users = {
     run("UPDATE users SET full_name = ?, role = ?, is_active = ? WHERE id = ?",
       [data.fullName, data.role, data.isActive ? 1 : 0, id]),
   toggleLock: (id: number, locked: boolean) =>
-    run("UPDATE users SET is_active = ? WHERE id = ?", [locked ? 0 : 1, id]),
+    // Fix: previously this set is_active, which is a different concept from is_locked.
+    // is_locked is set by the 5-failed-attempts auto-lockout; toggling it from the
+    // Users page should clear is_locked + locked_until + failed_attempts (unlock)
+    // or set them (lock), without touching is_active (which is a separate
+    // admin-controlled "account enabled" flag).
+    run(
+      "UPDATE users SET is_locked = ?, locked_until = NULL, failed_attempts = 0, updated_at = datetime('now') WHERE id = ? AND username != 'admin'",
+      [locked ? 1 : 0, id]
+    ),
   resetPassword: (id: number, newPassword: string) => {
-    const salt = randomBytes(16);
-    const iter = 200000;
-    const hash = require("node:crypto").pbkdf2Sync(newPassword, salt, iter, 32, "sha256");
-    const stored = `pbkdf2_sha256$${iter}$${salt.toString("base64")}$${hash.toString("base64")}`;
-    return run("UPDATE users SET password_hash = ?, password_salt = ?, must_change_pwd = 1 WHERE id = ?",
-      [stored, salt.toString("base64"), id]);
+    const { stored, salt } = hashPasswordForStorage(newPassword);
+    return run("UPDATE users SET password_hash = ?, password_salt = ?, must_change_pwd = 1, failed_attempts = 0, is_locked = 0, locked_until = NULL, updated_at = datetime('now') WHERE id = ?",
+      [stored, salt, id]);
   },
   remove: (id: number) => run("DELETE FROM users WHERE id = ? AND username != 'admin'", [id]),
 };
@@ -763,20 +764,23 @@ export const dashboard = {
   balance: () => scalar<number>("SELECT (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Income') - (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Expense') AS v"),
   monthlyCollections: (months: number = 6) => all<any>(
     `SELECT strftime('%Y-%m', payment_date) AS month, COALESCE(SUM(amount_paid),0) AS amount
-     FROM subscriptions WHERE payment_date >= date('now', '-${months} months')
-     GROUP BY month ORDER BY month`
+     FROM subscriptions WHERE payment_date >= date('now', ?)
+     GROUP BY month ORDER BY month`,
+    [`-${months} months`]
   ),
   monthlyDonations: (months: number = 6) => all<any>(
     `SELECT strftime('%Y-%m', donation_date) AS month, COALESCE(SUM(amount),0) AS amount
-     FROM donations WHERE donation_date >= date('now', '-${months} months')
-     GROUP BY month ORDER BY month`
+     FROM donations WHERE donation_date >= date('now', ?)
+     GROUP BY month ORDER BY month`,
+    [`-${months} months`]
   ),
   incomeVsExpense: (months: number = 6) => all<any>(
     `SELECT strftime('%Y-%m', txn_date) AS month,
        SUM(CASE WHEN type='Income' THEN amount ELSE 0 END) AS income,
        SUM(CASE WHEN type='Expense' THEN amount ELSE 0 END) AS expense
-     FROM transactions WHERE txn_date >= date('now', '-${months} months')
-     GROUP BY month ORDER BY month`
+     FROM transactions WHERE txn_date >= date('now', ?)
+     GROUP BY month ORDER BY month`,
+    [`-${months} months`]
   ),
   recentActivity: (limit: number = 10) => all<any>(
     `SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ?`, [limit]
@@ -788,9 +792,11 @@ export const dashboard = {
 const TOKEN_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
 function generateTokenCode(): string {
+  // Use crypto.randomInt() instead of Math.random() — token codes are security-sensitive
+  // (they are presented at event entry) and must be unguessable.
   let code = "";
   for (let i = 0; i < 4; i++) {
-    code += TOKEN_ALPHABET[Math.floor(Math.random() * TOKEN_ALPHABET.length)];
+    code += TOKEN_ALPHABET[randomInt(0, TOKEN_ALPHABET.length)];
   }
   return code;
 }
@@ -861,9 +867,9 @@ export const tokens = {
 
   // ===== Generate tokens for selected families =====
   generate: (eventId: number, familyIds: number[], userId: number) => {
-    // Get existing codes for this event (and globally to avoid collision)
+    // Load only token codes for this event (not globally) to keep the working set small.
     const existingCodes = new Set(
-      all<any>("SELECT token_code FROM token_assignments").map((r: any) => r.token_code)
+      all<any>("SELECT token_code FROM token_assignments WHERE event_id = ?", [eventId]).map((r: any) => r.token_code)
     );
     const existingFamilyTokens = tokens.checkExisting(eventId);
 
@@ -907,26 +913,28 @@ export const tokens = {
 
   // ===== Replace token (generate new code for cancelled token) =====
   replace: (tokenId: number, reason: string, userId: number) => {
-    const oldToken = one<any>("SELECT * FROM token_assignments WHERE id = ?", [tokenId]);
-    if (!oldToken) throw new Error("Token not found");
+    const db = getDB();
+    return db.transaction(() => {
+      const oldToken = one<any>("SELECT * FROM token_assignments WHERE id = ?", [tokenId]);
+      if (!oldToken) throw new Error("Token not found");
 
-    // Cancel old token
-    run(
-      `UPDATE token_assignments SET status = 'CANCELLED', cancelled_at = datetime('now'), cancelled_reason = ? WHERE id = ?`,
-      [reason, tokenId]
-    );
+      // Cancel old token
+      db.prepare(
+        `UPDATE token_assignments SET status = 'CANCELLED', cancelled_at = datetime('now'), cancelled_reason = ? WHERE id = ?`
+      ).run(reason, tokenId);
 
-    // Generate new token for same event+family
-    const existingCodes = new Set(
-      all<any>("SELECT token_code FROM token_assignments").map((r: any) => r.token_code)
-    );
-    const newCode = generateUniqueTokenCode(existingCodes);
-    const { id } = run(
-      `INSERT INTO token_assignments (event_id, family_id, token_code, status, replacement_for)
-       VALUES (?, ?, ?, 'GENERATED', ?)`,
-      [oldToken.event_id, oldToken.family_id, newCode, tokenId]
-    );
-    return { id, tokenCode: newCode };
+      // Generate new token for same event+family.
+      // Scope the duplicate-code check to this event so we don't load the entire table.
+      const existingCodes = new Set(
+        all<any>("SELECT token_code FROM token_assignments WHERE event_id = ?", [oldToken.event_id]).map((r: any) => r.token_code)
+      );
+      const newCode = generateUniqueTokenCode(existingCodes);
+      const result = db.prepare(
+        `INSERT INTO token_assignments (event_id, family_id, token_code, status, replacement_for)
+         VALUES (?, ?, ?, 'GENERATED', ?)`
+      ).run(oldToken.event_id, oldToken.family_id, newCode, tokenId);
+      return { id: Number(result.lastInsertRowid), tokenCode: newCode };
+    })();
   },
 
   // ===== Stats for dashboard =====

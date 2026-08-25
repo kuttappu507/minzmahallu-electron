@@ -157,9 +157,13 @@ function initializeSchema(database: DB) {
     if (!fs.existsSync(schema)) throw new Error(`Schema file not found: ${schema}`);
     database.exec(fs.readFileSync(schema,"utf8")); if (fs.existsSync(seed)) database.exec(fs.readFileSync(seed,"utf8"));
   }
+  // ensureRuntimeSchema runs once before migrations to add optional columns that
+  // older databases may be missing (so migrations don't fail on column lookups).
+  // The previous implementation called it twice (before AND after migrations);
+  // the second call was debug residue and has been removed — migrations are
+  // idempotent via the duplicate-column reconciliation in applyMigrations().
   ensureRuntimeSchema(database);
   applyMigrations(database);
-  ensureRuntimeSchema(database);
   const users = Number((database.prepare("SELECT COUNT(*) AS c FROM users").get() as {c:number}).c);
   if (users === 0) console.warn("[db] users table is empty — login may require initial setup");
 }

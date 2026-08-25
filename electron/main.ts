@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { login, changePassword, needsInitialSetup, createInitialAdministrator } from "./services/auth.service.js";
 import * as data from "./services/data.service.js";
 import { closeDB, getDB } from "./db/connection.js";
+import { createBackup, verifyBackup, extractVerifiedBackup, listBackups } from "./services/backup.service.js";
 import { buildTokenSheetHtml } from "./print/token.template.js";
 import { buildCollectionSheetHtml } from "./print/collection-sheet.template.js";
 import { buildCertificateHtml } from "./print/certificate.template.js";
@@ -45,7 +46,23 @@ function createWindow() {
 }
 function esc(s: any): string { return String(s ?? "").replace(/[&<>\"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] || c)); }
 async function renderHtmlToPdf(html: string): Promise<Buffer> {
-  const pdfWin = new BrowserWindow({ show: false, width: 794, height: 1123, useContentSize: true, backgroundColor: "#ffffff", webPreferences: { offscreen: false, sandbox: false } });
+  // Render untrusted renderer-supplied HTML in a sandboxed, isolated offscreen window.
+  // No preload, no node integration, sandbox enforced, no webSecurity tweaks.
+  const pdfWin = new BrowserWindow({
+    show: false,
+    width: 794,
+    height: 1123,
+    useContentSize: true,
+    backgroundColor: "#ffffff",
+    webPreferences: {
+      preload: undefined,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+    },
+  });
   try {
     await pdfWin.loadURL("data:text/html;charset=UTF-8," + encodeURIComponent(html));
     await pdfWin.webContents.executeJavaScript(`
@@ -147,8 +164,12 @@ app.whenReady().then(() => {
   ipcMain.handle("certificates:issueDeath", (_e, deathNum) => data.certificates.issueDeath(deathNum, session.user?.id ?? 1));
   ipcMain.handle("certificates:remove", () => { throw new Error("Permanent deletion of certificate records is disabled"); });
 
-  ipcMain.handle("pdf:generate", async (_e, html: string, defaultName: string) => { try { const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save PDF", defaultPath: defaultName || "document.pdf", filters: [{ name: "PDF Document", extensions: ["pdf"] }] }); if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true }; const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer); return { success: true, path: saveResult.filePath }; } catch (err: any) { return { success: false, error: err.message }; } });
-  ipcMain.handle("certificates:generatePdf", async (_e, certId: number) => { try { const listResult = data.certificates.list({}); const cert = (listResult?.rows || []).find((c: any) => c.id === certId); if (!cert) return { success: false, error: "Certificate not found" }; const lang = await mainWindow!.webContents.executeJavaScript("document.documentElement.classList.contains('lang-ml') ? 'ml' : 'en'"); const html = buildCertificateHtml(cert, lang); const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Certificate PDF", defaultPath: `certificate-${cert.certificate_number || certId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] }); if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true }; const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer); return { success: true, path: saveResult.filePath }; } catch (err: any) { return { success: false, error: err.message }; } });
+  ipcMain.handle("pdf:generate", async (_e, html: string, defaultName: string) => {
+    if (!session.user) return { success: false, error: "Authentication required" };
+    try { const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save PDF", defaultPath: defaultName || "document.pdf", filters: [{ name: "PDF Document", extensions: ["pdf"] }] }); if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true }; const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer); return { success: true, path: saveResult.filePath }; } catch (err: any) { return { success: false, error: err.message }; } });
+  ipcMain.handle("certificates:generatePdf", async (_e, certId: number) => {
+    if (!session.user) return { success: false, error: "Authentication required" };
+    try { const listResult = data.certificates.list({}); const cert = (listResult?.rows || []).find((c: any) => c.id === certId); if (!cert) return { success: false, error: "Certificate not found" }; const lang = await mainWindow!.webContents.executeJavaScript("document.documentElement.classList.contains('lang-ml') ? 'ml' : 'en'"); const html = buildCertificateHtml(cert, lang); const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Certificate PDF", defaultPath: `certificate-${cert.certificate_number || certId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] }); if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true }; const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer); return { success: true, path: saveResult.filePath }; } catch (err: any) { return { success: false, error: err.message }; } });
 
   ipcMain.handle("users:list", () => data.users.list());
   ipcMain.handle("users:create", (_e, d) => data.users.create(d, session.user?.role ?? ""));
@@ -168,14 +189,81 @@ app.whenReady().then(() => {
   ipcMain.handle("dashboard:incomeVsExpense", (_e, months) => data.dashboard.incomeVsExpense(months || 6));
   ipcMain.handle("dashboard:recentActivity", (_e, limit) => data.dashboard.recentActivity(limit || 10));
 
-  ipcMain.handle("backup:create", async () => { try { const defaultName = `mms-backup-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.db`; const result = await dialog.showSaveDialog(mainWindow!, { title: "Save Backup", defaultPath: defaultName, filters: [{ name: "SQLite Database", extensions: ["db"] }] }); if (result.canceled || !result.filePath) return { success: false, error: "cancelled" }; const db = getDB(); db.backup(result.filePath); const stats = fs.statSync(result.filePath); return { success: true, path: result.filePath, size: stats.size }; } catch (err: any) { return { success: false, error: err.message, }; } });
-  ipcMain.handle("backup:list", () => { try { const userData = app.getPath("userData"); const files = fs.readdirSync(userData).filter((f: string) => f.endsWith(".db")).map((f: string) => { const p = path.join(userData, f); const s = fs.statSync(p); return { name: f, path: p, size: s.size, modified: s.mtime.toISOString() }; }); return files; } catch { return []; } });
-  ipcMain.handle("backup:restore", async (_e, backupPath: string) => { try { if (!backupPath || !fs.existsSync(backupPath)) return { success: false, error: "Backup file not found" }; return { success: false, error: "Restore requires application restart and is not available in this build" }; } catch (err: any) { return { success: false, error: err.message }; } });
+  ipcMain.handle("backup:create", async () => {
+    if (!session.user) return { success: false, error: "Authentication required" };
+    try {
+      const defaultName = `mms-backup-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.mmbak`;
+      const result = await dialog.showSaveDialog(mainWindow!, {
+        title: "Save Backup",
+        defaultPath: defaultName,
+        filters: [{ name: "MMS Verified Backup", extensions: ["mmbak"] }],
+      });
+      if (result.canceled || !result.filePath) return { success: false, error: "cancelled" };
+      const meta = createBackup(result.filePath);
+      return { success: true, path: result.filePath, size: meta.size, sha256: meta.sha256 };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+  ipcMain.handle("backup:list", () => {
+    if (!session.user) return { backups: [] };
+    try {
+      const userData = app.getPath("userData");
+      const backups = listBackups(userData);
+      return { backups };
+    } catch (e: any) {
+      return { backups: [] };
+    }
+  });
+  ipcMain.handle("backup:verify", (_e, backupPath: string) => {
+    if (!session.user) throw new Error("Authentication required");
+    try {
+      if (!backupPath || !fs.existsSync(backupPath)) throw new Error("Backup file not found");
+      const result = verifyBackup(backupPath);
+      return { success: true, ...result };
+    } catch (err: any) {
+      throw new Error(err.message);
+    }
+  });
+  ipcMain.handle("backup:restore", async (_e, backupPath: string) => {
+    if (!session.user) return { success: false, error: "Authentication required" };
+    try {
+      if (!backupPath || !fs.existsSync(backupPath)) return { success: false, error: "Backup file not found" };
+      // 1. Verify the target backup integrity before doing anything destructive.
+      verifyBackup(backupPath);
+      // 2. Make a safety pre-restore backup of the current live DB.
+      const userData = app.getPath("userData");
+      const safetyPath = path.join(userData, `backup-pre-restore-${new Date().toISOString().slice(0,19).replace(/[:T]/g,"-")}.mmbak`);
+      try { createBackup(safetyPath); } catch (e) { console.warn("[backup] Pre-restore safety backup failed:", e); }
+      // 3. Close the live DB connection so the file can be safely replaced.
+      try { closeDB(); } catch {}
+      // 4. Extract the verified backup into the live DB path.
+      const liveDbPath = path.join(userData, "mms.db");
+      extractVerifiedBackup(backupPath, liveDbPath);
+      // 5. Relaunch the app so the new DB is loaded cleanly.
+      setTimeout(() => { app.relaunch(); app.exit(0); }, 250);
+      return { success: true, restarted: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+  ipcMain.handle("dialog:showSave", async (_e, defaultName: string, filters: any[]) => {
+    if (!session.user) return { success: false, cancelled: true, error: "Authentication required" };
+    const result = await dialog.showSaveDialog(mainWindow!, { title: "Save", defaultPath: defaultName, filters: filters || [] });
+    if (result.canceled || !result.filePath) return { success: false, cancelled: true };
+    return { success: true, path: result.filePath };
+  });
   ipcMain.handle("tokens:listEvents", () => data.tokens.listEvents());
   ipcMain.handle("tokens:getEvent", (_e, id) => data.tokens.getEvent(id));
   ipcMain.handle("tokens:createEvent", (_e, d) => data.tokens.createEvent(d));
   ipcMain.handle("tokens:updateEvent", (_e, id, d) => data.tokens.updateEvent(id, d));
   ipcMain.handle("tokens:removeEvent", (_e, id: number) => { getDB().prepare("DELETE FROM token_events WHERE id = ?").run(id); return { success: true }; });
+  // NOTE: security-ipc.ts overrides tokens:removeEvent with a guard that throws
+  // "Token events cannot be permanently deleted after creation." Because
+  // registerSecurityIpc() runs AFTER this registration and uses ipcMain.removeHandler()
+  // first, the security version wins and the hard DELETE above is intentionally
+  // unreachable. We keep the registration here so that if security-ipc is ever
+  // disabled, the operation fails closed (no silent hard delete).
   ipcMain.handle("tokens:list", (_e, filter) => data.tokens.list(filter || {}));
   ipcMain.handle("tokens:checkExisting", (_e, eventId) => Array.from(data.tokens.checkExisting(eventId)));
   ipcMain.handle("tokens:generate", (_e, eventId, familyIds) => data.tokens.generate(eventId, familyIds, session.user?.id ?? 1));
@@ -183,8 +271,12 @@ app.whenReady().then(() => {
   ipcMain.handle("tokens:cancel", (_e, tokenId, reason) => data.tokens.cancel(tokenId, reason));
   ipcMain.handle("tokens:replace", (_e, tokenId, reason) => data.tokens.replace(tokenId, reason, session.user?.id ?? 1));
   ipcMain.handle("tokens:stats", (_e, eventId) => data.tokens.stats(eventId));
-  ipcMain.handle("tokens:generatePdf", async (_e, eventId: number) => { try { const tokenList = data.tokens.listForPdf(eventId); if (!tokenList || tokenList.length === 0) return { success: false, error: "No tokens found for this event" }; const event = data.tokens.getEvent(eventId); const html = buildTokenSheetHtml(tokenList, event); const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Token Sheet PDF", defaultPath: `tokens-${event?.event_name?.replace(/\s+/g, "-") || eventId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] }); if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true }; const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer); return { success: true, path: saveResult.filePath, count: tokenList.length }; } catch (err: any) { return { success: false, error: err.message }; } });
-  ipcMain.handle("tokens:generateCollectionSheet", async (_e, eventId: number) => { try { const tokenList = data.tokens.listForPdf(eventId); if (!tokenList || tokenList.length === 0) return { success: false, error: "No tokens found for this event" }; const event = data.tokens.getEvent(eventId); const html = buildCollectionSheetHtml(tokenList, event); const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Collection Sheet PDF", defaultPath: `collection-sheet-${event?.event_name?.replace(/\s+/g, "-") || eventId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] }); if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true }; const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer); return { success: true, path: saveResult.filePath, count: tokenList.length }; } catch (err: any) { return { success: false, error: err.message }; } });
+  ipcMain.handle("tokens:generatePdf", async (_e, eventId: number) => {
+    if (!session.user) return { success: false, error: "Authentication required" };
+    try { const tokenList = data.tokens.listForPdf(eventId); if (!tokenList || tokenList.length === 0) return { success: false, error: "No tokens found for this event" }; const event = data.tokens.getEvent(eventId); const html = buildTokenSheetHtml(tokenList, event); const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Token Sheet PDF", defaultPath: `tokens-${event?.event_name?.replace(/\s+/g, "-") || eventId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] }); if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true }; const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer); return { success: true, path: saveResult.filePath, count: tokenList.length }; } catch (err: any) { return { success: false, error: err.message }; } });
+  ipcMain.handle("tokens:generateCollectionSheet", async (_e, eventId: number) => {
+    if (!session.user) return { success: false, error: "Authentication required" };
+    try { const tokenList = data.tokens.listForPdf(eventId); if (!tokenList || tokenList.length === 0) return { success: false, error: "No tokens found for this event" }; const event = data.tokens.getEvent(eventId); const html = buildCollectionSheetHtml(tokenList, event); const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Collection Sheet PDF", defaultPath: `collection-sheet-${event?.event_name?.replace(/\s+/g, "-") || eventId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] }); if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true }; const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer); return { success: true, path: saveResult.filePath, count: tokenList.length }; } catch (err: any) { return { success: false, error: err.message }; } });
 
   registerSecurityIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null);
   createWindow();

@@ -36,5 +36,12 @@ Thumbs.db
 .parcel-cache/
 .vite/
 
+# TypeScript build info
+*.tsbuildinfo
+
+# Vite emits these from compiled vite.config.ts
+vite.config.js
+vite.config.d.ts
+
 # Test
 coverage/
