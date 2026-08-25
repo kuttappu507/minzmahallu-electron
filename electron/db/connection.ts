@@ -23,7 +23,7 @@ function backupDb(): string | null { const p = dbPath(); if (!fs.existsSync(p)) 
 function columns(database: DB, table: string): Set<string> { return new Set((database.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map(x => x.name)); }
 function addColumn(database: DB, table: string, name: string, definition: string) { if (!columns(database, table).has(name)) database.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`); }
 
-/** Reconcile fields used by the current CRUD layer before migrations run. */
+/** Reconcile fields and feature tables used by the current CRUD layer before migrations run. */
 function ensureRuntimeSchema(database: DB) {
   const tables = new Set((database.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>).map(x => x.name));
   if (!tables.has("families") || !tables.has("members")) throw new Error("Core MMS tables are missing");
@@ -41,6 +41,66 @@ function ensureRuntimeSchema(database: DB) {
   ];
   for (const [table,name,definition] of fields) if (tables.has(table)) addColumn(database, table, name, definition);
   if (tables.has("welfare_requests")) database.exec("UPDATE welfare_requests SET request_date = COALESCE(request_date, created_at) WHERE request_date IS NULL");
+
+  // Token feature compatibility for databases created before the token module was added.
+  // Keep this schema local and idempotent so token generation never depends on a missing
+  // migration or on the build process rewriting source files.
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS token_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_name TEXT NOT NULL,
+      event_type TEXT NOT NULL DEFAULT 'general',
+      event_date TEXT NOT NULL,
+      event_time TEXT DEFAULT '',
+      venue TEXT DEFAULT '',
+      description TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT
+    );
+    CREATE TABLE IF NOT EXISTS token_assignments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_id INTEGER NOT NULL,
+      family_id INTEGER NOT NULL,
+      token_code TEXT NOT NULL UNIQUE,
+      status TEXT NOT NULL DEFAULT 'GENERATED',
+      collected INTEGER NOT NULL DEFAULT 0,
+      collected_at TEXT,
+      collected_by INTEGER,
+      cancelled_at TEXT,
+      cancelled_reason TEXT,
+      replacement_for INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY(event_id) REFERENCES token_events(id) ON DELETE CASCADE,
+      FOREIGN KEY(family_id) REFERENCES families(id) ON DELETE RESTRICT
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_token_event_family_active
+      ON token_assignments(event_id, family_id)
+      WHERE status != 'CANCELLED';
+    CREATE INDEX IF NOT EXISTS idx_token_assignments_event ON token_assignments(event_id);
+    CREATE INDEX IF NOT EXISTS idx_token_assignments_family ON token_assignments(family_id);
+  `);
+  // Older token tables may predate some fields used by collection/replacement/PDF CRUD.
+  const tokenTables = new Set((database.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>).map(x => x.name));
+  if (tokenTables.has("token_events")) {
+    addColumn(database, "token_events", "event_type", "TEXT NOT NULL DEFAULT 'general'");
+    addColumn(database, "token_events", "event_time", "TEXT DEFAULT ''");
+    addColumn(database, "token_events", "venue", "TEXT DEFAULT ''");
+    addColumn(database, "token_events", "description", "TEXT DEFAULT ''");
+    addColumn(database, "token_events", "status", "TEXT NOT NULL DEFAULT 'active'");
+    addColumn(database, "token_events", "created_at", "TEXT NOT NULL DEFAULT (datetime('now'))");
+    addColumn(database, "token_events", "updated_at", "TEXT");
+  }
+  if (tokenTables.has("token_assignments")) {
+    addColumn(database, "token_assignments", "collected", "INTEGER NOT NULL DEFAULT 0");
+    addColumn(database, "token_assignments", "collected_at", "TEXT");
+    addColumn(database, "token_assignments", "collected_by", "INTEGER");
+    addColumn(database, "token_assignments", "cancelled_at", "TEXT");
+    addColumn(database, "token_assignments", "cancelled_reason", "TEXT");
+    addColumn(database, "token_assignments", "replacement_for", "INTEGER");
+    addColumn(database, "token_assignments", "created_at", "TEXT NOT NULL DEFAULT (datetime('now'))");
+  }
+
   database.exec(`
     CREATE TABLE IF NOT EXISTS record_history (id INTEGER PRIMARY KEY AUTOINCREMENT, entity_type TEXT NOT NULL, entity_id INTEGER NOT NULL, action TEXT NOT NULL, user_id INTEGER, username TEXT, changed_at TEXT NOT NULL DEFAULT (datetime('now')), summary TEXT NOT NULL, changes_json TEXT, reason TEXT, FOREIGN KEY(user_id) REFERENCES users(id));
     CREATE INDEX IF NOT EXISTS idx_record_history_entity ON record_history(entity_type, entity_id, changed_at DESC);
@@ -97,7 +157,6 @@ function initializeSchema(database: DB) {
     if (!fs.existsSync(schema)) throw new Error(`Schema file not found: ${schema}`);
     database.exec(fs.readFileSync(schema,"utf8")); if (fs.existsSync(seed)) database.exec(fs.readFileSync(seed,"utf8"));
   }
-  // Reconcile first so migrations can safely refer to fields introduced by older versions.
   ensureRuntimeSchema(database);
   applyMigrations(database);
   ensureRuntimeSchema(database);
@@ -117,7 +176,6 @@ function applyMigrations(database: DB) {
     } catch (err) {
       try { database.exec("ROLLBACK"); } catch {}
       const msg = String(err);
-      // Duplicate-column/object migrations are reconciled by ensureRuntimeSchema.
       if (/duplicate column|already exists/i.test(msg)) { database.prepare("INSERT OR IGNORE INTO schema_version(version,description) VALUES(?,?)").run(version,`${file} (compatibility-reconciled)`); current = version; continue; }
       throw new Error(`Migration ${file} failed: ${err instanceof Error ? err.message : String(err)}`);
     }
