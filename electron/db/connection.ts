@@ -92,6 +92,7 @@ function ensureRuntimeSchema(database: DB) {
     addColumn(database, "token_events", "updated_at", "TEXT");
   }
   if (tokenTables.has("token_assignments")) {
+    addColumn(database, "token_assignments", "status", "TEXT NOT NULL DEFAULT 'GENERATED'");
     addColumn(database, "token_assignments", "collected", "INTEGER NOT NULL DEFAULT 0");
     addColumn(database, "token_assignments", "collected_at", "TEXT");
     addColumn(database, "token_assignments", "collected_by", "INTEGER");
