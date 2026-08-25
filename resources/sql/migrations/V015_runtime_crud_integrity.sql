@@ -1,14 +1,7 @@
 -- V015: runtime CRUD integrity reconciliation.
--- Existing installations may have stopped at an older migration because
--- previous migration runners wrapped PRAGMA foreign_keys changes in a transaction.
+-- Runtime schema reconciliation creates optional settings columns before
+-- migrations, so this migration focuses on the certificate table rebuild.
 
--- Ensure the subscription settings used by the current UI exist.
-ALTER TABLE settings ADD COLUMN subscription_frequency TEXT NOT NULL DEFAULT 'Monthly';
-ALTER TABLE settings ADD COLUMN subscription_quarterly_amount REAL NOT NULL DEFAULT 300;
-
--- Rebuild certificates so Marriage NOC is a valid certificate type and status
--- is part of the canonical table. No application table references certificates,
--- so this rebuild is safe with foreign_keys enabled.
 CREATE TABLE certificates_v015 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     certificate_number TEXT NOT NULL UNIQUE,
@@ -33,7 +26,7 @@ CREATE TABLE certificates_v015 (
 
 INSERT INTO certificates_v015
 (id, certificate_number, type, member_id, family_id, marriage_id, death_id, issued_to, issued_date, issued_by, qr_payload, notes, status, created_at)
-SELECT id, certificate_number, type, member_id, family_id, marriage_id, issued_to, issued_date, issued_by, qr_payload, notes,
+SELECT id, certificate_number, type, member_id, family_id, marriage_id, death_id, issued_to, issued_date, issued_by, qr_payload, notes,
        COALESCE(status, 'Issued'), created_at
 FROM certificates;
 
