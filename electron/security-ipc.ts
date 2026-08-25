@@ -137,6 +137,12 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("accounting:totalIncome", () => { actor(); return data.accounting.totalIncome(); });
   register("accounting:totalExpense", () => { actor(); return data.accounting.totalExpense(); });
   register("accounting:balance", () => { actor(); return data.accounting.balance(); });
+  // Unified ledger — auto-aggregates donations, subscriptions (paid), welfare
+  // disbursements, staff salary payments, plus manual transactions. Supports
+  // period presets (all/this_month/last_month/this_quarter/last_quarter/
+  // this_year/last_year/custom) and source filter.
+  register("accounting:unifiedList", (filter: any) => { actor(); return data.accounting.unifiedList(filter || {}); });
+  register("accounting:unifiedSummary", (filter: any) => { actor(); return data.accounting.unifiedSummary(filter || {}); });
   register("marriages:list", (filter: any) => { actor(); return data.marriages.list(filter || {}); });
   register("marriages:get", (id: number) => { actor(); return data.marriages.get(id); });
   register("deaths:list", (filter: any) => { actor(); return data.deaths.list(filter || {}); });
@@ -178,4 +184,18 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("staff:paySalary", (d: any) => { const a = admin(); const r = data.staff.paySalary(d, a.id); try { data.audit.log(a.id, a.username, "PAY_SALARY", "staff", d.staffId, `Salary paid: ${d.amount} for ${d.periodMonth}/${d.periodYear}`, ""); } catch {} return r; });
   register("staff:cancelPayment", (id: number) => { const a = admin(); const r = data.staff.cancelPayment(id); try { data.audit.log(a.id, a.username, "CANCEL_SALARY", "staff_payments", id, `Salary payment cancelled`, ""); } catch {} return r; });
   register("staff:salarySummary", (year?: number) => { actor(); return data.staff.salarySummary(year || new Date().getFullYear()); });
+
+  // ================= COMMITTEE =================
+  // Committee members are elected/nominated representatives (distinct from Staff).
+  // Reads require an authenticated user; archive/restore require Administrator.
+  register("committee:list", (filter: any) => { actor(); return data.committee.list(filter || {}); });
+  register("committee:get", (id: number) => { actor(); return data.committee.get(id); });
+  register("committee:positions", () => { actor(); return data.committee.positions(); });
+  register("committee:types", () => { actor(); return data.committee.types(); });
+  register("committee:summary", () => { actor(); return data.committee.summary(); });
+  register("committee:create", (d: any) => { const a = actor(); const r = data.committee.create({ ...d, createdBy: a.id }); try { data.audit.log(a.id, a.username, "ADD", "committee", r.id, `Committee ${r.committeeCode} created (${d.position || 'Committee Member'})`, ""); } catch {} return r; });
+  register("committee:update", (id: number, d: any) => { const a = actor(); const r = data.committee.update(id, d); try { data.audit.log(a.id, a.username, "EDIT", "committee", id, `Committee updated: ${d.name || ''}`, ""); } catch {} return r; });
+  register("committee:archive", (id: number, reason: string) => { const a = admin(); const r = data.committee.archive(id, reason, a.id); try { data.audit.log(a.id, a.username, "ARCHIVE", "committee", id, `Committee archived: ${reason}`, ""); } catch {} return r; });
+  register("committee:restore", (id: number) => { const a = admin(); const r = data.committee.restore(id, a.id); try { data.audit.log(a.id, a.username, "RESTORE", "committee", id, `Committee restored`, ""); } catch {} return r; });
+  register("committee:history", (id: number) => { actor(); return data.committee.history(id); });
 }

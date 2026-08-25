@@ -404,6 +404,201 @@ export const accounting = {
   totalIncome: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM transactions WHERE type = 'Income'"),
   totalExpense: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM transactions WHERE type = 'Expense'"),
   balance: () => scalar<number>("SELECT (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Income') - (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Expense') AS v"),
+
+  // ===== Unified ledger — combines manual transactions with auto-entries from
+  // donations, subscriptions, welfare disbursements, and staff salary payments.
+  // Each row carries a `source` field so the renderer can badge it.
+  //
+  // Period presets (server-side computed):
+  //   all | this_month | last_month | this_quarter | last_quarter | this_year | last_year | custom
+  // When period === 'custom', the caller must pass `from` and `to` (YYYY-MM-DD).
+  // =================================================================
+  _resolvePeriodRange: (period: string, from?: string, to?: string): { from: string; to: string } | null => {
+    if (period === "all") return null;
+    if (period === "custom") {
+      if (!from || !to) return null;
+      return { from, to };
+    }
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth(); // 0-11
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    if (period === "this_month") {
+      const first = new Date(y, m, 1);
+      const last = new Date(y, m + 1, 0);
+      return { from: iso(first), to: iso(last) };
+    }
+    if (period === "last_month") {
+      const first = new Date(y, m - 1, 1);
+      const last = new Date(y, m, 0);
+      return { from: iso(first), to: iso(last) };
+    }
+    if (period === "this_quarter") {
+      const qStartMonth = Math.floor(m / 3) * 3;
+      const first = new Date(y, qStartMonth, 1);
+      const last = new Date(y, qStartMonth + 3, 0);
+      return { from: iso(first), to: iso(last) };
+    }
+    if (period === "last_quarter") {
+      const qStartMonth = Math.floor(m / 3) * 3 - 3;
+      const cy = qStartMonth < 0 ? y - 1 : y;
+      const cm = qStartMonth < 0 ? qStartMonth + 12 : qStartMonth;
+      const first = new Date(cy, cm, 1);
+      const last = new Date(cy, cm + 3, 0);
+      return { from: iso(first), to: iso(last) };
+    }
+    if (period === "this_year") {
+      return { from: `${y}-01-01`, to: `${y}-12-31` };
+    }
+    if (period === "last_year") {
+      return { from: `${y - 1}-01-01`, to: `${y - 1}-12-31` };
+    }
+    return null;
+  },
+
+  unifiedList: (filter: { period?: string; from?: string; to?: string; source?: string; type?: string; search?: string; page?: number; pageSize?: number } = {}) => {
+    const range = (accounting as any)._resolvePeriodRange(filter.period || "all", filter.from, filter.to) as { from: string; to: string } | null;
+    // Each sub-query projects a uniform row shape: ledger_date, type, amount, source, source_id, description, payment_method, transaction_ref, receipt_number.
+    // We use UNION ALL and a synthetic row_number for stable ordering across sources.
+    const parts: string[] = [];
+    const params: any[] = [];
+
+    // 1. Manual transactions
+    {
+      const w: string[] = ["1=1"];
+      if (range) { w.push("t.txn_date >= ?"); w.push("t.txn_date <= ?"); params.push(range.from, range.to); }
+      if (filter.type && filter.type !== "All") { w.push("t.type = ?"); params.push(filter.type); }
+      if (filter.search) { w.push("(t.description LIKE ? OR t.receipt_number LIKE ? OR t.transaction_ref LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t, t); }
+      parts.push(`SELECT t.id AS source_id, 'transactions' AS source, t.txn_date AS ledger_date, t.type, t.amount, t.description, t.payment_method, t.transaction_ref, t.receipt_number, t.account_id, t.linked_module, t.linked_id FROM transactions t WHERE ${w.join(" AND ")}`);
+    }
+    // 2. Donations (always Income)
+    {
+      const w: string[] = ["1=1"];
+      if (range) { w.push("d.donation_date >= ?"); w.push("d.donation_date <= ?"); params.push(range.from, range.to); }
+      if (filter.type && filter.type !== "All" && filter.type !== "Income") { w.push("1=0"); } // donations are income only
+      if (filter.search) { w.push("(d.donor_name LIKE ? OR d.receipt_number LIKE ? OR d.purpose LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t, t); }
+      parts.push(`SELECT d.id AS source_id, 'donations' AS source, d.donation_date AS ledger_date, 'Income' AS type, d.amount, (d.donor_name || COALESCE(' — ' || d.purpose, '')) AS description, d.payment_method, '' AS transaction_ref, d.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id FROM donations d WHERE ${w.join(" AND ")}`);
+    }
+    // 3. Subscriptions where status='Paid' (Income)
+    {
+      const w: string[] = ["s.status = 'Paid'"];
+      if (range) { w.push("s.payment_date >= ?"); w.push("s.payment_date <= ?"); params.push(range.from, range.to); }
+      if (filter.type && filter.type !== "All" && filter.type !== "Income") { w.push("1=0"); }
+      if (filter.search) { w.push("(s.receipt_number LIKE ? OR s.remarks LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t); }
+      parts.push(`SELECT s.id AS source_id, 'subscriptions' AS source, COALESCE(s.payment_date, s.period_start) AS ledger_date, 'Income' AS type, s.amount_paid AS amount, ('Subscription — ' || COALESCE(s.receipt_number, '')) AS description, s.payment_method, s.transaction_ref, s.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id FROM subscriptions s WHERE ${w.join(" AND ")}`);
+    }
+    // 4. Welfare disbursements (Expense)
+    {
+      const w: string[] = ["w.status = 'Disbursed'"];
+      if (range) { w.push("w.disbursed_date >= ?"); w.push("w.disbursed_date <= ?"); params.push(range.from, range.to); }
+      if (filter.type && filter.type !== "All" && filter.type !== "Expense") { w.push("1=0"); }
+      if (filter.search) { w.push("(w.applicant_name LIKE ? OR w.request_number LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t); }
+      parts.push(`SELECT w.id AS source_id, 'welfare' AS source, COALESCE(w.disbursed_date, w.created_at) AS ledger_date, 'Expense' AS type, w.amount_approved AS amount, ('Welfare — ' || w.applicant_name) AS description, '' AS payment_method, '' AS transaction_ref, w.request_number AS receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id FROM welfare_requests w WHERE ${w.join(" AND ")}`);
+    }
+    // 5. Staff salary payments (Expense, status='Paid')
+    {
+      const w: string[] = ["sp.status = 'Paid'"];
+      if (range) { w.push("sp.payment_date >= ?"); w.push("sp.payment_date <= ?"); params.push(range.from, range.to); }
+      if (filter.type && filter.type !== "All" && filter.type !== "Expense") { w.push("1=0"); }
+      if (filter.search) { w.push("(s.name LIKE ? OR s.staff_code LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t); }
+      parts.push(`SELECT sp.id AS source_id, 'salary' AS source, sp.payment_date AS ledger_date, 'Expense' AS type, sp.amount, ('Salary — ' || s.name || ' (' || printf('%02d', sp.period_month) || '/' || sp.period_year || ')') AS description, sp.payment_method, sp.transaction_ref, '' AS receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id FROM staff_payments sp LEFT JOIN staff s ON s.id = sp.staff_id WHERE ${w.join(" AND ")}`);
+    }
+
+    // Combine — wrap in a sub-select so we can filter by source + paginate uniformly.
+    // Note: better-sqlite3 doesn't support parameterised LIMIT inside a UNION, but
+    // the inner UNION has no LIMIT and the outer SELECT does, which is fine.
+    const innerSql = parts.join(" UNION ALL ");
+    const outerWhere: string[] = ["1=1"];
+    if (filter.source && filter.source !== "All") {
+      outerWhere.push("source = ?");
+      params.push(filter.source);
+    }
+    const sql = `SELECT * FROM (${innerSql}) AS u WHERE ${outerWhere.join(" AND ")} ORDER BY u.ledger_date DESC, u.source_id DESC`;
+
+    let rows: any[];
+    let total: number;
+    if (filter.page && filter.pageSize) {
+      const offset = (filter.page - 1) * filter.pageSize;
+      rows = all<any>(`${sql} LIMIT ? OFFSET ?`, [...params, filter.pageSize, offset]);
+      const countRow = one<{ c: number }>(`SELECT COUNT(*) AS c FROM (${innerSql}) AS u WHERE ${outerWhere.join(" AND ")}`, params);
+      total = countRow?.c ?? 0;
+    } else {
+      rows = all<any>(sql, params);
+      total = rows.length;
+    }
+    return { rows, total };
+  },
+
+  unifiedSummary: (filter: { period?: string; from?: string; to?: string } = {}) => {
+    const range = (accounting as any)._resolvePeriodRange(filter.period || "all", filter.from, filter.to) as { from: string; to: string } | null;
+    const dateClause = range ? "AND ledger_date >= ? AND ledger_date <= ?" : "";
+    const dateParams = range ? [range.from, range.to] : [];
+
+    // Re-use the union from unifiedList but only compute aggregates. We build it
+    // inline here (rather than calling unifiedList) so we don't ship all the rows
+    // back to the renderer just to sum them.
+    const parts: string[] = [];
+    {
+      const w: string[] = ["1=1"];
+      if (range) { w.push("t.txn_date >= ?"); w.push("t.txn_date <= ?"); }
+      parts.push(`SELECT t.txn_date AS ledger_date, t.type, t.amount, 'transactions' AS source FROM transactions t WHERE ${w.join(" AND ")}`);
+    }
+    {
+      const w: string[] = ["1=1"];
+      if (range) { w.push("d.donation_date >= ?"); w.push("d.donation_date <= ?"); }
+      parts.push(`SELECT d.donation_date AS ledger_date, 'Income' AS type, d.amount, 'donations' AS source FROM donations d WHERE ${w.join(" AND ")}`);
+    }
+    {
+      const w: string[] = ["s.status = 'Paid'"];
+      if (range) { w.push("s.payment_date >= ?"); w.push("s.payment_date <= ?"); }
+      parts.push(`SELECT COALESCE(s.payment_date, s.period_start) AS ledger_date, 'Income' AS type, s.amount_paid AS amount, 'subscriptions' AS source FROM subscriptions s WHERE ${w.join(" AND ")}`);
+    }
+    {
+      const w: string[] = ["w.status = 'Disbursed'"];
+      if (range) { w.push("w.disbursed_date >= ?"); w.push("w.disbursed_date <= ?"); }
+      parts.push(`SELECT COALESCE(w.disbursed_date, w.created_at) AS ledger_date, 'Expense' AS type, w.amount_approved AS amount, 'welfare' AS source FROM welfare_requests w WHERE ${w.join(" AND ")}`);
+    }
+    {
+      const w: string[] = ["sp.status = 'Paid'"];
+      if (range) { w.push("sp.payment_date >= ?"); w.push("sp.payment_date <= ?"); }
+      parts.push(`SELECT sp.payment_date AS ledger_date, 'Expense' AS type, sp.amount, 'salary' AS source FROM staff_payments sp WHERE ${w.join(" AND ")}`);
+    }
+
+    const params: any[] = [];
+    if (range) { params.push(range.from, range.to); params.push(range.from, range.to); params.push(range.from, range.to); params.push(range.from, range.to); params.push(range.from, range.to); }
+
+    const union = parts.join(" UNION ALL ");
+    const row = one<any>(
+      `SELECT
+        COALESCE(SUM(CASE WHEN type='Income' THEN amount ELSE 0 END), 0) AS total_income,
+        COALESCE(SUM(CASE WHEN type='Expense' THEN amount ELSE 0 END), 0) AS total_expense,
+        COALESCE(SUM(CASE WHEN type='Income' AND source='donations' THEN amount ELSE 0 END), 0) AS income_donations,
+        COALESCE(SUM(CASE WHEN type='Income' AND source='subscriptions' THEN amount ELSE 0 END), 0) AS income_subscriptions,
+        COALESCE(SUM(CASE WHEN type='Income' AND source='transactions' THEN amount ELSE 0 END), 0) AS income_manual,
+        COALESCE(SUM(CASE WHEN type='Expense' AND source='welfare' THEN amount ELSE 0 END), 0) AS expense_welfare,
+        COALESCE(SUM(CASE WHEN type='Expense' AND source='salary' THEN amount ELSE 0 END), 0) AS expense_salary,
+        COALESCE(SUM(CASE WHEN type='Expense' AND source='transactions' THEN amount ELSE 0 END), 0) AS expense_manual,
+        COUNT(*) AS entry_count
+       FROM (${union}) AS u ${dateClause}`,
+      [...params, ...dateParams]
+    );
+    return {
+      totalIncome: row?.total_income ?? 0,
+      totalExpense: row?.total_expense ?? 0,
+      balance: (row?.total_income ?? 0) - (row?.total_expense ?? 0),
+      incomeDonations: row?.income_donations ?? 0,
+      incomeSubscriptions: row?.income_subscriptions ?? 0,
+      incomeManual: row?.income_manual ?? 0,
+      expenseWelfare: row?.expense_welfare ?? 0,
+      expenseSalary: row?.expense_salary ?? 0,
+      expenseManual: row?.expense_manual ?? 0,
+      entryCount: row?.entry_count ?? 0,
+      period: filter.period || "all",
+      from: range?.from ?? null,
+      to: range?.to ?? null
+    };
+  },
 };
 
 // ================= MARRIAGE =================
@@ -1126,6 +1321,126 @@ export const staff = {
     all<any>(
       `SELECT * FROM record_history WHERE entity_type = ? AND entity_id = ? ORDER BY changed_at DESC, id DESC LIMIT ?`,
       ["staff", staffId, limit]
+    ),
+};
+
+// ================= COMMITTEE =================
+// Elected/nominated committee members with term tracking. Distinct from Staff
+// (which are paid employees). Positions: President, VP, Secretary, Joint Secretary,
+// Treasurer, Auditor, Committee Member, Advisory Member, etc.
+export const committee = {
+  list: (filter: { search?: string; position?: string; committeeType?: string; status?: string; page?: number; pageSize?: number } = {}) => {
+    const where: string[] = ["1=1"];
+    const params: any[] = [];
+    if (filter.search) {
+      where.push("(c.name LIKE ? OR c.committee_code LIKE ? OR c.phone LIKE ? OR c.email LIKE ?)");
+      const t = `%${filter.search}%`;
+      params.push(t, t, t, t);
+    }
+    if (filter.position && filter.position !== "All") {
+      where.push("c.position = ?");
+      params.push(filter.position);
+    }
+    if (filter.committeeType && filter.committeeType !== "All") {
+      where.push("c.committee_type = ?");
+      params.push(filter.committeeType);
+    }
+    if (filter.status && filter.status !== "All") {
+      if (filter.status === "Archived") {
+        where.push("c.archive_state = 1");
+      } else {
+        where.push("c.archive_state = 0 AND c.status = ?");
+        params.push(filter.status);
+      }
+    } else {
+      // Default: exclude archived.
+      where.push("c.archive_state = 0");
+    }
+    const sql = `SELECT c.*, m.member_code AS linked_member_code, m.name AS linked_member_name, m.mobile AS linked_member_mobile
+      FROM committee_members c LEFT JOIN members m ON m.id = c.member_id
+      WHERE ${where.join(" AND ")}
+      ORDER BY c.committee_code ASC`;
+    if (filter.page && filter.pageSize) {
+      const offset = (filter.page - 1) * filter.pageSize;
+      const pageSql = `${sql} LIMIT ? OFFSET ?`;
+      const rows = all<any>(pageSql, [...params, filter.pageSize, offset]);
+      const totalRow = one<{ c: number }>(`SELECT COUNT(*) AS c FROM committee_members c WHERE ${where.join(" AND ")}`, params);
+      return { rows, total: totalRow?.c ?? 0 };
+    }
+    return { rows: all<any>(sql, params), total: 0 };
+  },
+  get: (id: number) => one<any>("SELECT c.*, m.member_code AS linked_member_code, m.name AS linked_member_name FROM committee_members c LEFT JOIN members m ON m.id = c.member_id WHERE c.id = ?", [id]),
+  positions: () => ["President", "Vice President", "Secretary", "Joint Secretary", "Treasurer", "Auditor", "Committee Member", "Advisory Member", "Trustee", "Other"],
+  types: () => ["Executive", "Advisory", "Working", "Sub-Committee", "Trust"],
+  create: (data: any) => {
+    const num = scalar<string>(
+      "SELECT 'COM-' || printf('%04d', COALESCE(MAX(id), 0) + 1) AS n FROM committee_members"
+    );
+    const { id } = run(
+      `INSERT INTO committee_members
+        (committee_code, member_id, name, position, committee_type, phone, email, address, term_start, term_end, status, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        num,
+        data.memberId ?? null,
+        data.name ?? "",
+        data.position ?? "Committee Member",
+        data.committeeType ?? "Executive",
+        data.phone ?? "",
+        data.email ?? "",
+        data.address ?? "",
+        data.termStart ?? null,
+        data.termEnd ?? null,
+        data.status ?? "Active",
+        data.notes ?? ""
+      ]
+    );
+    return { id, committeeCode: num };
+  },
+  update: (id: number, data: any) =>
+    run(
+      `UPDATE committee_members SET member_id = ?, name = ?, position = ?, committee_type = ?, phone = ?, email = ?, address = ?, term_start = ?, term_end = ?, status = ?, notes = ?, updated_at = datetime('now') WHERE id = ?`,
+      [
+        data.memberId ?? null,
+        data.name ?? "",
+        data.position ?? "Committee Member",
+        data.committeeType ?? "Executive",
+        data.phone ?? "",
+        data.email ?? "",
+        data.address ?? "",
+        data.termStart ?? null,
+        data.termEnd ?? null,
+        data.status ?? "Active",
+        data.notes ?? "",
+        id
+      ]
+    ),
+  archive: (id: number, reason: string, userId: number) =>
+    run(
+      `UPDATE committee_members SET archive_state = 1, archive_source = 'manual', archived_at = datetime('now'), archived_by = ?, archive_reason = ?, status = 'Past', updated_at = datetime('now') WHERE id = ?`,
+      [userId, reason, id]
+    ),
+  restore: (id: number, userId: number) =>
+    run(
+      `UPDATE committee_members SET archive_state = 0, archive_source = NULL, archived_at = NULL, archived_by = ?, archive_reason = NULL, status = 'Active', updated_at = datetime('now') WHERE id = ?`,
+      [userId, id]
+    ),
+  summary: () => {
+    const activeCount = scalar<number>("SELECT COUNT(*) AS v FROM committee_members WHERE archive_state = 0 AND status = 'Active'", []);
+    // Terms ending within 30 days (term_end between today and today+30 days).
+    const endingSoon = scalar<number>(
+      `SELECT COUNT(*) AS v FROM committee_members
+       WHERE archive_state = 0 AND status = 'Active' AND term_end IS NOT NULL
+         AND term_end >= date('now') AND term_end <= date('now', '+30 days')`,
+      []
+    );
+    const totalCount = scalar<number>("SELECT COUNT(*) AS v FROM committee_members", []);
+    return { activeCount, endingSoon, totalCount };
+  },
+  history: (committeeId: number, limit = 100) =>
+    all<any>(
+      `SELECT * FROM record_history WHERE entity_type = ? AND entity_id = ? ORDER BY changed_at DESC, id DESC LIMIT ?`,
+      ["committee", committeeId, limit]
     ),
 };
 

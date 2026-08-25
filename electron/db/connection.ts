@@ -168,6 +168,51 @@ function ensureRuntimeSchema(database: DB) {
     addColumn(database, "staff", "archive_reason", "TEXT");
     addColumn(database, "staff", "updated_at", "TEXT");
   }
+
+  // Committee module tables — created idempotently so the module works on any DB.
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS committee_members (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      committee_code TEXT NOT NULL UNIQUE,
+      member_id INTEGER,
+      name TEXT NOT NULL,
+      position TEXT NOT NULL DEFAULT 'Committee Member',
+      committee_type TEXT NOT NULL DEFAULT 'Executive',
+      phone TEXT DEFAULT '',
+      email TEXT DEFAULT '',
+      address TEXT DEFAULT '',
+      term_start TEXT,
+      term_end TEXT,
+      status TEXT NOT NULL DEFAULT 'Active',
+      notes TEXT DEFAULT '',
+      archive_state INTEGER NOT NULL DEFAULT 0,
+      archive_source TEXT,
+      archived_at TEXT,
+      archived_by INTEGER,
+      archive_reason TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT,
+      FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_committee_status ON committee_members(status, archive_state);
+    CREATE INDEX IF NOT EXISTS idx_committee_position ON committee_members(position);
+    CREATE INDEX IF NOT EXISTS idx_committee_type ON committee_members(committee_type);
+    CREATE INDEX IF NOT EXISTS idx_committee_term_end ON committee_members(term_end);
+  `);
+  if (allTables.has("committee_members")) {
+    addColumn(database, "committee_members", "member_id", "INTEGER");
+    addColumn(database, "committee_members", "position", "TEXT NOT NULL DEFAULT 'Committee Member'");
+    addColumn(database, "committee_members", "committee_type", "TEXT NOT NULL DEFAULT 'Executive'");
+    addColumn(database, "committee_members", "term_start", "TEXT");
+    addColumn(database, "committee_members", "term_end", "TEXT");
+    addColumn(database, "committee_members", "status", "TEXT NOT NULL DEFAULT 'Active'");
+    addColumn(database, "committee_members", "archive_state", "INTEGER NOT NULL DEFAULT 0");
+    addColumn(database, "committee_members", "archive_source", "TEXT");
+    addColumn(database, "committee_members", "archived_at", "TEXT");
+    addColumn(database, "committee_members", "archived_by", "INTEGER");
+    addColumn(database, "committee_members", "archive_reason", "TEXT");
+    addColumn(database, "committee_members", "updated_at", "TEXT");
+  }
 }
 
 function recoverEmptyDatabase(database: DB): DB {

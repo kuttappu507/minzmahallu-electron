@@ -17,6 +17,7 @@ import { Dashboard } from "@/pages/Dashboard";
 import { Families } from "@/pages/Families";
 import { Members } from "@/pages/Members";
 import { Staff } from "@/pages/Staff";
+import { Committee } from "@/pages/Committee";
 import { Subscriptions } from "@/pages/Subscriptions";
 import { Donations } from "@/pages/Donations";
 import { Accounting } from "@/pages/Accounting";
@@ -68,7 +69,7 @@ function ProtectedLayout() {
   const location = useLocation();
   useEffect(() => { document.body.classList.toggle("route-accounting", location.pathname === "/accounting"); return () => document.body.classList.remove("route-accounting"); }, [location.pathname]);
   return <div id="app" className="app-shell"><Sidebar /><div className="maincol"><Topbar /><div id="content"><Routes>
-    <Route path="/" element={<Dashboard />} /><Route path="/families" element={<Families />} /><Route path="/members" element={<Members />} /><Route path="/staff" element={<Staff />} /><Route path="/subscriptions" element={<Subscriptions />} /><Route path="/donations" element={<Donations />} /><Route path="/accounting" element={<Accounting />} /><Route path="/marriages" element={<Marriages />} /><Route path="/deaths" element={<Deaths />} /><Route path="/welfare" element={<Welfare />} /><Route path="/certificates" element={<Certificates />} /><Route path="/tokens" element={<TokenEvents />} /><Route path="/tokens/manage" element={<TokensWithPrint />} /><Route path="/reports" element={<Reports />} /><Route path="/settings" element={<Settings />} /><Route path="/users" element={<Users />} /><Route path="/audit" element={<AuditLog />} /><Route path="/backup" element={<Backup />} />
+    <Route path="/" element={<Dashboard />} /><Route path="/families" element={<Families />} /><Route path="/members" element={<Members />} /><Route path="/staff" element={<Staff />} /><Route path="/committee" element={<Committee />} /><Route path="/subscriptions" element={<Subscriptions />} /><Route path="/donations" element={<Donations />} /><Route path="/accounting" element={<Accounting />} /><Route path="/marriages" element={<Marriages />} /><Route path="/deaths" element={<Deaths />} /><Route path="/welfare" element={<Welfare />} /><Route path="/certificates" element={<Certificates />} /><Route path="/tokens" element={<TokenEvents />} /><Route path="/tokens/manage" element={<TokensWithPrint />} /><Route path="/reports" element={<Reports />} /><Route path="/settings" element={<Settings />} /><Route path="/users" element={<Users />} /><Route path="/audit" element={<AuditLog />} /><Route path="/backup" element={<Backup />} />
   </Routes></div></div></div>;
 }
 
