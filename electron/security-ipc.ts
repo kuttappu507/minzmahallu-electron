@@ -162,4 +162,20 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("tokens:cancel", (tokenId: number, reason: string) => { actor(); return data.tokens.cancel(tokenId, reason); });
   register("tokens:replace", (tokenId: number, reason: string) => data.tokens.replace(tokenId, reason, actor().id));
   register("tokens:removeEvent", () => { admin(); throw new Error("Token events cannot be permanently deleted after creation."); });
+
+  // ================= STAFF =================
+  // All staff read operations require an authenticated user; archive/restore
+  // and salary payments require Administrator (financial impact).
+  register("staff:list", (filter: any) => { actor(); return data.staff.list(filter || {}); });
+  register("staff:get", (id: number) => { actor(); return data.staff.get(id); });
+  register("staff:roles", () => { actor(); return data.staff.roles(); });
+  register("staff:create", (d: any) => { const a = actor(); const r = data.staff.create({ ...d, createdBy: a.id }); try { data.audit.log(a.id, a.username, "ADD", "staff", r.id, `Staff ${r.staffCode} created (${d.role || 'Staff'})`, ""); } catch {} return r; });
+  register("staff:update", (id: number, d: any) => { const a = actor(); const r = data.staff.update(id, d); try { data.audit.log(a.id, a.username, "EDIT", "staff", id, `Staff updated: ${d.name || ''}`, ""); } catch {} return r; });
+  register("staff:archive", (id: number, reason: string) => { const a = admin(); const r = data.staff.archive(id, reason, a.id); try { data.audit.log(a.id, a.username, "ARCHIVE", "staff", id, `Staff archived: ${reason}`, ""); } catch {} return r; });
+  register("staff:restore", (id: number) => { const a = admin(); const r = data.staff.restore(id, a.id); try { data.audit.log(a.id, a.username, "RESTORE", "staff", id, `Staff restored`, ""); } catch {} return r; });
+  register("staff:history", (id: number) => { actor(); return data.staff.history(id); });
+  register("staff:listPayments", (filter: any) => { actor(); return data.staff.listPayments(filter || {}); });
+  register("staff:paySalary", (d: any) => { const a = admin(); const r = data.staff.paySalary(d, a.id); try { data.audit.log(a.id, a.username, "PAY_SALARY", "staff", d.staffId, `Salary paid: ${d.amount} for ${d.periodMonth}/${d.periodYear}`, ""); } catch {} return r; });
+  register("staff:cancelPayment", (id: number) => { const a = admin(); const r = data.staff.cancelPayment(id); try { data.audit.log(a.id, a.username, "CANCEL_SALARY", "staff_payments", id, `Salary payment cancelled`, ""); } catch {} return r; });
+  register("staff:salarySummary", (year?: number) => { actor(); return data.staff.salarySummary(year || new Date().getFullYear()); });
 }

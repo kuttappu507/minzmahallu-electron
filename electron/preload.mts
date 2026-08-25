@@ -19,7 +19,21 @@ const api = {
   backup: { create:(d?:string)=>ipcRenderer.invoke("backup:create",d), list:()=>ipcRenderer.invoke("backup:list"), verify:(f:string)=>ipcRenderer.invoke("backup:verify",f), restore:(f:string)=>ipcRenderer.invoke("backup:restore",f) },
   dialog: { showSave:(n:string,f:any[])=>ipcRenderer.invoke("dialog:showSave",n,f) },
   win: { minimize:()=>ipcRenderer.invoke("win:minimize"), maximize:()=>ipcRenderer.invoke("win:maximize"), close:()=>ipcRenderer.invoke("win:close") },
-  tokens: { listEvents:()=>ipcRenderer.invoke("tokens:listEvents"), getEvent:(id:number)=>ipcRenderer.invoke("tokens:getEvent",id), createEvent:(d:any)=>ipcRenderer.invoke("tokens:createEvent",d), updateEvent:(id:number,d:any)=>ipcRenderer.invoke("tokens:updateEvent",id,d),removeEvent:(id:number)=>ipcRenderer.invoke("tokens:removeEvent",id),  list:(f?:any)=>ipcRenderer.invoke("tokens:list",f), checkExisting:(id:number)=>ipcRenderer.invoke("tokens:checkExisting",id), generate:(id:number,fs:number[])=>ipcRenderer.invoke("tokens:generate",id,fs), collect:(id:number)=>ipcRenderer.invoke("tokens:collect",id), cancel:(id:number,r:string)=>ipcRenderer.invoke("tokens:cancel",id,r), replace:(id:number,r:string)=>ipcRenderer.invoke("tokens:replace",id,r), remove:(id:number,r:string)=>ipcRenderer.invoke("tokens:remove",id,r), stats:(id:number)=>ipcRenderer.invoke("tokens:stats",id), listForPdf:(id:number)=>ipcRenderer.invoke("tokens:listForPdf",id), generateTokenPdf:(id:number)=>ipcRenderer.invoke("tokens:generateTokenPdf",id), generateCollectionSheet:(id:number)=>ipcRenderer.invoke("tokens:generateCollectionSheet",id) }
+  tokens: { listEvents:()=>ipcRenderer.invoke("tokens:listEvents"), getEvent:(id:number)=>ipcRenderer.invoke("tokens:getEvent",id), createEvent:(d:any)=>ipcRenderer.invoke("tokens:createEvent",d), updateEvent:(id:number,d:any)=>ipcRenderer.invoke("tokens:updateEvent",id,d),removeEvent:(id:number)=>ipcRenderer.invoke("tokens:removeEvent",id),  list:(f?:any)=>ipcRenderer.invoke("tokens:list",f), checkExisting:(id:number)=>ipcRenderer.invoke("tokens:checkExisting",id), generate:(id:number,fs:number[])=>ipcRenderer.invoke("tokens:generate",id,fs), collect:(id:number)=>ipcRenderer.invoke("tokens:collect",id), cancel:(id:number,r:string)=>ipcRenderer.invoke("tokens:cancel",id,r), replace:(id:number,r:string)=>ipcRenderer.invoke("tokens:replace",id,r), remove:(id:number,r:string)=>ipcRenderer.invoke("tokens:remove",id,r), stats:(id:number)=>ipcRenderer.invoke("tokens:stats",id), listForPdf:(id:number)=>ipcRenderer.invoke("tokens:listForPdf",id), generateTokenPdf:(id:number)=>ipcRenderer.invoke("tokens:generateTokenPdf",id), generateCollectionSheet:(id:number)=>ipcRenderer.invoke("tokens:generateCollectionSheet",id) },
+  staff: {
+    list: (f?: any) => ipcRenderer.invoke("staff:list", f),
+    get: (id: number) => ipcRenderer.invoke("staff:get", id),
+    roles: () => ipcRenderer.invoke("staff:roles"),
+    create: (d: any) => ipcRenderer.invoke("staff:create", d),
+    update: (id: number, d: any) => ipcRenderer.invoke("staff:update", id, d),
+    archive: (id: number, reason: string) => ipcRenderer.invoke("staff:archive", id, reason),
+    restore: (id: number) => ipcRenderer.invoke("staff:restore", id),
+    history: (id: number) => ipcRenderer.invoke("staff:history", id),
+    listPayments: (f?: any) => ipcRenderer.invoke("staff:listPayments", f),
+    paySalary: (d: any) => ipcRenderer.invoke("staff:paySalary", d),
+    cancelPayment: (id: number) => ipcRenderer.invoke("staff:cancelPayment", id),
+    salarySummary: (year?: number) => ipcRenderer.invoke("staff:salarySummary", year)
+  }
 };
 
 contextBridge.exposeInMainWorld("mms", api);

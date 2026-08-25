@@ -108,6 +108,66 @@ function ensureRuntimeSchema(database: DB) {
     CREATE TABLE IF NOT EXISTS family_moves (id INTEGER PRIMARY KEY AUTOINCREMENT, member_id INTEGER NOT NULL, old_family_id INTEGER NOT NULL, new_family_id INTEGER NOT NULL, move_type TEXT NOT NULL CHECK(move_type IN ('ExistingFamily','NewFamily')), reason TEXT NOT NULL, moved_at TEXT NOT NULL DEFAULT(datetime('now')), moved_by INTEGER, FOREIGN KEY(member_id) REFERENCES members(id) ON DELETE RESTRICT, FOREIGN KEY(old_family_id) REFERENCES families(id) ON DELETE RESTRICT, FOREIGN KEY(new_family_id) REFERENCES families(id) ON DELETE RESTRICT, FOREIGN KEY(moved_by) REFERENCES users(id));
     CREATE INDEX IF NOT EXISTS idx_family_moves_member ON family_moves(member_id, moved_at DESC);
   `);
+
+  // Staff module tables — created here (idempotent) so the module works on any
+  // database version, even before V024 migration has a chance to run.
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS staff (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      staff_code TEXT NOT NULL UNIQUE,
+      member_id INTEGER,
+      name TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'Staff',
+      phone TEXT DEFAULT '',
+      email TEXT DEFAULT '',
+      address TEXT DEFAULT '',
+      joined_date TEXT,
+      salary REAL NOT NULL DEFAULT 0,
+      payment_frequency TEXT NOT NULL DEFAULT 'Monthly',
+      status TEXT NOT NULL DEFAULT 'Active',
+      notes TEXT DEFAULT '',
+      archive_state INTEGER NOT NULL DEFAULT 0,
+      archive_source TEXT,
+      archived_at TEXT,
+      archived_by INTEGER,
+      archive_reason TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT,
+      FOREIGN KEY(member_id) REFERENCES members(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_staff_status ON staff(status, archive_state);
+    CREATE INDEX IF NOT EXISTS idx_staff_role ON staff(role);
+    CREATE TABLE IF NOT EXISTS staff_payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      staff_id INTEGER NOT NULL,
+      period_month INTEGER NOT NULL,
+      period_year INTEGER NOT NULL,
+      amount REAL NOT NULL DEFAULT 0,
+      payment_date TEXT NOT NULL DEFAULT (date('now')),
+      payment_method TEXT DEFAULT 'Cash',
+      transaction_ref TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'Paid',
+      notes TEXT DEFAULT '',
+      paid_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY(staff_id) REFERENCES staff(id) ON DELETE RESTRICT,
+      FOREIGN KEY(paid_by) REFERENCES users(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_staff_payments_staff ON staff_payments(staff_id, period_year, period_month);
+    CREATE INDEX IF NOT EXISTS idx_staff_payments_period ON staff_payments(period_year, period_month);
+  `);
+  const allTables = new Set((database.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>).map(x => x.name));
+  if (allTables.has("staff")) {
+    addColumn(database, "staff", "member_id", "INTEGER");
+    addColumn(database, "staff", "role", "TEXT NOT NULL DEFAULT 'Staff'");
+    addColumn(database, "staff", "payment_frequency", "TEXT NOT NULL DEFAULT 'Monthly'");
+    addColumn(database, "staff", "archive_state", "INTEGER NOT NULL DEFAULT 0");
+    addColumn(database, "staff", "archive_source", "TEXT");
+    addColumn(database, "staff", "archived_at", "TEXT");
+    addColumn(database, "staff", "archived_by", "INTEGER");
+    addColumn(database, "staff", "archive_reason", "TEXT");
+    addColumn(database, "staff", "updated_at", "TEXT");
+  }
 }
 
 function recoverEmptyDatabase(database: DB): DB {
