@@ -1,6 +1,11 @@
--- V015: runtime CRUD integrity reconciliation.
+-- V023 (formerly V015_runtime_crud_integrity): runtime CRUD integrity reconciliation.
+-- Renamed from V015 to fix a version-number collision that caused this migration to be
+-- silently skipped on existing databases (V015_complete_large_demo.sql won the
+-- alphabetical sort and consumed version 15).
 -- Runtime schema reconciliation creates optional settings columns before
 -- migrations, so this migration focuses on the certificate table rebuild.
+-- On databases that already ran V012_add_marriage_noc_certificate.sql, this rebuild
+-- is a structural no-op (creates an identical table, copies data, drops, renames).
 
 CREATE TABLE certificates_v015 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

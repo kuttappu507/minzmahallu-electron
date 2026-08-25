@@ -16,6 +16,8 @@
     "package": "npm run build && electron-builder --publish never",
     "package:win": "npm run build && electron-builder --win nsis portable --publish never",
     "package:portable": "npm run build && electron-builder --win portable --publish never",
+    "package:mac": "npm run build && electron-builder --mac dmg zip --publish never",
+    "package:linux": "npm run build && electron-builder --linux AppImage deb --publish never",
     "lint": "eslint .",
     "audit:i18n": "node scripts/i18n-audit.mjs"
   },
@@ -74,6 +76,21 @@
     "buildDependenciesFromSource": false,
     "win": { "target": ["nsis", "portable"], "icon": "resources/icon.png" },
     "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "perMachine": false },
-    "portable": { "artifactName": "MMS-React-Portable-${version}.exe" }
+    "portable": { "artifactName": "MMS-React-Portable-${version}.exe" },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "icon": "resources/icon.png",
+      "category": "public.app-category.productivity",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
+    },
+    "dmg": { "artifactName": "MMS-React-macOS-${version}.${ext}" },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "resources/icon.png",
+      "category": "Office",
+      "maintainer": "MMS"
+    },
+    "AppImage": { "artifactName": "MMS-React-Linux-${version}.${ext}" }
   }
 }

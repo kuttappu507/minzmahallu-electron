@@ -76,11 +76,22 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("deaths:create", (d: any) => { const a = actor(); return data.deaths.create({ ...d, createdBy: a.id }); });
   register("deaths:update", (id: number, d: any) => { const a = actor(); return data.deaths.update(id, d); });
   register("welfare:create", (d: any) => { const a = actor(); return data.welfare.create({ ...d, createdBy: a.id }); });
-  register("welfare:update", (id: number, d: any) => { const a = actor(); return data.welfare.update(id, d); });
+  register("welfare:update", (id: number, d: any) => {
+    const a = actor();
+    // Sensitive welfare fields (amount_approved, status transitions, family_id)
+    // require Administrator. Non-admins may only edit descriptive fields like
+    // applicant_name / reason / remarks on a still-Pending request — but to keep the
+    // contract simple and safe, route all welfare edits through admin.
+    admin();
+    return data.welfare.update(id, d);
+  });
+  register("welfare:remove", () => { admin(); throw new Error("Welfare records cannot be permanently deleted. Correct or revoke the record instead."); });
+  register("welfare:list", (filter: any) => { actor(); return data.welfare.list(filter || {}); });
+  register("welfare:get", (id: number) => { actor(); return data.welfare.get(id); });
+  register("welfare:categories", () => { actor(); return data.welfare.categories(); });
   register("welfare:approve", (id: number, amount: number, remarks: string) => { const a = admin(); return data.welfare.approve(id, amount, remarks, a.id); });
   register("welfare:reject", (id: number, reason: string) => { const a = admin(); return data.welfare.reject(id, reason, a.id); });
   register("welfare:disburse", (id: number) => { const a = admin(); return data.welfare.disburse(id, a.id); });
-  register("welfare:remove", () => { admin(); throw new Error("Welfare records cannot be permanently deleted. Correct or revoke the record instead."); });
   register("certificates:issueMembership", (code: string) => data.certificates.issueMembership(code, actor().id));
   register("certificates:issueResidence", (familyNum: string, issuedTo: string) => data.certificates.issueResidence(familyNum, issuedTo, actor().id));
   register("certificates:issueMarriage", (marriageNum: string) => data.certificates.issueMarriage(marriageNum, actor().id));
@@ -93,7 +104,57 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("users:resetPassword", (id: number, p: string) => { const a = admin(); validatePassword(p); changePassword(id, p); try { data.audit.log(a.id, a.username, "PASSWORD_RESET", "users", id, "Administrator reset user password", ""); } catch {} return { success: true }; });
   register("users:remove", (id: number) => { admin(); return data.users.remove(id); });
   register("audit:list", (filter: any) => { actor(); return data.audit.list(filter || {}); });
+  register("settings:load", () => { actor(); return data.settings.load(); });
   register("settings:save", (d: any) => { const a = admin(); return data.settings.save({ ...d, updatedBy: a.id }); });
+  // Read-side IPC guards — every handler below requires an authenticated actor.
+  // The renderer-side ProtectedLayout already redirects unauthenticated users to
+  // /login, but defence-in-depth: if an attacker drops XSS into the renderer or
+  // calls window.mms.* directly from devtools, the main process must still refuse.
+  register("families:list", (filter: any) => { actor(); return data.families.list(filter || {}); });
+  register("families:get", (id: number) => { actor(); return data.families.get(id); });
+  register("members:list", (filter: any) => { actor(); return data.members.list(filter || {}); });
+  register("members:get", (id: number) => { actor(); return data.members.get(id); });
+  register("members:relationships", () => { actor(); return data.members.relationships(); });
+  register("subscriptions:list", (filter: any) => { actor(); return data.subscriptions.list(filter || {}); });
+  register("subscriptions:get", (id: number) => { actor(); return data.subscriptions.get(id); });
+  register("subscriptions:markOverdue", () => { actor(); return data.subscriptions.markOverdue(); });
+  register("subscriptions:totalCollected", () => { actor(); return data.subscriptions.totalCollected(); });
+  register("subscriptions:totalPending", () => { actor(); return data.subscriptions.totalPending(); });
+  register("subscriptions:plans", () => { actor(); return data.subscriptions.plans(); });
+  register("subscriptions:ensureCurrentMonth", () => { actor(); return data.subscriptions.ensureCurrentMonth(); });
+  register("donations:list", (filter: any) => { actor(); return data.donations.list(filter || {}); });
+  register("donations:get", (id: number) => { actor(); return data.donations.get(id); });
+  register("donations:categories", () => { actor(); return data.donations.categories(); });
+  register("donations:categoriesAll", () => { actor(); return data.donations.categoriesAll(); });
+  register("donations:createCategory", (name: string, description: string) => { admin(); return data.donations.createCategory(name, description); });
+  register("donations:updateCategory", (id: number, name: string, description: string) => { admin(); return data.donations.updateCategory(id, name, description); });
+  register("donations:setCategoryActive", (id: number, active: boolean) => { admin(); return data.donations.setCategoryActive(id, active); });
+  register("donations:removeCategory", (id: number) => { admin(); return data.donations.removeCategory(id); });
+  register("donations:memberBalance", (familyId: number, memberId: number) => { actor(); return data.donations.memberBalance(familyId, memberId); });
+  register("donations:totalThisMonth", () => { actor(); return data.donations.totalThisMonth(); });
+  register("accounting:list", (filter: any) => { actor(); return data.accounting.list(filter || {}); });
+  register("accounting:get", (id: number) => { actor(); return data.accounting.get(id); });
+  register("accounting:totalIncome", () => { actor(); return data.accounting.totalIncome(); });
+  register("accounting:totalExpense", () => { actor(); return data.accounting.totalExpense(); });
+  register("accounting:balance", () => { actor(); return data.accounting.balance(); });
+  register("marriages:list", (filter: any) => { actor(); return data.marriages.list(filter || {}); });
+  register("marriages:get", (id: number) => { actor(); return data.marriages.get(id); });
+  register("deaths:list", (filter: any) => { actor(); return data.deaths.list(filter || {}); });
+  register("deaths:get", (id: number) => { actor(); return data.deaths.get(id); });
+  register("certificates:list", (filter: any) => { actor(); return data.certificates.list(filter || {}); });
+  register("dashboard:summary", () => { actor(); return data.dashboard.summary(); });
+  register("dashboard:incomeThisMonth", () => { actor(); return data.dashboard.incomeThisMonth(); });
+  register("dashboard:expenseThisMonth", () => { actor(); return data.dashboard.expenseThisMonth(); });
+  register("dashboard:balance", () => { actor(); return data.dashboard.balance(); });
+  register("dashboard:monthlyCollections", (m?: number) => { actor(); return data.dashboard.monthlyCollections(m || 6); });
+  register("dashboard:monthlyDonations", (m?: number) => { actor(); return data.dashboard.monthlyDonations(m || 6); });
+  register("dashboard:incomeVsExpense", (m?: number) => { actor(); return data.dashboard.incomeVsExpense(m || 6); });
+  register("dashboard:recentActivity", (l?: number) => { actor(); return data.dashboard.recentActivity(l || 10); });
+  register("tokens:listEvents", () => { actor(); return data.tokens.listEvents(); });
+  register("tokens:getEvent", (id: number) => { actor(); return data.tokens.getEvent(id); });
+  register("tokens:list", (filter: any) => { actor(); return data.tokens.list(filter || {}); });
+  register("tokens:checkExisting", (eventId: number) => { actor(); return Array.from(data.tokens.checkExisting(eventId)); });
+  register("tokens:stats", (eventId: number) => { actor(); return data.tokens.stats(eventId); });
   register("tokens:createEvent", (d: any) => { actor(); return data.tokens.createEvent(d); });
   register("tokens:updateEvent", (id: number, d: any) => { actor(); return data.tokens.updateEvent(id, d); });
   register("tokens:generate", (eventId: number, familyIds: number[]) => data.tokens.generate(eventId, familyIds, actor().id));

@@ -14,6 +14,8 @@ function makeInitials(name:string){if(!name)return"?";const p=name.trim().split(
 function seededAdmin(): UserRow|undefined { return one<UserRow>("SELECT id,username,full_name,password_hash,password_salt,role,is_active,is_locked,failed_attempts,locked_until,must_change_pwd FROM users WHERE id=1 AND username='admin' AND password_hash=?",[SEEDED_ADMIN_HASH]); }
 export function validatePassword(password:string){if(!password||password.length<8)throw new Error("Password must be at least 8 characters");if(!/[A-Z]/.test(password)||!/[a-z]/.test(password)||!/\d/.test(password)||!/[^A-Za-z0-9]/.test(password))throw new Error("Password must include uppercase, lowercase, digit, and special character");}
 function hashPassword(password:string){validatePassword(password);const salt=crypto.randomBytes(16),iter=200000,hash=crypto.pbkdf2Sync(password,salt,iter,32,"sha256");return {stored:`pbkdf2_sha256$${iter}$${salt.toString("base64")}$${hash.toString("base64")}`,salt:salt.toString("base64")};}
+/** Shared password-hashing helper used by both auth.service and users.service to keep a single source of truth. */
+export function hashPasswordForStorage(password:string){return hashPassword(password);}
 export function needsInitialSetup(){
   const count=Number(scalar<number>("SELECT COUNT(*) FROM users")||0);
   return count===0 || (!!seededAdmin() && count===1);
