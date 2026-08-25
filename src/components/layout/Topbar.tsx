@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Moon, Sun, Bell, Database, ChevronDown, User, Settings, LogOut, KeyRound, ShieldCheck } from "lucide-react";
+import { Moon, Sun, Database, ChevronDown, User, Settings, LogOut, KeyRound, ShieldCheck } from "lucide-react";
 import { useTheme } from "@/lib/theme";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/lib/auth";
@@ -9,7 +9,7 @@ import { Dialog, Button, Input, Label, Badge } from "@/components/ui";
 import { GlobalSearch } from "@/components/layout/GlobalSearch";
 
 const PAGE_TITLE_KEYS: Record<string, string> = {
-  "/": "nav_dashboard", "/families": "nav_families", "/members": "nav_members", "/subscriptions": "nav_subscriptions", "/donations": "nav_donations", "/accounting": "nav_accounting", "/marriages": "nav_marriage", "/deaths": "nav_death", "/welfare": "nav_welfare", "/certificates": "nav_certificates", "/tokens": "nav_tokens", "/reports": "nav_reports", "/settings": "nav_settings", "/users": "nav_users", "/audit": "nav_audit", "/backup": "nav_backup",
+  "/": "nav_dashboard", "/families": "nav_families", "/members": "nav_members", "/staff": "nav_staff", "/committee": "nav_committee", "/subscriptions": "nav_subscriptions", "/donations": "nav_donations", "/accounting": "nav_accounting", "/marriages": "nav_marriage", "/deaths": "nav_death", "/welfare": "nav_welfare", "/certificates": "nav_certificates", "/tokens": "nav_tokens", "/reports": "nav_reports", "/settings": "nav_settings", "/users": "nav_users", "/audit": "nav_audit", "/backup": "nav_backup",
 };
 
 export function Topbar() {
@@ -20,8 +20,6 @@ export function Topbar() {
   const navigate = useNavigate();
   const pageTitle = t(PAGE_TITLE_KEYS[location.pathname] || "nav_dashboard");
   const initials = user?.initials ?? "?";
-  const [notifOpen, setNotifOpen] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [newPwd, setNewPwd] = useState("");
@@ -29,31 +27,10 @@ export function Topbar() {
   const [savingPwd, setSavingPwd] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const loadNotifications = async () => {
-    try {
-      const entries = await window.mms.audit.list({ page: 1, pageSize: 5 });
-      setNotifications((entries.rows || []).slice(0, 5));
-    } catch (e) {
-      console.error("Failed to load notifications:", e);
-    }
-  };
-
-  // Keep the topbar feed live while the app is open. The audit API is local,
-  // so a short poll is reliable even when changes originate from another page.
+  // Close avatar dropdown on outside-click or Escape.
   useEffect(() => {
-    loadNotifications();
-    const refresh = window.setInterval(loadNotifications, 3000);
-    const onFocus = () => loadNotifications();
-    window.addEventListener("focus", onFocus);
-    return () => {
-      window.clearInterval(refresh);
-      window.removeEventListener("focus", onFocus);
-    };
-  }, [location.pathname]);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { const target = e.target as HTMLElement; if (!target.closest("[data-dropdown]") && !target.closest("[data-global-search]")) { setNotifOpen(false); setAvatarOpen(false); } };
-    const escHandler = (e: KeyboardEvent) => { if (e.key === "Escape") { setNotifOpen(false); setAvatarOpen(false); } };
+    const handler = (e: MouseEvent) => { const target = e.target as HTMLElement; if (!target.closest("[data-dropdown]") && !target.closest("[data-global-search]")) { setAvatarOpen(false); } };
+    const escHandler = (e: KeyboardEvent) => { if (e.key === "Escape") { setAvatarOpen(false); } };
     document.addEventListener("mousedown", handler); document.addEventListener("keydown", escHandler);
     return () => { document.removeEventListener("mousedown", handler); document.removeEventListener("keydown", escHandler); };
   }, []);
@@ -83,12 +60,6 @@ export function Topbar() {
   };
 
   const handleLogout = async () => { setAvatarOpen(false); await logout(); navigate("/login"); };
-  const formatTime = (ts: string) => {
-    if (!ts) return ""; const d = new Date(ts); const diff = (Date.now() - d.getTime()) / 1000;
-    if (diff < 60) return t("tb_just_now"); if (diff < 3600) return `${Math.floor(diff / 60)}m ${t("tb_ago")}`; if (diff < 86400) return `${Math.floor(diff / 3600)}h ${t("tb_ago")}`;
-    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
-  };
-  const notifTintClass = (action: string) => { const a = (action || "").toUpperCase(); if (a.includes("CREATE")) return "create"; if (a.includes("DELETE")) return "delete"; if (a.includes("LOGIN")) return "login"; return "other"; };
 
   return <>
     <header className="topbar">
@@ -96,11 +67,8 @@ export function Topbar() {
       <div className="tb-right">
         <div className="langseg"><button type="button" className={lang === "en" ? "on" : ""} onClick={() => setLang("en")} title={t("set_lang_english")}>EN</button><button type="button" className={lang === "ml" ? "on" : ""} onClick={() => setLang("ml")} title="മലയാളം">മല</button></div>
         <button className="ibtn" onClick={toggle} title={t("tb_toggle_theme")}>{theme === "dark" ? <Sun size={17} strokeWidth={2} /> : <Moon size={17} strokeWidth={2} />}</button>
-        <div data-dropdown className="relative"><button className="ibtn" title={t("tb_notifications")} onClick={(e) => { e.stopPropagation(); setNotifOpen(!notifOpen); setAvatarOpen(false); if (!notifOpen) loadNotifications(); }}><Bell size={17} strokeWidth={2} />{notifications.length > 0 && <span className="notif-dot">{notifications.length}</span>}</button>
-          {notifOpen && <div className="dropdown-fixed notif-dropdown"><div className="dropdown-head"><b>{t("tb_notifications")}</b><button onClick={(e) => { e.stopPropagation(); loadNotifications(); }}>{t("action_refresh")}</button></div>{notifications.length === 0 ? <div className="dropdown-empty">{t("tb_no_notifications")}</div> : notifications.map((n, i) => <div key={n.id || i} className="notif-row" onClick={() => { setNotifOpen(false); navigate("/audit"); }}><div className={`notif-ic ${notifTintClass(n.action)}`}><Bell size={14} /></div><div className="notif-body"><b>{n.description || n.action}</b><p>{n.username} · {n.module}</p></div><time className="notif-time">{formatTime(n.created_at)}</time></div>)}</div>}
-        </div>
         <button className="ibtn" title={t("tb_quick_backup")} onClick={handleQuickBackup}><Database size={17} strokeWidth={2} /></button><div className="tbdiv" />
-        <div data-dropdown className="relative"><button className="avbtn" onClick={(e) => { e.stopPropagation(); setAvatarOpen(!avatarOpen); setNotifOpen(false); }}><span className="av">{initials}</span><b>{user?.username ?? "—"}</b><ChevronDown size={14} className="chev" /></button>
+        <div data-dropdown className="relative"><button className="avbtn" onClick={(e) => { e.stopPropagation(); setAvatarOpen(!avatarOpen); }}><span className="av">{initials}</span><b>{user?.username ?? "—"}</b><ChevronDown size={14} className="chev" /></button>
           {avatarOpen && <div className="dropdown-fixed avatar-dropdown"><div className="dropdown-head"><b className="dlg-hero-title">{user?.fullName}</b><small className="dlg-hero-sub">{user?.role}</small></div><button className="menuit-btn" onClick={() => { setAvatarOpen(false); setProfileOpen(true); }}><User size={15} /> {t("tb_profile")}</button><button className="menuit-btn" onClick={() => { setAvatarOpen(false); navigate("/settings"); }}><Settings size={15} /> {t("tb_settings")}</button><div className="menu-divider" /><button className="menuit-btn danger" onClick={handleLogout}><LogOut size={15} /> {t("action_logout")}</button></div>}
         </div>
       </div>

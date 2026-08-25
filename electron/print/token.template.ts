@@ -1,19 +1,6 @@
 import { esc } from './utils.js';
+import { getAnekMalayalamCss } from './utils.js';
 import { getDB } from '../db/connection.js';
-import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-
-const require = createRequire(import.meta.url);
-
-function anekMalayalamFontDataUri(): string {
-  try {
-    const fontPath = require.resolve('@fontsource-variable/anek-malayalam/files/anek-malayalam-malayalam-wght-normal.woff2');
-    const font = readFileSync(fontPath);
-    return `data:font/woff2;base64,${font.toString('base64')}`;
-  } catch {
-    return '';
-  }
-}
 
 function activeSettings(): { language: 'en' | 'ml'; mahalluName: string } {
   try {
@@ -47,10 +34,11 @@ export function buildTokenSheetHtml(tokenList: any[], event: any): string {
     system: 'Mahallu Management System', card: 'CARD NO', head: 'HOUSE HEAD', family: 'FAMILY NO', ward: 'WARD NO', venue: 'VENUE'
   };
   const mahalluName = settings.mahalluName || 'MINZ MAHALLU';
-  const fontDataUri = anekMalayalamFontDataUri();
-  const anekFontFace = fontDataUri
-    ? `@font-face{font-family:'Anek Malayalam';src:url('${fontDataUri}') format('woff2');font-style:normal;font-weight:100 800;font-display:block;}`
-    : '';
+  // Embed the full Anek Malayalam Variable font CSS (all weights, latin +
+  // malayalam subsets) so Malayalam glyphs render correctly in the PDF
+  // BrowserWindow. Without this, Malayalam text falls back to "Segoe UI"/Arial
+  // which don't have the Malayalam unicode block.
+  const anekFontFace = getAnekMalayalamCss();
   const eventOffset = Math.max(0, Number(event?.id || 1) - 1);
   const makeCard = (t:any,cardIndex:number)=>{
     const p=paletteForTokenIndex(cardIndex + eventOffset);
@@ -70,7 +58,7 @@ export function buildTokenSheetHtml(tokenList: any[], event: any): string {
   };
   const pages: string[] = [];
   for (let i = 0; i < tokenList.length; i += 12) pages.push(`<section class="page">${tokenList.slice(i, i + 12).map((t,idx)=>makeCard(t,i+idx)).join('')}</section>`);
-  return `<!doctype html><html><head><meta charset="utf-8"><style>
-    @page{size:A4 portrait;margin:0}${anekFontFace}*{margin:0;padding:0;box-sizing:border-box}html,body{width:210mm;margin:0;padding:0;background:#fff}body{font-family:Poppins,"Anek Malayalam","Segoe UI",Arial,sans-serif;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}.page{width:210mm;height:297mm;padding:8mm;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(6,44.75mm);gap:2.5mm;page-break-after:always;break-after:page;overflow:hidden}.page:last-child{page-break-after:auto;break-after:auto}.card{border:.4mm solid var(--tokenLine);border-radius:2.5mm;overflow:hidden;display:flex;flex-direction:column;background:#fff}.head{background:var(--head);color:#fff;text-align:center;padding:1.6mm 2mm 1.3mm;border-bottom:.7mm solid var(--line);min-height:10mm}.head h1{font-size:10.5pt;font-weight:700;letter-spacing:.4px;text-transform:uppercase;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.head p{font-size:5.9pt;opacity:.92;margin-top:.5mm;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mid{flex:1;display:flex;align-items:stretch;gap:2mm;padding:1mm 2mm;background:#fff;overflow:hidden}.token{width:15.5mm;background:var(--tokenBg);border:.35mm solid var(--tokenLine);border-radius:2mm;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6mm;flex:none}.token small{font-size:4.6pt;font-weight:800;letter-spacing:.7px;color:var(--eventTime)}.token b{font-size:12pt;color:var(--tokenNum);letter-spacing:.5px}.family{flex:1;text-align:center;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:.5mm}.family .lbl{font-size:4.6pt;letter-spacing:.5px;color:#a8a29e;font-weight:700}.family h2{font-size:11.5pt;color:#1e293b;font-weight:800;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.family h3{font-size:8pt;color:#64748b;font-weight:600;letter-spacing:.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.regs{width:19.5mm;display:flex;flex-direction:column;justify-content:center;gap:1.1mm;flex:none}.regs div{background:var(--chipBg);border-radius:1.5mm;padding:.9mm 1.3mm;min-width:0}.regs .r1{border-left:.7mm solid var(--acc1)}.regs .r2{border-left:.7mm solid var(--acc2)}.regs small{display:block;font-size:4.6pt;letter-spacing:.3px;color:#64748b;font-weight:700;white-space:nowrap}.regs b{font-size:8.6pt;color:#1e293b;white-space:nowrap}.event{background:var(--eventBg);border-top:.3mm solid var(--eventLine);text-align:center;padding:1.3mm 2mm 1.5mm}.event h4{font-size:11.5pt;font-weight:800;color:var(--eventName);letter-spacing:.8px;text-transform:uppercase;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.event p{font-size:6.4pt;color:#475569;margin-top:.6mm;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.event p b{color:var(--eventTime)}.event .sep{color:var(--sep);margin:0 1.2mm}
+  return `<!doctype html><html lang="${ml?'ml':'en'}"><head><meta charset="utf-8"><style>
+    @page{size:A4 portrait;margin:0}${anekFontFace}*{margin:0;padding:0;box-sizing:border-box}html,body{width:210mm;margin:0;padding:0;background:#fff}body{font-family:${ml?'"Anek Malayalam Variable",':''}Poppins,"Anek Malayalam Variable","Segoe UI",Arial,sans-serif;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}.page{width:210mm;height:297mm;padding:8mm;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(6,44.75mm);gap:2.5mm;page-break-after:always;break-after:page;overflow:hidden}.page:last-child{page-break-after:auto;break-after:auto}.card{border:.4mm solid var(--tokenLine);border-radius:2.5mm;overflow:hidden;display:flex;flex-direction:column;background:#fff}.head{background:var(--head);color:#fff;text-align:center;padding:1.6mm 2mm 1.3mm;border-bottom:.7mm solid var(--line);min-height:10mm}.head h1{font-size:10.5pt;font-weight:700;letter-spacing:.4px;text-transform:uppercase;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.head p{font-size:5.9pt;opacity:.92;margin-top:.5mm;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mid{flex:1;display:flex;align-items:stretch;gap:2mm;padding:1mm 2mm;background:#fff;overflow:hidden}.token{width:15.5mm;background:var(--tokenBg);border:.35mm solid var(--tokenLine);border-radius:2mm;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6mm;flex:none}.token small{font-size:4.6pt;font-weight:800;letter-spacing:.7px;color:var(--eventTime)}.token b{font-size:12pt;color:var(--tokenNum);letter-spacing:.5px}.family{flex:1;text-align:center;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:.5mm}.family .lbl{font-size:4.6pt;letter-spacing:.5px;color:#a8a29e;font-weight:700}.family h2{font-size:11.5pt;color:#1e293b;font-weight:800;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.family h3{font-size:8pt;color:#64748b;font-weight:600;letter-spacing:.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.regs{width:19.5mm;display:flex;flex-direction:column;justify-content:center;gap:1.1mm;flex:none}.regs div{background:var(--chipBg);border-radius:1.5mm;padding:.9mm 1.3mm;min-width:0}.regs .r1{border-left:.7mm solid var(--acc1)}.regs .r2{border-left:.7mm solid var(--acc2)}.regs small{display:block;font-size:4.6pt;letter-spacing:.3px;color:#64748b;font-weight:700;white-space:nowrap}.regs b{font-size:8.6pt;color:#1e293b;white-space:nowrap}.event{background:var(--eventBg);border-top:.3mm solid var(--eventLine);text-align:center;padding:1.3mm 2mm 1.5mm}.event h4{font-size:11.5pt;font-weight:800;color:var(--eventName);letter-spacing:.8px;text-transform:uppercase;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.event p{font-size:6.4pt;color:#475569;margin-top:.6mm;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.event p b{color:var(--eventTime)}.event .sep{color:var(--sep);margin:0 1.2mm}
   </style></head><body>${pages.join('')}</body></html>`;
 }

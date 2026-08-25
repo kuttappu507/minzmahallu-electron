@@ -532,8 +532,6 @@ export const accounting = {
 
   unifiedSummary: (filter: { period?: string; from?: string; to?: string } = {}) => {
     const range = (accounting as any)._resolvePeriodRange(filter.period || "all", filter.from, filter.to) as { from: string; to: string } | null;
-    const dateClause = range ? "AND ledger_date >= ? AND ledger_date <= ?" : "";
-    const dateParams = range ? [range.from, range.to] : [];
 
     // Re-use the union from unifiedList but only compute aggregates. We build it
     // inline here (rather than calling unifiedList) so we don't ship all the rows
@@ -569,6 +567,12 @@ export const accounting = {
     if (range) { params.push(range.from, range.to); params.push(range.from, range.to); params.push(range.from, range.to); params.push(range.from, range.to); params.push(range.from, range.to); }
 
     const union = parts.join(" UNION ALL ");
+    // BUGFIX: previously the outer SELECT was `FROM (union) AS u ${dateClause}`
+    // which produced `FROM (...) AS u AND ledger_date >= ?` — missing the
+    // WHERE keyword. SQLite raised: "near \"AND\": syntax error" whenever a
+    // period filter was active. Now we always emit `WHERE 1=1` so the optional
+    // AND-clause composes cleanly even when there is no period filter.
+    const whereClause = range ? "WHERE 1=1 AND ledger_date >= ? AND ledger_date <= ?" : "WHERE 1=1";
     const row = one<any>(
       `SELECT
         COALESCE(SUM(CASE WHEN type='Income' THEN amount ELSE 0 END), 0) AS total_income,
@@ -580,8 +584,8 @@ export const accounting = {
         COALESCE(SUM(CASE WHEN type='Expense' AND source='salary' THEN amount ELSE 0 END), 0) AS expense_salary,
         COALESCE(SUM(CASE WHEN type='Expense' AND source='transactions' THEN amount ELSE 0 END), 0) AS expense_manual,
         COUNT(*) AS entry_count
-       FROM (${union}) AS u ${dateClause}`,
-      [...params, ...dateParams]
+       FROM (${union}) AS u ${whereClause}`,
+      range ? [...params, range.from, range.to] : params
     );
     return {
       totalIncome: row?.total_income ?? 0,

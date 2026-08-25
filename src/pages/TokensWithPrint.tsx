@@ -42,7 +42,7 @@ export function TokensWithPrint() {
         ]);
         if (!tokenList?.length) { toast.error(ml ? "ഈ ഇവന്റിന് ടോക്കണുകളൊന്നുമില്ല" : "No tokens found for this event"); return; }
         const settings = { ...(loadedSettings || {}), language: lang };
-        const html = buildTokenSheetHtml(tokenList, eventData, settings, mode);
+        const html = await buildTokenSheetHtml(tokenList, eventData, settings, mode);
         const safeName = String(eventData?.event_name || eventId).replace(/[^a-z0-9_-]+/gi, "-").replace(/^-|-$/g, "") || String(eventId);
         const result = await window.mms.pdf.generate(html, `tokens-${safeName}${mode === "bw" ? "-bw" : ""}.pdf`);
         if (result?.success) toast.success(ml ? `${tokenList.length} ടോക്കണുകളുടെ PDF തയ്യാറാക്കി` : `${mode === "bw" ? "Black & white token PDF" : "Token PDF"} generated (${tokenList.length} tokens)`);

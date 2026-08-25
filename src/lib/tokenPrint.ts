@@ -4,6 +4,23 @@ const esc = (value: unknown): string => String(value ?? "")
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
   .replace(/\"/g, "&quot;").replace(/'/g, "&#39;");
 
+// Cache the Anek Malayalam font CSS fetched from the main process so we don't
+// re-fetch (and re-base64) for every print. The CSS embeds the full Variable
+// font (latin + malayalam subsets, all weights) as data: URIs so Malayalam
+// glyphs render correctly in the printToPDF BrowserWindow.
+let anekFontCssCache: string | null = null;
+export async function getAnekFontCss(): Promise<string> {
+  if (anekFontCssCache !== null) return anekFontCssCache;
+  let css = "";
+  try {
+    css = await window.mms.pdf.getAnekFontCss() || "";
+  } catch {
+    css = "";
+  }
+  anekFontCssCache = css;
+  return css;
+}
+
 const palettes = [
   { head:"#1e3a8a", line:"#eab308", tokenBg:"#eef2fb", tokenLine:"#c9d4f0", tokenNum:"#1e3a8a", eventBg:"#fdf6e4", eventLine:"#ecd9a0", eventName:"#1e3a8a", eventTime:"#a16207", sep:"#d4a017", chipBg:"#f5f3ec", acc1:"#d4a017", acc2:"#0d9488" },
   { head:"#047857", line:"#eab308", tokenBg:"#ecfdf5", tokenLine:"#a7e3c9", tokenNum:"#065f46", eventBg:"#fdf6e4", eventLine:"#ecd9a0", eventName:"#065f46", eventTime:"#a16207", sep:"#d4a017", chipBg:"#f3f6f2", acc1:"#d4a017", acc2:"#0369a1" },
@@ -18,7 +35,7 @@ function paletteForEvent(eventId: unknown){
   return palettes[n % palettes.length];
 }
 
-export function buildTokenSheetHtml(tokenList: any[], event: any, settings: any = {}, mode: TokenPrintMode = "color"): string {
+export async function buildTokenSheetHtml(tokenList: any[], event: any, settings: any = {}, mode: TokenPrintMode = "color"): Promise<string> {
   const ml = settings?.language === "ml";
   const base = paletteForEvent(event?.id);
   const p = mode === "bw" ? {
@@ -42,7 +59,7 @@ export function buildTokenSheetHtml(tokenList: any[], event: any, settings: any 
       <footer class="event"><h4>${esc(event?.event_name || labels.event)}</h4><p><b>${esc(event?.event_time || "")}</b>${event?.event_time && event?.venue?`<span class="sep">◆</span>`:""}${event?.venue?`${labels.venue}: ${esc(event.venue)}`:""}</p></footer>
     </article>`).join("");
   const pages=[];
-  for(let i=0;i<tokenList.length;i+=12) pages.push(`<section class="page">${cards.slice(0,0)}${tokenList.slice(i,i+12).map((t:any)=>`
+  for(let i=0;i<tokenList.length;i+=12) pages.push(`<section class="page">${tokenList.slice(i,i+12).map((t:any)=>`
     <article class="card">
       <header class="head"><h1>${mahallu}</h1>${contact?`<p>${contact}</p>`:""}</header>
       <div class="mid">
@@ -52,6 +69,10 @@ export function buildTokenSheetHtml(tokenList: any[], event: any, settings: any 
       </div>
       <footer class="event"><h4>${esc(event?.event_name || labels.event)}</h4><p><b>${esc(event?.event_time || "")}</b>${event?.event_time && event?.venue?`<span class="sep">◆</span>`:""}${event?.venue?`${labels.venue}: ${esc(event.venue)}`:""}</p></footer>
     </article>`).join("")}</section>`);
-  return `<!doctype html><html><head><meta charset="utf-8"><style>
-@page{size:A4 portrait;margin:0}*{margin:0;padding:0;box-sizing:border-box}html,body{width:210mm;margin:0;background:#fff}body{font-family:"Segoe UI","Anek Malayalam Variable",Arial,sans-serif;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}.page{width:210mm;height:297mm;padding:8mm;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(6,44.75mm);gap:2.5mm;page-break-after:always;overflow:hidden}.page:last-child{page-break-after:auto}.card{border:.4mm solid ${p.tokenLine};border-radius:2.5mm;overflow:hidden;display:flex;flex-direction:column;background:#fff}.head{background:${p.head};color:#fff;text-align:center;padding:1.6mm 2mm 1.3mm;border-bottom:.7mm solid ${p.line};min-height:10mm}.head h1{font-size:10.5pt;font-weight:700;line-height:1.15}.head p{font-size:5.9pt;opacity:.92;margin-top:.5mm;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mid{flex:1;display:flex;align-items:stretch;gap:2mm;padding:1mm 2mm;background:#fff;overflow:hidden}.token{width:15.5mm;background:${p.tokenBg};border:.35mm solid ${p.tokenLine};border-radius:2mm;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6mm;flex:none}.token small{font-size:4.6pt;font-weight:800;color:${p.eventTime};text-align:center}.token b{font-size:12pt;color:${p.tokenNum};letter-spacing:.5px}.family{flex:1;text-align:center;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:.5mm}.family .lbl{font-size:4.6pt;letter-spacing:1.2px;color:#a8a29e;font-weight:700}.family h2{font-size:11.5pt;color:#1e293b;font-weight:800;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.family h3{font-size:8pt;color:#64748b;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.regs{width:19.5mm;display:flex;flex-direction:column;justify-content:center;gap:1.1mm;flex:none}.regs div{background:${p.chipBg};border-radius:1.5mm;padding:.9mm 1.3mm}.regs .r1{border-left:.7mm solid ${p.acc1}}.regs .r2{border-left:.7mm solid ${p.acc2}}.regs small{display:block;font-size:4.6pt;color:#64748b;font-weight:700;white-space:nowrap}.regs b{font-size:8.6pt;color:#1e293b;white-space:nowrap}.event{background:${p.eventBg};border-top:.3mm solid ${p.eventLine};text-align:center;padding:1.3mm 2mm 1.5mm}.event h4{font-size:11.5pt;font-weight:800;color:${p.eventName};line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.event p{font-size:6.4pt;color:#475569;margin-top:.6mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.event p b{color:${p.eventTime}}.event .sep{color:${p.sep};margin:0 1.2mm}${mode==="bw"?`.head{background:#111!important;border-bottom-color:#111!important}.token b,.family h2,.event h4{color:#111!important}.event{background:#f4f4f4!important;border-top-color:#999!important}.token{background:#f3f3f3!important}.regs div{background:#f1f1f1!important}`:""}</style></head><body>${pages.join("")}</body></html>`;
+  // Fetch the embedded Anek Malayalam font CSS (cached). Without this, Malayalam
+  // glyphs in the labels and event/venue names fall back to "Segoe UI"/Arial
+  // which don't have the Malayalam unicode block — the PDF shows empty boxes.
+  const anekFontFace = await getAnekFontCss();
+  return `<!doctype html><html lang="${ml?'ml':'en'}"><head><meta charset="utf-8"><style>
+@page{size:A4 portrait;margin:0}${anekFontFace}*{margin:0;padding:0;box-sizing:border-box}html,body{width:210mm;margin:0;background:#fff}body{font-family:${ml?'"Anek Malayalam Variable",':''}"Segoe UI","Anek Malayalam Variable",Arial,sans-serif;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}.page{width:210mm;height:297mm;padding:8mm;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(6,44.75mm);gap:2.5mm;page-break-after:always;overflow:hidden}.page:last-child{page-break-after:auto}.card{border:.4mm solid ${p.tokenLine};border-radius:2.5mm;overflow:hidden;display:flex;flex-direction:column;background:#fff}.head{background:${p.head};color:#fff;text-align:center;padding:1.6mm 2mm 1.3mm;border-bottom:.7mm solid ${p.line};min-height:10mm}.head h1{font-size:10.5pt;font-weight:700;line-height:1.15}.head p{font-size:5.9pt;opacity:.92;margin-top:.5mm;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mid{flex:1;display:flex;align-items:stretch;gap:2mm;padding:1mm 2mm;background:#fff;overflow:hidden}.token{width:15.5mm;background:${p.tokenBg};border:.35mm solid ${p.tokenLine};border-radius:2mm;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6mm;flex:none}.token small{font-size:4.6pt;font-weight:800;color:${p.eventTime};text-align:center}.token b{font-size:12pt;color:${p.tokenNum};letter-spacing:.5px}.family{flex:1;text-align:center;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:.5mm}.family .lbl{font-size:4.6pt;letter-spacing:1.2px;color:#a8a29e;font-weight:700}.family h2{font-size:11.5pt;color:#1e293b;font-weight:800;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.family h3{font-size:8pt;color:#64748b;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.regs{width:19.5mm;display:flex;flex-direction:column;justify-content:center;gap:1.1mm;flex:none}.regs div{background:${p.chipBg};border-radius:1.5mm;padding:.9mm 1.3mm}.regs .r1{border-left:.7mm solid ${p.acc1}}.regs .r2{border-left:.7mm solid ${p.acc2}}.regs small{display:block;font-size:4.6pt;color:#64748b;font-weight:700;white-space:nowrap}.regs b{font-size:8.6pt;color:#1e293b;white-space:nowrap}.event{background:${p.eventBg};border-top:.3mm solid ${p.eventLine};text-align:center;padding:1.3mm 2mm 1.5mm}.event h4{font-size:11.5pt;font-weight:800;color:${p.eventName};line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.event p{font-size:6.4pt;color:#475569;margin-top:.6mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.event p b{color:${p.eventTime}}.event .sep{color:${p.sep};margin:0 1.2mm}${mode==="bw"?`.head{background:#111!important;border-bottom-color:#111!important}.token b,.family h2,.event h4{color:#111!important}.event{background:#f4f4f4!important;border-top-color:#999!important}.token{background:#f3f3f3!important}.regs div{background:#f1f1f1!important}`:""}</style></head><body>${pages.join("")}</body></html>`;
 }

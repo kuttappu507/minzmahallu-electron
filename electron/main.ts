@@ -12,6 +12,7 @@ import { createBackup, verifyBackup, extractVerifiedBackup, listBackups } from "
 import { buildTokenSheetHtml } from "./print/token.template.js";
 import { buildCollectionSheetHtml } from "./print/collection-sheet.template.js";
 import { buildCertificateHtml } from "./print/certificate.template.js";
+import { getAnekMalayalamCss } from "./print/utils.js";
 import { registerSecurityIpc } from "./security-ipc.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -167,6 +168,14 @@ app.whenReady().then(() => {
   ipcMain.handle("pdf:generate", async (_e, html: string, defaultName: string) => {
     if (!session.user) return { success: false, error: "Authentication required" };
     try { const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save PDF", defaultPath: defaultName || "document.pdf", filters: [{ name: "PDF Document", extensions: ["pdf"] }] }); if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true }; const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer); return { success: true, path: saveResult.filePath }; } catch (err: any) { return { success: false, error: err.message }; } });
+  // Returns the full Anek Malayalam Variable font CSS with all url(...) refs
+  // replaced by base64 data URIs. Used by the renderer's TokensWithPrint page
+  // to embed the font in client-built HTML so Malayalam glyphs render in the
+  // printToPDF BrowserWindow (which doesn't have @fontsource bundled).
+  ipcMain.handle("pdf:getAnekFontCss", () => {
+    if (!session.user) throw new Error("Authentication required");
+    return getAnekMalayalamCss();
+  });
   ipcMain.handle("certificates:generatePdf", async (_e, certId: number) => {
     if (!session.user) return { success: false, error: "Authentication required" };
     try { const listResult = data.certificates.list({}); const cert = (listResult?.rows || []).find((c: any) => c.id === certId); if (!cert) return { success: false, error: "Certificate not found" }; const lang = await mainWindow!.webContents.executeJavaScript("document.documentElement.classList.contains('lang-ml') ? 'ml' : 'en'"); const html = buildCertificateHtml(cert, lang); const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Certificate PDF", defaultPath: `certificate-${cert.certificate_number || certId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] }); if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true }; const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer); return { success: true, path: saveResult.filePath }; } catch (err: any) { return { success: false, error: err.message }; } });

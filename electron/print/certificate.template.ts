@@ -1,10 +1,5 @@
-import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
 import { esc } from './utils.js';
-
-const require = createRequire(import.meta.url);
-function getAnekMalayalamCss(): string { try { const cssPath=require.resolve('@fontsource-variable/anek-malayalam/wght.css'); const css=readFileSync(cssPath,'utf8'); const cssDir=dirname(cssPath); return css.replace(/url\((['"]?)([^'"\)]+)\1\)/g,(_m,quote:string,relativePath:string)=>{if(/^(data:|https?:|file:)/i.test(relativePath))return `url(${quote}${relativePath}${quote})`;try{const fontPath=resolve(cssDir,relativePath);const base64=readFileSync(fontPath).toString('base64');return `url("data:font/woff2;base64,${base64}")`}catch{return `url(${quote}${relativePath}${quote})`}})}catch{return '@font-face{font-family:"Anek Malayalam Variable";font-weight:100 800;src:local("Anek Malayalam")}'} }
+import { getAnekMalayalamCss } from './utils.js';
 export function buildCertificateHtml(cert:any,lang:'en'|'ml'='en'):string{
  const type=String(cert?.type||'certificate').toLowerCase(),ml=lang==='ml';
  const labels:Record<string,string>=ml?{membership:'അംഗത്വ സർട്ടിഫിക്കറ്റ്',residence:'വസതി സർട്ടിഫിക്കറ്റ്',marriage:'വിവാഹ സർട്ടിഫിക്കറ്റ്',noc:'വിവാഹത്തിനുള്ള എതിർപ്പില്ലാ സർട്ടിഫിക്കറ്റ്',death:'മരണ സർട്ടിഫിക്കറ്റ്',certificate:'സർട്ടിഫിക്കറ്റ്'}:{membership:'MEMBERSHIP CERTIFICATE',residence:'RESIDENCE CERTIFICATE',marriage:'MARRIAGE CERTIFICATE',noc:'NO OBJECTION CERTIFICATE FOR MARRIAGE',death:'DEATH CERTIFICATE',certificate:'CERTIFICATE'};
