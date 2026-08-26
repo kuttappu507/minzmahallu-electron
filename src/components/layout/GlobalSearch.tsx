@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Users, Home, Receipt, Gift, Calculator, Gem, Flower, Activity, Award, Ticket, X } from "lucide-react";
+import { Search, Users, Home, Receipt, Gift, Calculator, Gem, Flower, Activity, Award, Ticket, Briefcase, Users as UsersIcon, X } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useNavigate } from "react-router-dom";
 
 type Result = { id: number | string; type: string; title: string; subtitle?: string; route: string; icon: any };
-const SOURCES = [["families", "/families", Home, "families"],["members", "/members", Users, "members"],["subscriptions", "/subscriptions", Receipt, "subscriptions"],["donations", "/donations", Gift, "donations"],["accounting", "/accounting", Calculator, "accounting"],["marriages", "/marriages", Gem, "marriages"],["deaths", "/deaths", Flower, "deaths"],["welfare", "/welfare", Activity, "welfare"],["certificates", "/certificates", Award, "certificates"],["tokens", "/tokens", Ticket, "tokens"]] as const;
+const SOURCES = [["families", "/families", Home, "families"],["members", "/members", Users, "members"],["staff", "/staff", Briefcase, "staff"],["committee", "/committee", UsersIcon, "committee"],["subscriptions", "/subscriptions", Receipt, "subscriptions"],["donations", "/donations", Gift, "donations"],["accounting", "/accounting", Calculator, "accounting"],["marriages", "/marriages", Gem, "marriages"],["deaths", "/deaths", Flower, "deaths"],["welfare", "/welfare", Activity, "welfare"],["certificates", "/certificates", Award, "certificates"],["tokens", "/tokens", Ticket, "tokens"]] as const;
 const LABELS: Record<string, [string, string]> = {
-  families: ["Families", "കുടുംബങ്ങൾ"], members: ["Members", "അംഗങ്ങൾ"], subscriptions: ["Subscriptions", "വരിസംഖ്യ"], donations: ["Donations", "സംഭാവനകൾ"], accounting: ["Accounting", "അക്കൗണ്ടിംഗ്"], marriages: ["Marriage", "വിവാഹ രജിസ്റ്റർ"], deaths: ["Death", "മരണ രജിസ്റ്റർ"], welfare: ["Welfare", "ക്ഷേമം"], certificates: ["Certificates", "സർട്ടിഫിക്കറ്റുകൾ"], tokens: ["Tokens", "ടോക്കണുകൾ"],
+  families: ["Families", "കുടുംബങ്ങൾ"], members: ["Members", "അംഗങ്ങൾ"], staff: ["Staff", "ജീവനക്കാർ"], committee: ["Committee", "കമ്മിറ്റി"], subscriptions: ["Subscriptions", "വരിസംഖ്യ"], donations: ["Donations", "സംഭാവനകൾ"], accounting: ["Accounting", "അക്കൗണ്ടിംഗ്"], marriages: ["Marriage", "വിവാഹ രജിസ്റ്റർ"], deaths: ["Death", "മരണ രജിസ്റ്റർ"], welfare: ["Welfare", "ക്ഷേമം"], certificates: ["Certificates", "സർട്ടിഫിക്കറ്റുകൾ"], tokens: ["Tokens", "ടോക്കണുകൾ"],
 };
 function pickTitle(type: string, row: any) {
   if (type === "families") return row.house_name || row.family_number || "Family";
   if (type === "members") return row.name || row.member_code || "Member";
+  if (type === "staff") return row.name || row.staff_code || "Staff";
+  if (type === "committee") return row.name || row.committee_code || "Committee";
   if (type === "subscriptions") return row.receipt_number || row.family_number || "Subscription";
   if (type === "donations") return row.donor_name || row.receipt_number || "Donation";
   if (type === "accounting") return row.description || row.receipt_number || "Transaction";
@@ -24,6 +26,8 @@ function pickTitle(type: string, row: any) {
 function pickSubtitle(type: string, row: any) {
   if (type === "families") return [row.family_number, row.house_number, row.phone].filter(Boolean).join(" · ");
   if (type === "members") return [row.member_code, row.family_number, row.mobile].filter(Boolean).join(" · ");
+  if (type === "staff") return [row.staff_code, row.role, row.phone].filter(Boolean).join(" · ");
+  if (type === "committee") return [row.committee_code, row.position, row.committee_type].filter(Boolean).join(" · ");
   if (type === "subscriptions") return [row.family_number, row.member_name, row.status].filter(Boolean).join(" · ");
   if (type === "donations") return [row.receipt_number, row.category_name, row.amount != null ? `₹${row.amount}` : ""].filter(Boolean).join(" · ");
   if (type === "accounting") return [row.receipt_number, row.type, row.amount != null ? `₹${row.amount}` : ""].filter(Boolean).join(" · ");

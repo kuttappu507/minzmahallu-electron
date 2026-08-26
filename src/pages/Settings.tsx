@@ -10,12 +10,14 @@ interface Settings {
   mahallu_name:string; phone:string; email:string; address:string; financial_year_start:string;
   currency_symbol:string; receipt_prefix:string; language:string; theme:string; auto_backup:boolean;
   backup_interval_hours:number; subscription_monthly_amount:number; subscription_frequency:"Monthly"|"Quarterly";
+  affiliation_number:string; committee_term_start:string; committee_term_end:string;
 }
 interface Category { id:number; name:string; description?:string; is_active:number; donation_count:number; }
 const emptySettings: Settings = {
   mahallu_name:"", phone:"", email:"", address:"", financial_year_start:"04-01", currency_symbol:"₹",
   receipt_prefix:"RCP", language:"en", theme:"light", auto_backup:false, backup_interval_hours:24,
   subscription_monthly_amount:100, subscription_frequency:"Monthly",
+  affiliation_number:"", committee_term_start:"", committee_term_end:"",
 };
 
 export function Settings(){
@@ -44,7 +46,8 @@ export function Settings(){
         financialYearStart:settings.financial_year_start,currencySymbol:settings.currency_symbol,
         subscriptionMonthlyAmount:Number(settings.subscription_monthly_amount||0),subscriptionFrequency:settings.subscription_frequency,
         theme:settings.theme,language:settings.language,autoBackup:settings.auto_backup,backupIntervalHours:settings.backup_interval_hours,
-        receiptPrefix:settings.receipt_prefix
+        receiptPrefix:settings.receipt_prefix,
+        affiliationNumber:settings.affiliation_number, committeeTermStart:settings.committee_term_start, committeeTermEnd:settings.committee_term_end
       });
       toast.success(t("ui_save_changes"));
     }catch(err:any){toast.error(err.message||t("ui_failed_save"));}
@@ -71,7 +74,7 @@ export function Settings(){
   return <div className="p-6 max-w-5xl space-y-6">
     <div className="flex items-center justify-between"><div><h1 className="text-2xl font-medium text-text-primary">{t("set_title")}</h1><p className="text-sm text-text-secondary mt-1">{t("set_subtitle")}</p></div><Button onClick={handleSave} disabled={saving}><Save className="h-4 w-4"/>{saving?t("ui_saving"):t("ui_save_changes")}</Button></div>
 
-    <Card><CardContent className="p-6 space-y-4"><div className="flex items-center gap-2"><Building2 className="h-5 w-5 text-primary"/><SectionLabel className="mb-0">{t("set_org_section")}</SectionLabel></div><div className="grid grid-cols-2 gap-4"><div><Label>{t("set_mahallu_name")}</Label><MalayalamInput value={settings.mahallu_name} onChange={value=>setSettings({...settings,mahallu_name:value})}/></div><div><Label>{t("set_phone")}</Label><Input value={settings.phone} onChange={e=>setSettings({...settings,phone:e.target.value})}/></div><div><Label>{t("set_email")}</Label><Input type="email" value={settings.email} onChange={e=>setSettings({...settings,email:e.target.value})}/></div><div className="col-span-2"><Label>{t("family_address")}</Label><Textarea rows={2} value={settings.address} onChange={e=>setSettings({...settings,address:e.target.value})}/></div></div></CardContent></Card>
+    <Card><CardContent className="p-6 space-y-4"><div className="flex items-center gap-2"><Building2 className="h-5 w-5 text-primary"/><SectionLabel className="mb-0">{t("set_org_section")}</SectionLabel></div><div className="grid grid-cols-2 gap-4"><div><Label>{t("set_mahallu_name")}</Label><MalayalamInput value={settings.mahallu_name} onChange={value=>setSettings({...settings,mahallu_name:value})}/></div><div><Label>{t("set_affiliation_number")}</Label><Input value={settings.affiliation_number} onChange={e=>setSettings({...settings,affiliation_number:e.target.value})} placeholder="SMF / Registration No."/></div><div><Label>{t("set_phone")}</Label><Input value={settings.phone} onChange={e=>setSettings({...settings,phone:e.target.value})}/></div><div><Label>{t("set_email")}</Label><Input type="email" value={settings.email} onChange={e=>setSettings({...settings,email:e.target.value})}/></div><div><Label>{t("set_committee_term_start")}</Label><Input type="date" value={settings.committee_term_start} onChange={e=>setSettings({...settings,committee_term_start:e.target.value})}/></div><div><Label>{t("set_committee_term_end")}</Label><Input type="date" value={settings.committee_term_end} onChange={e=>setSettings({...settings,committee_term_end:e.target.value})}/></div><div className="col-span-2"><Label>{t("family_address")}</Label><Textarea rows={2} value={settings.address} onChange={e=>setSettings({...settings,address:e.target.value})}/></div></div></CardContent></Card>
 
     <Card><CardContent className="p-6 space-y-4"><div className="flex items-center gap-2"><Wallet className="h-5 w-5 text-primary"/><SectionLabel className="mb-0">Financial & Subscription</SectionLabel></div><div className="grid grid-cols-4 gap-4"><div><Label>{t("set_financial_year_start")}</Label><Input value={settings.financial_year_start} onChange={e=>setSettings({...settings,financial_year_start:e.target.value})}/></div><div><Label>{t("set_currency_symbol")}</Label><Input value={settings.currency_symbol} onChange={e=>setSettings({...settings,currency_symbol:e.target.value})}/></div><div><Label>{t("set_receipt_prefix")}</Label><Input value={settings.receipt_prefix} onChange={e=>setSettings({...settings,receipt_prefix:e.target.value})}/></div><div><Label>Subscription frequency</Label><Select value={settings.subscription_frequency} onChange={e=>setSettings({...settings,subscription_frequency:e.target.value as "Monthly"|"Quarterly"})}><option value="Monthly">Monthly</option><option value="Quarterly">Quarterly</option></Select></div><div><Label>{settings.subscription_frequency === "Quarterly" ? "Quarterly Subscription Amount" : "Monthly Subscription Amount"}</Label><Input type="number" min="0" value={settings.subscription_monthly_amount} onChange={e=>setSettings({...settings,subscription_monthly_amount:Number(e.target.value)})}/></div></div><p className="text-xs text-text-tertiary">The selected frequency controls automatic pending subscriptions. Every active family gets one pending subscription for each due period. Monthly creates one per calendar month; Quarterly creates one for Jan–Mar, Apr–Jun, Jul–Sep and Oct–Dec. Existing paid/pending records are never duplicated.</p></CardContent></Card>
 

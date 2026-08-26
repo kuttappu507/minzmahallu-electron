@@ -156,6 +156,7 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("dashboard:monthlyDonations", (m?: number) => { actor(); return data.dashboard.monthlyDonations(m || 6); });
   register("dashboard:incomeVsExpense", (m?: number) => { actor(); return data.dashboard.incomeVsExpense(m || 6); });
   register("dashboard:recentActivity", (l?: number) => { actor(); return data.dashboard.recentActivity(l || 10); });
+  register("dashboard:alerts", () => { actor(); return data.dashboard.alerts(); });
   register("tokens:listEvents", () => { actor(); return data.tokens.listEvents(); });
   register("tokens:getEvent", (id: number) => { actor(); return data.tokens.getEvent(id); });
   register("tokens:list", (filter: any) => { actor(); return data.tokens.list(filter || {}); });

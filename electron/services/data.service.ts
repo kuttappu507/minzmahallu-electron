@@ -939,6 +939,7 @@ export const settings = {
         mahallu_name = ?, address = ?, phone = ?, email = ?,
         financial_year_start = ?, currency_symbol = ?, subscription_monthly_amount = ?, theme = ?, language = ?,
         auto_backup = ?, backup_interval_hours = ?, receipt_prefix = ?,
+        affiliation_number = ?, committee_term_start = ?, committee_term_end = ?,
         updated_at = datetime('now')
        WHERE id = 1`,
       [
@@ -946,7 +947,8 @@ export const settings = {
         data.financialYearStart ?? "", data.currencySymbol ?? "₹", Number(data.subscriptionMonthlyAmount ?? 0),
         data.theme ?? "light", data.language ?? "en",
         data.autoBackup ? 1 : 0, data.backupIntervalHours ?? 24,
-        data.receiptPrefix ?? "RCP"
+        data.receiptPrefix ?? "RCP",
+        data.affiliationNumber ?? "", data.committeeTermStart ?? "", data.committeeTermEnd ?? ""
       ]
     ),
 };
@@ -984,6 +986,33 @@ export const dashboard = {
   recentActivity: (limit: number = 10) => all<any>(
     `SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ?`, [limit]
   ),
+
+  // Alerts: committee terms ending soon, overdue subs count, pending welfare
+  alerts: () => {
+    const alerts: any[] = [];
+    try {
+      // Committee terms ending within 30 days
+      const endingSoon = scalar<number>(
+        `SELECT COUNT(*) AS v FROM committee_members
+         WHERE archive_state = 0 AND status = 'Active' AND term_end IS NOT NULL
+           AND term_end >= date('now') AND term_end <= date('now', '+30 days')`, []
+      );
+      if (endingSoon > 0) alerts.push({ type: "committee_ending", count: endingSoon, route: "/committee" });
+
+      // Overdue subscriptions
+      const overdueSubs = scalar<number>(
+        `SELECT COUNT(*) AS v FROM subscriptions WHERE status = 'Overdue'`, []
+      );
+      if (overdueSubs > 0) alerts.push({ type: "subscriptions_overdue", count: overdueSubs, route: "/subscriptions" });
+
+      // Pending welfare requests
+      const pendingWelfare = scalar<number>(
+        `SELECT COUNT(*) AS v FROM welfare_requests WHERE status = 'Pending'`, []
+      );
+      if (pendingWelfare > 0) alerts.push({ type: "welfare_pending", count: pendingWelfare, route: "/welfare" });
+    } catch (e) { console.warn("[alerts] Failed:", e); }
+    return alerts;
+  },
 };
 
 // ================= TOKENS =================

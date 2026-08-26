@@ -23,6 +23,7 @@ export function Dashboard() {
   const { data: collections } = useAsync(() => window.mms.dashboard.monthlyCollections(6), []);
   const { data: incomeExpense } = useAsync(() => window.mms.dashboard.incomeVsExpense(6), []);
   const { data: recentActivity, refresh: refreshActivity } = useAsync(() => window.mms.dashboard.recentActivity(8), []);
+  const { data: alerts } = useAsync(() => window.mms.dashboard.alerts(), []);
 
   // Compute real deltas from available data instead of using hardcoded strings.
   // For financial stats, compute month-over-month % change from the 6-month
@@ -110,6 +111,22 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Alerts banner */}
+      {alerts && alerts.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {alerts.map((a: any, i: number) => (
+            <button key={i} onClick={() => navigate(a.route)} className="alert-chip" style={{ cursor: "pointer" }}>
+              <AlertCircle size={14} />
+              <span>
+                {a.type === "committee_ending" && `${a.count} committee ${a.count === 1 ? "term" : "terms"} ending soon`}
+                {a.type === "subscriptions_overdue" && `${a.count} overdue subscription${a.count === 1 ? "" : "s"}`}
+                {a.type === "welfare_pending" && `${a.count} welfare request${a.count === 1 ? "" : "s"} pending`}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="stat-grid">
         {stats.map((s, i) => {

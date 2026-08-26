@@ -191,7 +191,12 @@ export function Welfare() {
     { header: t("wel_amount_approved"), accessor: (r) => formatCurrency(r.amount_approved) },
     {
       header: t("family_status"),
-      accessor: (r) => <Badge variant={statusVariant(r.status)}>{r.status}</Badge>,
+      accessor: (r) => {
+        const stepMap: Record<string, number> = { Pending: 1, Approved: 2, Disbursed: 3, Rejected: 0, Closed: 3 };
+        const step = stepMap[r.status] ?? 0;
+        const colors: Record<string, string> = { Pending: "warning", Approved: "info", Disbursed: "success", Rejected: "danger", Closed: "muted" };
+        return <div className="flex items-center gap-2"><Badge variant={colors[r.status] || "muted"}>{r.status}</Badge>{step > 0 && <div className="flex gap-0.5">{[1,2,3].map(s=><div key={s} className={`w-1.5 h-1.5 rounded-full ${s<=step?"bg-emerald-500":"bg-gray-300"}`} />)}</div>}</div>;
+      },
     },
     {
       header: "",

@@ -180,6 +180,18 @@ app.whenReady().then(() => {
   ipcMain.handle("certificates:generatePdf", async (_e, certId: number) => {
     if (!session.user) return { success: false, error: "Authentication required" };
     try { const listResult = data.certificates.list({}); const cert = (listResult?.rows || []).find((c: any) => c.id === certId); if (!cert) return { success: false, error: "Certificate not found" }; const lang = await mainWindow!.webContents.executeJavaScript("document.documentElement.classList.contains('lang-ml') ? 'ml' : 'en'"); const html = buildCertificateHtml(cert, lang); const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Certificate PDF", defaultPath: `certificate-${cert.certificate_number || certId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] }); if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true }; const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer); return { success: true, path: saveResult.filePath }; } catch (err: any) { return { success: false, error: err.message }; } });
+  // Returns the certificate HTML so the renderer can show a print preview in an iframe.
+  ipcMain.handle("certificates:previewHtml", async (_e, certId: number) => {
+    if (!session.user) return { success: false, error: "Authentication required" };
+    try {
+      const listResult = data.certificates.list({});
+      const cert = (listResult?.rows || []).find((c: any) => c.id === certId);
+      if (!cert) return { success: false, error: "Certificate not found" };
+      const lang = await mainWindow!.webContents.executeJavaScript("document.documentElement.classList.contains('lang-ml') ? 'ml' : 'en'");
+      const html = buildCertificateHtml(cert, lang);
+      return { success: true, html };
+    } catch (err: any) { return { success: false, error: err.message }; }
+  });
 
   // ===== Accounting export: PDF + Excel =====
   ipcMain.handle("accounting:exportPdf", async (_e, filter: any) => {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
-  FileText, Home, Heart, Skull, Search, Loader2, FileCheck2, Printer,
+  FileText, Home, Heart, Skull, Search, Loader2, FileCheck2, Printer, Eye,
 } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
@@ -272,6 +272,9 @@ export function Certificates() {
       header: "",
       accessor: (r) => (
         <div className="flex items-center gap-1 justify-end">
+          <button className="act-btn" onClick={async () => { try { const res = await window.mms.certificates.previewHtml(r.id); if (res?.success && res.html) { const w = window.open(); if (w) { w.document.write(res.html); w.document.close(); } } } catch (e: any) { toast.error(e.message); } }} title="Preview">
+            <Eye className="h-4 w-4" />
+          </button>
           <button className="act-btn act-view" onClick={() => handleGeneratePdf(r)} title={t("cert_generate_pdf_btn")} disabled={pdfLoadingId === r.id}>
             {pdfLoadingId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
           </button>

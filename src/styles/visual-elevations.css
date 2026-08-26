@@ -198,6 +198,15 @@ textarea:focus-visible {
 /* ----- 5. Stat card sparklines (REMOVED per user feedback — lines cluttered the cards) --- */
 
 /* ----- Bonus: card hover lift ---------------------------------------------- */
+.alert-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 99px;
+  background: var(--rose-bg, #fde5e9); color: var(--c-rose, #e8556e);
+  border: 1px solid var(--rose-line, #f6bcc7);
+  font: 500 11px Poppins;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.alert-chip:hover { transform: translateY(-1px); box-shadow: 0 4px 10px -4px var(--c-rose); }
 .card {
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
