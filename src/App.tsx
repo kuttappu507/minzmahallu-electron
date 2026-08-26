@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import { useTheme } from "@/lib/theme";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/i18n";
@@ -14,25 +15,28 @@ import "@/styles/topbar-fixes.css";
 import "@/styles/branding.css";
 import "@/styles/visual-elevations.css";
 import { LoginPage } from "@/pages/LoginPage";
-import { Dashboard } from "@/pages/Dashboard";
-import { Families } from "@/pages/Families";
-import { Members } from "@/pages/Members";
-import { Staff } from "@/pages/Staff";
-import { Committee } from "@/pages/Committee";
-import { Subscriptions } from "@/pages/Subscriptions";
-import { Donations } from "@/pages/Donations";
-import { Accounting } from "@/pages/Accounting";
-import { Marriages } from "@/pages/Marriages";
-import { Deaths } from "@/pages/Deaths";
-import { Welfare } from "@/pages/Welfare";
-import { Certificates } from "@/pages/Certificates";
-import { TokensWithPrint } from "@/pages/TokensWithPrint";
-import { TokenEvents } from "@/pages/TokenEvents";
-import { Reports } from "@/pages/Reports";
-import { Settings } from "@/pages/Settings";
-import { Users } from "@/pages/Users";
-import { AuditLog } from "@/pages/AuditLog";
-import { Backup } from "@/pages/Backup";
+
+// Lazy-load all page components so the initial bundle is smaller.
+// Each page loads on-demand when first navigated to.
+const Dashboard = lazy(() => import("@/pages/Dashboard").then(m => ({ default: m.Dashboard })));
+const Families = lazy(() => import("@/pages/Families").then(m => ({ default: m.Families })));
+const Members = lazy(() => import("@/pages/Members").then(m => ({ default: m.Members })));
+const Staff = lazy(() => import("@/pages/Staff").then(m => ({ default: m.Staff })));
+const Committee = lazy(() => import("@/pages/Committee").then(m => ({ default: m.Committee })));
+const Subscriptions = lazy(() => import("@/pages/Subscriptions").then(m => ({ default: m.Subscriptions })));
+const Donations = lazy(() => import("@/pages/Donations").then(m => ({ default: m.Donations })));
+const Accounting = lazy(() => import("@/pages/Accounting").then(m => ({ default: m.Accounting })));
+const Marriages = lazy(() => import("@/pages/Marriages").then(m => ({ default: m.Marriages })));
+const Deaths = lazy(() => import("@/pages/Deaths").then(m => ({ default: m.Deaths })));
+const Welfare = lazy(() => import("@/pages/Welfare").then(m => ({ default: m.Welfare })));
+const Certificates = lazy(() => import("@/pages/Certificates").then(m => ({ default: m.Certificates })));
+const TokensWithPrint = lazy(() => import("@/pages/TokensWithPrint").then(m => ({ default: m.TokensWithPrint })));
+const TokenEvents = lazy(() => import("@/pages/TokenEvents").then(m => ({ default: m.TokenEvents })));
+const Reports = lazy(() => import("@/pages/Reports").then(m => ({ default: m.Reports })));
+const Settings = lazy(() => import("@/pages/Settings").then(m => ({ default: m.Settings })));
+const Users = lazy(() => import("@/pages/Users").then(m => ({ default: m.Users })));
+const AuditLog = lazy(() => import("@/pages/AuditLog").then(m => ({ default: m.AuditLog })));
+const Backup = lazy(() => import("@/pages/Backup").then(m => ({ default: m.Backup })));
 import { useEffect, useState } from "react";
 import { transliterateMalayalam } from "@/lib/malayalamTransliteration";
 
@@ -69,9 +73,9 @@ function OfflineMalayalamLayer() {
 function ProtectedLayout() {
   const location = useLocation();
   useEffect(() => { document.body.classList.toggle("route-accounting", location.pathname === "/accounting"); return () => document.body.classList.remove("route-accounting"); }, [location.pathname]);
-  return <div id="app" className="app-shell"><Sidebar /><div className="maincol"><Topbar /><div id="content"><Routes>
+  return <div id="app" className="app-shell"><Sidebar /><div className="maincol"><Topbar /><div id="content"><Suspense fallback={<div className="flex items-center justify-center h-64"><div className="spinner-sm" /></div>}><Routes>
     <Route path="/" element={<Dashboard />} /><Route path="/families" element={<Families />} /><Route path="/members" element={<Members />} /><Route path="/staff" element={<Staff />} /><Route path="/committee" element={<Committee />} /><Route path="/subscriptions" element={<Subscriptions />} /><Route path="/donations" element={<Donations />} /><Route path="/accounting" element={<Accounting />} /><Route path="/marriages" element={<Marriages />} /><Route path="/deaths" element={<Deaths />} /><Route path="/welfare" element={<Welfare />} /><Route path="/certificates" element={<Certificates />} /><Route path="/tokens" element={<TokenEvents />} /><Route path="/tokens/manage" element={<TokensWithPrint />} /><Route path="/reports" element={<Reports />} /><Route path="/settings" element={<Settings />} /><Route path="/users" element={<Users />} /><Route path="/audit" element={<AuditLog />} /><Route path="/backup" element={<Backup />} />
-  </Routes></div></div></div>;
+  </Routes></Suspense></div></div></div>;
 }
 
 function LanguagePersistence() {

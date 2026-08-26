@@ -101,6 +101,10 @@ const translations: Record<string, { en: string; ml: string }> = {
   dash_86_active: { en: "▲ 86.3% active", ml: "▲ 86.3% സജീവം" },
   dash_total_collected: { en: "▲ total collected", ml: "▲ മൊത്തം പിരിഞ്ഞു" },
   dash_overdue: { en: "▼ overdue", ml: "▼ കാലഹരണം" },
+  dash_active: { en: "Active", ml: "സജീവം" },
+  dash_total_registered: { en: "Registered", ml: "രജിസ്റ്റർ ചെയ്തത്" },
+  dash_this_month: { en: "This month", ml: "ഈ മാസം" },
+  dash_this_year: { en: "This year", ml: "ഈ വർഷം" },
   dash_124_pct: { en: "▲ +12.4%", ml: "▲ +12.4%" },
   dash_2_this_qtr: { en: "▲ 2 this qtr", ml: "▲ 2 ഈ ത്രൈമാസത്തിൽ" },
   dash_1_this_month: { en: "▼ 1 this month", ml: "▼ 1 ഈ മാസം" },
@@ -564,6 +568,8 @@ const translations: Record<string, { en: string; ml: string }> = {
   // Donor / Member / Misc extra
   ui_all_categories: { en: "All Categories", ml: "എല്ലാ വിഭാഗങ്ങളും" },
   ui_all_families: { en: "All Families", ml: "എല്ലാ കുടുംബങ്ങളും" },
+  ui_generate_cert: { en: "Certificate", ml: "സർട്ടിഫിക്കറ്റ്" },
+  ui_cert_issued: { en: "Certificate issued successfully", ml: "സർട്ടിഫിക്കറ്റ് നൽകി" },
 
   // ===== Staff module =====
   nav_staff: { en: "Staff", ml: "ജീവനക്കാർ" },

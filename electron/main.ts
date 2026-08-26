@@ -386,6 +386,39 @@ app.whenReady().then(() => {
   registerSecurityIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null);
   createWindow();
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+
+  // ===== Auto-backup timer =====
+  // Checks settings.auto_backup every 10 minutes. If enabled and the last
+  // backup is older than backup_interval_hours, creates a .mmbak file in the
+  // userData directory automatically (no user interaction needed).
+  let autoBackupTimer: NodeJS.Timeout | null = null;
+  const runAutoBackup = async () => {
+    try {
+      const settings = data.settings.load();
+      if (!settings?.auto_backup) return;
+      const intervalHours = Number(settings.backup_interval_hours || 24);
+      if (intervalHours <= 0) return;
+      const userData = app.getPath("userData");
+      // Check existing backups to see if the last one is older than the interval.
+      const backups = listBackups(userData);
+      const lastBackup = backups[0]; // sorted by time desc
+      const now = Date.now();
+      if (lastBackup) {
+        const lastTime = new Date(lastBackup.time).getTime();
+        const elapsedHours = (now - lastTime) / (1000 * 60 * 60);
+        if (elapsedHours < intervalHours) return; // too soon
+      }
+      const name = `backup-auto-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.mmbak`;
+      const filePath = path.join(userData, name);
+      createBackup(filePath);
+      console.log(`[auto-backup] Created: ${name}`);
+    } catch (e) {
+      console.warn("[auto-backup] Failed:", e);
+    }
+  };
+  autoBackupTimer = setInterval(runAutoBackup, 10 * 60 * 1000); // every 10 min
+  // Also run once 30 seconds after startup (to let DB init finish).
+  setTimeout(runAutoBackup, 30000);
 });
 app.on("window-all-closed", () => { closeDB(); if (process.platform !== "darwin") app.quit(); });
 app.on("before-quit", () => { closeDB(); });

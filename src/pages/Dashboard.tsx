@@ -24,16 +24,31 @@ export function Dashboard() {
   const { data: incomeExpense } = useAsync(() => window.mms.dashboard.incomeVsExpense(6), []);
   const { data: recentActivity, refresh: refreshActivity } = useAsync(() => window.mms.dashboard.recentActivity(8), []);
 
+  // Compute real deltas from available data instead of using hardcoded strings.
+  // For financial stats, compute month-over-month % change from the 6-month
+  // collections/incomeExpense arrays. For count stats, use descriptive labels.
+  const thisMonthColl = (collections && collections.length > 0) ? Number(collections[collections.length - 1]?.amount || 0) : 0;
+  const lastMonthColl = (collections && collections.length > 1) ? Number(collections[collections.length - 2]?.amount || 0) : 0;
+  const collDelta = lastMonthColl > 0 ? Math.round(((thisMonthColl - lastMonthColl) / lastMonthColl) * 100) : null;
+
+  const thisMonthDon = (collections && incomeExpense && incomeExpense.length > 0) ? 0 : 0; // donations month is from summary, no historical series
+  const balanceVal = balance ?? 0;
+  const thisMonthIncome = (incomeExpense && incomeExpense.length > 0) ? Number(incomeExpense[incomeExpense.length - 1]?.income || 0) : 0;
+  const thisMonthExpense = (incomeExpense && incomeExpense.length > 0) ? Number(incomeExpense[incomeExpense.length - 1]?.expense || 0) : 0;
+  const netThisMonth = thisMonthIncome - thisMonthExpense;
+  const lastMonthNet = (incomeExpense && incomeExpense.length > 1) ? (Number(incomeExpense[incomeExpense.length - 2]?.income || 0) - Number(incomeExpense[incomeExpense.length - 2]?.expense || 0)) : 0;
+  const balDelta = lastMonthNet !== 0 ? Math.round(((netThisMonth - lastMonthNet) / Math.abs(lastMonthNet)) * 100) : null;
+
   const stats = [
-    { label: t("dash_total_families"), value: summary?.total_families ?? 0, icon: Home, tint: "t-em", delta: t("dash_6_this_month") },
-    { label: t("dash_total_members"), value: summary?.total_members ?? 0, icon: Users, tint: "t-teal", delta: t("dash_18_this_month") },
-    { label: t("dash_active_members"), value: summary?.active_members ?? 0, icon: UserCheck, tint: "t-sky", delta: t("dash_86_active") },
-    { label: t("dash_monthly_collection"), value: formatCurrency(summary?.monthly_collection ?? 0), icon: Wallet, tint: "t-gold", delta: t("dash_total_collected") },
+    { label: t("dash_total_families"), value: summary?.total_families ?? 0, icon: Home, tint: "t-em", delta: t("dash_active") },
+    { label: t("dash_total_members"), value: summary?.total_members ?? 0, icon: Users, tint: "t-teal", delta: t("dash_total_registered") },
+    { label: t("dash_active_members"), value: summary?.active_members ?? 0, icon: UserCheck, tint: "t-sky", delta: t("dash_active") },
+    { label: t("dash_monthly_collection"), value: formatCurrency(summary?.monthly_collection ?? 0), icon: Wallet, tint: "t-gold", delta: collDelta !== null ? `${collDelta >= 0 ? "+" : ""}${collDelta}%` : t("dash_this_month") },
     { label: t("dash_pending_dues"), value: formatCurrency(summary?.pending_dues ?? 0), icon: AlertCircle, tint: "t-rose", delta: t("dash_overdue") },
-    { label: t("dash_donations_month"), value: formatCurrency(summary?.monthly_donations ?? 0), icon: Gift, tint: "t-pink", delta: t("dash_124_pct") },
-    { label: t("dash_marriages_year"), value: summary?.marriages_this_year ?? 0, icon: Gem, tint: "t-orange", delta: t("dash_2_this_qtr") },
-    { label: t("dash_deaths_year"), value: summary?.deaths_this_year ?? 0, icon: Flower, tint: "t-slate", delta: t("dash_1_this_month") },
-    { label: t("dash_fund_balance_short"), value: formatCurrency(balance ?? 0), icon: TrendingUp, tint: "t-blue", delta: t("dash_all_funds") },
+    { label: t("dash_donations_month"), value: formatCurrency(summary?.monthly_donations ?? 0), icon: Gift, tint: "t-pink", delta: t("dash_this_month") },
+    { label: t("dash_marriages_year"), value: summary?.marriages_this_year ?? 0, icon: Gem, tint: "t-orange", delta: t("dash_this_year") },
+    { label: t("dash_deaths_year"), value: summary?.deaths_this_year ?? 0, icon: Flower, tint: "t-slate", delta: t("dash_this_year") },
+    { label: t("dash_fund_balance_short"), value: formatCurrency(balanceVal), icon: TrendingUp, tint: "t-blue", delta: balDelta !== null ? `${balDelta >= 0 ? "+" : ""}${balDelta}%` : t("dash_all_funds") },
   ];
 
   const quickActions = [
