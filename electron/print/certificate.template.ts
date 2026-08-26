@@ -76,8 +76,14 @@ function activeSettings(): { language: 'en' | 'ml'; mahalluName: string; mahallu
 
 function fmtDate(d: string | null | undefined, ml: boolean): string {
   if (!d) return '—';
-  try { return new Date(d).toLocaleDateString(ml ? 'ml-IN' : 'en-IN', { day: '2-digit', month: 'long', year: 'numeric' }); }
-  catch { return String(d); }
+  try {
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return String(d);
+    const dd = String(date.getDate()).padStart(2, '0');
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    return `${dd}-${mm}-${yyyy}`;
+  } catch { return String(d); }
 }
 
 /** Enrich a bare certificate row with related member/family/marriage/death data. */

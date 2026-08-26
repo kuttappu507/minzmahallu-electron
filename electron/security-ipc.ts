@@ -54,6 +54,27 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   });
   register("families:update", (id: number, d: any) => security.updateFamily(actor(), id, d));
   register("members:update", (id: number, d: any) => security.updateMember(actor(), id, d));
+
+  // ===== Archive/restore/history/move handlers (security:* channels) =====
+  // These are called from the preload as window.mms.families.archive(id, reason),
+  // window.mms.families.restore(id), window.mms.families.history(id),
+  // window.mms.members.archive(id, reason), window.mms.members.restore(id),
+  // window.mms.members.history(id), window.mms.members.move(ids, fid, reason),
+  // window.mms.members.moveHistory(id), window.mms.families.createFromMembers(...).
+  // Previously these channels had NO handlers, so every call threw
+  // "No handler registered for security:familyHistory" etc. — which was
+  // silently caught by try/catch in the renderer, resulting in empty
+  // member lists in the family preview dialog.
+  register("security:archiveFamily", (id: number, reason: string) => security.archiveFamily(admin(), id, reason));
+  register("security:restoreFamily", (id: number, reason: string) => security.restoreFamily(admin(), id, reason));
+  register("security:familyHistory", (id: number) => { actor(); return security.history("family", id); });
+  register("security:archiveMember", (id: number, reason: string) => security.archiveMember(admin(), id, reason));
+  register("security:restoreMember", (id: number, reason: string) => security.restoreMember(admin(), id, reason));
+  register("security:memberHistory", (id: number) => { actor(); return security.history("member", id); });
+  register("security:moveMembers", (memberIds: number[], newFamilyId: number, reason: string, moveType: string) => security.moveMembers(admin(), memberIds, newFamilyId, reason, moveType as "ExistingFamily" | "NewFamily"));
+  register("security:memberMoveHistory", (memberId: number) => { actor(); return security.familyMoveHistory(memberId); });
+  register("security:createFamilyFromMembers", (memberIds: number[], familyData: any, headMemberId: number, reason: string) => security.createFamilyFromMembers(admin(), memberIds, familyData, headMemberId, reason));
+
   register("families:remove", () => { throw new Error("Families cannot be permanently deleted. Archive the family instead."); });
   register("members:remove", () => { throw new Error("Members cannot be permanently deleted. Archive the member instead."); });
   register("marriages:remove", () => { throw new Error("Marriage records cannot be permanently deleted. Correct or revoke the record instead."); });

@@ -45,8 +45,14 @@ function activeSettings(): { language: 'en' | 'ml'; mahalluName: string; currenc
 
 function fmtDate(d: string | null): string {
   if (!d) return '—';
-  try { return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); }
-  catch { return d; }
+  try {
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return String(d);
+    const dd = String(date.getDate()).padStart(2, '0');
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    return `${dd}-${mm}-${yyyy}`;
+  } catch { return String(d); }
 }
 
 function fmtMoney(n: number, sym: string): string {
@@ -196,7 +202,7 @@ tbody td{border-top:1px solid #e6ede7;font-size:9.5px}
   <div class="header-right">
     <div class="period">${esc(L.title)} · ${esc(periodLabel)}</div>
     <div class="range">${esc(rangeText)}</div>
-    <div class="gen">${esc(L.generated)}: ${new Date().toLocaleString('en-IN')}</div>
+    <div class="gen">${esc(L.generated)}: ${fmtDate(new Date().toISOString())} ${new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
   </div>
 </div>
 
@@ -237,6 +243,6 @@ tbody td{border-top:1px solid #e6ede7;font-size:9.5px}
   <tbody>${tableRows}</tbody>
 </table>
 
-<div class="footer">${esc(settings.mahalluName)} · ${esc(L.system)} · ${new Date().toLocaleDateString('en-IN')}</div>
+<div class="footer">${esc(settings.mahalluName)} · ${esc(L.system)} · ${fmtDate(new Date().toISOString())}</div>
 </body></html>`;
 }
