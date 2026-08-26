@@ -1148,7 +1148,7 @@ export const tokens = {
   // ===== Get all tokens for an event (for PDF) =====
   listForPdf: (eventId: number) => all<any>(
     `SELECT ta.token_code, ta.status, ta.collected_at, ta.created_at,
-       f.family_number, f.house_name, f.ward, f.house_number, f.phone,
+       f.family_number, f.house_name, f.ward, f.house_number, f.phone, f.area,
        (SELECT m.name FROM members m WHERE m.family_id = f.id AND m.is_head = 1 AND m.status = 'Active' ORDER BY m.id LIMIT 1) AS house_head_name,
        te.event_name, te.event_date, te.venue, te.event_time
      FROM token_assignments ta
