@@ -14,7 +14,33 @@ function sha256(file: string) {
 export function createBackup(filePath: string): BackupMeta {
   const temp = `${filePath}.tmp-db`;
   try {
-    getDB().backup(temp);
+    // Use .backup() which returns a promise in newer better-sqlite3, or
+    // works synchronously in older versions. Wrap in try to handle both.
+    const db = getDB();
+    try {
+      // Synchronous backup (better-sqlite3 v9+)
+      db.backup(temp);
+    } catch (syncErr: any) {
+      // If synchronous backup fails (e.g. file in use, WAL mode), try
+      // copying the DB file directly as a fallback.
+      console.warn("[backup] Sync backup failed, trying file copy fallback:", syncErr.message);
+      const dbPath = path.join(path.dirname(temp), "mms.db");
+      if (require("fs").existsSync(dbPath)) {
+        // Copy main DB file
+        fs.copyFileSync(dbPath, temp);
+        // Copy WAL and SHM if they exist (to get a consistent snapshot)
+        for (const suffix of ["-wal", "-shm"]) {
+          const src = dbPath + suffix;
+          if (fs.existsSync(src)) {
+            try { fs.copyFileSync(src, temp + suffix); } catch {}
+          }
+        }
+        // Checkpoint to merge WAL into the main DB before hashing
+        try { db.pragma("wal_checkpoint(TRUNCATE)"); } catch {}
+      } else {
+        throw syncErr;
+      }
+    }
     const digest = sha256(temp);
     const stat = fs.statSync(temp);
     const manifest = Buffer.from(JSON.stringify({ version: 1, createdAt: new Date().toISOString(), size: stat.size, sha256: digest }), "utf8");
@@ -25,7 +51,7 @@ export function createBackup(filePath: string): BackupMeta {
     fs.writeFileSync(filePath, Buffer.concat([header, manifest, dbBytes]));
     return { version: 1, createdAt: new Date().toISOString(), size: stat.size, sha256: digest, file: filePath };
   } finally {
-    try { fs.rmSync(temp, { force: true }); } catch {}
+    try { fs.rmSync(temp, { force: true }); try { fs.rmSync(temp + "-wal", { force: true }); } catch {} try { fs.rmSync(temp + "-shm", { force: true }); } catch {} } catch {}
   }
 }
 
@@ -54,7 +80,7 @@ export function extractVerifiedBackup(filePath: string, targetDb: string) {
 }
 
 export function listBackups(userData: string) {
-  return fs.readdirSync(userData).filter(f => f.startsWith("backup-") && f.endsWith(".mmbak")).map(file => {
+  return fs.readdirSync(userData).filter(f => (f.startsWith("backup-") || f.startsWith("mms-backup-")) && f.endsWith(".mmbak")).map(file => {
     const full = path.join(userData, file); const stat = fs.statSync(full);
     let valid = false; try { verifyBackup(full); valid = true; } catch {}
     return { name: file, path: full, size: stat.size, time: stat.mtime.toISOString(), valid };

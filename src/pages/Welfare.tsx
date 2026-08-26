@@ -37,7 +37,7 @@ export function Welfare() {
   const { t } = useI18n();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [page, setPage] = useState(1);
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<Partial<Welfare>>(emptyForm);
@@ -51,7 +51,7 @@ export function Welfare() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
 
-  const { rows, total, totalPages, loading, refetch } = useList(
+  const { rows, total, totalPages, loading, refetch, page, setPage } = useList(
     (filter) => window.mms.welfare.list(filter),
     { pageSize: 20 }
   );

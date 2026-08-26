@@ -14,12 +14,12 @@ const codeFontStyle="code-text-sm";
 
 export function Donations(){
   const {t}=useI18n();
-  const [search,setSearch]=useState(""); const [categoryFilter,setCategoryFilter]=useState("All"); const [page,setPage]=useState(1);
+  const [search,setSearch]=useState(""); const [categoryFilter,setCategoryFilter]=useState("All");
   const [dialogOpen,setDialogOpen]=useState(false); const [editingId,setEditingId]=useState<number|null>(null); const [form,setForm]=useState<Partial<Donation>>(emptyForm);
   const [families,setFamilies]=useState<any[]>([]); const [familyMembers,setFamilyMembers]=useState<any[]>([]); const [categories,setCategories]=useState<any[]>([]);
   const [isMahalluMember,setIsMahalluMember]=useState(false); const [otherCategory,setOtherCategory]=useState(""); const [memberBalance,setMemberBalance]=useState(0);
   const [previewOpen,setPreviewOpen]=useState(false); const [previewRow,setPreviewRow]=useState<Donation|null>(null); const [confirmOpen,setConfirmOpen]=useState(false); const [pendingDeleteId,setPendingDeleteId]=useState<number|null>(null);
-  const {rows,total,totalPages,loading,refetch,setFilters}=useList((filter)=>window.mms.donations.list(filter),{pageSize:20});
+  const {rows,total,totalPages,loading,refetch,setFilters,page,setPage}=useList((filter)=>window.mms.donations.list(filter),{pageSize:20});
   useEffect(()=>{setFilters(categoryFilter==="All"?{}:{category:categoryFilter});setPage(1);},[categoryFilter,setFilters]);
 
   const loadFamilies=()=>window.mms.families.list({pageSize:1000}).then(r=>setFamilies(r.rows||[])).catch(()=>{});

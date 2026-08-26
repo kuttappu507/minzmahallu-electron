@@ -102,7 +102,7 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
   const [eventForm, setEventForm] = useState({ event_name: "", event_type: "general", event_date: "", event_time: "", venue: "", description: "" });
   const [pdfLoading, setPdfLoading] = useState(false);
   const [collectionSheetLoading, setCollectionSheetLoading] = useState(false);
-  const [actionDialog, setActionDialog] = useState<{ type: "cancel" | "replace" | "delete" | null; token: TokenRow | null }>({ type: null, token: null });
+  const [actionDialog, setActionDialog] = useState<{ type: "cancel" | "replace" | "delete" | "deleteEvent" | null; token: TokenRow | null }>({ type: null, token: null });
   const [actionReason, setActionReason] = useState("");
 
   const selectedEvent = events.find(e => e.id === selectedEventId);
@@ -142,18 +142,19 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
     if (!selectedEventId || deleteEventBusy) return;
     const ev = events.find(e => e.id === selectedEventId);
     if (!ev) return;
-    const message = ml
-      ? `"${ev.event_name}" ഇവന്റും അതിലെ എല്ലാ ടോക്കണുകളും ഇല്ലാതാക്കണോ? ഇത് തിരിച്ചെടുക്കാനാകില്ല.`
-      : `Delete event "${ev.event_name}" and all its tokens? This cannot be undone.`;
-    if (!window.confirm(message)) return;
+    // Use a themed confirm dialog instead of window.confirm.
+    setActionDialog({ type: "deleteEvent" as any, token: null });
+  };
+  const confirmDeleteEvent = async () => {
     setDeleteEventBusy(true);
     try {
-      await window.mms.tokens.removeEvent(selectedEventId);
+      await window.mms.tokens.removeEvent(selectedEventId!);
       toast.success(ml ? "ഇവന്റ് ഇല്ലാതാക്കി" : "Event deleted");
       setSelectedEventId(null);
       setTokens([]);
       setStats({ total: 0, collected: 0, remaining: 0, rate: 0 });
       await loadEvents();
+      setActionDialog({ type: null, token: null });
     } catch (e: any) {
       toast.error(e.message || (ml ? "ഇവന്റ് ഇല്ലാതാക്കാനായില്ല" : "Failed to delete event"));
     } finally {
@@ -386,8 +387,8 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
         <div className="m-b"><div className="grid-2"><div><Label>{text.eventName} *</Label><Input value={eventForm.event_name} onChange={e => setEventForm({ ...eventForm, event_name: e.target.value })} /></div><div><Label>{text.eventType}</Label><Select value={eventForm.event_type} onChange={e => setEventForm({ ...eventForm, event_type: e.target.value })}><option value="general">{text.general}</option><option value="eid">{text.eid}</option><option value="ramadan">{text.ramadan}</option><option value="welfare">{text.welfare}</option></Select></div><div><Label>{text.date} *</Label><Input type="date" value={eventForm.event_date} onChange={e => setEventForm({ ...eventForm, event_date: e.target.value })} /></div><div><Label>{text.time}</Label><Input type="time" value={eventForm.event_time} onChange={e => setEventForm({ ...eventForm, event_time: e.target.value })} /></div></div><div className="token-form-row"><Label>{text.venue}</Label><Input value={eventForm.venue} onChange={e => setEventForm({ ...eventForm, venue: e.target.value })} /></div><div className="token-form-row"><Label>{text.description}</Label><Input value={eventForm.description} onChange={e => setEventForm({ ...eventForm, description: e.target.value })} /></div></div><div className="m-f"><Button variant="secondary" onClick={() => setEventDialogOpen(false)}>{t("action_cancel")}</Button><Button onClick={saveEvent}>{text.saveEvent}</Button></div>
       </Dialog>
 
-      <Dialog open={actionDialog.type !== null} onClose={() => { setActionDialog({ type: null, token: null }); setActionReason(""); }} title={actionDialog.type === "cancel" ? text.cancelToken : actionDialog.type === "delete" ? text.deleteToken : text.replaceToken}>
-        <div className="m-b">{actionDialog.token && <div className="token-action-summary"><div>{text.token}: <b className="token-code">{actionDialog.token.token_code}</b></div><div>{text.house}: {actionDialog.token.house_name}</div></div>}{actionDialog.type === "cancel" ? <p className="token-help">{ml ? "ഈ ടോക്കൺ റദ്ദാക്കിയതായി അടയാളപ്പെടുത്തും; ഡാറ്റാബേസിൽ നിന്ന് ഇല്ലാതാക്കില്ല." : "This token will be marked as cancelled; it will not be deleted."}</p> : actionDialog.type === "delete" ? <p className="token-help">{text.deleteAfterEvent}</p> : <p className="token-help">{ml ? "പഴയ ടോക്കൺ റദ്ദാക്കി ഈ കുടുംബത്തിന് പുതിയ കോഡ് സൃഷ്ടിക്കും." : "The old token will be cancelled and a new unique code will be generated for this family."}</p>}<Label>{text.reason}</Label><Input value={actionReason} onChange={e => setActionReason(e.target.value)} placeholder={text.lostToken} /></div><div className="m-f"><Button variant="secondary" onClick={() => { setActionDialog({ type: null, token: null }); setActionReason(""); }}>{t("action_cancel")}</Button><Button variant={actionDialog.type === "cancel" || actionDialog.type === "delete" ? "danger" : "primary"} onClick={actionDialog.type === "cancel" ? cancelToken : actionDialog.type === "delete" ? deleteToken : replaceToken}>{actionDialog.type === "cancel" ? text.cancelToken : actionDialog.type === "delete" ? text.deleteToken : text.replacement}</Button></div>
+      <Dialog open={actionDialog.type !== null} onClose={() => { setActionDialog({ type: null, token: null }); setActionReason(""); }} title={actionDialog.type === "cancel" ? text.cancelToken : actionDialog.type === "delete" ? text.deleteToken : actionDialog.type === "deleteEvent" ? (ml ? "ഇവന്റ് ഇല്ലാതാക്കുക" : "Delete Event") : text.replaceToken}>
+        <div className="m-b">{actionDialog.token && <div className="token-action-summary"><div>{text.token}: <b className="token-code">{actionDialog.token.token_code}</b></div><div>{text.house}: {actionDialog.token.house_name}</div></div>}{actionDialog.type === "deleteEvent" ? <p className="token-help">{ml ? "ഈ ഇവന്റും അതിലെ എല്ലാ ടോക്കണുകളും ഇല്ലാതാക്കപ്പെടും. ഇത് തിരിച്ചെടുക്കാനാകില്ല." : "This event and all its tokens will be permanently deleted. This cannot be undone."}</p> : actionDialog.type === "cancel" ? <p className="token-help">{ml ? "ഈ ടോക്കൺ റദ്ദാക്കിയതായി അടയാളപ്പെടുത്തും; ഡാറ്റാബേസിൽ നിന്ന് ഇല്ലാതാക്കില്ല." : "This token will be marked as cancelled; it will not be deleted."}</p> : actionDialog.type === "delete" ? <p className="token-help">{text.deleteAfterEvent}</p> : <p className="token-help">{ml ? "പഴയ ടോക്കൺ റദ്ദാക്കി ഈ കുടുംബത്തിന് പുതിയ കോഡ് സൃഷ്ടിക്കും." : "The old token will be cancelled and a new unique code will be generated for this family."}</p>}{actionDialog.type !== "deleteEvent" && <><Label>{text.reason}</Label><Input value={actionReason} onChange={e => setActionReason(e.target.value)} placeholder={text.lostToken} /></>}</div><div className="m-f"><Button variant="secondary" onClick={() => { setActionDialog({ type: null, token: null }); setActionReason(""); }}>{t("action_cancel")}</Button><Button variant={actionDialog.type === "cancel" || actionDialog.type === "delete" || actionDialog.type === "deleteEvent" ? "danger" : "primary"} onClick={actionDialog.type === "cancel" ? cancelToken : actionDialog.type === "delete" ? deleteToken : actionDialog.type === "deleteEvent" ? confirmDeleteEvent : replaceToken}>{actionDialog.type === "cancel" ? text.cancelToken : actionDialog.type === "delete" ? text.deleteToken : actionDialog.type === "deleteEvent" ? (ml ? "ഇല്ലാതാക്കുക" : "Delete") : text.replacement}</Button></div>
       </Dialog>
     </div>
   );

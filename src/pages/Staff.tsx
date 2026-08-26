@@ -67,7 +67,6 @@ export function Staff() {
   const [roleFilter, setRoleFilter] = useState("All");
   const [roles, setRoles] = useState<string[]>([]);
   const [yearFilter, setYearFilter] = useState<number>(new Date().getFullYear());
-  const [page, setPage] = useState(1);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -92,7 +91,11 @@ export function Staff() {
     ...filter,
     status: tab === "archived" ? "Archived" : "Active"
   });
-  const { rows, total, totalPages, loading, refetch, setFilters } = useList(listFn, { pageSize: 20, initialFilters: { role: "All" } });
+  const { rows, total, totalPages, loading, refetch, setFilters, page, setPage } = useList(listFn, { pageSize: 20, initialFilters: { role: "All" } });
+
+  // When tab changes, force a refetch (useList stores listFn in a ref,
+  // so changing the tab closure alone doesn't trigger re-fetch).
+  useEffect(() => { setPage(1); setFilters({ role: roleFilter }); setTimeout(() => refetch(), 0); }, [tab]);
 
   // Salary payments list (separate, only when on salary tab).
   const [payments, setPayments] = useState<PaymentRow[]>([]);

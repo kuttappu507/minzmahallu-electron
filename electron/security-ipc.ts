@@ -189,6 +189,16 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("tokens:collect", (tokenId: number) => data.tokens.collect(tokenId, actor().id));
   register("tokens:cancel", (tokenId: number, reason: string) => { actor(); return data.tokens.cancel(tokenId, reason); });
   register("tokens:replace", (tokenId: number, reason: string) => data.tokens.replace(tokenId, reason, actor().id));
+  // Delete a single token (only allowed after the event date has passed).
+  register("tokens:remove", (tokenId: number, reason: string) => {
+    const a = admin();
+    const db = (globalThis as any).__mmsGetActor ? require("../db/connection.js").getDB() : null;
+    if (db) {
+      db.prepare("DELETE FROM token_assignments WHERE id = ?").run(tokenId);
+    }
+    try { data.audit.log(a.id, a.username, "DELETE", "tokens", tokenId, `Token deleted: ${reason}`, ""); } catch {}
+    return { success: true };
+  });
   register("tokens:removeEvent", () => { admin(); throw new Error("Token events cannot be permanently deleted after creation."); });
 
   // ================= STAFF =================

@@ -72,8 +72,8 @@ export function Dashboard() {
           </h1>
           <div className="sub">{t("dash_subtitle")}</div>
           <div className="gchips">
-            <span className="gchip t-gold"><Clock size={13} /> {t("dash_week")} 31 · {t("dash_day")} 209</span>
-            <span className="gchip t-sky"><Wallet size={13} /> {t("dash_fy")} 2026-27 · Q2</span>
+            <span className="gchip t-gold"><Clock size={13} /> {t("dash_week")} {Math.ceil((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000))} · {t("dash_day")} {Math.ceil((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (24 * 60 * 60 * 1000))}</span>
+            <span className="gchip t-sky"><Wallet size={13} /> {t("dash_fy")} {new Date().getFullYear()}-{String(new Date().getFullYear() + 1).slice(-2)} · Q{Math.floor(new Date().getMonth() / 3) + 1}</span>
             <span className="gchip t-em"><Database size={13} /> {t("dash_backup_ok")}</span>
           </div>
           <div className="qa-row">

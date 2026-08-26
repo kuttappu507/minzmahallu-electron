@@ -34,11 +34,11 @@ const formatHistoryChanges = (raw: string): Array<{ field:string; oldValue:strin
 export function Families() {
   const { t, isMalayalam } = useI18n();
   const tx=(en:string,ml:string)=>isMalayalam()?ml:en;
-  const [search,setSearch]=useState(""); const [statusFilter,setStatusFilter]=useState("All"); const [page,setPage]=useState(1);
+  const [search,setSearch]=useState(""); const [statusFilter,setStatusFilter]=useState("All");
   const [dialogOpen,setDialogOpen]=useState(false); const [editingId,setEditingId]=useState<number|null>(null); const [form,setForm]=useState<Partial<Family>>(emptyForm);
   const [previewOpen,setPreviewOpen]=useState(false); const [previewRow,setPreviewRow]=useState<Family|null>(null); const [history,setHistory]=useState<HistoryRow[]>([]); const [members,setMembers]=useState<any[]>([]);
   const [securityOpen,setSecurityOpen]=useState(false); const [pendingAction,setPendingAction]=useState<"archive"|"restore"|null>(null); const [reason,setReason]=useState("");
-  const {rows,total,totalPages,loading,refetch,setFilters}=useList((filter)=>window.mms.families.list(filter),{pageSize:20,initialFilters:{status:"All"}});
+  const {rows,total,totalPages,loading,refetch,setFilters,page,setPage}=useList((filter)=>window.mms.families.list(filter),{pageSize:20,initialFilters:{status:"All"}});
   useEffect(()=>{ setFilters({status:statusFilter}); },[statusFilter,setFilters]);
 
   const save=async()=>{ if(!form.house_name||!form.phone){toast.error(t("ui_house_phone_required"));return;} try{const p={houseName:form.house_name,houseNumber:form.house_number||"",ward:form.ward||"",area:form.area||"",address:form.address||"",pincode:form.pincode||"",phone:form.phone,altPhone:form.alt_phone||"",status:"Active",notes:form.notes||""}; if(editingId) await window.mms.families.update(editingId,p); else await window.mms.families.create(p); toast.success(t("ui_save_changes"));setDialogOpen(false);setEditingId(null);setForm(emptyForm);refetch();}catch(e:any){toast.error(e.message||t("ui_failed_save"));} };

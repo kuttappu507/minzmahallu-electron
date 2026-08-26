@@ -78,6 +78,9 @@ export function Committee() {
   });
   const { rows, total, totalPages, loading, refetch, setFilters } = useList(listFn, { pageSize: 20, initialFilters: { position: "All", committeeType: "All" } });
 
+  // When tab changes, force a refetch.
+  useEffect(() => { setPage(1); setFilters({ position: positionFilter, committeeType: typeFilter }); setTimeout(() => refetch(), 0); }, [tab]);
+
   const refreshMeta = async () => {
     try {
       const [p, ty, s] = await Promise.all([
