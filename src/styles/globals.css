@@ -490,85 +490,42 @@
   @keyframes tIn { from { transform: translateY(14px); opacity: 0; } }
   @keyframes tOut { to { transform: translateY(14px); opacity: 0; } }
 
-  /* ===== Splash screen (card on transparent backdrop, light + dark) ===== */
+  /* ===== Splash screen (solid green card, no aura/shadow) ===== */
   .splash-box-only {
     position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
     z-index: 9999;
     width: 400px; padding: 44px 36px 32px;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 24px;
-    box-shadow: 0 24px 70px -28px rgba(23, 43, 32, 0.35), 0 2px 8px -4px rgba(0, 0, 0, 0.15);
-    display: flex; flex-direction: column; align-items: center; gap: 18px;
-    animation: splashBoxIn 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.2);
-    /* Ensure the splash card itself is fully opaque (overrides any inherited
-       transparency from the Electron window). The area AROUND the card stays
-       transparent because body/#root backgrounds only apply after .app-loaded. */
+    background: var(--em);
+    border-radius: 20px;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+    animation: splashBoxIn 0.4s ease-out;
   }
-  .dark .splash-box-only {
-    background: var(--panel);
-    border-color: var(--line2);
-    box-shadow: 0 24px 70px -28px rgba(0, 0, 0, 0.7), 0 2px 8px -4px rgba(0, 0, 0, 0.4);
-  }
-  .splash-box-only.out { animation: splashFadeOut 0.45s ease-out forwards; }
-
-  /* Ambient glow behind the logo — a soft tinted halo */
-  .splash-glow {
-    position: absolute;
-    top: 28px; left: 50%; transform: translateX(-50%);
-    width: 120px; height: 120px; border-radius: 50%;
-    background: radial-gradient(circle, var(--em) 0%, transparent 70%);
-    opacity: 0.18;
-    filter: blur(12px);
-    pointer-events: none;
-    animation: splashGlowPulse 2.4s ease-in-out infinite;
-  }
-  .dark .splash-glow { opacity: 0.22; }
-  @keyframes splashGlowPulse {
-    0%, 100% { opacity: 0.15; transform: translateX(-50%) scale(1); }
-    50% { opacity: 0.28; transform: translateX(-50%) scale(1.1); }
-  }
+  .splash-box-only.out { animation: splashFadeOut 0.4s ease-out forwards; }
 
   .splash-logo {
-    position: relative;
-    width: 76px; height: 76px; border-radius: 22px;
-    background: var(--selbg);
+    width: 72px; height: 72px; border-radius: 18px;
+    background: rgba(255, 255, 255, 0.15);
     display: grid; place-items: center;
-    border: 2px solid var(--em);
-    box-shadow: 0 6px 18px -8px var(--em);
+    border: 2px solid rgba(255, 255, 255, 0.3);
   }
-  .splash-logo img { width: 44px; height: 44px; object-fit: contain; }
-  /* Animated ring around the logo */
-  .splash-logo-ring {
-    position: absolute; inset: -6px;
-    border-radius: 26px;
-    border: 2px solid transparent;
-    border-top-color: var(--em);
-    border-right-color: var(--em);
-    animation: splashRing 1.6s linear infinite;
-    opacity: 0.6;
-  }
-  @keyframes splashRing { to { transform: rotate(360deg); } }
+  .splash-logo img { width: 42px; height: 42px; object-fit: contain; }
 
   .splash-text-group { text-align: center; }
-  .splash-title { font: 700 24px Poppins; letter-spacing: -0.01em; color: var(--tx); }
-  .splash-sub { font: 500 12px Poppins; color: var(--fnt); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 4px; }
+  .splash-title { font: 700 24px Poppins; letter-spacing: -0.01em; color: #fff; }
+  .splash-sub { font: 500 12px Poppins; color: rgba(255, 255, 255, 0.8); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 4px; }
 
-  /* Progress + meta row */
-  .splash-progress-wrap { width: 100%; display: flex; flex-direction: column; gap: 8px; }
-  .splash-progress { width: 100%; height: 5px; border-radius: 99px; background: var(--line); overflow: hidden; }
-  .splash-progress i { display: block; height: 100%; background: linear-gradient(90deg, var(--em), var(--emd)); border-radius: 99px; transition: width 0.35s cubic-bezier(0.2, 0.7, 0.3, 1); box-shadow: 0 0 8px -2px var(--em); }
+  .splash-progress-wrap { width: 100%; display: flex; flex-direction: column; gap: 7px; }
+  .splash-progress { width: 100%; height: 4px; border-radius: 99px; background: rgba(255, 255, 255, 0.2); overflow: hidden; }
+  .splash-progress i { display: block; height: 100%; background: #fff; border-radius: 99px; transition: width 0.35s ease; }
   .splash-progress-meta { display: flex; justify-content: space-between; align-items: center; font: 500 11px Poppins; }
-  .splash-status { color: var(--mut); }
-  .splash-pct { color: var(--em); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .splash-status { color: rgba(255, 255, 255, 0.85); }
+  .splash-pct { color: #fff; font-weight: 600; font-variant-numeric: tabular-nums; }
 
-  .splash-credit { font: 500 10px Poppins; color: var(--fnt); margin-top: 2px; opacity: 0.7; letter-spacing: 0.05em; }
+  .splash-credit { font: 500 10px Poppins; color: rgba(255, 255, 255, 0.6); margin-top: 2px; letter-spacing: 0.05em; }
 
   @keyframes splashFadeIn { from { opacity: 0; } }
   @keyframes splashFadeOut { to { opacity: 0; } }
-  @keyframes splashBoxIn { from { opacity: 0; transform: scale(0.9) translateY(10px); } }
-  @keyframes splashLogoPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-  @keyframes splashProgress { to { width: 100%; } }
+  @keyframes splashBoxIn { from { opacity: 0; } to { opacity: 1; } }
 
   /* ===== Logo bg light emerald ===== */
   .logo {

@@ -271,7 +271,10 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
     try {
       const result = await window.mms.families.list({ status: "Active", pageSize: 10000 });
       setFamilies(result.rows || []);
-      setExistingTokens(await window.mms.tokens.checkExisting(selectedEventId));
+      // IPC can't serialize a Set, so main.ts returns an Array. Convert it
+      // back to a Set because the rest of this component uses existingTokens.has().
+      const existing = await window.mms.tokens.checkExisting(selectedEventId);
+      setExistingTokens(new Set(Array.isArray(existing) ? existing : []));
       setSelectedFamilyIds(new Set()); setViewMode("select");
     } catch (e: any) { toast.error(e.message || (ml ? "കുടുംബങ്ങൾ ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല" : "Failed to load families")); }
   };
