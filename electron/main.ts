@@ -12,6 +12,7 @@ import { createBackup, verifyBackup, extractVerifiedBackup, listBackups } from "
 import { buildTokenSheetHtml } from "./print/token.template.js";
 import { buildCollectionSheetHtml } from "./print/collection-sheet.template.js";
 import { buildCertificateHtml } from "./print/certificate.template.js";
+import { buildAccountStatementHtml } from "./print/account-statement.template.js";
 import { getAnekMalayalamCss } from "./print/utils.js";
 import { registerSecurityIpc } from "./security-ipc.js";
 
@@ -179,6 +180,89 @@ app.whenReady().then(() => {
   ipcMain.handle("certificates:generatePdf", async (_e, certId: number) => {
     if (!session.user) return { success: false, error: "Authentication required" };
     try { const listResult = data.certificates.list({}); const cert = (listResult?.rows || []).find((c: any) => c.id === certId); if (!cert) return { success: false, error: "Certificate not found" }; const lang = await mainWindow!.webContents.executeJavaScript("document.documentElement.classList.contains('lang-ml') ? 'ml' : 'en'"); const html = buildCertificateHtml(cert, lang); const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Certificate PDF", defaultPath: `certificate-${cert.certificate_number || certId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] }); if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true }; const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer); return { success: true, path: saveResult.filePath }; } catch (err: any) { return { success: false, error: err.message }; } });
+
+  // ===== Accounting export: PDF + Excel =====
+  ipcMain.handle("accounting:exportPdf", async (_e, filter: any) => {
+    if (!session.user) return { success: false, error: "Authentication required" };
+    try {
+      // Fetch all rows (no pagination) + summary for the given filter.
+      const allFilter = { ...filter, page: undefined, pageSize: undefined };
+      const [listRes, summary] = await Promise.all([
+        data.accounting.unifiedList(allFilter),
+        data.accounting.unifiedSummary(allFilter)
+      ]);
+      const html = buildAccountStatementHtml(listRes.rows || [], summary, allFilter);
+      const periodLabel = filter?.period || "all";
+      const defaultName = `account-statement-${periodLabel}-${new Date().toISOString().slice(0, 10)}.pdf`;
+      const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Account Statement PDF", defaultPath: defaultName, filters: [{ name: "PDF Document", extensions: ["pdf"] }] });
+      if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true };
+      const pdfBuffer = await renderHtmlToPdf(html);
+      fs.writeFileSync(saveResult.filePath, pdfBuffer);
+      return { success: true, path: saveResult.filePath, count: listRes.rows?.length || 0 };
+    } catch (err: any) { return { success: false, error: err.message }; }
+  });
+
+  ipcMain.handle("accounting:exportExcel", async (_e, filter: any) => {
+    if (!session.user) return { success: false, error: "Authentication required" };
+    try {
+      const allFilter = { ...filter, page: undefined, pageSize: undefined };
+      const [listRes, summary] = await Promise.all([
+        data.accounting.unifiedList(allFilter),
+        data.accounting.unifiedSummary(allFilter)
+      ]);
+      const rows = listRes.rows || [];
+      const periodLabel = filter?.period || "all";
+
+      // Build the XLSX using SheetJS (xlsx package).
+      const XLSX = require("xlsx");
+
+      // Sheet 1: Ledger entries
+      const ledgerData = rows.map((r: any) => ({
+        "Date": r.ledger_date || "",
+        "Source": r.source || "",
+        "Type": r.type || "",
+        "Description": r.description || "",
+        "Receipt No": r.receipt_number || "",
+        "Payment Method": r.payment_method || "",
+        "Transaction Ref": r.transaction_ref || "",
+        "Amount": Number(r.amount || 0),
+      }));
+
+      // Sheet 2: Summary
+      const summaryData = [
+        { "Metric": "Total Income", "Value": summary.totalIncome },
+        { "Metric": "Total Expense", "Value": summary.totalExpense },
+        { "Metric": "Balance", "Value": summary.balance },
+        { "Metric": "Entry Count", "Value": summary.entryCount },
+        { "Metric": "", "Value": "" },
+        { "Metric": "Income — Donations", "Value": summary.incomeDonations },
+        { "Metric": "Income — Subscriptions", "Value": summary.incomeSubscriptions },
+        { "Metric": "Income — Manual", "Value": summary.incomeManual },
+        { "Metric": "", "Value": "" },
+        { "Metric": "Expense — Welfare", "Value": summary.expenseWelfare },
+        { "Metric": "Expense — Salary", "Value": summary.expenseSalary },
+        { "Metric": "Expense — Manual", "Value": summary.expenseManual },
+      ];
+
+      const wb = XLSX.utils.book_new();
+      const ws1 = XLSX.utils.json_to_sheet(ledgerData, { header: ["Date", "Source", "Type", "Description", "Receipt No", "Payment Method", "Transaction Ref", "Amount"] });
+      // Set column widths
+      ws1["!cols"] = [{ wch: 12 }, { wch: 15 }, { wch: 10 }, { wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 12 }];
+      XLSX.utils.book_append_sheet(wb, ws1, "Ledger");
+
+      const ws2 = XLSX.utils.json_to_sheet(summaryData, { header: ["Metric", "Value"] });
+      ws2["!cols"] = [{ wch: 30 }, { wch: 15 }];
+      XLSX.utils.book_append_sheet(wb, ws2, "Summary");
+
+      const defaultName = `account-statement-${periodLabel}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Account Statement Excel", defaultPath: defaultName, filters: [{ name: "Excel Spreadsheet", extensions: ["xlsx"] }] });
+      if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true };
+
+      const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+      fs.writeFileSync(saveResult.filePath, buffer);
+      return { success: true, path: saveResult.filePath, count: rows.length };
+    } catch (err: any) { return { success: false, error: err.message }; }
+  });
 
   ipcMain.handle("users:list", () => data.users.list());
   ipcMain.handle("users:create", (_e, d) => data.users.create(d, session.user?.role ?? ""));

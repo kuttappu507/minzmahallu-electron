@@ -44,6 +44,7 @@
     "recharts": "^2.13.3",
     "tailwind-merge": "^2.5.4",
     "tailwindcss-animate": "^1.0.0",
+    "xlsx": "^0.18.5",
     "zustand": "^5.0.1"
   },
   "devDependencies": {
@@ -53,11 +54,11 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
     "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.49",
     "concurrently": "^9.1.0",
     "cross-env": "^7.0.0",
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8",
+    "postcss": "^8.4.49",
     "typescript": "^5.6.3",
     "vite": "^5.4.11",
     "vite-plugin-electron": "^0.28.8",
@@ -66,31 +67,69 @@
   "build": {
     "appId": "com.mms.minzmahallu",
     "productName": "Minz Mahallu Management System",
-    "directories": { "output": "release" },
-    "files": ["dist/**/*", "dist-electron/**/*", "resources/**/*"],
-    "extraResources": [{ "from": "resources", "to": "resources" }],
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "resources/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "resources",
+        "to": "resources"
+      }
+    ],
     "asar": true,
-    "asarUnpack": ["**/*.node", "node_modules/better-sqlite3/**", "node_modules/bindings/**", "node_modules/file-uri-to-path/**"],
+    "asarUnpack": [
+      "**/*.node",
+      "node_modules/better-sqlite3/**",
+      "node_modules/bindings/**",
+      "node_modules/file-uri-to-path/**"
+    ],
     "npmRebuild": true,
     "nodeGypRebuild": false,
     "buildDependenciesFromSource": false,
-    "win": { "target": ["nsis", "portable"], "icon": "resources/icon.png" },
-    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "perMachine": false },
-    "portable": { "artifactName": "MMS-React-Portable-${version}.exe" },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "resources/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    },
+    "portable": {
+      "artifactName": "MMS-React-Portable-${version}.exe"
+    },
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "resources/icon.png",
       "category": "public.app-category.productivity",
       "hardenedRuntime": true,
       "gatekeeperAssess": false
     },
-    "dmg": { "artifactName": "MMS-React-macOS-${version}.${ext}" },
+    "dmg": {
+      "artifactName": "MMS-React-macOS-${version}.${ext}"
+    },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "icon": "resources/icon.png",
       "category": "Office",
       "maintainer": "MMS"
     },
-    "appImage": { "artifactName": "MMS-React-Linux-${version}.${ext}" }
+    "appImage": {
+      "artifactName": "MMS-React-Linux-${version}.${ext}"
+    }
   }
 }

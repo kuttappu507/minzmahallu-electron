@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Edit2, Trash2, TrendingUp, TrendingDown, Scale, Eye, Calendar } from "lucide-react";
+import { Plus, Edit2, Trash2, TrendingUp, TrendingDown, Scale, Eye, Calendar, FileDown, Loader2 } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -112,6 +112,8 @@ export function Accounting() {
   const [form, setForm] = useState<Partial<Transaction>>(emptyForm);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
 
   const totalPages = Math.max(1, Math.ceil(total / 20));
 
@@ -208,6 +210,33 @@ export function Accounting() {
     }
   };
 
+  // Export handlers — both respect the current period/source/type filters.
+  const buildExportFilter = () => {
+    const filter: any = { period, source: sourceFilter, type: typeFilter };
+    if (period === "custom") { filter.from = from; filter.to = to; }
+    return filter;
+  };
+
+  const handleExportPdf = async () => {
+    setExportingPdf(true);
+    try {
+      const result = await window.mms.accounting.exportPdf(buildExportFilter());
+      if (result?.success) toast.success(tx(`PDF exported (${result.count} entries)`, `${result.count} രേഖകളുടെ PDF തയ്യാറാക്കി`));
+      else if (!result?.cancelled) toast.error(result?.error || tx("Failed to export PDF", "PDF തയ്യാറാക്കാൻ കഴിഞ്ഞില്ല"));
+    } catch (e: any) { toast.error(e.message); }
+    finally { setExportingPdf(false); }
+  };
+
+  const handleExportExcel = async () => {
+    setExportingExcel(true);
+    try {
+      const result = await window.mms.accounting.exportExcel(buildExportFilter());
+      if (result?.success) toast.success(tx(`Excel exported (${result.count} entries)`, `${result.count} രേഖകളുടെ എക്സൽ തയ്യാറാക്കി`));
+      else if (!result?.cancelled) toast.error(result?.error || tx("Failed to export Excel", "എക്സൽ തയ്യാറാക്കാൻ കഴിഞ്ഞില്ല"));
+    } catch (e: any) { toast.error(e.message); }
+    finally { setExportingExcel(false); }
+  };
+
   const columns: Column<UnifiedRow>[] = [
     { header: tx("Date", "തീയതി"), accessor: r => formatDate(r.ledger_date), width: "120px" },
     {
@@ -264,6 +293,14 @@ export function Accounting() {
           <div className="vs">{t("acc_unified_subtitle")}{rangeLabel ? ` · ${rangeLabel}` : ""}</div>
         </div>
         <div className="vr">
+          <Button variant="secondary" onClick={handleExportPdf} disabled={exportingPdf}>
+            {exportingPdf ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
+            {tx("Export PDF", "PDF എക്സ്പോർട്ട്")}
+          </Button>
+          <Button variant="secondary" onClick={handleExportExcel} disabled={exportingExcel}>
+            {exportingExcel ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
+            {tx("Export Excel", "എക്സൽ എക്സ്പോർട്ട്")}
+          </Button>
           <Button onClick={() => openAdd("Income")}><Plus className="h-4 w-4" />{t("acc_add_income")}</Button>
           <Button variant="danger" onClick={() => openAdd("Expense")}><Plus className="h-4 w-4" />{t("acc_add_expense")}</Button>
         </div>
