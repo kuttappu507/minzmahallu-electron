@@ -126,6 +126,8 @@ const translations: Record<string, { en: string; ml: string }> = {
   family_alt_phone: { en: "Alt. Phone", ml: "ബദൽ ഫോൺ" },
   family_status: { en: "Status", ml: "നില" },
   family_members_count: { en: "Members", ml: "അംഗങ്ങൾ" },
+  family_members_list: { en: "Family Members", ml: "കുടുംബാംഗങ്ങൾ" },
+  family_no_members: { en: "No members in this family yet.", ml: "ഈ കുടുംബത്തിൽ അംഗങ്ങളാരുമില്ല." },
   family_notes: { en: "Notes", ml: "കുറിപ്പുകൾ" },
   add_family: { en: "Add Family", ml: "കുടുംബം ചേർക്കുക" },
 

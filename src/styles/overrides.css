@@ -116,8 +116,12 @@ html.lang-ml input,html.lang-ml textarea,html.lang-ml select { font-size: 15.5px
    intentionally use variables so dialogs, controls and legacy components
    do not fall back to light backgrounds when dark mode is active. */
 html.dark,
-html.dark body,
-html.dark #root { background: var(--bg); color: var(--tx); }
+html.dark body { color: var(--tx); }
+/* Do NOT set background on html.dark/#root here — that would fill the area
+   around the splash screen with the dark --bg color even before the app
+   loads. The body background is set conditionally via body.app-loaded in
+   globals.css so the splash area stays transparent in both light and dark
+   mode. #root gets its background from .app-shell (globals.css line ~868). */
 html.dark input,
 html.dark textarea,
 html.dark select,

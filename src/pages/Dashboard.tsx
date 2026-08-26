@@ -11,7 +11,6 @@ import {
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
-  Line, LineChart,
 } from "recharts";
 
 export function Dashboard() {
@@ -25,30 +24,16 @@ export function Dashboard() {
   const { data: incomeExpense } = useAsync(() => window.mms.dashboard.incomeVsExpense(6), []);
   const { data: recentActivity, refresh: refreshActivity } = useAsync(() => window.mms.dashboard.recentActivity(8), []);
 
-  // Per-stat sparkline data (last 6 months where applicable). For non-financial
-  // stats (families/members count), we synthesize a gentle upward trend from
-  // the current value so the sparkline still renders; for stats without a
-  // trend, sparkData is undefined and the sparkline is omitted.
-  const buildCountSpark = (current: number) => {
-    const n = Math.max(0, Number(current) || 0);
-    // 6 months back, ramp up to current value
-    return Array.from({ length: 6 }).map((_, i) => ({ i, v: Math.round(n * (0.7 + i * 0.06)) }));
-  };
-  const buildFinanceSpark = (rows: any[] | null | undefined, key: string) => {
-    if (!rows || !rows.length) return undefined;
-    return rows.map((r, i) => ({ i, v: Number(r[key] ?? r.amount ?? 0) }));
-  };
-
   const stats = [
-    { label: t("dash_total_families"), value: summary?.total_families ?? 0, icon: Home, tint: "t-em", delta: t("dash_6_this_month"), spark: buildCountSpark(summary?.total_families ?? 0) },
-    { label: t("dash_total_members"), value: summary?.total_members ?? 0, icon: Users, tint: "t-teal", delta: t("dash_18_this_month"), spark: buildCountSpark(summary?.total_members ?? 0) },
-    { label: t("dash_active_members"), value: summary?.active_members ?? 0, icon: UserCheck, tint: "t-sky", delta: t("dash_86_active"), spark: buildCountSpark(summary?.active_members ?? 0) },
-    { label: t("dash_monthly_collection"), value: formatCurrency(summary?.monthly_collection ?? 0), icon: Wallet, tint: "t-gold", delta: t("dash_total_collected"), spark: buildFinanceSpark(collections, "amount") },
-    { label: t("dash_pending_dues"), value: formatCurrency(summary?.pending_dues ?? 0), icon: AlertCircle, tint: "t-rose", delta: t("dash_overdue"), spark: undefined },
-    { label: t("dash_donations_month"), value: formatCurrency(summary?.monthly_donations ?? 0), icon: Gift, tint: "t-pink", delta: t("dash_124_pct"), spark: undefined },
-    { label: t("dash_marriages_year"), value: summary?.marriages_this_year ?? 0, icon: Gem, tint: "t-orange", delta: t("dash_2_this_qtr"), spark: undefined },
-    { label: t("dash_deaths_year"), value: summary?.deaths_this_year ?? 0, icon: Flower, tint: "t-slate", delta: t("dash_1_this_month"), spark: undefined },
-    { label: t("dash_fund_balance_short"), value: formatCurrency(balance ?? 0), icon: TrendingUp, tint: "t-blue", delta: t("dash_all_funds"), spark: buildFinanceSpark(incomeExpense, "income") },
+    { label: t("dash_total_families"), value: summary?.total_families ?? 0, icon: Home, tint: "t-em", delta: t("dash_6_this_month") },
+    { label: t("dash_total_members"), value: summary?.total_members ?? 0, icon: Users, tint: "t-teal", delta: t("dash_18_this_month") },
+    { label: t("dash_active_members"), value: summary?.active_members ?? 0, icon: UserCheck, tint: "t-sky", delta: t("dash_86_active") },
+    { label: t("dash_monthly_collection"), value: formatCurrency(summary?.monthly_collection ?? 0), icon: Wallet, tint: "t-gold", delta: t("dash_total_collected") },
+    { label: t("dash_pending_dues"), value: formatCurrency(summary?.pending_dues ?? 0), icon: AlertCircle, tint: "t-rose", delta: t("dash_overdue") },
+    { label: t("dash_donations_month"), value: formatCurrency(summary?.monthly_donations ?? 0), icon: Gift, tint: "t-pink", delta: t("dash_124_pct") },
+    { label: t("dash_marriages_year"), value: summary?.marriages_this_year ?? 0, icon: Gem, tint: "t-orange", delta: t("dash_2_this_qtr") },
+    { label: t("dash_deaths_year"), value: summary?.deaths_this_year ?? 0, icon: Flower, tint: "t-slate", delta: t("dash_1_this_month") },
+    { label: t("dash_fund_balance_short"), value: formatCurrency(balance ?? 0), icon: TrendingUp, tint: "t-blue", delta: t("dash_all_funds") },
   ];
 
   const quickActions = [
@@ -122,15 +107,6 @@ export function Dashboard() {
               </div>
               <div className="val">{s.value}</div>
               <div className="slab">{s.label}</div>
-              {s.spark && s.spark.length > 1 && (
-                <div className="stat-spark" aria-hidden="true">
-                  <ResponsiveContainer width="100%" height={28}>
-                    <LineChart data={s.spark} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
-                      <Line type="monotone" dataKey="v" stroke="var(--sc)" strokeWidth={1.6} dot={false} isAnimationActive={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
             </div>
           );
         })}

@@ -195,19 +195,7 @@ textarea:focus-visible {
 .toast:nth-child(4) { animation-delay: 180ms; }
 .toast:nth-child(5) { animation-delay: 240ms; }
 
-/* ----- 5. Stat card sparklines --------------------------------------------- */
-.stat { position: relative; overflow: hidden; }
-.stat-spark {
-  position: absolute;
-  right: 12px;
-  bottom: 8px;
-  width: 70px;
-  height: 28px;
-  opacity: 0.85;
-  pointer-events: none;
-}
-/* When hovering the card, fade the sparkline slightly so the value stays prominent */
-.stat:hover .stat-spark { opacity: 0.5; transition: opacity 0.18s ease; }
+/* ----- 5. Stat card sparklines (REMOVED per user feedback — lines cluttered the cards) --- */
 
 /* ----- Bonus: card hover lift ---------------------------------------------- */
 .card {
