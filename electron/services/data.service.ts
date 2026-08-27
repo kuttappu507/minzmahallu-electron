@@ -111,7 +111,27 @@ export const members = {
     return { rows: all<any>(sql, params), total: 0 };
   },
   get: (id: number) => one<any>("SELECT * FROM members WHERE id = ?", [id]),
+  // A family can only have ONE head. When a member is saved with the Head
+  // relationship, verify no OTHER member of that family is already the head.
+  assertSingleHead: (familyId: number | null | undefined, excludeMemberId?: number) => {
+    if (!familyId) return;
+    const existing = one<any>(
+      `SELECT id, name FROM members
+        WHERE family_id = ? AND archive_state = 0
+          AND (is_head = 1 OR relationship = 'Head')
+          AND id != ?
+        ORDER BY CASE WHEN is_head = 1 THEN 0 ELSE 1 END, id LIMIT 1`,
+      [familyId, excludeMemberId ?? -1]
+    );
+    if (existing) {
+      throw new Error(
+        `This family already has a head (${existing.name || "member #" + existing.id}). ` +
+        "A family can have only one head — change the existing head's relationship first."
+      );
+    }
+  },
   create: (data: any) => {
+    members.assertSingleHead(data.familyId);
     const num = scalar<string>(
       "SELECT 'MBR-' || printf('%04d', COALESCE(MAX(id), 0) + 1) AS n FROM members"
     );
@@ -133,8 +153,9 @@ export const members = {
     );
     return { id, memberCode: num };
   },
-  update: (id: number, data: any) =>
-    run(
+  update: (id: number, data: any) => {
+    if (data.relationship === "Head") members.assertSingleHead(data.familyId, id);
+    return run(
       `UPDATE members SET family_id = ?, name = ?, arabic_name = ?, father_name = ?, gender = ?, date_of_birth = ?, age = ?, blood_group = ?, occupation = ?, education = ?, marital_status = ?, mobile = ?, email = ?, emergency_contact = ?, relationship = ?, is_head = ?, status = ?, nationality = ?, address = ?, updated_at = datetime('now') WHERE id = ?`,
       [
         data.familyId, data.name ?? "", data.arabicName ?? "", data.fatherName ?? "",
@@ -145,7 +166,8 @@ export const members = {
         data.status ?? "Active", data.nationality ?? "Indian",
         data.address ?? "", id
       ]
-    ),
+    );
+  },
   remove: (id: number) => run("DELETE FROM members WHERE id = ?", [id]),
   relationships: () => [
     "Head", "Spouse", "Son", "Daughter", "Parent",
@@ -692,24 +714,27 @@ export const deaths = {
     );
     const { id } = run(
       `INSERT INTO deaths
-        (death_number, deceased_name, father_name, gender, date_of_death, burial_date, cause_of_death, burial_place, family_id, remarks)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (death_number, deceased_name, father_name, gender, age, date_of_death, place_of_death, burial_date, cause_of_death, burial_place, address, family_id, registration_date, remarks)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         num, data.deceasedName ?? "", data.fatherName ?? "",
-        data.gender ?? "Male", data.dateOfDeath,
-        data.burialDate, data.causeOfDeath ?? "", data.burialPlace ?? "",
-        data.familyId ?? null, data.remarks ?? ""
+        data.gender ?? "Male", data.age ?? null, data.dateOfDeath,
+        data.placeOfDeath ?? "", data.burialDate, data.causeOfDeath ?? "", data.burialPlace ?? "",
+        data.address ?? "", data.familyId ?? null,
+        data.registrationDate || nowDate(), data.remarks ?? ""
       ]
     );
     return { id, deathNumber: num };
   },
   update: (id: number, data: any) =>
     run(
-      `UPDATE deaths SET deceased_name = ?, father_name = ?, gender = ?, date_of_death = ?, burial_date = ?, cause_of_death = ?, burial_place = ?, family_id = ?, remarks = ?, updated_at = datetime('now') WHERE id = ?`,
+      `UPDATE deaths SET deceased_name = ?, father_name = ?, gender = ?, age = ?, date_of_death = ?, place_of_death = ?, burial_date = ?, cause_of_death = ?, burial_place = ?, address = ?, family_id = ?, registration_date = ?, remarks = ?, updated_at = datetime('now') WHERE id = ?`,
       [
         data.deceasedName ?? "", data.fatherName ?? "", data.gender ?? "Male",
-        data.dateOfDeath ?? "", data.burialDate ?? "", data.causeOfDeath ?? "",
-        data.burialPlace ?? "", data.familyId ?? null, data.remarks ?? "", id
+        data.age ?? null, data.dateOfDeath ?? "", data.placeOfDeath ?? "",
+        data.burialDate ?? "", data.causeOfDeath ?? "", data.burialPlace ?? "",
+        data.address ?? "", data.familyId ?? null, data.registrationDate || nowDate(),
+        data.remarks ?? "", id
       ]
     ),
   remove: (id: number) => run("DELETE FROM deaths WHERE id = ?", [id]),
@@ -853,8 +878,8 @@ export const certificates = {
     if (!d) throw new Error("Death record not found");
     const certNum = `DTH-${new Date().getFullYear()}-${String(scalar<number>("SELECT COALESCE(MAX(id),0)+1 FROM certificates WHERE type='Death' AND strftime('%Y', issued_date)=strftime('%Y','now')")).padStart(6, "0")}`;
     const { id } = run(
-      "INSERT INTO certificates (certificate_number, type, member_id, family_id, issued_to, issued_date, issued_by, status) VALUES (?, ?, NULL, NULL, ?, ?, ?, ?)",
-      [certNum, "Death", d.deceased_name, nowDate(), userId, "Issued"]
+      "INSERT INTO certificates (certificate_number, type, member_id, family_id, marriage_id, death_id, issued_to, issued_date, issued_by, status) VALUES (?, 'Death', NULL, ?, NULL, ?, ?, ?, ?, 'Issued')",
+      [certNum, d.family_id ?? null, d.id, d.deceased_name, nowDate(), userId]
     );
     return { id, certificateNumber: certNum };
   },
@@ -938,24 +963,39 @@ export const audit = {
 
 export const settings = {
   load: () => one<any>("SELECT * FROM settings WHERE id = 1"),
-  save: (data: any) =>
-    run(
+  // Partial update: only the fields actually present in `data` are written.
+  // Previously this was a full-row UPDATE with `?? ""` fallbacks, which meant
+  // any caller that saved a subset (e.g. language persistence on theme/lang
+  // change) silently wiped every field it did not pass — affiliation number,
+  // reg nos, terms etc. Callers now merge: load() → save({...loaded, ...patch}).
+  save: (data: any) => {
+    const current = one<any>("SELECT * FROM settings WHERE id = 1") || {};
+    const merged = { ...current, ...data };
+    return run(
       `UPDATE settings SET
         mahallu_name = ?, address = ?, phone = ?, email = ?,
         financial_year_start = ?, currency_symbol = ?, subscription_monthly_amount = ?, theme = ?, language = ?,
         auto_backup = ?, backup_interval_hours = ?, receipt_prefix = ?,
         affiliation_number = ?, committee_term_start = ?, committee_term_end = ?,
+        wakf_reg_no = ?, society_reg_no = ?,
+        village = ?, panchayath = ?, taluk = ?, district = ?, pincode = ?, state = ?,
         updated_at = datetime('now')
        WHERE id = 1`,
       [
-        data.mahalluName ?? "", data.address ?? "", data.phone ?? "", data.email ?? "",
-        data.financialYearStart ?? "", data.currencySymbol ?? "₹", Number(data.subscriptionMonthlyAmount ?? 0),
-        data.theme ?? "light", data.language ?? "en",
-        data.autoBackup ? 1 : 0, data.backupIntervalHours ?? 24,
-        data.receiptPrefix ?? "RCP",
-        data.affiliationNumber ?? "", data.committeeTermStart ?? "", data.committeeTermEnd ?? ""
+        merged.mahalluName ?? merged.mahallu_name ?? "", merged.address ?? "", merged.phone ?? "", merged.email ?? "",
+        merged.financialYearStart ?? merged.financial_year_start ?? "04-01", merged.currencySymbol ?? merged.currency_symbol ?? "₹",
+        Number(merged.subscriptionMonthlyAmount ?? merged.subscription_monthly_amount ?? 0),
+        merged.theme ?? "light", merged.language ?? "en",
+        merged.autoBackup ?? merged.auto_backup ? 1 : 0, Number(merged.backupIntervalHours ?? merged.backup_interval_hours ?? 24),
+        merged.receiptPrefix ?? merged.receipt_prefix ?? "RCP",
+        merged.affiliationNumber ?? merged.affiliation_number ?? "", merged.committeeTermStart ?? merged.committee_term_start ?? "",
+        merged.committeeTermEnd ?? merged.committee_term_end ?? "",
+        merged.wakfRegNo ?? merged.wakf_reg_no ?? "", merged.societyRegNo ?? merged.society_reg_no ?? "",
+        merged.village ?? "", merged.panchayath ?? "", merged.taluk ?? "", merged.district ?? "",
+        merged.pincode ?? "", merged.state ?? ""
       ]
-    ),
+    );
+  },
 };
 
 // ================= DASHBOARD =================
@@ -967,7 +1007,11 @@ export const dashboard = {
   },
   incomeThisMonth: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM transactions WHERE type='Income' AND strftime('%Y-%m', txn_date) = strftime('%Y-%m','now')"),
   expenseThisMonth: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM transactions WHERE type='Expense' AND strftime('%Y-%m', txn_date) = strftime('%Y-%m','now')"),
-  balance: () => scalar<number>("SELECT (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Income') - (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Expense') AS v"),
+  // Fund balance now uses the SAME unified ledger as the Accounting page
+  // (manual transactions + donations + paid subscriptions + welfare
+  // disbursements + paid salaries). Previously this summed the transactions
+  // table only, so the dashboard card disagreed with the Accounting balance.
+  balance: () => accounting.unifiedSummary({ period: "all" }).balance,
   monthlyCollections: (months: number = 6) => all<any>(
     // Recursive month series so the chart shows a continuous X axis with
     // zero-filled months instead of only months that happen to have rows.
@@ -1020,9 +1064,7 @@ export const dashboard = {
     const welfarePending = scalar<number>(
       `SELECT COUNT(*) FROM welfare_requests WHERE status = 'Pending'`
     ) || 0;
-    const fundBalance = scalar<number>(
-      `SELECT (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Income') - (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Expense') AS v`
-    ) || 0;
+    const fundBalance = accounting.unifiedSummary({ period: "all" }).balance;
     return { receiptsToday, donationsToday, welfarePending, fundBalance };
   },
 

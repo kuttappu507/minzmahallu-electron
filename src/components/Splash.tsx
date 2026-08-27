@@ -91,16 +91,16 @@ export function Splash({ onDone }: { onDone: () => void }) {
       role="status"
       aria-label="Minz Mahallu Management System"
     >
-      {/* Backdrop: deep emerald gradient + geometric lattice + soft glows */}
-      <div className="splash-bg" aria-hidden="true">
-        <div className="splash-glow splash-glow-a" />
-        <div className="splash-glow splash-glow-b" />
-        <div className="splash-pattern" />
-        <div className="splash-vignette" />
-      </div>
-
-      {/* Center content */}
+      {/* The generous splash box — the balance area of the window stays
+          transparent (desktop shows through) in both dark and light mode. */}
       <div className="splash-card">
+        <div className="splash-bg" aria-hidden="true">
+          <div className="splash-glow splash-glow-a" />
+          <div className="splash-glow splash-glow-b" />
+          <div className="splash-pattern" />
+          <div className="splash-vignette" />
+        </div>
+
         <div className="splash-logo">
           <img src="./logo.png" alt="" />
         </div>
@@ -130,15 +130,15 @@ export function Splash({ onDone }: { onDone: () => void }) {
             <i style={{ width: `${progress}%` }} />
           </div>
         </div>
-      </div>
 
-      {/* Footer */}
-      <div className="splash-foot">
-        <span className="splash-version">Version {APP_VERSION}</span>
-        <span className="splash-dot" aria-hidden="true" />
-        <span className="splash-credit">
-          {lang === "ml" ? "MinZ വികസിപ്പിച്ചത്" : "Developed by MinZ"}
-        </span>
+        {/* Footer lives inside the box (outside is transparent) */}
+        <div className="splash-foot">
+          <span className="splash-version">Version {APP_VERSION}</span>
+          <span className="splash-dot" aria-hidden="true" />
+          <span className="splash-credit">
+            {lang === "ml" ? "MinZ വികസിപ്പിച്ചത്" : "Developed by MinZ"}
+          </span>
+        </div>
       </div>
     </div>
   );

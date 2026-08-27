@@ -500,27 +500,53 @@
   @keyframes tIn { from { transform: translateY(14px); opacity: 0; } }
   @keyframes tOut { to { transform: translateY(14px); opacity: 0; } }
 
-  /* ===== Splash screen — professional emerald boot screen ===== */
+  /* ===== Splash screen — generous centered box, transparent balance area =====
+     The Electron window is frameless + transparent, so the area around the
+     splash box shows the desktop in BOTH light and dark mode. The app shell
+     beneath stays hidden until the splash completes. */
   .splash {
     position: fixed; inset: 0; z-index: 9999;
     display: flex; align-items: center; justify-content: center;
     overflow: hidden;
-    background: #052e23;
-    color: #eaf7f1;
+    background: transparent;
     animation: splashIn 0.45s ease-out;
   }
   .splash.out { animation: splashOut 0.46s ease-in forwards; }
+  /* Everything beneath the overlay (login page, app shell, toasts) stays mounted
+     but invisible while the splash box floats over the transparent window — the
+     cross-fade still works because visibility is restored the moment
+     `app-loaded` is set on <body>. */
+  body:not(.app-loaded) #root > *:not(.splash) { visibility: hidden; }
 
-  /* --- Backdrop layers --- */
-  .splash-bg { position: absolute; inset: 0; overflow: hidden; }
+  /* --- The splash box itself --- */
+  .splash-card {
+    position: relative; z-index: 1;
+    width: min(620px, calc(100vw - 56px));
+    display: flex; flex-direction: column; align-items: center;
+    padding: 58px 64px 34px;
+    border-radius: 24px;
+    background: linear-gradient(165deg, #083a2c 0%, #04231b 58%, #031a14 100%);
+    border: 1px solid rgba(125, 227, 195, 0.18);
+    box-shadow:
+      0 48px 110px -24px rgba(2, 17, 12, 0.62),
+      0 18px 42px -18px rgba(2, 17, 12, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+    color: #eaf7f1;
+    animation: splashRise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .splash.out .splash-card { animation: splashCardOut 0.46s ease-in forwards; }
+
+  /* --- Backdrop layers (clipped inside the box) --- */
+  .splash-bg { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
   .splash-glow { position: absolute; border-radius: 50%; filter: blur(90px); pointer-events: none; }
   .splash-glow-a {
-    width: 680px; height: 680px; top: -240px; left: 50%; transform: translateX(-58%);
-    background: radial-gradient(circle, rgba(14, 171, 127, 0.32), transparent 65%);
+    width: 620px; height: 620px; top: -300px; left: 50%; transform: translateX(-58%);
+    background: radial-gradient(circle, rgba(14, 171, 127, 0.38), transparent 65%);
   }
   .splash-glow-b {
-    width: 540px; height: 540px; bottom: -220px; right: -160px;
-    background: radial-gradient(circle, rgba(44, 196, 151, 0.20), transparent 65%);
+    width: 520px; height: 520px; bottom: -260px; right: -180px;
+    background: radial-gradient(circle, rgba(44, 196, 151, 0.24), transparent 65%);
     animation: splashDrift 9s ease-in-out infinite alternate;
   }
   .splash-pattern {
@@ -531,17 +557,8 @@
   }
   .splash-vignette {
     position: absolute; inset: 0;
-    background: radial-gradient(ellipse at center, transparent 0%, rgba(2, 17, 12, 0.55) 100%);
+    background: radial-gradient(ellipse at center, transparent 0%, rgba(2, 17, 12, 0.5) 100%);
   }
-
-  /* --- Center card --- */
-  .splash-card {
-    position: relative; z-index: 1;
-    display: flex; flex-direction: column; align-items: center;
-    padding: 0 48px;
-    animation: splashRise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-  .splash.out .splash-card { animation: splashCardOut 0.46s ease-in forwards; }
 
   .splash-logo {
     position: relative;
@@ -591,7 +608,7 @@
   }
 
   /* --- Progress --- */
-  .splash-progress-wrap { width: 300px; display: flex; flex-direction: column; gap: 10px; }
+  .splash-progress-wrap { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; position: relative; z-index: 1; }
   .splash-progress-meta { display: flex; justify-content: space-between; align-items: baseline; }
   .splash-status {
     font: 500 11.5px/1.4 Poppins, "Anek Malayalam Variable", sans-serif;
@@ -618,10 +635,11 @@
     animation: splashShimmer 1.6s ease-in-out infinite;
   }
 
-  /* --- Footer --- */
+  /* --- Footer (inside the box) --- */
   .splash-foot {
-    position: absolute; bottom: 26px; left: 0; right: 0; z-index: 1;
+    margin-top: 34px;
     display: flex; align-items: center; justify-content: center; gap: 10px;
+    position: relative; z-index: 1;
   }
   .splash-version {
     font: 500 10.5px/1.3 Poppins, sans-serif;

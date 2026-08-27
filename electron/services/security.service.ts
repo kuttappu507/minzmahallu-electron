@@ -125,13 +125,24 @@ export const security = {
       if (family.status === "Archived") throw new Error("Cannot move members into an archived family");
       let moved = 0;
       for (const memberId of [...new Set(memberIds)]) {
-        const member = db.prepare("SELECT id, family_id, name, archive_state FROM members WHERE id=?").get(memberId) as any;
+        const member = db.prepare("SELECT id, family_id, name, relationship, is_head, archive_state FROM members WHERE id=?").get(memberId) as any;
         if (!member) throw new Error(`Member ${memberId} not found`);
         if (member.archive_state) throw new Error(`Member ${member.name || member.id} is archived. Restore the member before moving it.`);
         if (member.family_id === newFamilyId) continue;
+        // Single-head rule: a member who is the head of their OLD family cannot
+        // stay head in the destination family if that family already has one.
+        const isHeadLike = member.is_head === 1 || member.relationship === "Head";
+        const destHasHead = db.prepare(
+          "SELECT id FROM members WHERE family_id = ? AND archive_state = 0 AND (is_head = 1 OR relationship = 'Head') AND id != ? LIMIT 1"
+        ).get(newFamilyId, member.id) as any;
+        const demoted = isHeadLike && !!destHasHead;
         db.prepare("INSERT INTO family_moves (member_id, old_family_id, new_family_id, move_type, reason, moved_by) VALUES (?, ?, ?, ?, ?, ?)").run(member.id, member.family_id, newFamilyId, moveType, reason.trim(), actor.id);
-        db.prepare("UPDATE members SET family_id=?, updated_at=datetime('now') WHERE id=?").run(newFamilyId, member.id);
-        history(actor, "member", member.id, "FAMILY_MOVE", `Member moved to family ${newFamilyId}`, { oldFamilyId: member.family_id, newFamilyId, memberName: member.name }, reason.trim());
+        db.prepare(demoted
+          ? "UPDATE members SET family_id=?, relationship='Other', is_head=0, updated_at=datetime('now') WHERE id=?"
+          : "UPDATE members SET family_id=?, updated_at=datetime('now') WHERE id=?").run(newFamilyId, member.id);
+        history(actor, "member", member.id, "FAMILY_MOVE",
+          demoted ? `Member moved to family ${newFamilyId} (demoted from Head — destination family already has a head)` : `Member moved to family ${newFamilyId}`,
+          { oldFamilyId: member.family_id, newFamilyId, memberName: member.name, demotedFromHead: demoted }, reason.trim());
         moved++;
       }
       return { moved, familyId: newFamilyId };

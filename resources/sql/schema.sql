@@ -37,6 +37,8 @@ CREATE TABLE IF NOT EXISTS settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     mahallu_name TEXT NOT NULL DEFAULT 'Minz Mahallu Management', address TEXT, phone TEXT, email TEXT,
     logo_path TEXT, seal_path TEXT, financial_year_start TEXT NOT NULL DEFAULT '04-01', currency_symbol TEXT NOT NULL DEFAULT '₹',
+    wakf_reg_no TEXT, society_reg_no TEXT,
+    village TEXT, panchayath TEXT, taluk TEXT, district TEXT, pincode TEXT, state TEXT,
     subscription_monthly_amount REAL NOT NULL DEFAULT 100,
     theme TEXT NOT NULL DEFAULT 'light' CHECK (theme IN ('light','dark')), language TEXT NOT NULL DEFAULT 'en' CHECK (language IN ('en','ml')),
     backup_dir TEXT, auto_backup INTEGER NOT NULL DEFAULT 1, backup_interval_hours INTEGER NOT NULL DEFAULT 24,
@@ -141,6 +143,7 @@ CREATE INDEX IF NOT EXISTS idx_mrg_date ON marriages(nikah_date);
 CREATE TABLE IF NOT EXISTS deaths (
     id INTEGER PRIMARY KEY AUTOINCREMENT, death_number TEXT NOT NULL UNIQUE, deceased_name TEXT NOT NULL, father_name TEXT, family_id INTEGER,
     gender TEXT, date_of_death TEXT NOT NULL, burial_date TEXT, cause_of_death TEXT, burial_place TEXT, age INTEGER, remarks TEXT,
+    place_of_death TEXT, address TEXT, registration_date TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (family_id) REFERENCES families(id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS idx_dth_number ON deaths(death_number);

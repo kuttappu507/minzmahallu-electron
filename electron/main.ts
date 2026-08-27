@@ -258,12 +258,21 @@ app.whenReady().then(() => {
 
       const wb = XLSX.utils.book_new();
       const ws1 = XLSX.utils.json_to_sheet(ledgerData, { header: ["Date", "Source", "Type", "Description", "Receipt No", "Payment Method", "Transaction Ref", "Amount"] });
-      // Set column widths
-      ws1["!cols"] = [{ wch: 12 }, { wch: 15 }, { wch: 10 }, { wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 12 }];
+      // Column widths sized from the actual content so no value is truncated.
+      const fitCols = (data: any[], header: string[]) =>
+        header.map((k) => {
+          let max = String(k ?? "").length;
+          for (let i = 0; i < data.length && i < 400; i++) {
+            const len = String(data[i]?.[k] ?? "").length;
+            if (len > max) max = len;
+          }
+          return { wch: Math.min(60, Math.max(11, Math.ceil(max * 1.15) + 3)) };
+        });
+      ws1["!cols"] = fitCols(ledgerData, ["Date", "Source", "Type", "Description", "Receipt No", "Payment Method", "Transaction Ref", "Amount"]);
       XLSX.utils.book_append_sheet(wb, ws1, "Ledger");
 
       const ws2 = XLSX.utils.json_to_sheet(summaryData, { header: ["Metric", "Value"] });
-      ws2["!cols"] = [{ wch: 30 }, { wch: 15 }];
+      ws2["!cols"] = fitCols(summaryData, ["Metric", "Value"]);
       XLSX.utils.book_append_sheet(wb, ws2, "Summary");
 
       const defaultName = `account-statement-${periodLabel}-${new Date().toISOString().slice(0, 10)}.xlsx`;

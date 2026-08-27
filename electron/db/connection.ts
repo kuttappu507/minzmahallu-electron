@@ -34,6 +34,19 @@ function ensureRuntimeSchema(database: DB) {
     ["settings","affiliation_number","TEXT"],
     ["settings","committee_term_start","TEXT"],
     ["settings","committee_term_end","TEXT"],
+    // V027 — official certificate reg nos + mahallu jurisdiction (idempotent guards)
+    ["settings","wakf_reg_no","TEXT"],
+    ["settings","society_reg_no","TEXT"],
+    ["settings","village","TEXT"],
+    ["settings","panchayath","TEXT"],
+    ["settings","taluk","TEXT"],
+    ["settings","district","TEXT"],
+    ["settings","pincode","TEXT"],
+    ["settings","state","TEXT"],
+    // V027 — extended death register fields (official SMF certificate format)
+    ["deaths","place_of_death","TEXT"],
+    ["deaths","address","TEXT"],
+    ["deaths","registration_date","TEXT"],
     ["families","archived_at","TEXT"],["families","archived_by","INTEGER"],["families","archive_reason","TEXT"],
     ["members","archive_state","INTEGER NOT NULL DEFAULT 0"],["members","archive_source","TEXT"],["members","archived_at","TEXT"],["members","archived_by","INTEGER"],["members","archive_reason","TEXT"],["members","father_name","TEXT"],
     ["donations","transaction_ref","TEXT"],["donations","updated_at","TEXT"],
@@ -44,6 +57,8 @@ function ensureRuntimeSchema(database: DB) {
   ];
   for (const [table,name,definition] of fields) if (tables.has(table)) addColumn(database, table, name, definition);
   if (tables.has("welfare_requests")) database.exec("UPDATE welfare_requests SET request_date = COALESCE(request_date, created_at) WHERE request_date IS NULL");
+  // V027 backfill: existing death records were registered the day they were created.
+  if (tables.has("deaths")) database.exec("UPDATE deaths SET registration_date = COALESCE(NULLIF(registration_date,''), date(created_at)) WHERE registration_date IS NULL OR registration_date = ''");
 
   // Token feature compatibility for databases created before the token module was added.
   // Keep this schema local and idempotent so token generation never depends on a missing

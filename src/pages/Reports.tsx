@@ -32,6 +32,17 @@ function u32(n:number){return new Uint8Array([n&255,(n>>>8)&255,(n>>>16)&255,(n>
 function joinBytes(parts:Uint8Array[]){const out=new Uint8Array(parts.reduce((n,p)=>n+p.length,0));let o=0;for(const p of parts){out.set(p,o);o+=p.length;}return out;}
 function xmlCell(ref:string,value:any,header=false){const s=esc(value);return typeof value==="number"&&Number.isFinite(value)?`<c r="${ref}" t="n"${header?' s="1"':''}><v>${value}</v></c>`:`<c r="${ref}" t="inlineStr"${header?' s="1"':''}><is><t>${s}</t></is></c>`;}
 function excelCol(n:number){let s="";for(let x=n+1;x;x=Math.floor((x-1)/26))s=String.fromCharCode(65+(x-1)%26)+s;return s;}
+/* Column widths sized from actual content so every value is fully readable.
+   Width unit ≈ characters (like Excel's wch); Malayalam glyphs are wider, so
+   the measured length is scaled up a little before clamping. */
+function columnWidths(rows:any[],c:string[]):string{
+  const widths=c.map((k)=>{
+    let max=String(k.replace(/_/g," ")).length;
+    for(let i=0;i<rows.length&&i<400;i++){const len=String(rows[i]?.[k]??"").length;if(len>max)max=len;}
+    return Math.min(60,Math.max(11,Math.ceil(max*1.15)+3));
+  });
+  return `<cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("")}</cols>`;
+}
 function buildXlsx(rows:any[],c:string[]){
   const encoder=new TextEncoder();
   const sheetRows=[`<row r="1">${c.map((k,i)=>xmlCell(`${excelCol(i)}1`,k.replace(/_/g," "),true)).join("")}</row>`];
@@ -42,7 +53,7 @@ function buildXlsx(rows:any[],c:string[]){
     {name:"xl/workbook.xml",data:encoder.encode(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Report" sheetId="1" r:id="rId1"/></sheets></workbook>`)},
     {name:"xl/_rels/workbook.xml.rels",data:encoder.encode(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`)},
     {name:"xl/styles.xml",data:encoder.encode(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Poppins"/></font><font><b/><sz val="11"/><name val="Poppins"/></font></fonts><fills count="1"><fill><patternFill patternType="none"/></fill></fills><borders count="1"><border/></borders><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" applyFont="1"/></cellXfs></styleSheet>`)},
-    {name:"xl/worksheets/sheet1.xml",data:encoder.encode(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetData>${sheetRows.join("")}</sheetData></worksheet>`)}
+    {name:"xl/worksheets/sheet1.xml",data:encoder.encode(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"/></sheetViews>${columnWidths(rows,c)}<sheetData>${sheetRows.join("")}</sheetData></worksheet>`)}
   ];
   const locals:Uint8Array[]=[];const centrals:Uint8Array[]=[];let offset=0;
   for(const f of files){const name=encoder.encode(f.name),data=f.data,crc=crc32(data);const local=joinBytes([u32(0x04034b50),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(data.length),u32(data.length),u16(name.length),u16(0),name,data]);locals.push(local);centrals.push(joinBytes([u32(0x02014b50),u16(20),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(data.length),u32(data.length),u16(name.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset),name]));offset+=local.length;}
