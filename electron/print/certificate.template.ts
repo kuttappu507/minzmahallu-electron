@@ -45,7 +45,7 @@ interface CertData {
   ward?: string;
   area?: string;
   address?: string;
-  pincode?: string;
+  family_pincode?: string;
   phone?: string;
   // Marriage fields (for marriage + NOC cert):
   marriage_number?: string;
@@ -74,8 +74,8 @@ interface CertData {
   burial_date?: string;
   cause_of_death?: string;
   burial_place?: string;
-  address?: string;
-  registration_date?: string;
+  death_address?: string;
+  death_registration_date?: string;
 }
 
 interface ActiveSettings {
@@ -198,7 +198,7 @@ function enrichCertificate(cert: any): CertData {
         base.ward = f.ward;
         base.area = f.area;
         base.address = f.address;
-        base.pincode = f.pincode;
+        base.family_pincode = f.pincode;
         base.phone = f.phone;
       }
     }
@@ -262,8 +262,8 @@ function enrichCertificate(cert: any): CertData {
         base.burial_date = d.burial_date;
         base.cause_of_death = d.cause_of_death;
         base.burial_place = d.burial_place;
-        base.address = d.address;
-        base.registration_date = d.registration_date || String(d.created_at || '').slice(0, 10);
+        base.death_address = d.address;
+        base.death_registration_date = d.registration_date || String(d.created_at || '').slice(0, 10);
       }
     } else if (base.type === 'death') {
       // Try to find death record by deceased_name
@@ -280,8 +280,8 @@ function enrichCertificate(cert: any): CertData {
         base.burial_date = d.burial_date;
         base.cause_of_death = d.cause_of_death;
         base.burial_place = d.burial_place;
-        base.address = d.address;
-        base.registration_date = d.registration_date || String(d.created_at || '').slice(0, 10);
+        base.death_address = d.address;
+        base.death_registration_date = d.registration_date || String(d.created_at || '').slice(0, 10);
         if (!base.family_id) base.family_id = d.family_id;
       }
     }
@@ -289,9 +289,9 @@ function enrichCertificate(cert: any): CertData {
     // Death certificate: permanent address falls back to the family address,
     // and the signature block uses the active mahallu secretary.
     if (base.type === 'death') {
-      if (!base.address && base.family_id) {
+      if (!base.death_address && base.family_id) {
         const f = getDB().prepare('SELECT address, area, ward, pincode FROM families WHERE id = ?').get(base.family_id) as any;
-        if (f) base.address = [f.address, f.area, f.ward].filter(Boolean).join(', ') + (f.pincode ? ` - ${f.pincode}` : '');
+        if (f) base.death_address = [f.address, f.area, f.ward].filter(Boolean).join(', ') + (f.pincode ? ` - ${f.pincode}` : '');
       }
       const sec = activeSecretary();
       base.secretary_name = sec.name;
@@ -553,9 +553,9 @@ function buildDeathCert(c: CertData, ml: boolean): string {
     ${row([[L.pincode, c.pincode], [L.state, c.state, true]])}
     ${row([[L.name, c.deceased_name || c.issued_to, true], [L.sex, sex], [L.age, ageVal]])}
     ${row([[L.kin, c.father_name, true]])}
-    ${row([[L.address, c.address, true]])}
+    ${row([[L.address, c.death_address, true]])}
     ${row([[L.dod, fmtDate(c.date_of_death, ml)], [L.pod, c.place_of_death, true]])}
-    ${row([[L.regNo, c.death_number], [L.regDate, fmtDate(c.registration_date, ml), true]])}
+    ${row([[L.regNo, c.death_number], [L.regDate, fmtDate(c.death_registration_date, ml), true]])}
   </div>
   <div class="dc-sign">
     ${row([[L.secretary, c.secretary_name]])}
@@ -628,7 +628,7 @@ function buildResidenceCert(c: CertData, ml: boolean): string {
     <div class="field-row"><div class="field-label">${L.ward}</div><div class="field-value">${esc(c.ward || '—')}</div></div>
     <div class="field-row"><div class="field-label">${L.area}</div><div class="field-value">${esc(c.area || '—')}</div></div>
     <div class="field-row"><div class="field-label">${L.address}</div><div class="field-value">${esc(c.address || '—')}</div></div>
-    <div class="field-row"><div class="field-label">${L.pincode}</div><div class="field-value">${esc(c.pincode || '—')}</div></div>
+    <div class="field-row"><div class="field-label">${L.pincode}</div><div class="field-value">${esc(c.family_pincode || '—')}</div></div>
     <div class="field-row"><div class="field-label">${L.phone}</div><div class="field-value">${esc(c.phone || '—')}</div></div>
   </div>
   <div class="body-text">${L.certifyText}</div>
