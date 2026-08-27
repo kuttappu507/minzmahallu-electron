@@ -35,7 +35,7 @@ function ensureRuntimeSchema(database: DB) {
     ["settings","committee_term_start","TEXT"],
     ["settings","committee_term_end","TEXT"],
     ["families","archived_at","TEXT"],["families","archived_by","INTEGER"],["families","archive_reason","TEXT"],
-    ["members","archive_state","INTEGER NOT NULL DEFAULT 0"],["members","archive_source","TEXT"],["members","archived_at","TEXT"],["members","archived_by","INTEGER"],["members","archive_reason","TEXT"],
+    ["members","archive_state","INTEGER NOT NULL DEFAULT 0"],["members","archive_source","TEXT"],["members","archived_at","TEXT"],["members","archived_by","INTEGER"],["members","archive_reason","TEXT"],["members","father_name","TEXT"],
     ["donations","transaction_ref","TEXT"],["donations","updated_at","TEXT"],
     ["transactions","transaction_ref","TEXT"],["transactions","updated_at","TEXT"],
     ["marriages","updated_at","TEXT"],["deaths","updated_at","TEXT"],

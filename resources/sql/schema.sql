@@ -56,7 +56,7 @@ CREATE INDEX IF NOT EXISTS idx_families_house ON families(house_name);
 
 CREATE TABLE IF NOT EXISTS members (
     id INTEGER PRIMARY KEY AUTOINCREMENT, family_id INTEGER NOT NULL, member_code TEXT UNIQUE, photo_path TEXT,
-    name TEXT NOT NULL, arabic_name TEXT, gender TEXT NOT NULL CHECK (gender IN ('Male','Female','Other')),
+    name TEXT NOT NULL, arabic_name TEXT, father_name TEXT, gender TEXT NOT NULL CHECK (gender IN ('Male','Female','Other')),
     date_of_birth TEXT, age INTEGER, blood_group TEXT, occupation TEXT, education TEXT,
     marital_status TEXT CHECK (marital_status IN ('Single','Married','Divorced','Widowed')),
     mobile TEXT, email TEXT, nationality TEXT NOT NULL DEFAULT 'Indian', address TEXT, emergency_contact TEXT,

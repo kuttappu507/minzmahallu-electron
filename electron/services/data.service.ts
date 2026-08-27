@@ -118,11 +118,11 @@ export const members = {
     const isHead = data.relationship === "Head" ? 1 : 0;
     const { id } = run(
       `INSERT INTO members
-        (member_code, family_id, name, arabic_name, gender, date_of_birth, age, blood_group, occupation, education, marital_status, mobile, email, emergency_contact, relationship, is_head, status, nationality, address)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (member_code, family_id, name, arabic_name, father_name, gender, date_of_birth, age, blood_group, occupation, education, marital_status, mobile, email, emergency_contact, relationship, is_head, status, nationality, address)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         num, data.familyId, data.name ?? "", data.arabicName ?? "",
-        data.gender ?? "Male", data.dateOfBirth ?? "", data.age ?? null,
+        data.fatherName ?? "", data.gender ?? "Male", data.dateOfBirth ?? "", data.age ?? null,
         data.bloodGroup ?? "", data.occupation ?? "", data.education ?? "",
         data.maritalStatus ?? "Single", data.mobile ?? "",
         data.email ?? "", data.emergencyContact ?? "",
@@ -135,9 +135,9 @@ export const members = {
   },
   update: (id: number, data: any) =>
     run(
-      `UPDATE members SET family_id = ?, name = ?, arabic_name = ?, gender = ?, date_of_birth = ?, age = ?, blood_group = ?, occupation = ?, education = ?, marital_status = ?, mobile = ?, email = ?, emergency_contact = ?, relationship = ?, is_head = ?, status = ?, nationality = ?, address = ?, updated_at = datetime('now') WHERE id = ?`,
+      `UPDATE members SET family_id = ?, name = ?, arabic_name = ?, father_name = ?, gender = ?, date_of_birth = ?, age = ?, blood_group = ?, occupation = ?, education = ?, marital_status = ?, mobile = ?, email = ?, emergency_contact = ?, relationship = ?, is_head = ?, status = ?, nationality = ?, address = ?, updated_at = datetime('now') WHERE id = ?`,
       [
-        data.familyId, data.name ?? "", data.arabicName ?? "",
+        data.familyId, data.name ?? "", data.arabicName ?? "", data.fatherName ?? "",
         data.gender ?? "Male", data.dateOfBirth ?? "", data.age ?? null, data.bloodGroup ?? "",
         data.occupation ?? "", data.education ?? "", data.maritalStatus ?? "Single",
         data.mobile ?? "", data.email ?? "", data.emergencyContact ?? "",
@@ -147,7 +147,12 @@ export const members = {
       ]
     ),
   remove: (id: number) => run("DELETE FROM members WHERE id = ?", [id]),
-  relationships: () => ["Head", "Spouse", "Son", "Daughter", "Parent", "Sibling", "Other"],
+  relationships: () => [
+    "Head", "Spouse", "Son", "Daughter", "Parent",
+    "Brother", "Sister", "Nephew", "Niece",
+    "Grandfather", "Grandmother", "Grandson", "Granddaughter",
+    "Father-in-law", "Mother-in-law", "Other",
+  ],
 };
 
 // ================= SUBSCRIPTIONS =================
@@ -964,28 +969,62 @@ export const dashboard = {
   expenseThisMonth: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM transactions WHERE type='Expense' AND strftime('%Y-%m', txn_date) = strftime('%Y-%m','now')"),
   balance: () => scalar<number>("SELECT (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Income') - (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Expense') AS v"),
   monthlyCollections: (months: number = 6) => all<any>(
-    `SELECT strftime('%Y-%m', payment_date) AS month, COALESCE(SUM(amount_paid),0) AS amount
-     FROM subscriptions WHERE payment_date >= date('now', ?)
-     GROUP BY month ORDER BY month`,
-    [`-${months} months`]
+    // Recursive month series so the chart shows a continuous X axis with
+    // zero-filled months instead of only months that happen to have rows.
+    `WITH RECURSIVE months(m) AS (
+       SELECT strftime('%Y-%m', date('now', ?))
+       UNION ALL
+       SELECT strftime('%Y-%m', date(m || '-01', '+1 month')) FROM months WHERE m < strftime('%Y-%m','now')
+     )
+     SELECT m AS month,
+       COALESCE((SELECT SUM(amount_paid) FROM subscriptions WHERE strftime('%Y-%m', payment_date) = m), 0) AS amount
+     FROM months ORDER BY m`,
+    [`-${months - 1} months`]
   ),
   monthlyDonations: (months: number = 6) => all<any>(
-    `SELECT strftime('%Y-%m', donation_date) AS month, COALESCE(SUM(amount),0) AS amount
-     FROM donations WHERE donation_date >= date('now', ?)
-     GROUP BY month ORDER BY month`,
-    [`-${months} months`]
+    `WITH RECURSIVE months(m) AS (
+       SELECT strftime('%Y-%m', date('now', ?))
+       UNION ALL
+       SELECT strftime('%Y-%m', date(m || '-01', '+1 month')) FROM months WHERE m < strftime('%Y-%m','now')
+     )
+     SELECT m AS month,
+       COALESCE((SELECT SUM(amount) FROM donations WHERE strftime('%Y-%m', donation_date) = m), 0) AS amount
+     FROM months ORDER BY m`,
+    [`-${months - 1} months`]
   ),
   incomeVsExpense: (months: number = 6) => all<any>(
-    `SELECT strftime('%Y-%m', txn_date) AS month,
-       SUM(CASE WHEN type='Income' THEN amount ELSE 0 END) AS income,
-       SUM(CASE WHEN type='Expense' THEN amount ELSE 0 END) AS expense
-     FROM transactions WHERE txn_date >= date('now', ?)
-     GROUP BY month ORDER BY month`,
-    [`-${months} months`]
+    `WITH RECURSIVE months(m) AS (
+       SELECT strftime('%Y-%m', date('now', ?))
+       UNION ALL
+       SELECT strftime('%Y-%m', date(m || '-01', '+1 month')) FROM months WHERE m < strftime('%Y-%m','now')
+     )
+     SELECT m AS month,
+       COALESCE((SELECT SUM(amount) FROM transactions WHERE type='Income' AND strftime('%Y-%m', txn_date) = m), 0) AS income,
+       COALESCE((SELECT SUM(amount) FROM transactions WHERE type='Expense' AND strftime('%Y-%m', txn_date) = m), 0) AS expense
+     FROM months ORDER BY m`,
+    [`-${months - 1} months`]
   ),
   recentActivity: (limit: number = 10) => all<any>(
     `SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ?`, [limit]
   ),
+
+  // Real data for the "Today at a Glance" card (no more hardcoded values).
+  todayAtGlance: () => {
+    const receiptsToday = scalar<number>(
+      `SELECT (SELECT COUNT(*) FROM subscriptions WHERE date(payment_date) = date('now'))
+       + (SELECT COUNT(*) FROM donations WHERE date(donation_date) = date('now')) AS v`
+    ) || 0;
+    const donationsToday = scalar<number>(
+      `SELECT COALESCE(SUM(amount),0) FROM donations WHERE date(donation_date) = date('now')`
+    ) || 0;
+    const welfarePending = scalar<number>(
+      `SELECT COUNT(*) FROM welfare_requests WHERE status = 'Pending'`
+    ) || 0;
+    const fundBalance = scalar<number>(
+      `SELECT (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Income') - (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Expense') AS v`
+    ) || 0;
+    return { receiptsToday, donationsToday, welfarePending, fundBalance };
+  },
 
   // Alerts: committee terms ending soon, overdue subs count, pending welfare
   alerts: () => {

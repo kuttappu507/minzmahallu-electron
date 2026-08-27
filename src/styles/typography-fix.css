@@ -56,12 +56,14 @@ html.lang-ml :where(
   font-variant-numeric: tabular-nums;
 }
 
-/* Tables: explicit sizes prevent any ML-mode inherited-size shrinkage. */
+/* Tables: Malayalam glyphs in Anek Malayalam render visually smaller than
+   Poppins Latin at the same px size, so ML tables get +1px to match the
+   English-mode optical size (user-reported parity issue). */
 html.lang-ml .tbl,
 html.lang-ml .data-table,
 html.lang-ml table {
   font-family: Poppins, "Anek Malayalam Variable", sans-serif !important;
-  font-size: 14px !important;
+  font-size: 15px !important;
   font-variant-numeric: tabular-nums;
 }
 
@@ -70,7 +72,7 @@ html.lang-ml .tbl thead th,
 html.lang-ml table th,
 html.lang-ml thead th {
   font-family: Poppins, "Anek Malayalam Variable", sans-serif !important;
-  font-size: 12.5px !important;
+  font-size: 13px !important;
   font-weight: 600 !important;
   line-height: 1.3 !important;
 }
@@ -79,12 +81,12 @@ html.lang-ml .tbl td,
 html.lang-ml table td,
 html.lang-ml tbody td {
   font-family: Poppins, "Anek Malayalam Variable", sans-serif !important;
-  font-size: 14px !important;
+  font-size: 15px !important;
   font-weight: 400 !important;
   line-height: 1.45 !important;
 }
 
-/* Codes retain the same 14px table metric; never shrink in ML mode. */
+/* Codes retain the same table metric; never shrink in ML mode. */
 html.lang-ml .tbl .member-code,
 html.lang-ml .tbl .family-code,
 html.lang-ml .tbl .token-code,

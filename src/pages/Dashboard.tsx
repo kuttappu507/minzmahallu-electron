@@ -17,6 +17,8 @@ export function Dashboard() {
   const { t, isMalayalam } = useI18n();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const displayLocale = isMalayalam() ? "ml-IN" : "en-IN";
+  const ml = (en: string, m: string) => (isMalayalam() ? m : en);
 
   const { data: summary, refresh: refreshSummary } = useAsync(() => window.mms.dashboard.summary(), []);
   const { data: balance } = useAsync(() => window.mms.dashboard.balance(), []);
@@ -24,6 +26,15 @@ export function Dashboard() {
   const { data: incomeExpense } = useAsync(() => window.mms.dashboard.incomeVsExpense(6), []);
   const { data: recentActivity, refresh: refreshActivity } = useAsync(() => window.mms.dashboard.recentActivity(8), []);
   const { data: alerts } = useAsync(() => window.mms.dashboard.alerts(), []);
+  const { data: glance, refresh: refreshGlance } = useAsync(() => window.mms.dashboard.todayAtGlance(), []);
+
+  // Beautify chart month labels: "2026-08" → "Aug 26" (locale-aware).
+  const prettyMonth = (m: string) => {
+    const d = new Date(`${m}-01T00:00:00`);
+    return d.toLocaleDateString(displayLocale, { month: "short", year: "2-digit" });
+  };
+  const collectionsChart = (collections || []).map((r: any) => ({ ...r, label: prettyMonth(r.month) }));
+  const incomeExpenseChart = (incomeExpense || []).map((r: any) => ({ ...r, label: prettyMonth(r.month) }));
 
   // Compute real deltas from available data instead of using hardcoded strings.
   // For financial stats, compute month-over-month % change from the 6-month
@@ -32,13 +43,31 @@ export function Dashboard() {
   const lastMonthColl = (collections && collections.length > 1) ? Number(collections[collections.length - 2]?.amount || 0) : 0;
   const collDelta = lastMonthColl > 0 ? Math.round(((thisMonthColl - lastMonthColl) / lastMonthColl) * 100) : null;
 
-  const thisMonthDon = (collections && incomeExpense && incomeExpense.length > 0) ? 0 : 0; // donations month is from summary, no historical series
-  const balanceVal = balance ?? 0;
+  const balanceVal = balance ?? glance?.fundBalance ?? 0;
   const thisMonthIncome = (incomeExpense && incomeExpense.length > 0) ? Number(incomeExpense[incomeExpense.length - 1]?.income || 0) : 0;
   const thisMonthExpense = (incomeExpense && incomeExpense.length > 0) ? Number(incomeExpense[incomeExpense.length - 1]?.expense || 0) : 0;
   const netThisMonth = thisMonthIncome - thisMonthExpense;
   const lastMonthNet = (incomeExpense && incomeExpense.length > 1) ? (Number(incomeExpense[incomeExpense.length - 2]?.income || 0) - Number(incomeExpense[incomeExpense.length - 2]?.expense || 0)) : 0;
   const balDelta = lastMonthNet !== 0 ? Math.round(((netThisMonth - lastMonthNet) / Math.abs(lastMonthNet)) * 100) : null;
+
+  // Real backup chip: healthy when auto-backup is on and a backup exists within
+  // the configured interval; otherwise surface a warning instead of "Backup OK".
+  const backupHealthy = (() => {
+    if (!glance) return null;
+    if (!glance.backupEnabled) return false;
+    if (!glance.lastBackup) return false;
+    return glance.nextBackup ? new Date(glance.nextBackup).getTime() > Date.now() + 10 * 60 * 1000 : true;
+  })();
+
+  // Format the next auto-backup time for the glance card.
+  const nextBackupLabel = (() => {
+    if (!glance?.backupEnabled) return ml("Off", "ഓഫ്");
+    if (!glance.nextBackup) return "—";
+    const t = new Date(glance.nextBackup);
+    if (t.getTime() <= Date.now()) return ml("Soon", "ഉടൻ");
+    const sameDay = t.toDateString() === new Date().toDateString();
+    return t.toLocaleTimeString(displayLocale, sameDay ? { hour: "2-digit", minute: "2-digit" } : { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  })();
 
   const stats = [
     { label: t("dash_total_families"), value: summary?.total_families ?? 0, icon: Home, tint: "t-em", delta: t("dash_active") },
@@ -60,8 +89,6 @@ export function Dashboard() {
     { label: t("dash_qa_generate_report"), icon: BarChart3, action: "reports" },
   ];
 
-  const displayLocale = isMalayalam() ? "ml-IN" : "en-IN";
-
   return (
     <div className="view view-enter">
       <div className="hero-row">
@@ -74,7 +101,7 @@ export function Dashboard() {
           <div className="gchips">
             <span className="gchip t-gold"><Clock size={13} /> {t("dash_week")} {Math.ceil((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000))} · {t("dash_day")} {Math.ceil((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (24 * 60 * 60 * 1000))}</span>
             <span className="gchip t-sky"><Wallet size={13} /> {t("dash_fy")} {new Date().getFullYear()}-{String(new Date().getFullYear() + 1).slice(-2)} · Q{Math.floor(new Date().getMonth() / 3) + 1}</span>
-            <span className="gchip t-em"><Database size={13} /> {t("dash_backup_ok")}</span>
+            <span className="gchip t-em"><Database size={13} /> {backupHealthy === null ? t("dash_backup_ok") : backupHealthy ? t("dash_backup_ok") : ml("Backup attention needed", "ബാക്കപ്പ് ശ്രദ്ധ ആവശ്യമുണ്ട്")}</span>
           </div>
           <div className="qa-row">
             {quickActions.map((qa, i) => {
@@ -104,10 +131,10 @@ export function Dashboard() {
 
           <div className="glance">
             <b>{t("dash_today_glance")}</b>
-            <div className="g-row t-em"><span className="gdot" /><span>{t("dash_receipts_today")}</span><b>4</b></div>
-            <div className="g-row t-gold"><span className="gdot" /><span>{t("dash_next_backup")}</span><b>15:29</b></div>
-            <div className="g-row t-pink"><span className="gdot" /><span>{t("dash_welfare_pending")}</span><b>{recentActivity?.length ?? 0}</b></div>
-            <div className="g-row t-sky"><span className="gdot" /><span>{t("dash_fund_balance")}</span><b>{formatCurrency(balance ?? 0)}</b></div>
+            <div className="g-row t-em"><span className="gdot" /><span>{t("dash_receipts_today")}</span><b>{glance?.receiptsToday ?? 0}</b></div>
+            <div className="g-row t-gold"><span className="gdot" /><span>{t("dash_next_backup")}</span><b>{nextBackupLabel}</b></div>
+            <div className="g-row t-pink"><span className="gdot" /><span>{t("dash_welfare_pending")}</span><b>{glance?.welfarePending ?? 0}</b></div>
+            <div className="g-row t-sky"><span className="gdot" /><span>{t("dash_fund_balance")}</span><b>{formatCurrency(glance?.fundBalance ?? balance ?? 0)}</b></div>
           </div>
         </div>
       </div>
@@ -152,12 +179,12 @@ export function Dashboard() {
               <div className="ch-sub">{t("dash_subscription_receipts")} · {t("dash_last_6_months")}</div>
             </div>
             <div className="ch-legend">
-              <span className="lg lg-em">₹ ×1000</span>
+              <span className="lg lg-em">₹</span>
             </div>
           </div>
           <div className="ch-body">
             <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={collections || []}>
+              <AreaChart data={collectionsChart}>
                 <defs>
                   <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="var(--c-em)" stopOpacity={0.4} />
@@ -165,7 +192,7 @@ export function Dashboard() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 4" stroke="var(--line)" vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
                 <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid var(--line)", background: "var(--panel)", fontSize: 12 }} />
                 <Area type="monotone" dataKey="amount" stroke="var(--c-em)" strokeWidth={2.6} fill="url(#g1)" />
@@ -187,9 +214,9 @@ export function Dashboard() {
           </div>
           <div className="ch-body">
             <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={incomeExpense || []} barGap={4}>
+              <BarChart data={incomeExpenseChart} barGap={4}>
                 <CartesianGrid strokeDasharray="3 4" stroke="var(--line)" vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
                 <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid var(--line)", background: "var(--panel)", fontSize: 12 }} cursor={{ fill: "var(--selbg)" }} />
                 <Bar dataKey="income" fill="var(--c-em)" radius={[6, 6, 0, 0]} maxBarSize={28} />
@@ -206,7 +233,7 @@ export function Dashboard() {
             <div className="ch-title">{t("dash_recent_activity")}</div>
             <div className="ch-sub">{t("dash_last_audit")}</div>
           </div>
-          <button className="btn bs bg" onClick={() => { refreshSummary(); refreshActivity(); }}>
+          <button className="btn bs bg" onClick={() => { refreshSummary(); refreshActivity(); refreshGlance(); }}>
             <RefreshCw size={13} /> {t("action_refresh")}
           </button>
         </div>

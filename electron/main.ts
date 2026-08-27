@@ -293,6 +293,26 @@ app.whenReady().then(() => {
   ipcMain.handle("dashboard:monthlyDonations", (_e, months) => data.dashboard.monthlyDonations(months || 6));
   ipcMain.handle("dashboard:incomeVsExpense", (_e, months) => data.dashboard.incomeVsExpense(months || 6));
   ipcMain.handle("dashboard:recentActivity", (_e, limit) => data.dashboard.recentActivity(limit || 10));
+  // Today-at-a-glance + real backup status (auto-backup schedule + last backup file).
+  ipcMain.handle("dashboard:todayAtGlance", () => {
+    const glance = data.dashboard.todayAtGlance();
+    let backupEnabled = false;
+    let nextBackup: string | null = null;
+    let lastBackup: string | null = null;
+    try {
+      const settings = data.settings.load();
+      backupEnabled = !!settings?.auto_backup;
+      lastBackup = listBackups(app.getPath("userData"))[0]?.time ?? null;
+      if (backupEnabled) {
+        const intervalHours = Number(settings.backup_interval_hours || 24);
+        if (intervalHours > 0) {
+          const last = lastBackup ? new Date(lastBackup).getTime() : 0;
+          nextBackup = new Date(last + intervalHours * 3600 * 1000).toISOString();
+        }
+      }
+    } catch (e) { console.warn("[dashboard:todayAtGlance] backup info failed:", e); }
+    return { ...glance, backupEnabled, nextBackup, lastBackup };
+  });
 
   ipcMain.handle("backup:create", async () => {
     if (!session.user) return { success: false, error: "Authentication required" };
