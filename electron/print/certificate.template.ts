@@ -326,7 +326,6 @@ body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayala
 .corner.br{right:7mm;bottom:7mm;transform:scale(-1,-1)}
 /* Header */
 .hdr{text-align:center;position:relative;z-index:1;padding-top:2mm}
-.bismillah{font-size:14pt;color:#0e7c5b;font-weight:600;margin-bottom:1mm;font-family:"Anek Malayalam Variable",Poppins,Arial,sans-serif;letter-spacing:.5px}
 .mahallu-name{font-size:16pt;font-weight:700;color:#0e7c5b;letter-spacing:.3px}
 .mahallu-addr{font-size:8.5pt;color:#5f7268;margin-top:1mm;line-height:1.3}
 .cert-title{font-size:18pt;font-weight:700;color:#1a2b22;letter-spacing:1px;text-transform:uppercase;margin:5mm 0 1mm;padding:2mm 0;border-top:.4mm solid #0e7c5b;border-bottom:.4mm solid #0e7c5b}
@@ -363,38 +362,20 @@ body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayala
 .reg-stack{position:absolute;top:0;right:0;display:flex;flex-direction:column;gap:1.2mm;text-align:left}
 .reg-box{border:.25mm solid #9fcfbc;border-radius:1mm;padding:.7mm 2.4mm;font-size:7.5pt;color:#5f7268;background:#f6faf8;min-width:38mm;white-space:nowrap}
 .reg-box b{color:#1a2b22;font-weight:600}
-/* ===== Death certificate (official SMF landscape form) ===== */
-.dc{font-family:${ml ? '"Anek Malayalam Variable",' : '"Times New Roman",'}Georgia,serif;color:#111}
-.dc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10mm;position:relative;z-index:1;padding-top:1mm}
-.dc-org{text-align:center;flex:1;min-width:0}
-.dc-mahallu{font-size:13.5pt;font-weight:700;letter-spacing:.02em}
-.dc-mahallu .dotted{border-bottom:.3mm dotted #666;padding:0 14mm 0 6mm}
-.dc-recog{margin-top:1.6mm;font-size:8.5pt;line-height:1.5;font-style:italic}
-.dc-recog b{font-style:normal;font-weight:700}
-.dc .reg-stack{position:static;flex:none}
-.dc .reg-box{border:.3mm solid #333;background:#fff;font-size:8pt;padding:1mm 3mm;min-width:42mm}
-.dc-titlebar{display:flex;align-items:center;justify-content:space-between;background:#111;color:#fff;margin:4mm 0 0;padding:2.2mm 6mm;position:relative;z-index:1}
-.dc-title{font-size:15pt;font-weight:700;letter-spacing:.35em;text-transform:uppercase}
-.dc-no,.dc-date{font-size:10pt}
-.dc-no b,.dc-date b{font-weight:700}
-.dc-statement{font-size:10.5pt;line-height:1.6;margin:5mm 2mm 4mm;position:relative;z-index:1}
-.dc-fields{position:relative;z-index:1;padding:0 2mm}
-.dc-row{display:flex;align-items:flex-end;gap:2mm;padding:1.5mm 0}
-.dc-l{font-size:10.5pt;font-weight:600;white-space:nowrap;flex:none}
-.dc-sep{font-size:10.5pt;flex:none}
-.dc-v{flex:1;font-size:11pt;font-weight:600;border-bottom:.28mm dotted #555;min-height:4.6mm;padding:0 1.5mm .3mm;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.dc-v.grow{flex:1.8}
-.dc-sign{position:absolute;right:16mm;bottom:12mm;text-align:left;z-index:1}
-.dc-sign .dc-row{padding:.9mm 0}
-.dc-sign .dc-v{min-width:46mm}`;
+/* ===== Death certificate — our design, official SMF register texts/format ===== */
+.dc-recog{margin-top:1.8mm;font-size:8.5pt;line-height:1.55;font-style:italic;color:#5f7268}
+.dc-statement{font-size:10.5pt;line-height:1.7;margin:3mm 1mm 1mm;color:#2d3d35;text-align:justify}
+.dc-statement b{color:#0e7c5b}
+.dc-cols{display:grid;gap:0 9mm}
+.dc-cols.c3{grid-template-columns:1.1fr 1.1fr 1fr}
+.dc-cols.c2{grid-template-columns:1fr 1fr}
+.dc .field-label{width:auto;flex:none}
+.dc .field-row{padding:1.6mm 0}
+.dc-sign{position:absolute;right:20mm;bottom:26mm;width:80mm;text-align:center}`;
 }
 
 // Corner SVG ornament
 const CORNER_SVG = `<svg viewBox="0 0 40 40" fill="none" stroke="#0e7c5b" stroke-width="1.2"><path d="M0 8 L0 0 L8 0"/><path d="M0 16 Q0 8 8 8 Q16 8 16 0"/><circle cx="4" cy="4" r="1.5" fill="#0e7c5b" stroke="none"/></svg>`;
-
-// Bismillah text
-const BISMILLAH = 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ';
-const BISMILLAH_ML = 'ബിസ്മില്ലാഹിറഹ്മാനിറഹീം';
 
 function buildRegStack(c: CertData, ml: boolean): string {
   // Reg numbers print ONLY when filled in Settings — an unfilled box is
@@ -411,7 +392,6 @@ function buildRegStack(c: CertData, ml: boolean): string {
 function buildHeader(c: CertData, ml: boolean): string {
   const addr = [c.mahallu_address, c.mahallu_phone].filter(Boolean).join(' · ');
   return `<div class="hdr">
-    <div class="bismillah">${ml ? BISMILLAH_ML : BISMILLAH}</div>
     <div class="mahallu-name">${esc(c.mahallu_name || 'Minz Mahallu')}</div>
     ${addr ? `<div class="mahallu-addr">${esc(addr)}</div>` : ''}
     ${buildRegStack(c, ml)}
@@ -490,14 +470,13 @@ function buildMarriageCert(c: CertData, ml: boolean): string {
 }
 
 function buildDeathCert(c: CertData, ml: boolean): string {
-  // Official SMF death certificate format (landscape, black title bar,
-  // dotted form lines) — matches the mahallu's paper register certificate.
+  // Our branded certificate design carrying the official SMF death register
+  // texts and field structure (Village/Panchayath/Taluk … Secretary/Sign).
   const L = ml ? {
-    committee: 'മഹല്ല് കമ്മിറ്റി',
+    subtitle: 'മഹല്ല് മരണ രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയത്',
     recog1: 'അംഗീകാരം: SAMASTHA KERALA SUNNI MAHALLU FEDERATION (SMF)',
     recog2: 'സംസ്ഥാന കമ്മിറ്റി : സമസ്തലയം, ചേളാരി',
     title: 'മരണ സർട്ടിഫിക്കറ്റ്',
-    no: 'നമ്പർ', date: 'തീയതി',
     statement: 'മരണത്തെക്കുറിച്ചുള്ള താഴെ പറയുന്ന വിവരങ്ങൾ യഥാർത്ഥ മരണ രേഖയിൽ നിന്ന് എടുത്തതാണെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു. അത് രജിസ്റ്റർ ചെയ്തിരിക്കുന്നത്',
     mahalluSuffix: '(മഹല്ല്) എന്നതിനു വേണ്ടിയുള്ള രജിസ്റ്ററാണ്',
     village: 'ഗ്രാമം', panchayath: 'പഞ്ചായത്ത്', taluk: 'താലൂക്ക്', district: 'ജില്ല',
@@ -507,14 +486,13 @@ function buildDeathCert(c: CertData, ml: boolean): string {
     address: 'മൃതന്റെ സ്ഥിര വിലാസം',
     dod: 'മരണ തീയതി', pod: 'മരണ സ്ഥലം',
     regNo: 'രജിസ്ട്രേഷൻ നമ്പർ', regDate: 'രജിസ്ട്രേഷൻ തീയതി',
-    secretary: 'മഹല്ല് സെക്രട്ടറിയുടെ പേര്', phone: 'ഫോൺ നമ്പർ', sign: 'ഒപ്പ്',
-    male: 'പുരുഷൻ', female: 'സ്ത്രീ', other: 'മറ്റുള്ളവ',
+    secretary: 'മഹല്ല് സെക്രട്ടറി',
+    male: 'പുരുഷൻ', female: 'സ്ത്രീ',
   } : {
-    committee: 'Mahallu Committee',
+    subtitle: 'Registered in the Mahallu Death Register',
     recog1: 'Recognized by: SAMASTHA KERALA SUNNI MAHALLU FEDERATION (SMF)',
     recog2: 'STATE COMMITTEE : Samasthalayam, Chelari',
     title: 'DEATH CERTIFICATE',
-    no: 'No.', date: 'Date',
     statement: 'This is to Certify that the following information has been taken from the original record of death which is the register for',
     mahalluSuffix: '(Mahallu)',
     village: 'Village', panchayath: 'Panchayath', taluk: 'Taluk', district: 'District',
@@ -524,43 +502,46 @@ function buildDeathCert(c: CertData, ml: boolean): string {
     address: 'Permanent address of deceased',
     dod: 'Date of death', pod: 'Place of death',
     regNo: 'Registration No.', regDate: 'Date of Registration',
-    secretary: 'Name of Mahallu Secretary', phone: 'Phone No.', sign: 'Sign',
-    male: 'Male', female: 'Female', other: 'Other',
+    secretary: 'Mahallu Secretary',
+    male: 'Male', female: 'Female',
   };
   const sex = c.gender === 'Male' ? L.male : c.gender === 'Female' ? L.female : (c.gender || '');
   const ageVal = c.age != null && String(c.age) !== '' ? String(c.age) : '';
-  const row = (parts: Array<[string, string | undefined, boolean?]>): string =>
-    `<div class="dc-row">${parts.map(([label, value, grow]) =>
-      `<span class="dc-l">${label}</span><span class="dc-sep">:</span><span class="dc-v${grow ? ' grow' : ''}">${esc(value || '')}</span>`).join('')}</div>`;
+  const fr = (label: string, value: string | undefined): string =>
+    `<div class="field-row"><div class="field-label">${label}</div><div class="field-value">${esc(value || '—')}</div></div>`;
+  // Mahallu jurisdiction rows print only when configured in Settings.
+  const juris1 = [c.village, c.panchayath, c.taluk].some(Boolean);
+  const juris2 = [c.district, c.pincode, c.state].some(Boolean);
+  const addr = [c.mahallu_address, c.mahallu_phone].filter(Boolean).join(' · ');
+  const secSub = [c.secretary_name, c.secretary_phone].filter(Boolean).map(v => esc(v)).join(' · ');
   return `<main class="cert dc">
-  <div class="frame-outer" style="border-color:#0e7c5b"></div><div class="frame-inner"></div>
-  <div class="dc-head">
-    <div class="dc-org">
-      <div class="dc-mahallu"><span class="dotted">${esc(c.mahallu_name || 'Minz Mahallu')}</span> ${L.committee}</div>
-      <div class="dc-recog">${L.recog1}<br>${L.recog2}</div>
-    </div>
+  <div class="frame-outer"></div><div class="frame-inner"></div>
+  <div class="corner tl">${CORNER_SVG}</div><div class="corner tr">${CORNER_SVG}</div><div class="corner bl">${CORNER_SVG}</div><div class="corner br">${CORNER_SVG}</div>
+  <div class="hdr">
+    <div class="mahallu-name">${esc(c.mahallu_name || 'Minz Mahallu')}</div>
+    ${addr ? `<div class="mahallu-addr">${esc(addr)}</div>` : ''}
+    <div class="dc-recog">${L.recog1}<br>${L.recog2}</div>
     ${buildRegStack(c, ml)}
   </div>
-  <div class="dc-titlebar">
-    <span class="dc-no">${L.no} <b>${esc(c.certificate_number)}</b></span>
-    <span class="dc-title">${L.title}</span>
-    <span class="dc-date">${L.date}: <b>${fmtDate(c.issued_date, ml)}</b></span>
-  </div>
-  <div class="dc-statement">${L.statement} <b>${esc(c.mahallu_name || 'Minz Mahallu')}</b> ${L.mahalluSuffix}.</div>
-  <div class="dc-fields">
-    ${row([[L.village, c.village], [L.panchayath, c.panchayath, true]])}
-    ${row([[L.taluk, c.taluk], [L.district, c.district, true]])}
-    ${row([[L.pincode, c.pincode], [L.state, c.state, true]])}
-    ${row([[L.name, c.deceased_name || c.issued_to, true], [L.sex, sex], [L.age, ageVal]])}
-    ${row([[L.kin, c.father_name, true]])}
-    ${row([[L.address, c.death_address, true]])}
-    ${row([[L.dod, fmtDate(c.date_of_death, ml)], [L.pod, c.place_of_death, true]])}
-    ${row([[L.regNo, c.death_number], [L.regDate, fmtDate(c.death_registration_date, ml), true]])}
+  <div class="cert-title">${L.title}</div>
+  <div class="cert-subtitle">${L.subtitle}</div>
+  ${buildMetaRow(c, ml)}
+  <div class="dc-statement">${L.statement} <b>${esc(c.mahallu_name || 'Minz Mahallu')}</b> ${L.mahalluSuffix}</div>
+  <div class="fields">
+    ${juris1 ? `<div class="dc-cols c3">${fr(L.village, c.village)}${fr(L.panchayath, c.panchayath)}${fr(L.taluk, c.taluk)}</div>` : ''}
+    ${juris2 ? `<div class="dc-cols c3">${fr(L.district, c.district)}${fr(L.pincode, c.pincode)}${fr(L.state, c.state)}</div>` : ''}
+    <div class="dc-cols c3">${fr(L.name, c.deceased_name || c.issued_to)}${fr(L.sex, sex)}${fr(L.age, ageVal)}</div>
+    ${fr(L.kin, c.father_name)}
+    ${fr(L.address, c.death_address)}
+    <div class="dc-cols c2">${fr(L.dod, fmtDate(c.date_of_death, ml))}${fr(L.pod, c.place_of_death)}</div>
+    <div class="dc-cols c2">${fr(L.regNo, c.death_number)}${fr(L.regDate, fmtDate(c.death_registration_date, ml))}</div>
   </div>
   <div class="dc-sign">
-    ${row([[L.secretary, c.secretary_name]])}
-    ${row([[L.phone, c.secretary_phone], [L.sign, '']])}
+    <div class="sig-line"></div>
+    <div class="sig-label">${L.secretary}</div>
+    ${secSub ? `<div class="sig-sub">${secSub}</div>` : ''}
   </div>
+  <div class="cert-footer">${fmtDate(new Date().toISOString(), ml)}</div>
 </main>`;
 }
 
