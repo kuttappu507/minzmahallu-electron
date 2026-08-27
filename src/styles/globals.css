@@ -490,42 +490,155 @@
   @keyframes tIn { from { transform: translateY(14px); opacity: 0; } }
   @keyframes tOut { to { transform: translateY(14px); opacity: 0; } }
 
-  /* ===== Splash screen (solid green card, no aura/shadow) ===== */
-  .splash-box-only {
-    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    z-index: 9999;
-    width: 400px; padding: 44px 36px 32px;
-    background: var(--em);
-    border-radius: 20px;
-    display: flex; flex-direction: column; align-items: center; gap: 16px;
-    animation: splashBoxIn 0.4s ease-out;
+  /* ===== Splash screen — professional emerald boot screen ===== */
+  .splash {
+    position: fixed; inset: 0; z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    background: #052e23;
+    color: #eaf7f1;
+    animation: splashIn 0.45s ease-out;
   }
-  .splash-box-only.out { animation: splashFadeOut 0.4s ease-out forwards; }
+  .splash.out { animation: splashOut 0.46s ease-in forwards; }
+
+  /* --- Backdrop layers --- */
+  .splash-bg { position: absolute; inset: 0; overflow: hidden; }
+  .splash-glow { position: absolute; border-radius: 50%; filter: blur(90px); pointer-events: none; }
+  .splash-glow-a {
+    width: 680px; height: 680px; top: -240px; left: 50%; transform: translateX(-58%);
+    background: radial-gradient(circle, rgba(14, 171, 127, 0.32), transparent 65%);
+  }
+  .splash-glow-b {
+    width: 540px; height: 540px; bottom: -220px; right: -160px;
+    background: radial-gradient(circle, rgba(44, 196, 151, 0.20), transparent 65%);
+    animation: splashDrift 9s ease-in-out infinite alternate;
+  }
+  .splash-pattern {
+    position: absolute; inset: -40px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='1'%3E%3Cpath d='M36 6 L42 30 L66 36 L42 42 L36 66 L30 42 L6 36 L30 30 Z'/%3E%3Ccircle cx='36' cy='36' r='6'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: 72px 72px;
+    opacity: 0.05;
+  }
+  .splash-vignette {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 0%, rgba(2, 17, 12, 0.55) 100%);
+  }
+
+  /* --- Center card --- */
+  .splash-card {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 0 48px;
+    animation: splashRise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .splash.out .splash-card { animation: splashCardOut 0.46s ease-in forwards; }
 
   .splash-logo {
-    width: 72px; height: 72px; border-radius: 18px;
-    background: rgba(255, 255, 255, 0.15);
+    position: relative;
+    width: 96px; height: 96px; margin-bottom: 28px;
     display: grid; place-items: center;
-    border: 2px solid rgba(255, 255, 255, 0.3);
   }
-  .splash-logo img { width: 42px; height: 42px; object-fit: contain; }
+  .splash-logo img {
+    width: 100%; height: 100%; object-fit: contain; display: block;
+    filter: brightness(0) invert(1);
+  }
+  .splash-logo::before {
+    content: ""; position: absolute; inset: -34px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(44, 196, 151, 0.30), transparent 70%);
+    animation: splashHalo 3.4s ease-in-out infinite;
+  }
 
-  .splash-text-group { text-align: center; }
-  .splash-title { font: 700 24px Poppins; letter-spacing: -0.01em; color: #fff; }
-  .splash-sub { font: 500 12px Poppins; color: rgba(255, 255, 255, 0.8); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 4px; }
+  .splash-brand { text-align: center; }
+  .splash-title {
+    margin: 0; font: 700 34px/1.15 Poppins, sans-serif !important;
+    letter-spacing: 0.045em; text-transform: uppercase; color: #ffffff;
+    text-align: center;
+  }
+  /* Wordmark stays Poppins even in Malayalam mode (brand lockup is Latin). */
+  .splash .splash-title { font-family: Poppins, sans-serif !important; }
+  .splash-subtitle {
+    margin: 10px 0 0;
+    font: 500 13px/1.5 Poppins, "Anek Malayalam Variable", sans-serif;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: rgba(220, 243, 232, 0.8);
+    text-align: center;
+  }
+  html.lang-ml .splash-subtitle {
+    letter-spacing: 0; text-transform: none;
+    font-size: 15px; line-height: 1.6;
+  }
 
-  .splash-progress-wrap { width: 100%; display: flex; flex-direction: column; gap: 7px; }
-  .splash-progress { width: 100%; height: 4px; border-radius: 99px; background: rgba(255, 255, 255, 0.2); overflow: hidden; }
-  .splash-progress i { display: block; height: 100%; background: #fff; border-radius: 99px; transition: width 0.35s ease; }
-  .splash-progress-meta { display: flex; justify-content: space-between; align-items: center; font: 500 11px Poppins; }
-  .splash-status { color: rgba(255, 255, 255, 0.85); }
-  .splash-pct { color: #fff; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .splash-divider { display: flex; align-items: center; gap: 10px; margin: 26px 0 24px; }
+  .splash-divider span {
+    width: 64px; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28));
+  }
+  .splash-divider span:last-child { transform: scaleX(-1); }
+  .splash-divider i {
+    width: 6px; height: 6px; transform: rotate(45deg);
+    background: #2cc497;
+    box-shadow: 0 0 10px rgba(44, 196, 151, 0.8);
+  }
 
-  .splash-credit { font: 500 10px Poppins; color: rgba(255, 255, 255, 0.6); margin-top: 2px; letter-spacing: 0.05em; }
+  /* --- Progress --- */
+  .splash-progress-wrap { width: 300px; display: flex; flex-direction: column; gap: 10px; }
+  .splash-progress-meta { display: flex; justify-content: space-between; align-items: baseline; }
+  .splash-status {
+    font: 500 11.5px/1.4 Poppins, "Anek Malayalam Variable", sans-serif;
+    color: rgba(212, 240, 229, 0.68);
+    animation: splashStatusIn 0.3s ease-out;
+  }
+  .splash-pct {
+    font: 600 11.5px/1.4 Poppins, sans-serif;
+    color: #7de3c3; font-variant-numeric: tabular-nums; letter-spacing: 0.02em;
+  }
+  .splash-progress {
+    position: relative; height: 3px; border-radius: 99px;
+    background: rgba(255, 255, 255, 0.18); overflow: hidden;
+  }
+  .splash-progress i {
+    position: relative; display: block; height: 100%; border-radius: inherit;
+    background: linear-gradient(90deg, #1db98a, #7de3c3);
+    box-shadow: 0 0 12px rgba(44, 196, 151, 0.55);
+    transition: width 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .splash-progress i::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    animation: splashShimmer 1.6s ease-in-out infinite;
+  }
 
-  @keyframes splashFadeIn { from { opacity: 0; } }
-  @keyframes splashFadeOut { to { opacity: 0; } }
-  @keyframes splashBoxIn { from { opacity: 0; } to { opacity: 1; } }
+  /* --- Footer --- */
+  .splash-foot {
+    position: absolute; bottom: 26px; left: 0; right: 0; z-index: 1;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .splash-version {
+    font: 500 10.5px/1.3 Poppins, sans-serif;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: rgba(220, 243, 232, 0.58);
+  }
+  .splash-dot { width: 3px; height: 3px; border-radius: 50%; background: rgba(220, 243, 232, 0.45); }
+  .splash-credit {
+    font: 500 10.5px/1.3 Poppins, "Anek Malayalam Variable", sans-serif;
+    letter-spacing: 0.06em;
+    color: rgba(220, 243, 232, 0.58);
+  }
+
+  @keyframes splashIn { from { opacity: 0; } }
+  @keyframes splashOut { to { opacity: 0; } }
+  @keyframes splashRise { from { opacity: 0; transform: translateY(14px) scale(0.985); } }
+  @keyframes splashCardOut { to { opacity: 0; transform: translateY(-8px) scale(0.99); } }
+  @keyframes splashStatusIn { from { opacity: 0; transform: translateY(3px); } }
+  @keyframes splashShimmer { 0% { transform: translateX(-100%); } 60%, 100% { transform: translateX(100%); } }
+  @keyframes splashDrift { from { transform: translate(0, 0); } to { transform: translate(-40px, 30px); } }
+  @keyframes splashHalo { 0%, 100% { opacity: 0.75; transform: scale(1); } 50% { opacity: 1; transform: scale(1.05); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .splash, .splash-card, .splash-status { animation: none !important; }
+    .splash-progress i::after, .splash-glow-b, .splash-logo::before { animation: none !important; }
+    .splash-progress i { transition: none; }
+  }
 
   /* ===== Logo bg light emerald ===== */
   .logo {
@@ -862,9 +975,6 @@
   .toast-ic-err { color: #e8556e; }
   .toast-ic-warn { color: #e0a50d; }
   .toast-ic-info { color: #2b9be0; }
-
-  /* ===== Splash logo img sizing ===== */
-  .splash-logo img { width: 40px; height: 40px; }
 
   /* ===== Sidebar logo img sizing ===== */
   .sb-logo .logo img { width: 24px; height: 24px; }

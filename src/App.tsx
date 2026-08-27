@@ -87,6 +87,7 @@ function LanguagePersistence() {
 export default function App() {
   const { apply } = useTheme(); const { user } = useAuth(); const [splashDone, setSplashDone] = useState(false);
   useEffect(() => { apply(); }, [apply]); useEffect(() => { if (splashDone) document.body.classList.add("app-loaded"); }, [splashDone]);
-  if (!splashDone) return <Splash onDone={() => setSplashDone(true)} />;
-  return <><LanguagePersistence /><OfflineMalayalamLayer /><Routes><Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} /><Route path="/*" element={user ? <ProtectedLayout /> : <Navigate to="/login" />} /></Routes><ToastContainer /></>;
+  /* The app mounts beneath the splash overlay so the splash can cross-fade
+     into it — the transparent frameless window never shows the desktop. */
+  return <><LanguagePersistence /><OfflineMalayalamLayer /><Routes><Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} /><Route path="/*" element={user ? <ProtectedLayout /> : <Navigate to="/login" />} /></Routes><ToastContainer />{!splashDone && <Splash onDone={() => setSplashDone(true)} />}</>;
 }
