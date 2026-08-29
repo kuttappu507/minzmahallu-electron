@@ -324,12 +324,16 @@ body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayala
 .corner.tr{right:7mm;top:7mm;transform:scaleX(-1)}
 .corner.bl{left:7mm;bottom:7mm;transform:scaleY(-1)}
 .corner.br{right:7mm;bottom:7mm;transform:scale(-1,-1)}
-/* Header */
-.hdr{text-align:center;position:relative;z-index:1;padding-top:2mm}
-.mahallu-name{font-size:16pt;font-weight:700;color:#0e7c5b;letter-spacing:.3px}
+/* Header: 3-column grid (spacer | centered name block | reg-no stack).
+   The fixed side columns guarantee the mahallu name stays dead-center on the
+   page and can NEVER slide under the reg-number boxes, no matter how long
+   the mahallu name or the registration numbers are. */
+.hdr{text-align:center;position:relative;z-index:1;padding-top:2mm;display:grid;grid-template-columns:40mm 1fr 40mm;column-gap:3mm;align-items:start}
+.hdr-main{grid-column:2;text-align:center;min-width:0}
+.mahallu-name{font-size:16pt;font-weight:700;color:#0e7c5b;letter-spacing:.3px;line-height:1.25}
 .mahallu-addr{font-size:8.5pt;color:#5f7268;margin-top:1mm;line-height:1.3}
-.cert-title{font-size:18pt;font-weight:700;color:#1a2b22;letter-spacing:1px;text-transform:uppercase;margin:5mm 0 1mm;padding:2mm 0;border-top:.4mm solid #0e7c5b;border-bottom:.4mm solid #0e7c5b}
-.cert-subtitle{font-size:9pt;color:#5f7268;font-style:italic;margin-bottom:4mm}
+.cert-title{font-size:18pt;font-weight:700;color:#1a2b22;letter-spacing:1px;text-transform:uppercase;text-align:center;margin:5mm 0 1mm;padding:2mm 0;border-top:.4mm solid #0e7c5b;border-bottom:.4mm solid #0e7c5b}
+.cert-subtitle{font-size:9pt;color:#5f7268;font-style:italic;text-align:center;margin-bottom:4mm}
 /* Meta box (cert no, date) */
 .meta-row{display:flex;justify-content:space-between;margin-bottom:4mm;padding:2mm 4mm;background:#f0f7f3;border-radius:2mm;border:.2mm solid #c9e0d4}
 .meta-row .item{font-size:9pt;color:#5f7268}
@@ -358,9 +362,10 @@ body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayala
 .seal{position:absolute;right:22mm;bottom:14mm;width:28mm;height:28mm;border:1.5px solid #0e7c5b;border-radius:50%;display:grid;place-items:center;text-align:center;font-size:7pt;color:#0e7c5b;font-weight:600;opacity:.3;transform:rotate(-12deg)}
 /* Footer */
 .cert-footer{position:absolute;left:16mm;right:16mm;bottom:6mm;text-align:center;font-size:7.5pt;color:#8ba096}
-/* ===== Registration number stack (all certificates) — shown ONLY when filled ===== */
-.reg-stack{position:absolute;top:0;right:0;display:flex;flex-direction:column;gap:1.2mm;text-align:left}
-.reg-box{border:.25mm solid #9fcfbc;border-radius:1mm;padding:.7mm 2.4mm;font-size:7.5pt;color:#5f7268;background:#f6faf8;min-width:38mm;white-space:nowrap}
+/* ===== Registration number stack (all certificates) — shown ONLY when filled.
+   Lives in the header's right grid column (top-right corner of the page). ===== */
+.reg-stack{grid-column:3;justify-self:end;align-self:start;display:flex;flex-direction:column;gap:1.2mm;align-items:flex-end;text-align:left}
+.reg-box{border:.25mm solid #9fcfbc;border-radius:1mm;padding:.7mm 2.2mm;font-size:7.5pt;color:#5f7268;background:#f6faf8;max-width:40mm;line-height:1.35}
 .reg-box b{color:#1a2b22;font-weight:600}
 /* ===== Death certificate — our design, official SMF register texts/format ===== */
 .dc-recog{margin-top:1.8mm;font-size:8.5pt;line-height:1.55;font-style:italic;color:#5f7268}
@@ -392,8 +397,10 @@ function buildRegStack(c: CertData, ml: boolean): string {
 function buildHeader(c: CertData, ml: boolean): string {
   const addr = [c.mahallu_address, c.mahallu_phone].filter(Boolean).join(' · ');
   return `<div class="hdr">
-    <div class="mahallu-name">${esc(c.mahallu_name || 'Minz Mahallu')}</div>
-    ${addr ? `<div class="mahallu-addr">${esc(addr)}</div>` : ''}
+    <div class="hdr-main">
+      <div class="mahallu-name">${esc(c.mahallu_name || 'Minz Mahallu')}</div>
+      ${addr ? `<div class="mahallu-addr">${esc(addr)}</div>` : ''}
+    </div>
     ${buildRegStack(c, ml)}
   </div>`;
 }
@@ -479,7 +486,7 @@ function buildDeathCert(c: CertData, ml: boolean): string {
     title: 'മരണ സർട്ടിഫിക്കറ്റ്',
     statement: 'മരണത്തെക്കുറിച്ചുള്ള താഴെ പറയുന്ന വിവരങ്ങൾ യഥാർത്ഥ മരണ രേഖയിൽ നിന്ന് എടുത്തതാണെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു. അത് രജിസ്റ്റർ ചെയ്തിരിക്കുന്നത്',
     mahalluSuffix: '(മഹല്ല്) എന്നതിനു വേണ്ടിയുള്ള രജിസ്റ്ററാണ്',
-    village: 'ഗ്രാമം', panchayath: 'പഞ്ചായത്ത്', taluk: 'താലൂക്ക്', district: 'ജില്ല',
+    village: 'വില്ലേജ്', panchayath: 'പഞ്ചായത്ത്', taluk: 'താലൂക്ക്', district: 'ജില്ല',
     pincode: 'പിൻകോഡ്', state: 'സംസ്ഥാനം',
     name: 'പേര്', sex: 'ലിംഗം', age: 'വയസ്സ്',
     kin: 'പിതാവിന്റെ / മാതാവിന്റെ / ഭർത്താവിന്റെ / ഭാര്യയുടെ പേര്',
@@ -518,9 +525,11 @@ function buildDeathCert(c: CertData, ml: boolean): string {
   <div class="frame-outer"></div><div class="frame-inner"></div>
   <div class="corner tl">${CORNER_SVG}</div><div class="corner tr">${CORNER_SVG}</div><div class="corner bl">${CORNER_SVG}</div><div class="corner br">${CORNER_SVG}</div>
   <div class="hdr">
-    <div class="mahallu-name">${esc(c.mahallu_name || 'Minz Mahallu')}</div>
-    ${addr ? `<div class="mahallu-addr">${esc(addr)}</div>` : ''}
-    <div class="dc-recog">${L.recog1}<br>${L.recog2}</div>
+    <div class="hdr-main">
+      <div class="mahallu-name">${esc(c.mahallu_name || 'Minz Mahallu')}</div>
+      ${addr ? `<div class="mahallu-addr">${esc(addr)}</div>` : ''}
+      <div class="dc-recog">${L.recog1}<br>${L.recog2}</div>
+    </div>
     ${buildRegStack(c, ml)}
   </div>
   <div class="cert-title">${L.title}</div>
