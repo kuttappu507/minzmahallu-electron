@@ -374,6 +374,12 @@ body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayala
 .dc-cols{display:grid;gap:0 9mm}
 .dc-cols.c3{grid-template-columns:1.1fr 1.1fr 1fr}
 .dc-cols.c2{grid-template-columns:1fr 1fr}
+/* Gridded cells stack the label ABOVE the value so long labels
+   (e.g. Corporation / Municipality / Panchayat) wrap without
+   pushing the value out of alignment with sibling columns. */
+.dc-cols .field-row{flex-direction:column;align-items:flex-start;gap:.3mm;padding:1.3mm 0}
+.dc-cols .field-label{width:100%;flex:none;font-size:8pt;line-height:1.35;color:#8ba096}
+.dc-cols .field-value{width:100%}
 .dc .field-label{width:auto;flex:none}
 .dc .field-row{padding:1.6mm 0}
 .dc-sign{position:absolute;right:20mm;bottom:26mm;width:80mm;text-align:center}`;
@@ -486,7 +492,7 @@ function buildDeathCert(c: CertData, ml: boolean): string {
     title: 'മരണ സർട്ടിഫിക്കറ്റ്',
     statement: 'മരണത്തെക്കുറിച്ചുള്ള താഴെ പറയുന്ന വിവരങ്ങൾ യഥാർത്ഥ മരണ രേഖയിൽ നിന്ന് എടുത്തതാണെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു. അത് രജിസ്റ്റർ ചെയ്തിരിക്കുന്നത്',
     mahalluSuffix: '(മഹല്ല്) എന്നതിനു വേണ്ടിയുള്ള രജിസ്റ്ററാണ്',
-    village: 'വില്ലേജ്', panchayath: 'പഞ്ചായത്ത്', taluk: 'താലൂക്ക്', district: 'ജില്ല',
+    village: 'വില്ലേജ്', panchayath: 'കോർപ്പറേഷൻ / മുനിസിപ്പാലിറ്റി / പഞ്ചായത്ത്', taluk: 'താലൂക്ക്', district: 'ജില്ല',
     pincode: 'പിൻകോഡ്', state: 'സംസ്ഥാനം',
     name: 'പേര്', sex: 'ലിംഗം', age: 'വയസ്സ്',
     kin: 'പിതാവിന്റെ / മാതാവിന്റെ / ഭർത്താവിന്റെ / ഭാര്യയുടെ പേര്',
@@ -502,7 +508,7 @@ function buildDeathCert(c: CertData, ml: boolean): string {
     title: 'DEATH CERTIFICATE',
     statement: 'This is to Certify that the following information has been taken from the original record of death which is the register for',
     mahalluSuffix: '(Mahallu)',
-    village: 'Village', panchayath: 'Panchayath', taluk: 'Taluk', district: 'District',
+    village: 'Village', panchayath: 'Corporation / Municipality / Panchayat', taluk: 'Taluk', district: 'District',
     pincode: 'Pincode', state: 'State',
     name: 'Name', sex: 'Sex', age: 'Age',
     kin: 'Name of Father / Mother / Husband / Wife',
