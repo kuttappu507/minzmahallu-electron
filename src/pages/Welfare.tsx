@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, Check, X, Send, Eye, ShieldCheck } from "lucide-react";
+import { Plus, Edit2, Trash2, Check, X, Send, Eye, ShieldCheck, Users } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
 import { Card, CardContent, Button, Dialog, Input, Label, Select, Textarea, Badge, SectionLabel } from "@/components/ui";
@@ -34,7 +34,9 @@ const emptyForm: Partial<Welfare> = {
 const codeFontStyle = "code-text-sm";
 
 export function Welfare() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const ml = lang === "ml";
+  const tx = (en: string, m: string) => (ml ? m : en);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
@@ -43,6 +45,13 @@ export function Welfare() {
   const [form, setForm] = useState<Partial<Welfare>>(emptyForm);
   const [families, setFamilies] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  // Person-from-mahallu cascade: family FIRST, then the person (same flow as
+  // the marriage / death registers). Selecting a member prefills the applicant
+  // name and links the family automatically.
+  const [fromMahallu, setFromMahallu] = useState(false);
+  const [familyId, setFamilyId] = useState("");
+  const [memberId, setMemberId] = useState("");
+  const [familyMembers, setFamilyMembers] = useState<any[]>([]);
   const [approveAmount, setApproveAmount] = useState(0);
   const [approveRemarks, setApproveRemarks] = useState("");
   const [rejectReason, setRejectReason] = useState("");
@@ -60,6 +69,37 @@ export function Welfare() {
     window.mms.families.list({ pageSize: 1000 }).then((r) => setFamilies(r.rows || [])).catch(() => {});
     window.mms.welfare.categories().then((r) => setCategories((r || []).map((name: any) => typeof name === "string" ? { name } : name))).catch(() => {});
   }, []);
+
+  // Cascading: load members of the chosen family for the from-mahallu picker.
+  useEffect(() => {
+    if (!familyId) { setFamilyMembers([]); return; }
+    window.mms.members.list({ familyId: Number(familyId), status: "Active", pageSize: 1000 })
+      .then((r) => setFamilyMembers(r.rows || []))
+      .catch(() => setFamilyMembers([]));
+  }, [familyId]);
+
+  // Prefill applicant details from the selected mahallu member.
+  const selectMember = async (id: string) => {
+    setMemberId(id);
+    if (!id) return;
+    try {
+      const m = await window.mms.members.get(Number(id));
+      if (m) setForm((v) => ({ ...v, applicant_name: m.name || "", family_id: m.family_id || v.family_id }));
+    } catch {
+      const m = familyMembers.find((x) => String(x.id) === id);
+      if (m) setForm((v) => ({ ...v, applicant_name: m.name, family_id: m.family_id || v.family_id }));
+    }
+  };
+
+  const resetNewRequest = () => {
+    setForm(emptyForm);
+    setEditingId(null);
+    setFromMahallu(false);
+    setFamilyId("");
+    setMemberId("");
+    setFamilyMembers([]);
+    setDialogOpen(true);
+  };
 
   const totalRequested = (rows as Welfare[]).reduce((s, r) => s + (r.amount_requested || 0), 0);
   const totalApproved = (rows as Welfare[]).reduce((s, r) => s + (r.amount_approved || 0), 0);
@@ -90,6 +130,10 @@ export function Welfare() {
       setDialogOpen(false);
       setForm(emptyForm);
       setEditingId(null);
+      setFromMahallu(false);
+      setFamilyId("");
+      setMemberId("");
+      setFamilyMembers([]);
       refetch();
     } catch (err: any) {
       toast.error(err.message || t("ui_failed_save"));
@@ -103,6 +147,10 @@ export function Welfare() {
     setApproveRemarks(w?.remarks || "");
     setRejectReason("");
     setEditingId(id);
+    setFromMahallu(false);
+    setFamilyId("");
+    setMemberId("");
+    setFamilyMembers([]);
     setDialogOpen(true);
   };
 
@@ -247,7 +295,7 @@ export function Welfare() {
           <div className="vs">{t("wel_subtitle")}</div>
         </div>
         <div className="vr">
-          <Button onClick={() => { setForm(emptyForm); setEditingId(null); setDialogOpen(true); }}>
+          <Button onClick={resetNewRequest}>
             <Plus className="h-4 w-4" />
             {t("wel_new_request")}
           </Button>
@@ -350,10 +398,46 @@ export function Welfare() {
         className="max-w-2xl"
       >
         <div className="p-6 space-y-4">
+          {/* Person-from-mahallu picker: family first, then member — prefills the applicant */}
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={fromMahallu}
+              onChange={(e) => {
+                setFromMahallu(e.target.checked);
+                if (!e.target.checked) { setFamilyId(""); setMemberId(""); setFamilyMembers([]); }
+              }}
+            />
+            <span className="text-sm">{tx("അപേക്ഷകൻ ഈ മഹല്ലിലെ അംഗമാണ്", "Applicant is from this Mahallu")}</span>
+          </div>
+          {fromMahallu && (
+            <div className="space-y-3">
+              <div>
+                <Label><Users size={14} className="inline" /> {t("member_family")}</Label>
+                <Select value={familyId} onChange={(e) => { setFamilyId(e.target.value); setMemberId(""); }}>
+                  <option value="">{t("ui_select")}</option>
+                  {families.map((f) => (
+                    <option key={f.id} value={f.id}>{f.house_name} ({f.family_number})</option>
+                  ))}
+                </Select>
+              </div>
+              {familyId && (
+                <div>
+                  <Label><Users size={14} className="inline" /> {tx("അംഗത്തെ തിരഞ്ഞെടുക്കുക", "Select member")}</Label>
+                  <Select value={memberId} onChange={(e) => selectMember(e.target.value)}>
+                    <option value="">{t("ui_select")}</option>
+                    {familyMembers.map((m: any) => (
+                      <option key={m.id} value={m.id}>{m.name}{m.relationship ? ` · ${m.relationship}` : ""}</option>
+                    ))}
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>{t("wel_applicant")} *</Label>
-              <Input value={form.applicant_name || ""} onChange={(e) => setForm({ ...form, applicant_name: e.target.value })} />
+              <Input value={form.applicant_name || ""} readOnly={fromMahallu && !!memberId} onChange={(e) => setForm({ ...form, applicant_name: e.target.value })} />
             </div>
             <div>
               <Label>{t("member_family")} (optional)</Label>

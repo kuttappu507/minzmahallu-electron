@@ -12,6 +12,45 @@ function nowDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/**
+ * Next register number for official registers (marriages / deaths / welfare).
+ *
+ * The old scheme was `'PREFIX-' || year || printf('%03d', COUNT(*)+1)` scoped
+ * to rows dated in the current year. That breaks in two ways:
+ *   1. A record dated outside the current year (e.g. a late-registered 2025
+ *      marriage) is invisible to the COUNT, so the NEXT registration reuses /
+ *      lags behind a number — the register then shows e.g. numbers up to 009
+ *      while the count and the dashboard card correctly say 10 records.
+ *   2. Deleting the highest record (deaths) makes the same number reusable.
+ * This helper instead takes the MAX trailing number across ALL rows of the
+ * table (any prefix format) and adds 1, guaranteeing a strictly increasing,
+ * collision-free series. A final existence loop guards mixed-format data.
+ */
+function nextRegisterNumber(
+  table: string,
+  column: string,
+  prefix: string,
+  opts: { pad?: number; withYear?: boolean } = {}
+): string {
+  const { pad = 3, withYear = true } = opts;
+  const year = new Date().getFullYear();
+  const rows = all<{ n: string }>(`SELECT ${column} AS n FROM ${table}`);
+  let max = 0;
+  for (const r of rows) {
+    const m = /(\d+)\s*$/.exec(String(r.n ?? ""));
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  const build = (s: number) =>
+    withYear ? `${prefix}-${year}-${String(s).padStart(pad, "0")}` : `${prefix}-${String(s).padStart(pad, "0")}`;
+  let seq = max + 1;
+  // Existence guard: with legacy mixed prefixes (MRG-001, MRG-DEMO-001, …)
+  // the suffix max is still correct, but bump until truly unique.
+  while (one(`SELECT 1 FROM ${table} WHERE ${column} = ?`, [build(seq)])) {
+    seq++;
+  }
+  return build(seq);
+}
+
 // ================= FAMILIES =================
 
 export const families = {
@@ -655,9 +694,10 @@ export const marriages = {
   },
   get: (id: number) => one<any>("SELECT * FROM marriages WHERE id = ?", [id]),
   create: (data: any) => {
-    const num = scalar<string>(
-      "SELECT 'MRG-' || strftime('%Y') || '-' || printf('%03d', COUNT(*) + 1) AS n FROM marriages WHERE strftime('%Y', nikah_date) = strftime('%Y','now')"
-    );
+    // Robust numbering: MAX trailing suffix + 1 across ALL marriages (see
+    // nextRegisterNumber) — COUNT-based numbers collided/lagged when a
+    // nikah_date fell outside the current year.
+    const num = nextRegisterNumber("marriages", "marriage_number", "MRG");
     const { id } = run(
       `INSERT INTO marriages
         (marriage_number, bride_name, bride_father, bride_address, groom_name, groom_father, groom_address, witness1, witness2, witness3, witness4, mahar, nikah_date, registration_date, place, remarks)
@@ -709,9 +749,10 @@ export const deaths = {
   },
   get: (id: number) => one<any>("SELECT * FROM deaths WHERE id = ?", [id]),
   create: (data: any) => {
-    const num = scalar<string>(
-      "SELECT 'DTH-' || strftime('%Y') || '-' || printf('%03d', COUNT(*) + 1) AS n FROM deaths WHERE strftime('%Y', date_of_death) = strftime('%Y','now')"
-    );
+    // Robust numbering: MAX trailing suffix + 1 across ALL deaths (see
+    // nextRegisterNumber) — COUNT-based numbers could be reused after a
+    // deletion or lag behind when a death date is backdated.
+    const num = nextRegisterNumber("deaths", "death_number", "DTH");
     const { id } = run(
       `INSERT INTO deaths
         (death_number, deceased_name, father_name, gender, age, date_of_death, place_of_death, burial_date, cause_of_death, burial_place, address, family_id, registration_date, remarks)
@@ -767,9 +808,10 @@ export const welfare = {
   },
   get: (id: number) => one<any>("SELECT * FROM welfare_requests WHERE id = ?", [id]),
   create: (data: any) => {
-    const num = scalar<string>(
-      "SELECT 'WEL-' || printf('%04d', COALESCE(MAX(id), 0) + 1) AS n FROM welfare_requests"
-    );
+    // MAX(id)+1 could reuse a number after deleting the newest request;
+    // use the same suffix-max scheme as the other official registers
+    // (WEL keeps its legacy 4-digit, year-less format).
+    const num = nextRegisterNumber("welfare_requests", "request_number", "WEL", { pad: 4, withYear: false });
     const { id } = run(
       `INSERT INTO welfare_requests
         (request_number, applicant_name, family_id, category, amount_requested, amount_approved, reason, request_date, status, remarks, processed_by)
@@ -1036,6 +1078,11 @@ export const dashboard = {
      FROM months ORDER BY m`,
     [`-${months - 1} months`]
   ),
+  // Income vs Expense chart — uses the SAME unified ledger as the Accounting
+  // page (manual transactions + donations + paid subscriptions + welfare
+  // disbursements + paid salaries). Previously this summed the transactions
+  // table only, so the chart disagreed with the Accounting page whenever a
+  // donation / subscription / welfare / salary entry existed.
   incomeVsExpense: (months: number = 6) => all<any>(
     `WITH RECURSIVE months(m) AS (
        SELECT strftime('%Y-%m', date('now', ?))
@@ -1043,8 +1090,14 @@ export const dashboard = {
        SELECT strftime('%Y-%m', date(m || '-01', '+1 month')) FROM months WHERE m < strftime('%Y-%m','now')
      )
      SELECT m AS month,
-       COALESCE((SELECT SUM(amount) FROM transactions WHERE type='Income' AND strftime('%Y-%m', txn_date) = m), 0) AS income,
-       COALESCE((SELECT SUM(amount) FROM transactions WHERE type='Expense' AND strftime('%Y-%m', txn_date) = m), 0) AS expense
+       COALESCE((SELECT SUM(amount) FROM transactions WHERE type='Income' AND strftime('%Y-%m', txn_date) = m), 0)
+         + COALESCE((SELECT SUM(amount) FROM donations WHERE strftime('%Y-%m', donation_date) = m), 0)
+         + COALESCE((SELECT SUM(amount_paid) FROM subscriptions WHERE status='Paid' AND strftime('%Y-%m', COALESCE(payment_date, period_start)) = m), 0)
+       AS income,
+       COALESCE((SELECT SUM(amount) FROM transactions WHERE type='Expense' AND strftime('%Y-%m', txn_date) = m), 0)
+         + COALESCE((SELECT SUM(amount_approved) FROM welfare_requests WHERE status='Disbursed' AND strftime('%Y-%m', COALESCE(disbursed_date, created_at)) = m), 0)
+         + COALESCE((SELECT SUM(amount) FROM staff_payments WHERE status='Paid' AND strftime('%Y-%m', payment_date) = m), 0)
+       AS expense
      FROM months ORDER BY m`,
     [`-${months - 1} months`]
   ),

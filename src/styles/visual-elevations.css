@@ -103,8 +103,11 @@
 .tbl {
   /* Required for sticky to work — the scroll container must be a positioned ancestor */
   position: relative;
-  max-height: calc(100vh - 280px);
-  overflow: auto;
+  /* NOTE: no max-height here. A nested scroll area (max-height: calc(100vh - 280px))
+     clipped the last rows of short registers — users saw e.g. 9 of 10 marriage
+     rows while the pagination footer said "1–10 of 10". The page (#content)
+     already scrolls, so tables now flow to full height and every row is
+     reachable without a hidden inner scrollbar. */
 }
 .tbl thead th {
   position: sticky;
