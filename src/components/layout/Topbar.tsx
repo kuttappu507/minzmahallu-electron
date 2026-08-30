@@ -63,7 +63,13 @@ export function Topbar() {
 
   return <>
     <header className="topbar">
-      <GlobalSearch value={searchQuery} onChange={setSearchQuery} />
+      <div className="crumb">
+        <small>{t("app_name")}</small>
+        <b>{pageTitle}</b>
+      </div>
+      <div className="tb-center">
+        <GlobalSearch value={searchQuery} onChange={setSearchQuery} />
+      </div>
       <div className="tb-right">
         <div className="langseg"><button type="button" className={lang === "en" ? "on" : ""} onClick={() => setLang("en")} title={t("set_lang_english")}>EN</button><button type="button" className={lang === "ml" ? "on" : ""} onClick={() => setLang("ml")} title="മലയാളം">മല</button></div>
         <button className="ibtn" onClick={toggle} title={t("tb_toggle_theme")}>{theme === "dark" ? <Sun size={17} strokeWidth={2} /> : <Moon size={17} strokeWidth={2} />}</button>

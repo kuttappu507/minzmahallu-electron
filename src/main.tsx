@@ -2,7 +2,6 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { HashRouter } from "react-router-dom";
 import App from "./App";
-import "@fontsource-variable/anek-malayalam/wght.css";
 import "./styles/globals.css";
 
 // Dev-only preview bridge so the renderer can run in a plain browser

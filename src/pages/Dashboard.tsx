@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Home, Users, UserCheck, Wallet, AlertCircle,
   Gift, Gem, Flower, TrendingUp,
-  Plus, User, BarChart3, RefreshCw, Clock, Database,
+  Plus, User, BarChart3, RefreshCw, Clock, Database, ShieldCheck,
 } from "lucide-react";
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid,
@@ -91,55 +91,34 @@ export function Dashboard() {
 
   return (
     <div className="view view-enter">
-      <div className="hero-row">
-        <div className="hero t-em">
-          <div className="overline">Minz Mahallu · {new Date().toLocaleDateString(displayLocale, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div>
-          <h1>
-            {t("dash_greeting")} <span className="text-em">{user?.fullName}</span>
-          </h1>
-          <div className="sub">{t("dash_subtitle")}</div>
-          <div className="gchips">
-            <span className="gchip t-gold"><Clock size={13} /> {t("dash_week")} {Math.ceil((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000))} · {t("dash_day")} {Math.ceil((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (24 * 60 * 60 * 1000))}</span>
-            <span className="gchip t-sky"><Wallet size={13} /> {t("dash_fy")} {new Date().getFullYear()}-{String(new Date().getFullYear() + 1).slice(-2)} · Q{Math.floor(new Date().getMonth() / 3) + 1}</span>
-            <span className="gchip t-em"><Database size={13} /> {backupHealthy === null ? t("dash_backup_ok") : backupHealthy ? t("dash_backup_ok") : ml("Backup attention needed", "ബാക്കപ്പ് ശ്രദ്ധ ആവശ്യമുണ്ട്")}</span>
-          </div>
-          <div className="qa-row">
-            {quickActions.map((qa, i) => {
-              const Icon = qa.icon;
-              return (
-                <button key={i} className="qa" onClick={() => navigate(`/${qa.action}`)}>
-                  <span className="qic"><Icon size={15} /></span>
-                  <b>{qa.label}</b>
-                </button>
-              );
-            })}
-          </div>
+      {/* ===== Page header: greeting + live chips ===== */}
+      <div className="page-head">
+        <div className="ph-left">
+          <div className="overline">{t("app_name")} · {new Date().toLocaleDateString(displayLocale, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div>
+          <h1 className="ph-title">{t("dash_greeting")} <span className="text-em">{user?.fullName}</span></h1>
+          <p className="ph-sub">{t("dash_subtitle")}</p>
         </div>
-
-        <div className="hero-side">
-          <div className="alert-card t-rose">
-            <span className="bic">
-              <AlertCircle size={17} />
-              <i />
-            </span>
-            <b>{t("dash_subs_overdue")}</b>
-            <p>{t("dash_review_pending")}</p>
-            <div className="bx">
-              <button className="btn bs bd" onClick={() => navigate("/subscriptions")}>{t("dash_review_now")}</button>
-            </div>
-          </div>
-
-          <div className="glance">
-            <b>{t("dash_today_glance")}</b>
-            <div className="g-row t-em"><span className="gdot" /><span>{t("dash_receipts_today")}</span><b>{glance?.receiptsToday ?? 0}</b></div>
-            <div className="g-row t-gold"><span className="gdot" /><span>{t("dash_next_backup")}</span><b>{nextBackupLabel}</b></div>
-            <div className="g-row t-pink"><span className="gdot" /><span>{t("dash_welfare_pending")}</span><b>{glance?.welfarePending ?? 0}</b></div>
-            <div className="g-row t-sky"><span className="gdot" /><span>{t("dash_fund_balance")}</span><b>{formatCurrency(glance?.fundBalance ?? balance ?? 0)}</b></div>
-          </div>
+        <div className="gchips">
+          <span className="gchip t-gold"><Clock size={13} /> {t("dash_week")} {Math.ceil((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000))} · {t("dash_day")} {Math.ceil((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (24 * 60 * 60 * 1000))}</span>
+          <span className="gchip t-sky"><Wallet size={13} /> {t("dash_fy")} {new Date().getFullYear()}-{String(new Date().getFullYear() + 1).slice(-2)} · Q{Math.floor(new Date().getMonth() / 3) + 1}</span>
+          <span className={`gchip ${backupHealthy === false ? "t-rose" : "t-em"}`}><Database size={13} /> {backupHealthy === null ? t("dash_backup_ok") : backupHealthy ? t("dash_backup_ok") : ml("Backup attention needed", "ബാക്കപ്പ് ശ്രദ്ധ ആവശ്യമുണ്ട്")}</span>
         </div>
       </div>
 
-      {/* Alerts banner */}
+      {/* ===== Quick action strip ===== */}
+      <div className="qa-strip">
+        {quickActions.map((qa, i) => {
+          const Icon = qa.icon;
+          return (
+            <button key={i} className="qa" onClick={() => navigate(`/${qa.action}`)}>
+              <span className="qic"><Icon size={15} /></span>
+              <b>{qa.label}</b>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ===== Alerts banner ===== */}
       {alerts && alerts.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-3">
           {alerts.map((a: any, i: number) => (
@@ -156,22 +135,24 @@ export function Dashboard() {
         </div>
       )}
 
+      {/* ===== Stat tiles ===== */}
       <div className="stat-grid">
         {stats.map((s, i) => {
           const Icon = s.icon;
           return (
             <div key={i} className={`stat ${s.tint}`}>
+              <div className="slab">{s.label}</div>
+              <div className="val">{s.value}</div>
               <div className="srow">
-                <span className="sic"><Icon size={18} /></span>
+                <span className="sic"><Icon size={16} /></span>
                 <span className="delta">{s.delta}</span>
               </div>
-              <div className="val">{s.value}</div>
-              <div className="slab">{s.label}</div>
             </div>
           );
         })}
       </div>
 
+      {/* ===== Charts ===== */}
       <div className="chart-grid">
         <div className="card chart-card t-em">
           <div className="ch-head">
@@ -228,41 +209,61 @@ export function Dashboard() {
         </div>
       </div>
 
-      <div className="card card-pad-4 mt-3">
-        <div className="ch-head">
-          <div>
-            <div className="ch-title">{t("dash_recent_activity")}</div>
-            <div className="ch-sub">{t("dash_last_audit")}</div>
+      {/* ===== Bottom split: audit trail + today rail ===== */}
+      <div className="dash-bottom">
+        <div className="card card-pad-4 db-activity">
+          <div className="ch-head">
+            <div>
+              <div className="ch-title">{t("dash_recent_activity")}</div>
+              <div className="ch-sub">{t("dash_last_audit")}</div>
+            </div>
+            <button className="btn bs bg" onClick={() => { refreshSummary(); refreshActivity(); refreshGlance(); }}>
+              <RefreshCw size={13} /> {t("action_refresh")}
+            </button>
           </div>
-          <button className="btn bs bg" onClick={() => { refreshSummary(); refreshActivity(); refreshGlance(); }}>
-            <RefreshCw size={13} /> {t("action_refresh")}
-          </button>
+          <div className="tbl tbl-flat mt-2">
+            <table>
+              <thead>
+                <tr>
+                  <th>{t("audit_time")}</th>
+                  <th>{t("audit_user")}</th>
+                  <th>{t("audit_action")}</th>
+                  <th>{t("audit_description")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(recentActivity || []).length === 0 ? (
+                  <tr><td colSpan={4} className="tempty">{t("dash_no_activity")}</td></tr>
+                ) : (
+                  (recentActivity || []).slice(0, 6).map((a: any) => (
+                    <tr key={a.id}>
+                      <td><span className="recent-time">{new Date(a.created_at).toLocaleTimeString(displayLocale, { hour: "2-digit", minute: "2-digit" })}</span></td>
+                      <td>{a.username}</td>
+                      <td><span className="pill t-slate">{a.action}</span></td>
+                      <td><span className="recent-desc">{a.description}</span></td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div className="tbl tbl-flat mt-2">
-          <table>
-            <thead>
-              <tr>
-                <th>{t("audit_time")}</th>
-                <th>{t("audit_user")}</th>
-                <th>{t("audit_action")}</th>
-                <th>{t("audit_description")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(recentActivity || []).length === 0 ? (
-                <tr><td colSpan={4} className="tempty">{t("dash_no_activity")}</td></tr>
-              ) : (
-                (recentActivity || []).slice(0, 6).map((a: any) => (
-                  <tr key={a.id}>
-                    <td><span className="recent-time">{new Date(a.created_at).toLocaleTimeString(displayLocale, { hour: "2-digit", minute: "2-digit" })}</span></td>
-                    <td>{a.username}</td>
-                    <td><span className="pill t-slate">{a.action}</span></td>
-                    <td><span className="recent-desc">{a.description}</span></td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+
+        <div className="db-side">
+          <div className="glance">
+            <b>{t("dash_today_glance")}</b>
+            <div className="g-row t-em"><span className="gdot" /><span>{t("dash_receipts_today")}</span><b>{glance?.receiptsToday ?? 0}</b></div>
+            <div className="g-row t-gold"><span className="gdot" /><span>{t("dash_next_backup")}</span><b>{nextBackupLabel}</b></div>
+            <div className="g-row t-pink"><span className="gdot" /><span>{t("dash_welfare_pending")}</span><b>{glance?.welfarePending ?? 0}</b></div>
+            <div className="g-row t-sky"><span className="gdot" /><span>{t("dash_fund_balance")}</span><b>{formatCurrency(glance?.fundBalance ?? balance ?? 0)}</b></div>
+          </div>
+          <div className={`db-backup ${backupHealthy === false ? "t-rose" : "t-em"}`}>
+            <span className="db-backup-ic"><ShieldCheck size={17} /></span>
+            <div>
+              <b>{ml("Data protection", "ഡാറ്റ സംരക്ഷണം")}</b>
+              <small>{backupHealthy === null ? ml("Backup status unknown", "ബാക്കപ്പ് നില അറിയില്ല") : backupHealthy ? ml("Auto-backup active", "ഓട്ടോ ബാക്കപ്പ് സജീവം") : ml("Backup attention needed", "ബാക്കപ്പ് ശ്രദ്ധ ആവശ്യമുണ്ട്")}</small>
+            </div>
+          </div>
         </div>
       </div>
     </div>

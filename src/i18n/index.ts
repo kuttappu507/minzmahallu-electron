@@ -20,6 +20,8 @@ const translations: Record<string, { en: string; ml: string }> = {
   login_password: { en: "Password", ml: "രഹസ്യവാക്ക്" },
   login_button: { en: "Login", ml: "ലോഗിൻ" },
   login_default_hint: { en: "Default: admin / admin123", ml: "സ്ഥിരസ്ഥിതി: admin / admin123" },
+  login_stat_registers: { en: "Registers & reports", ml: "രജിസ്റ്ററുകളും റിപ്പോർട്ടുകളും" },
+  login_stat_offline: { en: "Offline & private", ml: "ഓഫ്‌ലൈനും സ്വകാര്യവും" },
 
   // Nav
   nav_dashboard: { en: "Dashboard", ml: "ഡാഷ്ബോർഡ്" },
