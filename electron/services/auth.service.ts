@@ -40,3 +40,18 @@ export function login(username:string,password:string):AuthUser{
  currentActor={id:user.id,username:user.username,role:user.role}; currentUser={id:user.id,username:user.username,fullName:user.full_name,role:user.role,isActive:!!user.is_active,mustChangePwd:!!user.must_change_pwd,initials:makeInitials(user.full_name)}; return currentUser;
 }
 export function changePassword(userId:number,newPassword:string){if(!currentActor)throw new Error("Authentication is required");if(!Number.isInteger(userId)||userId<=0)throw new Error("Invalid user");if(currentActor.id!==userId&&currentActor.role!=="Administrator")throw new Error("You can only change your own password");const target=one<{id:number;is_active:number}>("SELECT id,is_active FROM users WHERE id=?",[userId]);if(!target)throw new Error("User not found");if(!target.is_active)throw new Error("Cannot change the password of an inactive user");const {stored,salt}=hashPassword(newPassword);run("UPDATE users SET password_hash=?,password_salt=?,must_change_pwd=0,failed_attempts=0,is_locked=0,locked_until=NULL,updated_at=datetime('now') WHERE id=?",[stored,salt,userId]);}
+/** Re-authentication for sensitive (secure) actions: verifies the PASSWORD of
+ *  the CURRENTLY logged-in administrator against the stored PBKDF2 hash.
+ *  Used before cancellations, disbursements, resignations etc. so a walked-away
+ *  workstation cannot be abused. */
+export function verifyCurrentActorPassword(password:string):{id:number;username:string;role:string}{
+ if(!currentActor)throw new Error("Authentication is required");
+ if(currentActor.role!=="Administrator")throw new Error("Administrator permission is required for this operation");
+ if(!password)throw new Error("Administrator password is required");
+ const user=one<UserRow>("SELECT id,username,full_name,password_hash,password_salt,role,is_active,is_locked FROM users WHERE id=?",[currentActor.id]);
+ if(!user)throw new Error("User not found");
+ if(!user.is_active)throw new Error("Account is inactive — contact administrator");
+ if(user.is_locked)throw new Error("Account is locked — contact administrator");
+ if(!verifyPassword(password,user.password_hash))throw new Error("Incorrect administrator password");
+ return {id:user.id,username:user.username,role:user.role};
+}

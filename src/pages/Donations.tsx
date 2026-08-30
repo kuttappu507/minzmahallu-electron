@@ -30,7 +30,32 @@ export function Donations(){
   const openNew=()=>{setForm({...emptyForm,donation_date:new Date().toISOString().slice(0,10)});setEditingId(null);setIsMahalluMember(false);setOtherCategory("");setMemberBalance(0);setFamilyMembers([]);setDialogOpen(true);};
   const openEdit=async(id:number)=>{try{const d=await window.mms.donations.get(id);if(!d)return;const member=!!d.member_id;setForm(d);setEditingId(id);setIsMahalluMember(member);setOtherCategory("");if(d.family_id)await loadMembers(d.family_id);if(member)await refreshBalance(d.family_id,d.member_id);setDialogOpen(true);}catch(err:any){toast.error(err.message);}};
   const handleFamilyChange=async(fid:number)=>{setForm(f=>({...f,family_id:fid,member_id:0,donor_name:""}));setMemberBalance(0);await loadMembers(fid);await refreshBalance(fid,0);};
-  const handleMemberChange=async(mid:number)=>{const m=familyMembers.find(x=>x.id===mid);setForm(f=>({...f,member_id:mid,donor_name:m?.name||f.donor_name}));await refreshBalance(form.family_id||0,mid);};
+  // Selecting a mahallu member prefills the balance donor data too — phone and
+  // address (member address first, family address as fallback).
+  const handleMemberChange=async(mid:number)=>{
+    const m=familyMembers.find(x=>x.id===mid);
+    setForm(f=>({...f,member_id:mid,donor_name:m?.name||f.donor_name}));
+    if(mid){
+      try{
+        const full=await window.mms.members.get(mid);
+        if(full){
+          let addr=full.address||"";
+          let phone=full.mobile||"";
+          if(full.family_id){
+            try{
+              const fam=await window.mms.families.get(full.family_id);
+              if(fam){
+                if(!addr)addr=[fam.address,fam.area,fam.ward].filter(Boolean).join(", ")+(fam.pincode?` - ${fam.pincode}`:"");
+                if(!phone)phone=fam.phone||"";
+              }
+            }catch{}
+          }
+          setForm(f=>({...f,donor_phone:phone||f.donor_phone,donor_address:addr||f.donor_address}));
+        }
+      }catch{}
+    }
+    await refreshBalance(form.family_id||0,mid);
+  };
   const handleSave=async()=>{let categoryId=Number(form.category_id||0);if(categoryId===-1){if(!otherCategory.trim())return toast.error("Enter the donation category");try{const created=await window.mms.donations.createCategory(otherCategory.trim());categoryId=created.id;await loadCategories();}catch(err:any){toast.error(err.message);return;}}if(!form.donor_name?.trim()||!form.amount||!categoryId){toast.error(t("ui_donor_cat_amount_required"));return;}if(isMahalluMember&&!form.family_id){toast.error("Select the member's family");return;}try{const payload:any={donorName:form.donor_name,donorPhone:form.donor_phone||"",donorAddress:form.donor_address||"",familyId:isMahalluMember?form.family_id:null,memberId:isMahalluMember?(form.member_id||null):null,categoryId,amount:form.amount,donationDate:form.donation_date||"",receiptNumber:form.receipt_number||"",purpose:form.purpose||"",paymentMethod:form.payment_method||"Cash",transactionRef:form.transaction_ref||"",receivedBy:1,remarks:form.remarks||""};if(editingId){await window.mms.donations.update(editingId,payload);toast.success(t("ui_save_changes"));}else{await window.mms.donations.create(payload);toast.success(t("add_donation"));}setDialogOpen(false);setForm(emptyForm);setEditingId(null);refetch();}catch(err:any){toast.error(err.message||t("ui_failed_save"));}};
   const handleDeleteClick=(id:number)=>{setPendingDeleteId(id);setConfirmOpen(true);};
   const handleDeleteConfirm=async()=>{if(pendingDeleteId==null)return;try{await window.mms.donations.remove(pendingDeleteId);toast.success(t("ui_record_deleted"));refetch();}catch(err:any){toast.error(err.message);}finally{setConfirmOpen(false);setPendingDeleteId(null);}};

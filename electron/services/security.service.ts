@@ -41,6 +41,18 @@ export const security = {
     if (Number(data.familyId) !== Number(before.family_id)) {
       throw new Error("Family changes must use the audited member move operation");
     }
+    // Single-head rule: only enforced when THIS member is being made the head.
+    if (data.relationship === "Head" && !(before.is_head === 1 || before.relationship === "Head")) {
+      const existingHead = db.prepare(
+        "SELECT id, name FROM members WHERE family_id = ? AND archive_state = 0 AND (is_head = 1 OR relationship = 'Head') AND id != ? LIMIT 1"
+      ).get(before.family_id, memberId) as any;
+      if (existingHead) {
+        throw new Error(
+          `This family already has a head (${existingHead.name || "member #" + existingHead.id}). ` +
+          "A family can have only one head — change the existing head's relationship first."
+        );
+      }
+    }
     db.prepare(`UPDATE members SET family_id=?, name=?, arabic_name=?, gender=?, date_of_birth=?, age=?, blood_group=?, occupation=?, education=?, marital_status=?, mobile=?, email=?, emergency_contact=?, relationship=?, is_head=?, status=?, nationality=?, address=?, updated_at=datetime('now') WHERE id=?`).run(before.family_id, data.name, data.arabicName ?? "", data.gender, data.dateOfBirth, data.age, data.bloodGroup, data.occupation, data.education, data.maritalStatus, data.mobile, data.email, data.emergencyContact, data.relationship, data.relationship === "Head" ? 1 : 0, data.status, data.nationality, data.address, memberId);
     const after = db.prepare("SELECT * FROM members WHERE id=?").get(memberId) as any;
     const changes = changedFields(before, after, ["name","arabic_name","gender","date_of_birth","age","blood_group","occupation","education","marital_status","mobile","email","emergency_contact","relationship","status","nationality","address"]);

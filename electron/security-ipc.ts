@@ -1,6 +1,6 @@
 import { BrowserWindow, ipcMain } from "electron";
 import * as data from "./services/data.service.js";
-import { changePassword, createInitialAdministrator, needsInitialSetup } from "./services/auth.service.js";
+import { changePassword, createInitialAdministrator, needsInitialSetup, verifyCurrentActorPassword } from "./services/auth.service.js";
 import { security, type Actor } from "./services/security.service.js";
 
 // Install the sender guard before main.ts registers any handlers. This makes
@@ -52,6 +52,17 @@ export function registerSecurityIpc(getActor: ActorProvider) {
     try { data.audit.log(a.id, a.username, "PASSWORD_CHANGE", "auth", userId, "Password changed", ""); } catch {}
     return { success: true };
   });
+  // ===== Secure-action re-authentication =====
+  // Cancelling payments, disbursing welfare, resigning/expelling staff etc.
+  // all require the administrator to re-enter THEIR OWN password. The
+  // verification happens here, in the main process, against the stored PBKDF2
+  // hash — the renderer never sees hashes or salts.
+  register("auth:verifyAdminPassword", (password: string, action = "secure action", detail = "") => {
+    const a = actor();
+    const verified = verifyCurrentActorPassword(String(password ?? ""));
+    try { data.audit.log(verified.id, verified.username, "ADMIN_REAUTH", "auth", verified.id, `Administrator re-authenticated for: ${action}${detail ? ` — ${detail}` : ""}`, ""); } catch {}
+    return { success: true, verifiedBy: verified.username, requestedBy: a.username };
+  });
   register("families:update", (id: number, d: any) => security.updateFamily(actor(), id, d));
   register("members:update", (id: number, d: any) => security.updateMember(actor(), id, d));
 
@@ -82,9 +93,29 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("certificates:remove", () => { throw new Error("Issued certificates cannot be permanently deleted. Revoke the certificate instead."); });
   register("families:create", (d: any) => { actor(); return data.families.create(d); });
   register("members:create", (d: any) => { actor(); return data.members.create(d); });
-  register("subscriptions:create", (d: any) => { const a = actor(); return data.subscriptions.create({ ...d, collectedBy: a.id }); });
-  register("subscriptions:update", (id: number, d: any) => { actor(); return data.subscriptions.update(id, d); });
-  register("subscriptions:remove", () => { admin(); throw new Error("Financial records cannot be permanently deleted. Use a correction/reversal instead."); });
+  register("subscriptions:create", (d: any) => { const a = actor(); const r = data.subscriptions.create({ ...d, collectedBy: a.id }); try { data.audit.log(a.id, a.username, "ADD", "subscriptions", r.id, `Subscription account created for family #${d.familyId}`, ""); } catch {} return r; });
+  // Payment edits are restricted to "how much was given" (plus date/method/
+  // ref/remarks) — family, member, period and rate are locked server-side in
+  // data.subscriptions.applyPayment.
+  register("subscriptions:update", (id: number, d: any) => {
+    const a = actor();
+    const before = data.subscriptions.get(id) as any;
+    const r = data.subscriptions.applyPayment(id, { ...d, collectedBy: a.id });
+    try { data.audit.log(a.id, a.username, "PAY", "subscriptions", id, `Payment recorded: ${d.amountPaid} of ${before?.amount} (${r.status})${r.receiptNumber ? ` receipt ${r.receiptNumber}` : ""}`, ""); } catch {}
+    return r;
+  });
+  // Cancelling a payment is a SECURE action: reason + admin password (the
+  // renderer verifies the password via auth:verifyAdminPassword before calling).
+  register("subscriptions:cancelPayment", (id: number, reason: string) => {
+    const a = admin();
+    if (!reason || !String(reason).trim()) throw new Error("A cancellation reason is required");
+    const s = data.subscriptions.get(id) as any;
+    const r = data.subscriptions.cancelPayment(id);
+    try { data.audit.log(a.id, a.username, "CANCEL_PAYMENT", "subscriptions", id, `Payment cancelled for family #${s?.family_id} (${s?.period_start}): ${String(reason).trim()}`, String(reason).trim()); } catch {}
+    return r;
+  });
+  register("subscriptions:paymentsHistory", (familyId: number) => { actor(); return data.subscriptions.paymentsHistory(familyId); });
+  register("subscriptions:remove", () => { admin(); throw new Error("A recurring subscription cannot be deleted. Cancel the payment instead — the account stays with the family."); });
   register("subscriptions:markOverdue", () => { actor(); return data.subscriptions.markOverdue(); });
   register("donations:create", (d: any) => { const a = actor(); return data.donations.create({ ...d, receivedBy: a.id }); });
   register("donations:update", (id: number, d: any) => { actor(); return data.donations.update(id, d); });
@@ -110,9 +141,24 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("welfare:list", (filter: any) => { actor(); return data.welfare.list(filter || {}); });
   register("welfare:get", (id: number) => { actor(); return data.welfare.get(id); });
   register("welfare:categories", () => { actor(); return data.welfare.categories(); });
-  register("welfare:approve", (id: number, amount: number, remarks: string) => { const a = admin(); return data.welfare.approve(id, amount, remarks, a.id); });
-  register("welfare:reject", (id: number, reason: string) => { const a = admin(); return data.welfare.reject(id, reason, a.id); });
-  register("welfare:disburse", (id: number) => { const a = admin(); return data.welfare.disburse(id, a.id); });
+  register("welfare:approve", (id: number, amount: number, remarks: string, minutesDate?: string) => {
+    const a = admin();
+    if (!minutesDate) throw new Error("Date of the committee minutes approving this amount is required");
+    const r = data.welfare.approve(id, amount, remarks, a.id, minutesDate);
+    try { data.audit.log(a.id, a.username, "APPROVE", "welfare", id, `Welfare approved: ${amount} — minutes of ${minutesDate}`, remarks || ""); } catch {}
+    return r;
+  });
+  register("welfare:reject", (id: number, reason: string) => { const a = admin(); const r = data.welfare.reject(id, reason, a.id); try { data.audit.log(a.id, a.username, "REJECT", "welfare", id, `Welfare rejected: ${reason}`, reason); } catch {} return r; });
+  // Disbursement is a SECURE action: minutes date + reason + administrator
+  // password (verified via auth:verifyAdminPassword before this call).
+  register("welfare:disburse", (id: number, reason = "") => {
+    const a = admin();
+    if (!reason || !String(reason).trim()) throw new Error("A disbursement reason is required");
+    const w = data.welfare.get(id) as any;
+    const r = data.welfare.disburse(id, a.id, String(reason).trim());
+    try { data.audit.log(a.id, a.username, "DISBURSE", "welfare", id, `Welfare disbursed: ${w?.amount_approved} to ${w?.applicant_name} (minutes: ${w?.minutes_date}) — ${String(reason).trim()}`, String(reason).trim()); } catch {}
+    return r;
+  });
   register("certificates:issueMembership", (code: string) => data.certificates.issueMembership(code, actor().id));
   register("certificates:issueResidence", (familyNum: string, issuedTo: string) => data.certificates.issueResidence(familyNum, issuedTo, actor().id));
   register("certificates:issueMarriage", (marriageNum: string) => data.certificates.issueMarriage(marriageNum, actor().id));
@@ -210,11 +256,27 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("staff:create", (d: any) => { const a = actor(); const r = data.staff.create({ ...d, createdBy: a.id }); try { data.audit.log(a.id, a.username, "ADD", "staff", r.id, `Staff ${r.staffCode} created (${d.role || 'Staff'})`, ""); } catch {} return r; });
   register("staff:update", (id: number, d: any) => { const a = actor(); const r = data.staff.update(id, d); try { data.audit.log(a.id, a.username, "EDIT", "staff", id, `Staff updated: ${d.name || ''}`, ""); } catch {} return r; });
   register("staff:archive", (id: number, reason: string) => { const a = admin(); const r = data.staff.archive(id, reason, a.id); try { data.audit.log(a.id, a.username, "ARCHIVE", "staff", id, `Staff archived: ${reason}`, ""); } catch {} return r; });
+  // Resignation / expulsion is a SECURE action: effective date + reason +
+  // administrator password (verified via auth:verifyAdminPassword first).
+  register("staff:setStatus", (id: number, status: "Resigned" | "Expelled", effectiveDate: string, reason: string) => {
+    const a = admin();
+    if (!reason || !String(reason).trim()) throw new Error("A reason is required");
+    const r = data.staff.setStatus(id, status, effectiveDate || "", String(reason).trim(), a.id);
+    try { data.audit.log(a.id, a.username, status === "Expelled" ? "EXPEL" : "RESIGN", "staff", id, `Staff ${status === "Expelled" ? "expelled" : "resigned"} effective ${effectiveDate || "today"}: ${String(reason).trim()}`, String(reason).trim()); } catch {}
+    return r;
+  });
   register("staff:restore", (id: number) => { const a = admin(); const r = data.staff.restore(id, a.id); try { data.audit.log(a.id, a.username, "RESTORE", "staff", id, `Staff restored`, ""); } catch {} return r; });
   register("staff:history", (id: number) => { actor(); return data.staff.history(id); });
   register("staff:listPayments", (filter: any) => { actor(); return data.staff.listPayments(filter || {}); });
   register("staff:paySalary", (d: any) => { const a = admin(); const r = data.staff.paySalary(d, a.id); try { data.audit.log(a.id, a.username, "PAY_SALARY", "staff", d.staffId, `Salary paid: ${d.amount} for ${d.periodMonth}/${d.periodYear}`, ""); } catch {} return r; });
-  register("staff:cancelPayment", (id: number) => { const a = admin(); const r = data.staff.cancelPayment(id); try { data.audit.log(a.id, a.username, "CANCEL_SALARY", "staff_payments", id, `Salary payment cancelled`, ""); } catch {} return r; });
+  // Cancelling a salary payment is a SECURE action: reason + admin password.
+  register("staff:cancelPayment", (id: number, reason = "") => {
+    const a = admin();
+    if (!String(reason).trim()) throw new Error("A cancellation reason is required");
+    const r = data.staff.cancelPayment(id);
+    try { data.audit.log(a.id, a.username, "CANCEL_SALARY", "staff_payments", id, `Salary payment cancelled: ${String(reason).trim()}`, String(reason).trim()); } catch {}
+    return r;
+  });
   register("staff:salarySummary", (year?: number) => { actor(); return data.staff.salarySummary(year || new Date().getFullYear()); });
 
   // ================= COMMITTEE =================

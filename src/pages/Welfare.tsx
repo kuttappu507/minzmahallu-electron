@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, Check, X, Send, Eye, ShieldCheck, Users } from "lucide-react";
+import { Plus, Edit2, Check, X, Send, Eye, ShieldCheck, Users, MapPin, Phone } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
 import { Card, CardContent, Button, Dialog, Input, Label, Select, Textarea, Badge, SectionLabel } from "@/components/ui";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { SecureActionDialog } from "@/components/SecureActionDialog";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
-import { formatCurrency, statusVariant } from "@/lib/utils";
+import { formatCurrency, statusVariant, formatDate } from "@/lib/utils";
 
 interface Welfare {
   id: number;
@@ -24,7 +24,10 @@ interface Welfare {
   processed_by: number;
   processed_date: string;
   disbursed_date: string;
+  minutes_date?: string;
 }
+
+interface MemberInfo { name: string; mobile: string; address: string; house_name: string; family_number: string; }
 
 const emptyForm: Partial<Welfare> = {
   request_number: "", applicant_name: "", family_id: 0, category: "",
@@ -47,18 +50,21 @@ export function Welfare() {
   const [categories, setCategories] = useState<any[]>([]);
   // Person-from-mahallu cascade: family FIRST, then the person (same flow as
   // the marriage / death registers). Selecting a member prefills the applicant
-  // name and links the family automatically.
+  // name, links the family AND shows the prefilled address / contact data.
   const [fromMahallu, setFromMahallu] = useState(false);
   const [familyId, setFamilyId] = useState("");
   const [memberId, setMemberId] = useState("");
   const [familyMembers, setFamilyMembers] = useState<any[]>([]);
+  const [memberInfo, setMemberInfo] = useState<MemberInfo | null>(null);
   const [approveAmount, setApproveAmount] = useState(0);
   const [approveRemarks, setApproveRemarks] = useState("");
+  const [approveMinutesDate, setApproveMinutesDate] = useState("");
   const [rejectReason, setRejectReason] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewRow, setPreviewRow] = useState<Welfare | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  // Secure disbursement: reason + administrator password (+ minutes date shown).
+  const [disburseOpen, setDisburseOpen] = useState(false);
+  const [disburseTarget, setDisburseTarget] = useState<Welfare | null>(null);
 
   const { rows, total, totalPages, loading, refetch, page, setPage } = useList(
     (filter) => window.mms.welfare.list(filter),
@@ -78,13 +84,30 @@ export function Welfare() {
       .catch(() => setFamilyMembers([]));
   }, [familyId]);
 
-  // Prefill applicant details from the selected mahallu member.
+  // Prefill applicant details from the selected mahallu member — name, family
+  // link AND the balance data (address, contact) for verification.
   const selectMember = async (id: string) => {
     setMemberId(id);
+    setMemberInfo(null);
     if (!id) return;
     try {
       const m = await window.mms.members.get(Number(id));
-      if (m) setForm((v) => ({ ...v, applicant_name: m.name || "", family_id: m.family_id || v.family_id }));
+      if (!m) return;
+      let addr = m.address || "";
+      let houseName = "";
+      let familyNumber = "";
+      if (m.family_id) {
+        try {
+          const f = await window.mms.families.get(m.family_id);
+          if (f) {
+            houseName = f.house_name || "";
+            familyNumber = f.family_number || "";
+            if (!addr) addr = [f.address, f.area, f.ward].filter(Boolean).join(", ") + (f.pincode ? ` - ${f.pincode}` : "");
+          }
+        } catch {}
+      }
+      setForm((v) => ({ ...v, applicant_name: m.name || "", family_id: m.family_id || v.family_id }));
+      setMemberInfo({ name: m.name || "", mobile: m.mobile || "", address: addr, house_name: houseName, family_number: familyNumber });
     } catch {
       const m = familyMembers.find((x) => String(x.id) === id);
       if (m) setForm((v) => ({ ...v, applicant_name: m.name, family_id: m.family_id || v.family_id }));
@@ -97,6 +120,7 @@ export function Welfare() {
     setFromMahallu(false);
     setFamilyId("");
     setMemberId("");
+    setMemberInfo(null);
     setFamilyMembers([]);
     setDialogOpen(true);
   };
@@ -133,6 +157,7 @@ export function Welfare() {
       setFromMahallu(false);
       setFamilyId("");
       setMemberId("");
+      setMemberInfo(null);
       setFamilyMembers([]);
       refetch();
     } catch (err: any) {
@@ -145,32 +170,15 @@ export function Welfare() {
     setForm(w || emptyForm);
     setApproveAmount(w?.amount_approved || w?.amount_requested || 0);
     setApproveRemarks(w?.remarks || "");
+    setApproveMinutesDate(w?.minutes_date || "");
     setRejectReason("");
     setEditingId(id);
     setFromMahallu(false);
     setFamilyId("");
     setMemberId("");
+    setMemberInfo(null);
     setFamilyMembers([]);
     setDialogOpen(true);
-  };
-
-  const handleDeleteClick = (id: number) => {
-    setPendingDeleteId(id);
-    setConfirmOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (pendingDeleteId == null) return;
-    try {
-      await window.mms.welfare.remove(pendingDeleteId);
-      toast.success(t("ui_record_deleted"));
-      refetch();
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setConfirmOpen(false);
-      setPendingDeleteId(null);
-    }
   };
 
   const handleRowDoubleClick = (row: Welfare) => {
@@ -186,10 +194,16 @@ export function Welfare() {
     await handleEdit(id);
   };
 
+  // Approval records the date of the committee minutes in which the amount was
+  // agreed — the foolproof workflow trail verified again at disbursement.
   const handleApprove = async () => {
     if (!editingId) return;
+    if (!approveMinutesDate) {
+      toast.error(tx("Date of the committee minutes approving this amount is required", "തുക അംഗീകരിച്ച കമ്മിറ്റി മിനിറ്റ്‌സിന്റെ തീയതി ആവശ്യമാണ്"));
+      return;
+    }
     try {
-      await window.mms.welfare.approve(editingId, approveAmount, approveRemarks);
+      await window.mms.welfare.approve(editingId, approveAmount, approveRemarks, approveMinutesDate);
       toast.success(t("ui_request_approved"));
       setDialogOpen(false);
       refetch();
@@ -214,14 +228,17 @@ export function Welfare() {
     }
   };
 
-  const handleDisburse = async (id: number) => {
-    try {
-      await window.mms.welfare.disburse(id);
-      toast.success(t("ui_marked_disbursed"));
-      refetch();
-    } catch (err: any) {
-      toast.error(err.message);
-    }
+  const openDisburse = (row: Welfare) => {
+    setDisburseTarget(row);
+    setDisburseOpen(true);
+  };
+
+  const executeDisburse = async ({ reason }: { reason: string }) => {
+    if (!disburseTarget) return;
+    await window.mms.welfare.disburse(disburseTarget.id, reason);
+    toast.success(t("ui_marked_disbursed"));
+    refetch();
+    setDialogOpen(false);
   };
 
   const columns: Column<Welfare>[] = [
@@ -251,15 +268,12 @@ export function Welfare() {
       accessor: (r) => (
         <div className="flex items-center gap-1 justify-end">
           {r.status === "Approved" && (
-            <Button variant="ghost" size="icon" title={t("wel_mark_disbursed")} onClick={() => handleDisburse(r.id)}>
+            <Button variant="ghost" size="icon" title={t("wel_mark_disbursed")} onClick={() => openDisburse(r)}>
               <Send className="h-4 w-4 text-emerald-600" />
             </Button>
           )}
           <button className="act-btn act-edit" onClick={() => handleEdit(r.id)}>
             <Edit2 className="h-4 w-4" />
-          </button>
-          <button className="act-btn act-del" onClick={() => handleDeleteClick(r.id)}>
-            <Trash2 className="h-4 w-4 text-danger" />
           </button>
         </div>
       ),
@@ -274,6 +288,7 @@ export function Welfare() {
         { k: t("don_category"), v: previewRow.category || "—" },
         { k: t("wel_amount_requested"), v: formatCurrency(previewRow.amount_requested) },
         { k: t("wel_amount_approved"), v: formatCurrency(previewRow.amount_approved) },
+        { k: tx("Minutes date", "മിനിറ്റ്‌സ് തീയതി"), v: previewRow.minutes_date ? formatDate(previewRow.minutes_date) : "—" },
         { k: t("family_status"), v: previewRow.status },
         { k: t("ui_request_date"), v: previewRow.request_date || "—" },
         { k: t("ui_processed_date"), v: previewRow.processed_date || "—" },
@@ -405,7 +420,7 @@ export function Welfare() {
               checked={fromMahallu}
               onChange={(e) => {
                 setFromMahallu(e.target.checked);
-                if (!e.target.checked) { setFamilyId(""); setMemberId(""); setFamilyMembers([]); }
+                if (!e.target.checked) { setFamilyId(""); setMemberId(""); setMemberInfo(null); setFamilyMembers([]); }
               }}
             />
             <span className="text-sm">{tx("അപേക്ഷകൻ ഈ മഹല്ലിലെ അംഗമാണ്", "Applicant is from this Mahallu")}</span>
@@ -414,7 +429,7 @@ export function Welfare() {
             <div className="space-y-3">
               <div>
                 <Label><Users size={14} className="inline" /> {t("member_family")}</Label>
-                <Select value={familyId} onChange={(e) => { setFamilyId(e.target.value); setMemberId(""); }}>
+                <Select value={familyId} onChange={(e) => { setFamilyId(e.target.value); setMemberId(""); setMemberInfo(null); }}>
                   <option value="">{t("ui_select")}</option>
                   {families.map((f) => (
                     <option key={f.id} value={f.id}>{f.house_name} ({f.family_number})</option>
@@ -430,6 +445,21 @@ export function Welfare() {
                       <option key={m.id} value={m.id}>{m.name}{m.relationship ? ` · ${m.relationship}` : ""}</option>
                     ))}
                   </Select>
+                </div>
+              )}
+              {/* Prefilled member data (balance details) for verification */}
+              {memberInfo && (
+                <div className="rounded-lg border border-border-subtle bg-surface-hover/40 p-3 text-sm space-y-1.5">
+                  <div className="flex items-center gap-2 font-medium">
+                    <Users size={14} className="text-primary" /> {memberInfo.name}
+                    {memberInfo.house_name && <span className="text-muted">· {memberInfo.house_name} {memberInfo.family_number ? `(${memberInfo.family_number})` : ""}</span>}
+                  </div>
+                  {memberInfo.mobile && (
+                    <div className="flex items-center gap-2 text-muted"><Phone size={13} /> {memberInfo.mobile}</div>
+                  )}
+                  {memberInfo.address && (
+                    <div className="flex items-start gap-2 text-muted"><MapPin size={13} className="mt-0.5" /> {memberInfo.address}</div>
+                  )}
                 </div>
               )}
             </div>
@@ -465,12 +495,7 @@ export function Welfare() {
             </div>
             <div>
               <Label>{t("family_status")}</Label>
-              <Select value={form.status || "Pending"} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                <option value="Pending">{t("status_pending")}</option>
-                <option value="Approved">{t("status_approved")}</option>
-                <option value="Rejected">{t("status_rejected")}</option>
-                <option value="Disbursed">{t("status_disbursed")}</option>
-              </Select>
+              <Input value={form.status || "Pending"} readOnly className="bg-surface-muted" />
             </div>
           </div>
           <div>
@@ -487,16 +512,21 @@ export function Welfare() {
             <>
               <div className="sec-divider">
                 <SectionLabel>{t("wel_approve_request")}</SectionLabel>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label>{t("wel_amount_approved")}</Label>
                     <Input type="number" value={approveAmount || ""} onChange={(e) => setApproveAmount(Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <Label>{tx("Minutes date", "മിനിറ്റ്‌സ് തീയതി")} *</Label>
+                    <Input type="date" value={approveMinutesDate || ""} onChange={(e) => setApproveMinutesDate(e.target.value)} />
                   </div>
                   <div>
                     <Label>{t("ui_remarks")}</Label>
                     <Input value={approveRemarks} onChange={(e) => setApproveRemarks(e.target.value)} />
                   </div>
                 </div>
+                <div className="text-xs text-muted mt-1.5">{tx("Date of the committee minutes in which this amount was agreed", "ഈ തുക അംഗീകരിച്ച കമ്മിറ്റി മിനിറ്റ്‌സിന്റെ തീയതി")}</div>
                 <div className="flex gap-2 mt-3">
                   <Button onClick={handleApprove}>
                     <Check className="h-4 w-4" />
@@ -523,7 +553,13 @@ export function Welfare() {
           {editingId && form.status === "Approved" && (
             <div className="sec-divider">
               <SectionLabel>{t("wel_mark_disbursed")}</SectionLabel>
-              <Button onClick={() => editingId && handleDisburse(editingId)}>
+              <div className="text-sm text-muted mb-2">
+                {tx(
+                  `Disbursement requires a reason and the administrator password. Minutes recorded: ${form.minutes_date ? formatDate(form.minutes_date) : "—"}`,
+                  `വിതരണത്തിന് കാരണവും അഡ്മിൻ പാസ്‌വേഡും ആവശ്യമാണ്. രേഖപ്പെടുത്തിയ മിനിറ്റ്‌സ്: ${form.minutes_date ? formatDate(form.minutes_date) : "—"}`
+                )}
+              </div>
+              <Button onClick={() => editingId && openDisburse(form as Welfare)}>
                 <Send className="h-4 w-4" />
                 {t("action_disburse")}
               </Button>
@@ -537,13 +573,21 @@ export function Welfare() {
         </div>
       </Dialog>
 
-      {/* Delete confirmation */}
-      <ConfirmDialog
-        open={confirmOpen}
-        onClose={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
-        onConfirm={handleDeleteConfirm}
-        title={t("ui_confirm_delete")}
-        confirmLabel={t("ui_delete_request_label")}
+      {/* Disbursement — secure gate (reason + admin password) */}
+      <SecureActionDialog
+        open={disburseOpen}
+        onClose={() => { setDisburseOpen(false); setDisburseTarget(null); }}
+        onConfirm={executeDisburse}
+        title={t("wel_mark_disbursed")}
+        description={
+          disburseTarget
+            ? tx(
+                `Disburse ${formatCurrency(disburseTarget.amount_approved)} to ${disburseTarget.applicant_name}? Minutes: ${disburseTarget.minutes_date ? formatDate(disburseTarget.minutes_date) : "—"}`,
+                `${disburseTarget.applicant_name} ന് ${formatCurrency(disburseTarget.amount_approved)} വിതരണം ചെയ്യണോ? മിനിറ്റ്‌സ്: ${disburseTarget.minutes_date ? formatDate(disburseTarget.minutes_date) : "—"}`
+              )
+            : ""
+        }
+        confirmLabel={t("action_disburse")}
       />
     </div>
   );

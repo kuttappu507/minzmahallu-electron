@@ -170,7 +170,10 @@ export const members = {
     }
   },
   create: (data: any) => {
-    members.assertSingleHead(data.familyId);
+    // Single-head rule applies ONLY when this new member is being saved AS the
+    // head. Adding a Son/Daughter/Spouse etc. to a family that already has a
+    // head is perfectly normal and must NOT be blocked.
+    if (data.relationship === "Head") members.assertSingleHead(data.familyId);
     const num = scalar<string>(
       "SELECT 'MBR-' || printf('%04d', COALESCE(MAX(id), 0) + 1) AS n FROM members"
     );
@@ -217,29 +220,98 @@ export const members = {
 };
 
 // ================= SUBSCRIPTIONS =================
+// RECURRING MODEL: one subscriptions row per family = the family's subscription
+// account, always recorded against the family HEAD. Each month the SAME row is
+// rolled over to the new period (amount = configured monthly rate, e.g. 200;
+// amount_paid resets to 0) — a new month NEVER creates a new row. Actual money
+// movements live in subscription_payments (one record per family per month);
+// editing a payment only changes how much was given — family / period / rate
+// are locked.
 
-function ensureCurrentMonth() {
+function currentMonthPeriod(): { periodStart: string; periodEnd: string } {
   const first = new Date();
   first.setDate(1);
   const periodStart = first.toISOString().slice(0, 10);
   const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
   const periodEnd = last.toISOString().slice(0, 10);
+  return { periodStart, periodEnd };
+}
+
+function familyHeadMemberId(familyId: number): number | null {
+  const head = one<any>(
+    "SELECT id FROM members WHERE family_id = ? AND archive_state = 0 ORDER BY CASE WHEN is_head = 1 THEN 0 WHEN relationship = 'Head' THEN 1 ELSE 2 END, id LIMIT 1",
+    [familyId]
+  );
+  return head?.id ?? null;
+}
+
+function nextPaymentReceipt(): string {
+  // Receipts sequence off the payment ledger (not the subscription rows) so
+  // the series can never collide with the UNIQUE constraint on
+  // subscriptions.receipt_number after consolidation.
+  return scalar<string>(
+    "SELECT 'RCP-' || printf('%04d', COALESCE(MAX(id), 0) + 1) AS n FROM subscription_payments"
+  );
+}
+
+function ensureCurrentMonth() {
+  const { periodStart, periodEnd } = currentMonthPeriod();
   const configured = scalar<number>("SELECT COALESCE(subscription_monthly_amount, 0) FROM settings WHERE id = 1") || 0;
   const plan = one<any>("SELECT * FROM subscription_plans WHERE frequency = 'Monthly' AND is_active = 1 ORDER BY id LIMIT 1");
-  if (!plan || configured <= 0) return { created: 0, amount: configured, periodStart, periodEnd };
+  if (!plan || configured <= 0) return { created: 0, rolledOver: 0, amount: configured, periodStart, periodEnd };
   const families = all<any>("SELECT id FROM families WHERE status = 'Active' ORDER BY id");
   let created = 0;
-  const insert = getDB().prepare(`INSERT INTO subscriptions (family_id, member_id, plan_id, period_start, period_end, amount, amount_paid, status, collected_by, remarks) VALUES (?, ?, ?, ?, ?, ?, 0, 'Pending', NULL, '')`);
-  getDB().transaction(() => {
+  let rolledOver = 0;
+  const db = getDB();
+  const tx = db.transaction(() => {
     for (const f of families) {
-      const exists = one<any>("SELECT id FROM subscriptions WHERE family_id = ? AND period_start = ? LIMIT 1", [f.id, periodStart]);
-      if (exists) continue;
-      const head = one<any>("SELECT id FROM members WHERE family_id = ? AND status = 'Active' ORDER BY CASE WHEN is_head = 1 THEN 0 WHEN relationship = 'Head' THEN 1 ELSE 2 END, id LIMIT 1", [f.id]);
-      insert.run(f.id, head?.id ?? null, plan.id, periodStart, periodEnd, configured);
-      created++;
+      const head = familyHeadMemberId(f.id);
+      const existing = one<any>(
+        "SELECT id, member_id, period_start, amount, amount_paid FROM subscriptions WHERE family_id = ? LIMIT 1",
+        [f.id]
+      );
+      if (!existing) {
+        db.prepare(
+          `INSERT INTO subscriptions (family_id, member_id, plan_id, period_start, period_end, amount, amount_paid, status, collected_by, remarks) VALUES (?, ?, ?, ?, ?, ?, 0, 'Pending', NULL, '')`
+        ).run(f.id, head, plan.id, periodStart, periodEnd, configured);
+        created++;
+        continue;
+      }
+      // Always keep the account pointed at the current head.
+      if (head && head !== existing.member_id) {
+        db.prepare("UPDATE subscriptions SET member_id = ?, updated_at = datetime('now') WHERE id = ?").run(head, existing.id);
+      }
+      if (existing.period_start === periodStart) {
+        // Same month: adopt a mid-month rate change only while unpaid.
+        if (Number(existing.amount_paid || 0) === 0 && Number(existing.amount) !== configured) {
+          db.prepare("UPDATE subscriptions SET amount = ?, updated_at = datetime('now') WHERE id = ?").run(configured, existing.id);
+        }
+        continue;
+      }
+      // New month → roll the SAME row over (never insert a second row).
+      // Safety net: if the closing month was paid through a path that bypassed
+      // applyPayment, snapshot it into the payment ledger first.
+      if (Number(existing.amount_paid || 0) > 0) {
+        const paid = one<any>(
+          "SELECT id FROM subscription_payments WHERE subscription_id = ? AND period_start = ? LIMIT 1",
+          [existing.id, existing.period_start]
+        );
+        if (!paid) {
+          const s = one<any>("SELECT * FROM subscriptions WHERE id = ?", [existing.id]) as any;
+          db.prepare(
+            `INSERT INTO subscription_payments (subscription_id, family_id, member_id, period_start, period_end, amount, receipt_number, payment_date, payment_method, transaction_ref, collected_by, remarks, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active')`
+          ).run(s.id, s.family_id, s.member_id, s.period_start, s.period_end, s.amount_paid, s.receipt_number, s.payment_date || s.period_start, s.payment_method || 'Cash', s.transaction_ref || '', s.collected_by, s.remarks || '');
+        }
+      }
+      db.prepare(
+        `UPDATE subscriptions SET plan_id = ?, period_start = ?, period_end = ?, amount = ?, amount_paid = 0, payment_date = NULL, receipt_number = NULL, status = 'Pending', updated_at = datetime('now') WHERE id = ?`
+      ).run(plan.id, periodStart, periodEnd, configured, existing.id);
+      rolledOver++;
     }
-  })();
-  return { created, amount: configured, periodStart, periodEnd };
+  });
+  tx();
+  return { created, rolledOver, amount: configured, periodStart, periodEnd };
 }
 
 function memberSubscriptionBalance(familyId: number) {
@@ -281,34 +353,106 @@ export const subscriptions = {
   },
   get: (id: number) => one<any>("SELECT * FROM subscriptions WHERE id = ?", [id]),
   create: (data: any) => {
-    const receipt = data.receiptNumber || scalar<string>(
-      "SELECT 'RCP-' || printf('%04d', COALESCE(MAX(id), 0) + 1) AS n FROM subscriptions"
-    );
+    // One subscription ACCOUNT per family — the recurring row. If the family
+    // already has one, refuse and point the user at the existing row.
+    const existing = one<any>("SELECT id, receipt_number FROM subscriptions WHERE family_id = ? LIMIT 1", [data.familyId]);
+    if (existing) {
+      throw new Error(
+        "This family already has a subscription. Open the existing row to record this month's payment — a family has exactly one recurring subscription."
+      );
+    }
+    const { periodStart, periodEnd } = currentMonthPeriod();
+    const configured = scalar<number>("SELECT COALESCE(subscription_monthly_amount, 0) FROM settings WHERE id = 1") || 0;
     const { id } = run(
       `INSERT INTO subscriptions
         (family_id, member_id, plan_id, period_start, period_end, amount, amount_paid,
          payment_date, receipt_number, payment_method, transaction_ref, status, collected_by, remarks)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?)`,
       [
-        data.familyId, data.memberId, data.planId ?? 1, data.periodStart,
-        data.periodEnd, data.amount, data.amountPaid ?? 0,
-        data.paymentDate, receipt, data.paymentMethod ?? "Cash",
-        data.transactionRef ?? "", data.status ?? "Pending",
-        data.collectedBy ?? 1, data.remarks ?? ""
+        data.familyId, data.memberId ?? familyHeadMemberId(data.familyId), data.planId ?? 1,
+        data.periodStart || periodStart, data.periodEnd || periodEnd,
+        data.amount ?? configured, data.amountPaid ?? 0,
+        data.paymentMethod ?? "Cash", data.transactionRef ?? "",
+        data.status ?? "Pending", data.collectedBy ?? 1, data.remarks ?? ""
       ]
     );
-    return { id, receiptNumber: receipt };
+    return { id, receiptNumber: "" };
   },
-  update: (id: number, data: any) =>
-    run(
-      `UPDATE subscriptions SET family_id = ?, member_id = ?, plan_id = ?, period_start = ?, period_end = ?, amount = ?, amount_paid = ?, payment_date = ?, payment_method = ?, transaction_ref = ?, status = ?, remarks = ?, updated_at = datetime('now') WHERE id = ?`,
-      [
-        data.familyId, data.memberId, data.planId,
-        data.periodStart, data.periodEnd, data.amount, data.amountPaid,
-        data.paymentDate, data.paymentMethod, data.transactionRef,
-        data.status, data.remarks, id
-      ]
+  /** Restricted payment edit: ONLY how much was given (plus date/method/ref/
+   *  remarks) may change. Family, member, period and the monthly rate are
+   *  locked because the subscription is a recurring account. */
+  applyPayment: (id: number, data: any) => {
+    const db = getDB();
+    const s = one<any>("SELECT * FROM subscriptions WHERE id = ?", [id]);
+    if (!s) throw new Error("Subscription not found");
+    // Guard against attempts to move the account to another family/period.
+    if (data.familyId != null && Number(data.familyId) !== Number(s.family_id)) {
+      throw new Error("A subscription cannot be moved to another family. Payment edits only change how much was given.");
+    }
+    if (data.periodStart && data.periodStart !== s.period_start) {
+      throw new Error("The billing period is fixed by the recurring subscription. Payment edits only change how much was given.");
+    }
+    const amountPaid = Math.max(0, Number(data.amountPaid ?? s.amount_paid ?? 0));
+    const amount = Number(s.amount || 0);
+    const status = amountPaid <= 0 ? "Pending" : amountPaid >= amount ? "Paid" : "Partial";
+    const paymentDate = data.paymentDate || nowDate();
+    const receipt = nextPaymentReceipt();
+    const tx = db.transaction(() => {
+      // One payment record per subscription per month (upsert).
+      const paid = one<any>(
+        "SELECT id FROM subscription_payments WHERE subscription_id = ? AND period_start = ? LIMIT 1",
+        [s.id, s.period_start]
+      );
+      if (paid) {
+        db.prepare(
+          `UPDATE subscription_payments SET member_id = ?, amount = ?, receipt_number = ?, payment_date = ?, payment_method = ?, transaction_ref = ?, remarks = ?, status = 'Active', updated_at = datetime('now') WHERE id = ?`
+        ).run(s.member_id, amountPaid, s.receipt_number || receipt, paymentDate, data.paymentMethod || "Cash", data.transactionRef ?? "", data.remarks ?? "", paid.id);
+      } else {
+        db.prepare(
+          `INSERT INTO subscription_payments (subscription_id, family_id, member_id, period_start, period_end, amount, receipt_number, payment_date, payment_method, transaction_ref, collected_by, remarks, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active')`
+        ).run(s.id, s.family_id, s.member_id, s.period_start, s.period_end, amountPaid, receipt, paymentDate, data.paymentMethod || "Cash", data.transactionRef ?? "", data.collectedBy ?? 1, data.remarks ?? "");
+      }
+      db.prepare(
+        `UPDATE subscriptions SET amount_paid = ?, payment_date = ?, receipt_number = ?, payment_method = ?, transaction_ref = ?, status = ?, remarks = ?, updated_at = datetime('now') WHERE id = ?`
+      ).run(amountPaid, amountPaid > 0 ? paymentDate : null, amountPaid > 0 ? (s.receipt_number || receipt) : null, data.paymentMethod || "Cash", data.transactionRef ?? "", status, data.remarks ?? "", id);
+    });
+    tx();
+    return { id, receiptNumber: amountPaid > 0 ? (s.receipt_number || receipt) : "", status };
+  },
+  /** Cancel the current month's payment (secure action: reason + admin
+   *  password are enforced at the IPC layer). Resets the month to unpaid and
+   *  marks the ledger record Cancelled — nothing is deleted. */
+  cancelPayment: (id: number) => {
+    const db = getDB();
+    const s = one<any>("SELECT * FROM subscriptions WHERE id = ?", [id]);
+    if (!s) throw new Error("Subscription not found");
+    const tx = db.transaction(() => {
+      db.prepare(
+        "UPDATE subscription_payments SET status = 'Cancelled', updated_at = datetime('now') WHERE subscription_id = ? AND period_start = ? AND status = 'Active'"
+      ).run(id, s.period_start);
+      db.prepare(
+        `UPDATE subscriptions SET amount_paid = 0, payment_date = NULL, receipt_number = NULL, status = 'Pending', updated_at = datetime('now') WHERE id = ?`
+      ).run(id);
+    });
+    tx();
+    return { id };
+  },
+  /** Monthly payment history of a family (from the immutable ledger). */
+  paymentsHistory: (familyId: number, limit = 60) =>
+    all<any>(
+      `SELECT sp.*, f.family_number, f.house_name,
+        (SELECT m.name FROM members m WHERE m.id = sp.member_id) AS member_name
+       FROM subscription_payments sp LEFT JOIN families f ON f.id = sp.family_id
+       WHERE sp.family_id = ?
+       ORDER BY COALESCE(sp.period_start, '') DESC, sp.id DESC LIMIT ?`,
+      [familyId, limit]
     ),
+  update: (id: number, data: any) => {
+    // Legacy full-row update is retired for recurring subscriptions — the
+    // only permitted edit is recording/correcting the payment amount.
+    return (subscriptions as any).applyPayment(id, data);
+  },
   remove: (id: number) => run("DELETE FROM subscriptions WHERE id = ?", [id]),
   markOverdue: () => {
     const today = nowDate();
@@ -317,8 +461,8 @@ export const subscriptions = {
       [today]
     ).changes;
   },
-  totalCollected: () => scalar<number>("SELECT COALESCE(SUM(amount_paid),0) AS v FROM subscriptions WHERE status = 'Paid'"),
-  totalPending: () => scalar<number>("SELECT COALESCE(SUM(amount-amount_paid),0) AS v FROM subscriptions WHERE status IN ('Pending','Overdue','Partial') OR amount_paid < amount"),
+  totalCollected: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM subscription_payments WHERE status = 'Active'"),
+  totalPending: () => scalar<number>("SELECT COALESCE(SUM(amount-amount_paid),0) AS v FROM subscriptions WHERE amount > amount_paid"),
   plans: () => all<any>("SELECT * FROM subscription_plans WHERE is_active = 1 ORDER BY name"),
 };
 
@@ -546,13 +690,13 @@ export const accounting = {
       if (filter.search) { w.push("(d.donor_name LIKE ? OR d.receipt_number LIKE ? OR d.purpose LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t, t); }
       parts.push(`SELECT d.id AS source_id, 'donations' AS source, d.donation_date AS ledger_date, 'Income' AS type, d.amount, (d.donor_name || COALESCE(' — ' || d.purpose, '')) AS description, d.payment_method, '' AS transaction_ref, d.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id FROM donations d WHERE ${w.join(" AND ")}`);
     }
-    // 3. Subscriptions where status='Paid' (Income)
+    // 3. Subscription payments from the immutable ledger (Income)
     {
-      const w: string[] = ["s.status = 'Paid'"];
-      if (range) { w.push("s.payment_date >= ?"); w.push("s.payment_date <= ?"); params.push(range.from, range.to); }
+      const w: string[] = ["sp.status = 'Active'", "COALESCE(sp.amount, 0) > 0"];
+      if (range) { w.push("sp.payment_date >= ?"); w.push("sp.payment_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All" && filter.type !== "Income") { w.push("1=0"); }
-      if (filter.search) { w.push("(s.receipt_number LIKE ? OR s.remarks LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t); }
-      parts.push(`SELECT s.id AS source_id, 'subscriptions' AS source, COALESCE(s.payment_date, s.period_start) AS ledger_date, 'Income' AS type, s.amount_paid AS amount, ('Subscription — ' || COALESCE(s.receipt_number, '')) AS description, s.payment_method, s.transaction_ref, s.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id FROM subscriptions s WHERE ${w.join(" AND ")}`);
+      if (filter.search) { w.push("(sp.receipt_number LIKE ? OR sp.remarks LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t); }
+      parts.push(`SELECT sp.id AS source_id, 'subscriptions' AS source, COALESCE(sp.payment_date, sp.period_start) AS ledger_date, 'Income' AS type, sp.amount, ('Subscription — ' || COALESCE(sp.receipt_number, '')) AS description, sp.payment_method, sp.transaction_ref, sp.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id FROM subscription_payments sp WHERE ${w.join(" AND ")}`);
     }
     // 4. Welfare disbursements (Expense)
     {
@@ -614,9 +758,9 @@ export const accounting = {
       parts.push(`SELECT d.donation_date AS ledger_date, 'Income' AS type, d.amount, 'donations' AS source FROM donations d WHERE ${w.join(" AND ")}`);
     }
     {
-      const w: string[] = ["s.status = 'Paid'"];
-      if (range) { w.push("s.payment_date >= ?"); w.push("s.payment_date <= ?"); }
-      parts.push(`SELECT COALESCE(s.payment_date, s.period_start) AS ledger_date, 'Income' AS type, s.amount_paid AS amount, 'subscriptions' AS source FROM subscriptions s WHERE ${w.join(" AND ")}`);
+      const w: string[] = ["sp.status = 'Active'", "COALESCE(sp.amount, 0) > 0"];
+      if (range) { w.push("sp.payment_date >= ?"); w.push("sp.payment_date <= ?"); }
+      parts.push(`SELECT COALESCE(sp.payment_date, sp.period_start) AS ledger_date, 'Income' AS type, sp.amount, 'subscriptions' AS source FROM subscription_payments sp WHERE ${w.join(" AND ")}`);
     }
     {
       const w: string[] = ["w.status = 'Disbursed'"];
@@ -834,21 +978,30 @@ export const welfare = {
         data.remarks, id
       ]
     ),
-  approve: (id: number, amount: number, remarks: string, userId: number) =>
+  approve: (id: number, amount: number, remarks: string, userId: number, minutesDate?: string) =>
     run(
-      `UPDATE welfare_requests SET status = 'Approved', amount_approved = ?, remarks = ?, processed_by = ?, processed_date = datetime('now'), updated_at = datetime('now') WHERE id = ?`,
-      [amount, remarks, userId, id]
+      `UPDATE welfare_requests SET status = 'Approved', amount_approved = ?, remarks = ?, minutes_date = COALESCE(?, minutes_date), processed_by = ?, processed_date = datetime('now'), updated_at = datetime('now') WHERE id = ?`,
+      [amount, remarks, minutesDate || null, userId, id]
     ),
   reject: (id: number, reason: string, userId: number) =>
     run(
       `UPDATE welfare_requests SET status = 'Rejected', remarks = ?, processed_by = ?, processed_date = datetime('now'), updated_at = datetime('now') WHERE id = ?`,
       [reason, userId, id]
     ),
-  disburse: (id: number, userId: number) =>
-    run(
-      `UPDATE welfare_requests SET status = 'Disbursed', disbursed_date = ?, processed_by = ?, updated_at = datetime('now') WHERE id = ?`,
-      [nowDate(), userId, id]
-    ),
+  /** Disbursement is a secure action: the IPC layer verifies the administrator
+   *  password and requires a reason before calling this. A minutes_date must
+   *  exist (recorded at approval) — the foolproof workflow trail. */
+  disburse: (id: number, userId: number, reason = "") => {
+    const w = one<any>("SELECT id, minutes_date, amount_approved FROM welfare_requests WHERE id = ?", [id]);
+    if (!w) throw new Error("Welfare request not found");
+    if (!w.minutes_date) {
+      throw new Error("Date of the committee minutes approving this amount is missing. Reject the request and re-approve it with the minutes date recorded.");
+    }
+    return run(
+      `UPDATE welfare_requests SET status = 'Disbursed', disbursed_date = ?, remarks = CASE WHEN ? != '' THEN (CASE WHEN remarks = '' OR remarks IS NULL THEN ? ELSE remarks || ' | Disbursement: ' || ? END) ELSE remarks END, processed_by = ?, updated_at = datetime('now') WHERE id = ?`,
+      [nowDate(), reason.trim(), reason.trim(), reason.trim(), userId, id]
+    );
+  },
   remove: (id: number) => run("DELETE FROM welfare_requests WHERE id = ?", [id]),
   categories: () => ["Medical Aid", "Education Aid", "Marriage Assistance", "Financial Assistance"],
 };
@@ -1063,7 +1216,7 @@ export const dashboard = {
        SELECT strftime('%Y-%m', date(m || '-01', '+1 month')) FROM months WHERE m < strftime('%Y-%m','now')
      )
      SELECT m AS month,
-       COALESCE((SELECT SUM(amount_paid) FROM subscriptions WHERE strftime('%Y-%m', payment_date) = m), 0) AS amount
+       COALESCE((SELECT SUM(amount) FROM subscription_payments WHERE status='Active' AND amount > 0 AND strftime('%Y-%m', payment_date) = m), 0) AS amount
      FROM months ORDER BY m`,
     [`-${months - 1} months`]
   ),
@@ -1092,7 +1245,7 @@ export const dashboard = {
      SELECT m AS month,
        COALESCE((SELECT SUM(amount) FROM transactions WHERE type='Income' AND strftime('%Y-%m', txn_date) = m), 0)
          + COALESCE((SELECT SUM(amount) FROM donations WHERE strftime('%Y-%m', donation_date) = m), 0)
-         + COALESCE((SELECT SUM(amount_paid) FROM subscriptions WHERE status='Paid' AND strftime('%Y-%m', COALESCE(payment_date, period_start)) = m), 0)
+         + COALESCE((SELECT SUM(amount) FROM subscription_payments WHERE status='Active' AND amount > 0 AND strftime('%Y-%m', COALESCE(payment_date, period_start)) = m), 0)
        AS income,
        COALESCE((SELECT SUM(amount) FROM transactions WHERE type='Expense' AND strftime('%Y-%m', txn_date) = m), 0)
          + COALESCE((SELECT SUM(amount_approved) FROM welfare_requests WHERE status='Disbursed' AND strftime('%Y-%m', COALESCE(disbursed_date, created_at)) = m), 0)
@@ -1108,7 +1261,7 @@ export const dashboard = {
   // Real data for the "Today at a Glance" card (no more hardcoded values).
   todayAtGlance: () => {
     const receiptsToday = scalar<number>(
-      `SELECT (SELECT COUNT(*) FROM subscriptions WHERE date(payment_date) = date('now'))
+      `SELECT (SELECT COUNT(*) FROM subscription_payments WHERE status='Active' AND amount > 0 AND date(payment_date) = date('now'))
        + (SELECT COUNT(*) FROM donations WHERE date(donation_date) = date('now')) AS v`
     ) || 0;
     const donationsToday = scalar<number>(
@@ -1413,6 +1566,24 @@ export const staff = {
       `UPDATE staff SET archive_state = 1, archive_source = 'manual', archived_at = datetime('now'), archived_by = ?, archive_reason = ?, status = 'Resigned', updated_at = datetime('now') WHERE id = ?`,
       [userId, reason, id]
     ),
+  /** Resignation / expulsion of a staff member (secure action — reason and
+   *  administrator password are verified at the IPC layer). The effective
+   *  date and reason are preserved on the record; archived_at carries the
+   *  effective date so reports can show when the service ended. */
+  setStatus: (id: number, status: "Resigned" | "Expelled", effectiveDate: string, reason: string, userId: number) => {
+    if (status !== "Resigned" && status !== "Expelled") {
+      throw new Error("Staff status can only be set to Resigned or Expelled through this action");
+    }
+    const s = one<any>("SELECT id, name, staff_code, status, archive_state FROM staff WHERE id = ?", [id]);
+    if (!s) throw new Error("Staff member not found");
+    if (s.archive_state) throw new Error("This staff member has already left service. Restore the record first if the status needs correcting.");
+    if (!reason?.trim()) throw new Error("A reason is required");
+    const eff = effectiveDate || nowDate();
+    return run(
+      `UPDATE staff SET archive_state = 1, archive_source = 'manual', archived_at = ?, archived_by = ?, archive_reason = ?, status = ?, updated_at = datetime('now') WHERE id = ?`,
+      [eff, userId, reason.trim(), status, id]
+    );
+  },
   restore: (id: number, userId: number) =>
     run(
       `UPDATE staff SET archive_state = 0, archive_source = NULL, archived_at = NULL, archived_by = ?, archive_reason = NULL, status = 'Active', updated_at = datetime('now') WHERE id = ?`,

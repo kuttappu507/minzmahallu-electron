@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Edit2, Eye, Archive, RotateCcw, History, Wallet, XCircle, Briefcase } from "lucide-react";
+import { Plus, Edit2, Eye, LogOut, UserX, RotateCcw, History, Wallet, XCircle, Briefcase } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
 import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
+import { SecureActionDialog } from "@/components/SecureActionDialog";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
 import { statusVariant, formatDate, formatCurrency } from "@/lib/utils";
@@ -76,8 +77,12 @@ export function Staff() {
   const [preview, setPreview] = useState<StaffRow | null>(null);
   const [history, setHistory] = useState<HistoryRow[]>([]);
 
-  const [archiveOpen, setArchiveOpen] = useState(false);
-  const [archiveReason, setArchiveReason] = useState("");
+  // Resign / Expel — secure actions with effective date, reason and
+  // administrator password (verified in the main process).
+  const [statusAction, setStatusAction] = useState<"Resigned" | "Expelled" | null>(null);
+  const [statusTarget, setStatusTarget] = useState<StaffRow | null>(null);
+  // Salary payment cancellation — reason + administrator password.
+  const [cancelPayTarget, setCancelPayTarget] = useState<PaymentRow | null>(null);
 
   const [payOpen, setPayOpen] = useState(false);
   const [payForm, setPayForm] = useState<any>({
@@ -158,16 +163,20 @@ export function Staff() {
     try { setHistory(await window.mms.staff.history(s.id)); } catch { setHistory([]); }
   };
 
-  const openArchive = () => { setArchiveReason(""); setArchiveOpen(true); };
+  const openStatus = (action: "Resigned" | "Expelled", target?: StaffRow) => {
+    const t = target || preview;
+    if (!t) return;
+    setStatusTarget(t);
+    setStatusAction(action);
+  };
 
-  const executeArchive = async () => {
-    if (!preview) return;
-    if (!archiveReason.trim()) { toast.error(t("staff_archive_reason_req")); return; }
-    try {
-      await window.mms.staff.archive(preview.id, archiveReason.trim());
-      toast.success(t("staff_archived_toast"));
-      setArchiveOpen(false); setPreviewOpen(false); refetch();
-    } catch (e: any) { toast.error(e.message); }
+  const executeStatus = async ({ reason, date }: { reason: string; date?: string }) => {
+    if (!statusTarget || !statusAction) return;
+    await window.mms.staff.setStatus(statusTarget.id, statusAction, date || "", reason);
+    toast.success(statusAction === "Expelled"
+      ? tx(`Expelled effective ${date || "today"} — recorded in the audit log`, `പുറത്താക്കി — ഓഡിറ്റ് ലോഗിൽ രേഖപ്പെടുത്തി`)
+      : tx(`Resignation recorded effective ${date || "today"}`, `രാജി രേഖപ്പെടുത്തി — ${date || "ഇന്ന്"} മുതൽ`));
+    setPreviewOpen(false); refetch(); refreshSummary();
   };
 
   const executeRestore = async () => {
@@ -218,15 +227,16 @@ export function Staff() {
     } catch (e: any) { toast.error(e.message); }
   };
 
-  const cancelPayment = async (id: number) => {
-    try {
-      await window.mms.staff.cancelPayment(id);
-      toast.success(t("staff_payment_cancelled"));
-      refreshPayments(); refreshSummary();
-    } catch (e: any) { toast.error(e.message); }
+  const openCancelPayment = (p: PaymentRow) => { setCancelPayTarget(p); };
+
+  const executeCancelPayment = async ({ reason }: { reason: string }) => {
+    if (!cancelPayTarget) return;
+    await window.mms.staff.cancelPayment(cancelPayTarget.id, reason);
+    toast.success(t("staff_payment_cancelled"));
+    refreshPayments(); refreshSummary();
   };
 
-  const displayStatus = (r: StaffRow) => r.archive_state ? t("staff_archived") : (r.status === "Active" ? t("staff_active") : r.status === "Inactive" ? t("staff_inactive") : t("staff_resigned"));
+  const displayStatus = (r: StaffRow) => r.archive_state ? (r.status === "Expelled" ? tx("Expelled", "പുറത്താക്കി") : r.status === "Resigned" ? t("staff_resigned") : t("staff_archived")) : (r.status === "Active" ? t("staff_active") : r.status === "Inactive" ? t("staff_inactive") : r.status === "Expelled" ? tx("Expelled", "പുറത്താക്കി") : t("staff_resigned"));
 
   const columns: Column<StaffRow>[] = useMemo(() => [
     { header: t("staff_code"), accessor: r => <span className="code-text-sm text-primary">{r.staff_code}</span>, width: "110px" },
@@ -258,7 +268,7 @@ export function Staff() {
     { header: t("staff_status"), accessor: r => <Badge variant={r.status === "Paid" ? statusVariant("Active") : r.status === "Pending" ? statusVariant("Pending") : "muted"}>{r.status}</Badge> },
     {
       header: "", align: "right", accessor: r => r.status === "Paid" ? (
-        <button className="act-btn" onClick={() => cancelPayment(r.id)} title={t("staff_cancel_payment")}><XCircle className="h-4 w-4" /></button>
+        <button className="act-btn" onClick={() => openCancelPayment(r)} title={t("staff_cancel_payment")}><XCircle className="h-4 w-4" /></button>
       ) : <span />
     }
   ], [ml]);
@@ -386,27 +396,54 @@ export function Staff() {
               <>
                 <Button onClick={() => edit(preview!.id)}><Edit2 size={14} />{t("action_edit")}</Button>
                 <Button variant="secondary" onClick={() => openPay()}><Wallet size={14} />{t("staff_pay_salary")}</Button>
-                <Button variant="secondary" onClick={openArchive}><Archive size={14} />{t("staff_archive")}</Button>
+                <Button variant="secondary" onClick={() => openStatus("Resigned")}><LogOut size={14} />{tx("Resign", "രാജി")}</Button>
+                <Button variant="danger" onClick={() => openStatus("Expelled")}><UserX size={14} />{tx("Expel", "പുറത്താക്കുക")}</Button>
               </>
             )}
           </div>
         </div>
       </Dialog>
 
-      {/* Archive dialog */}
-      <Dialog open={archiveOpen} onClose={() => setArchiveOpen(false)} title={t("staff_archive")}>
-        <div className="p-6 space-y-4">
-          <p>{tx("The staff member will be removed from the active list. Salary history will be preserved.", "ജീവനക്കാരനെ സജീവ പട്ടികയിൽ നിന്ന് മാറ്റും. ശമ്പള ചരിത്രം സംരക്ഷിക്കും.")}</p>
-          <div>
-            <Label>{t("staff_archive_reason")} *</Label>
-            <Textarea rows={3} value={archiveReason} onChange={e => setArchiveReason(e.target.value)} placeholder={tx("Why is this staff being archived?", "ഈ ജീവനക്കാരനെ ആർക്കൈവ് ചെയ്യാനുള്ള കാരണം?")} />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setArchiveOpen(false)}>{t("action_cancel")}</Button>
-            <Button onClick={executeArchive}>{t("staff_archive")}</Button>
-          </div>
-        </div>
-      </Dialog>
+      {/* Resign / Expel — secure gate (effective date + reason + admin password) */}
+      <SecureActionDialog
+        open={statusAction !== null && !!statusTarget}
+        onClose={() => { setStatusAction(null); setStatusTarget(null); }}
+        onConfirm={executeStatus}
+        title={statusAction === "Expelled" ? tx("Expel staff member", "ജീവനക്കാരനെ പുറത്താക്കുക") : tx("Record resignation", "രാജി രേഖപ്പെടുത്തുക")}
+        description={
+          statusTarget
+            ? (statusAction === "Expelled"
+                ? tx(
+                    `End the service of ${statusTarget.name} (${statusTarget.staff_code}) as EXPELLED. Salary history is preserved.`,
+                    `${statusTarget.name} (${statusTarget.staff_code}) ന്റെ സേവനം പുറത്താക്കി അവസാനിപ്പിക്കുന്നു. ശമ്പള ചരിത്രം സംരക്ഷിക്കും.`
+                  )
+                : tx(
+                    `Record the resignation of ${statusTarget.name} (${statusTarget.staff_code}). Salary history is preserved.`,
+                    `${statusTarget.name} (${statusTarget.staff_code}) ന്റെ രാജി രേഖപ്പെടുത്തുന്നു. ശമ്പള ചരിത്രം സംരക്ഷിക്കും.`
+                  ))
+            : ""
+        }
+        dateLabel={statusAction === "Expelled" ? tx("Effective date of expulsion", "പുറത്താക്കലിന്റെ തീയതി") : tx("Resignation effective date", "രാജിയുടെ തീയതി")}
+        dateDefault={new Date().toISOString().slice(0, 10)}
+        confirmLabel={statusAction === "Expelled" ? tx("Expel", "പുറത്താക്കുക") : tx("Record resignation", "രാജി രേഖപ്പെടുത്തുക")}
+      />
+
+      {/* Cancel salary payment — secure gate (reason + admin password) */}
+      <SecureActionDialog
+        open={!!cancelPayTarget}
+        onClose={() => setCancelPayTarget(null)}
+        onConfirm={executeCancelPayment}
+        title={t("staff_cancel_payment")}
+        description={
+          cancelPayTarget
+            ? tx(
+                `Cancel the ${MONTH_NAMES[cancelPayTarget.period_month - 1]} ${cancelPayTarget.period_year} salary payment of ${formatCurrency(cancelPayTarget.amount)} to ${cancelPayTarget.staff_name}?`,
+                `${cancelPayTarget.staff_name} ന് നൽകിയ ${MONTH_NAMES[cancelPayTarget.period_month - 1]} ${cancelPayTarget.period_year} ശമ്പള പേയ്‌മെന്റ് (${formatCurrency(cancelPayTarget.amount)}) റദ്ദാക്കണോ?`
+              )
+            : ""
+        }
+        confirmLabel={t("staff_cancel_payment")}
+      />
 
       {/* Add/Edit dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editingId ? t("staff_edit") : t("staff_add")} className="max-w-3xl">
@@ -434,8 +471,8 @@ export function Staff() {
               <Select value={form.status || "Active"} onChange={e => setForm({ ...form, status: e.target.value })}>
                 <option value="Active">{t("staff_active")}</option>
                 <option value="Inactive">{t("staff_inactive")}</option>
-                <option value="Resigned">{t("staff_resigned")}</option>
               </Select>
+              <div className="text-xs text-muted mt-1.5">{tx("Resignation / expulsion is executed from the member's view with date, reason and admin password.", "രാജി / പുറത്താക്കൽ തീയതി, കാരണം, അഡ്മിൻ പാസ്‌വേഡ് എന്നിവയോടെ അംഗത്തിന്റെ വ്യൂവിൽ നിന്ന് നടത്തുന്നു.")}</div>
             </div>
           </div>
           <div><Label>{t("staff_address")}</Label><Textarea rows={2} value={form.address || ""} onChange={e => setForm({ ...form, address: e.target.value })} /></div>
