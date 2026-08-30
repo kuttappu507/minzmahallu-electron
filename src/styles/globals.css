@@ -274,21 +274,7 @@
   }
   .sidebar.min { width: 80px; }
 
-  .sb-brand { display: flex; align-items: center; gap: 12px; padding: 20px 18px 16px; }
-  .sb-brand-tile {
-    width: 42px; height: 42px; flex: none; border-radius: 13px;
-    display: grid; place-items: center; overflow: hidden;
-    background: linear-gradient(135deg, var(--em) 0%, var(--emdd) 100%);
-    box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--em) 55%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.18);
-    border: 0;
-  }
-  .sb-brand-tile img { width: 24px; height: 24px; object-fit: contain; display: block; filter: brightness(0) invert(1); }
-  .sb-brand-nm b { font: 700 15px Poppins; display: block; color: var(--tx); letter-spacing: -0.01em; line-height: 1.2; }
-  .sb-brand-nm small { font: 500 9px Poppins; color: var(--fnt); letter-spacing: 0.14em; text-transform: uppercase; display: block; margin-top: 2px; }
-  .sidebar.min .sb-brand { justify-content: center; padding: 20px 0 16px; }
-  .sidebar.min .sb-brand-nm { display: none; }
-
-  .navscroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0 12px 10px; scrollbar-width: thin; scrollbar-color: var(--line2) transparent; }
+  .navscroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 10px 12px 10px; scrollbar-width: thin; scrollbar-color: var(--line2) transparent; }
   .navsec { font: 700 9.5px Poppins; letter-spacing: 0.2em; text-transform: uppercase; color: var(--fnt); padding: 18px 14px 8px; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
   .navsec::after { content: ""; flex: 1; height: 1px; background: var(--line); }
   .sidebar.min .navsec { padding: 12px 0 5px; color: transparent; }
@@ -370,16 +356,29 @@
     border: 0; border-radius: 0; box-shadow: none; overflow: hidden;
   }
   .topbar {
-    height: 62px; flex: none; display: flex; align-items: center; gap: 12px;
-    padding: 0 22px; background: var(--panel); border-bottom: 1px solid var(--line);
-    position: relative; z-index: 35; -webkit-app-region: drag;
+    height: 60px; flex: none; display: flex; align-items: center; gap: 14px;
+    padding: 0 14px 0 18px; background: var(--panel); border-bottom: 1px solid var(--line);
+    position: relative; z-index: 40; -webkit-app-region: drag;
   }
   .topbar button, .topbar input, .topbar select, .topbar .qwrap, .topbar .avbtn,
   .topbar .langseg, .topbar .win-controls { -webkit-app-region: no-drag; }
-  .crumb { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-  .crumb small { font: 500 9.5px Poppins; color: var(--fnt); letter-spacing: 0.16em; text-transform: uppercase; display: block; }
-  .crumb b { font: 600 15px Poppins; margin-top: 2px; display: inline-block; }
-  .tb-center { display: flex; align-items: center; }
+  .tb-brand { display: flex; align-items: center; gap: 10px; flex: none; }
+  .tb-brand-tile {
+    width: 36px; height: 36px; flex: none; border-radius: 11px; overflow: hidden;
+    display: grid; place-items: center; border: 0;
+    background: linear-gradient(135deg, var(--em) 0%, var(--emdd) 100%);
+    box-shadow: 0 3px 10px -4px color-mix(in srgb, var(--em) 60%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  }
+  .tb-brand-tile img { width: 21px; height: 21px; object-fit: contain; display: block; filter: brightness(0) invert(1); }
+  .tb-brand-nm { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+  .tb-brand-nm b { font: 700 14.5px Poppins; color: var(--tx); letter-spacing: -0.01em; }
+  .tb-brand-nm small { font: 500 8.5px Poppins; color: var(--fnt); letter-spacing: 0.12em; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+  .tb-title {
+    display: flex; align-items: center; min-width: 0; padding-left: 14px; margin-left: 4px;
+    border-left: 1px solid var(--line);
+  }
+  .tb-title b { font: 700 16.5px Poppins; color: var(--tx); letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tb-center { display: flex; align-items: center; justify-content: center; flex: 1; min-width: 0; }
   .qwrap {
     display: flex; align-items: center; gap: 8px;
     background: var(--panel2); border: 1.5px solid var(--line);
@@ -716,7 +715,7 @@
   /* ===== Modal ===== */
   .modal-root { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; background: rgba(24, 34, 48, 0.4); opacity: 0; pointer-events: none; transition: 0.2s; }
   .modal-root.open { opacity: 1; pointer-events: auto; }
-  .modal { width: min(510px, 92%); max-height: 86%; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shl); transform: translateY(16px) scale(0.97); transition: 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2); scrollbar-width: thin; scrollbar-color: var(--line2) transparent; }
+  .modal { width: min(920px, 94vw); max-height: 92vh; overflow: hidden; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shl); display: flex; flex-direction: column; transform: translateY(16px) scale(0.97); transition: 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2); scrollbar-width: thin; scrollbar-color: var(--line2) transparent; }
   .modal-root.open .modal { transform: none; }
   .m-h { display: flex; align-items: center; padding: 17px 20px; border-bottom: 1px solid var(--line); }
   .m-h b { font: 600 16.5px Poppins; }
@@ -766,16 +765,18 @@
   .code-text { font: 500 13px Poppins; letter-spacing: 0.04em; }
   .code-text-sm { font: 500 12px Poppins; letter-spacing: 0.03em; }
 
-  /* ===== App wrapper — island menu + full-window main pane =====
-     Only the sidebar floats as a rounded panel; the main column runs edge
-     to edge (top/right/bottom) like a classic desktop app window. */
+  /* ===== App wrapper — full-width top band + island menu + flush main =====
+     The topbar runs the full window width and carries the brand + page
+     heading; the sidebar floats below it as an island menu; the main column
+     is flush (edge to edge) like a classic desktop app window. */
   .app-shell {
-    height: 100vh; display: flex; gap: 12px; padding: 0; overflow: hidden;
+    height: 100vh; display: flex; flex-direction: column; overflow: hidden;
     background:
       radial-gradient(900px 480px at 85% -10%, color-mix(in srgb, var(--c-sky) 8%, transparent), transparent 70%),
       radial-gradient(800px 420px at -10% 110%, color-mix(in srgb, var(--c-em) 8%, transparent), transparent 70%),
       var(--bodybg);
   }
+  .app-body { flex: 1; display: flex; gap: 12px; min-height: 0; }
 
   /* ===== Empty state ===== */
   .empty-state { padding: 40px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; }
@@ -1170,20 +1171,21 @@ html.lang-ml .btn { line-height: 20px !important; }
 .tbl:has(.token-family-code) tbody td:last-child .t-em { display: none !important; }
 
 /* ============================================================================
-   Full-window popups (structural revamp, round 2)
+   Popups — framed centered dialogs (classic modal look, generous size)
    ----------------------------------------------------------------------------
-   Every Dialog now opens as a full-window overlay: header bar pinned on top,
-   body scrolls internally, and the page behind is never involved. Small
-   confirmations opt into the compact box via .modal-sm.
-   These rules are intentionally UNLAYERED so they always beat Tailwind
-   utility classes (max-w-2xl etc.) that used to shrink dialogs.
+   Dialogs open as a centered floating window with rounded corners and a
+   pinned header; the body scrolls inside the dialog so the page behind is
+   never scrolled. Previews default to a wide ~920px panel; forms keep their
+   max-w-* caps (Tailwind utilities) just like the classic design; quick
+   confirmations opt into the compact .modal-sm box.
    ========================================================================== */
 .modal-root { background: rgba(13, 21, 33, 0.48); }
 .modal {
-  width: 100%; max-width: none; height: 100%; max-height: none;
-  border-radius: 0; border: 0;
+  height: auto; max-height: 92vh;
+  border-radius: 18px; border: 1px solid var(--line);
+  box-shadow: var(--shl);
   display: flex; flex-direction: column;
-  transform: translateY(14px);
+  transform: translateY(16px) scale(0.97);
 }
 .modal-root.open .modal { transform: none; }
 .modal .m-b { flex: 1; overflow-y: auto; }
@@ -1195,6 +1197,7 @@ html.lang-ml .btn { line-height: 20px !important; }
   height: auto; max-height: 90%;
   border-radius: 18px; border: 1px solid var(--line);
   transform: translateY(16px) scale(0.97);
+  overflow-y: auto;
 }
 .modal.modal-sm .m-b { flex: none; }
 .modal.modal-sm .m-f { border-radius: 0 0 18px 18px; }

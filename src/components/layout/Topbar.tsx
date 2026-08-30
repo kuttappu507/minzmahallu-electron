@@ -63,10 +63,11 @@ export function Topbar() {
 
   return <>
     <header className="topbar">
-      <div className="crumb">
-        <small>{t("app_name")}</small>
-        <b>{pageTitle}</b>
+      <div className="tb-brand">
+        <span className="tb-brand-tile"><img src="./logo.png" alt="MMS" /></span>
+        <div className="tb-brand-nm"><b>MMS</b><small>{t("app_name")}</small></div>
       </div>
+      <div className="tb-title"><b>{pageTitle}</b></div>
       <div className="tb-center">
         <GlobalSearch value={searchQuery} onChange={setSearchQuery} />
       </div>

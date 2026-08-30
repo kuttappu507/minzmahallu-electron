@@ -15,11 +15,6 @@ export function Sidebar(){
   const handleLogout=async()=>{await logout();navigate("/login")};
   const sectionText=(s:string)=>ml?sectionLabel[s]||s:s;
   return <aside className={cn("sidebar",collapsed&&"min")}>
-    {/* Brand header — gradient tile + wordmark */}
-    <div className="sb-brand">
-      <span className="sb-brand-tile"><img src="./logo.png" alt="MMS"/></span>
-      {!collapsed&&<div className="sb-brand-nm"><b>Minz Mahallu</b><small>{t("app_name")}</small></div>}
-    </div>
     {/* Navigation */}
     <div className="navscroll" onMouseLeave={()=>setTip(null)}>
       {NAV.map((item,i)=>{
