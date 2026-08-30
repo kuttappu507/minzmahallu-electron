@@ -8,11 +8,13 @@ import { fileURLToPath } from "node:url";
 import { login, changePassword, needsInitialSetup, createInitialAdministrator } from "./services/auth.service.js";
 import * as data from "./services/data.service.js";
 import { todayIST } from "./services/data.service.js";
+import { istDateTimeStr } from "./services/ist-date.js";
 import { closeDB, getDB } from "./db/connection.js";
 import { createBackup, verifyBackup, extractVerifiedBackup, listBackups } from "./services/backup.service.js";
 import { buildTokenSheetHtml } from "./print/token.template.js";
 import { buildCollectionSheetHtml } from "./print/collection-sheet.template.js";
 import { buildCertificateHtml } from "./print/certificate.template.js";
+import { buildQrPayload, qrSvgDataUrl } from "./services/qr-code.js";
 import { buildAccountStatementHtml } from "./print/account-statement.template.js";
 import { buildAuditPackHtml } from "./print/audit-pack.template.js";
 import { buildRegisterBookHtml } from "./print/register-book.template.js";
@@ -177,6 +179,18 @@ app.whenReady().then(() => {
   // replaced by base64 data URIs. Used by the renderer's TokensWithPrint page
   // to embed the font in client-built HTML so Malayalam glyphs render in the
   // printToPDF BrowserWindow (which doesn't have @fontsource bundled).
+  /** QR payload for a certificate: register code + this machine's fingerprint. */
+  function buildQrPayloadFor(cert: any): string {
+    const row = getDB().prepare("SELECT device_fingerprint FROM settings WHERE id = 1").get() as { device_fingerprint?: string } | undefined;
+    const fingerprint = row?.device_fingerprint || "UNBOUND";
+    return buildQrPayload({
+      certificateNumber: String(cert.certificate_number || cert.id || ""),
+      verificationCode: String(cert.verification_code || ""),
+      fingerprint,
+      issuedDate: String(cert.issued_date || "").slice(0, 10),
+    });
+  }
+
   ipcMain.handle("pdf:getAnekFontCss", () => {
     if (!session.user) throw new Error("Authentication required");
     return getAnekMalayalamCss();
@@ -188,11 +202,12 @@ app.whenReady().then(() => {
       const cert = (listResult?.rows || []).find((c: any) => c.id === certId);
       if (!cert) return { success: false, error: "Certificate not found" };
       const lang = await mainWindow!.webContents.executeJavaScript("document.documentElement.classList.contains('lang-ml') ? 'ml' : 'en'");
-      // Anti-forgery: the NEXT print is a reprint, so it is watermarked
-      // DUPLICATE even before the count is persisted (the count only
-      // increments if the PDF is actually saved).
+      // Anti-forgery: the NEXT print is a reprint, so it carries a bottom-left
+      // "Reprinted on <date time>" note even before the count is persisted
+      // (the count only increments if the PDF is actually saved).
       const expectedReprint = (cert.reprint_count || 0) + 1;
-      const html = buildCertificateHtml(cert, lang, expectedReprint);
+      const qrSvg = await qrSvgDataUrl(buildQrPayloadFor(cert));
+      const html = buildCertificateHtml(cert, lang, expectedReprint, istDateTimeStr(new Date()), qrSvg);
       const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Certificate PDF", defaultPath: `certificate-${cert.certificate_number || certId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] });
       if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true };
       const pdfBuffer = await renderHtmlToPdf(html);
@@ -209,7 +224,8 @@ app.whenReady().then(() => {
       const cert = (listResult?.rows || []).find((c: any) => c.id === certId);
       if (!cert) return { success: false, error: "Certificate not found" };
       const lang = await mainWindow!.webContents.executeJavaScript("document.documentElement.classList.contains('lang-ml') ? 'ml' : 'en'");
-      const html = buildCertificateHtml(cert, lang);
+      const qrSvg = await qrSvgDataUrl(buildQrPayloadFor(cert));
+      const html = buildCertificateHtml(cert, lang, 0, undefined, qrSvg);
       return { success: true, html };
     } catch (err: any) { return { success: false, error: err.message }; }
   });

@@ -106,6 +106,39 @@ export function installPreviewMock() {
     close: () => ({}),
   };
 
+  // ===== Certificates — anti-forgery (verification code + QR fingerprint) =====
+  const certFingerprint = "A1B2C3D4E5F60718";
+  const mockCertificates = {
+    verify: (code: string) => {
+      const clean = String(code || "").trim().toUpperCase();
+      if (!clean || !/^[A-Z0-9-]{8,}$/.test(clean)) return Promise.resolve({ valid: false, certificate: null });
+      return Promise.resolve({
+        valid: true,
+        certificate: {
+          certificate_number: "CERT-2026-0042",
+          type: "Membership",
+          issued_to: "Ayaan Rahman",
+          issued_date: "2026-08-12",
+          status: "Issued",
+          reprint_count: 0,
+        },
+        qrPayload: `MMS|CERT|CERT-2026-0042|${clean}|${certFingerprint}|2026-08-12`,
+        deviceFingerprint: certFingerprint,
+      });
+    },
+    verifyQr: (payload: string) => {
+      const parts = String(payload || "").trim().split("|");
+      if (parts.length !== 6 || parts[0] !== "MMS" || parts[1] !== "CERT") return Promise.resolve({ valid: false, reason: "malformed", certificate: null });
+      return Promise.resolve({
+        valid: true,
+        certificate: { certificate_number: parts[2], type: "Membership", issued_to: "Ayaan Rahman", issued_date: parts[5], status: "Issued", reprint_count: 0 },
+        qr: { fingerprint: parts[4], issuedDate: parts[5], certificateNumber: parts[2] },
+        issuedOnThisDevice: parts[4].toUpperCase() === certFingerprint.toUpperCase(),
+        certificateMatchesRegister: parts[2] === "CERT-2026-0042",
+      });
+    },
+  };
+
   // ===== Accounting (unified ledger) — realistic demo data =====
   // Dates are generated relative to today so "this month" always has rows,
   // and the period presets (this_month / last_month / …) resolve like the
@@ -246,7 +279,7 @@ export function installPreviewMock() {
   // Heuristic fallback: any other mms.<module>.<method> returns a safe default.
   // List-ish methods → empty array (pages read the array directly or fall back
   // to []); everything else → a neutral success object.
-  const base: Record<string, unknown> = { dashboard, settings, auth, win, accounting };
+  const base: Record<string, unknown> = { dashboard, settings, auth, win, accounting, certificates: mockCertificates };
   const handler: ProxyHandler<Record<string, unknown>> = {
     get(target, prop) {
       if (prop === "then") return undefined; // avoid thenable detection

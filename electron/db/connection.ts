@@ -4,6 +4,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { app, dialog } from "electron";
 import { fileURLToPath } from "node:url";
+import { computeDeviceFingerprint } from "../services/device-fingerprint.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export type DB = Database.Database;
@@ -64,6 +65,8 @@ function ensureRuntimeSchema(database: DB) {
     // V030 — tamper-evident audit chain columns + demo-data flag
     ["audit_log","prev_hash","TEXT"],["audit_log","entry_hash","TEXT"],
     ["settings","demo_data","INTEGER NOT NULL DEFAULT 0"],
+    // QR anti-forgery — device fingerprint bound into certificate QR payloads
+    ["settings","device_fingerprint","TEXT"],
   ];
   for (const [table,name,definition] of fields) if (tables.has(table)) addColumn(database, table, name, definition);
   if (tables.has("welfare_requests")) database.exec("UPDATE welfare_requests SET request_date = COALESCE(request_date, created_at) WHERE request_date IS NULL");
@@ -307,8 +310,20 @@ function initializeSchema(database: DB) {
   // idempotent via the duplicate-column reconciliation in applyMigrations().
   ensureRuntimeSchema(database);
   applyMigrations(database);
+  provisionDeviceFingerprint(database);
   const users = Number((database.prepare("SELECT COUNT(*) AS c FROM users").get() as {c:number}).c);
   if (users === 0) console.warn("[db] users table is empty — login may require initial setup");
+}
+
+/** Compute and store this machine's fingerprint once, so every later QR
+ *  payload uses the same stable value. Re-runs keep the stored value. */
+function provisionDeviceFingerprint(database: DB) {
+  try {
+    const row = database.prepare("SELECT device_fingerprint FROM settings WHERE id = 1").get() as { device_fingerprint: string | null } | undefined;
+    if (!row || !row.device_fingerprint) {
+      database.prepare("UPDATE settings SET device_fingerprint = ? WHERE id = 1").run(computeDeviceFingerprint());
+    }
+  } catch (err) { console.warn("[db] could not provision device fingerprint:", err); }
 }
 
 function applyMigrations(database: DB) {

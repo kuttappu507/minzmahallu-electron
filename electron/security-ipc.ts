@@ -229,6 +229,7 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("deaths:get", (id: number) => { actor(); return data.deaths.get(id); });
   register("certificates:list", (filter: any) => { actor(); return data.certificates.list(filter || {}); });
   register("certificates:verify", (code: string) => { actor(); return data.certificates.verify(code); });
+  register("certificates:verifyQr", (payload: string) => { actor(); return data.certificates.verifyQr(payload); });
   register("dashboard:summary", () => { actor(); return data.dashboard.summary(); });
   register("dashboard:incomeThisMonth", () => { actor(); return data.dashboard.incomeThisMonth(); });
   register("dashboard:expenseThisMonth", () => { actor(); return data.dashboard.expenseThisMonth(); });

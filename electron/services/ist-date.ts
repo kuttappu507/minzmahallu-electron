@@ -30,6 +30,18 @@ export function todayIST(): string {
   return istDateStr(new Date());
 }
 
+/** Full date-time "yyyy-mm-dd HH:MM" in Indian Standard Time. */
+export function istDateTimeStr(d: Date): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(d);
+  const map: Record<string, string> = {};
+  for (const p of parts) map[p.type] = p.value;
+  return `${map.year}-${map.month}-${map.day} ${map.hour}:${map.minute}`;
+}
+
 /** Current year-month (yyyy-mm) in Indian Standard Time. */
 export function istMonth(): string {
   return todayIST().slice(0, 7);

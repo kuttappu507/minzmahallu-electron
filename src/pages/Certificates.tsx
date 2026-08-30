@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
-  FileText, Home, Heart, Skull, Search, Loader2, FileCheck2, Printer, Eye, Copy, ShieldCheck,
+  FileText, Home, Heart, Skull, Search, Loader2, FileCheck2, Printer, Eye, Copy, ShieldCheck, ScanLine, MonitorCheck,
 } from "lucide-react";
+import QRCode from "qrcode";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
 import { Button, Dialog, Input, Label, Badge } from "@/components/ui";
@@ -53,10 +54,14 @@ export function Certificates() {
   const [processing, setProcessing] = useState(false);
   const [pdfLoadingId, setPdfLoadingId] = useState<number | null>(null);
 
-  // Anti-forgery: verification-code lookup.
+  // Anti-forgery: verification-code lookup + QR/fingerprint check.
   const [verifyCode, setVerifyCode] = useState("");
   const [verifyResult, setVerifyResult] = useState<any>(null);
   const [verifyBusy, setVerifyBusy] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const [qrPayloadInput, setQrPayloadInput] = useState("");
+  const [qrCheckResult, setQrCheckResult] = useState<any>(null);
+  const [qrCheckBusy, setQrCheckBusy] = useState(false);
 
   const { rows, total, totalPages, loading, refetch } = useList(
     (filter) => window.mms.certificates.list(filter),
@@ -67,14 +72,35 @@ export function Certificates() {
     if (!verifyCode.trim()) { toast.error(lang === "ml" ? "പരിശോധനാ കോഡ് നൽകുക" : "Enter a verification code"); return; }
     setVerifyBusy(true);
     setVerifyResult(null);
+    setQrDataUrl("");
     try {
       const res = await window.mms.certificates.verify(verifyCode.trim());
       setVerifyResult(res);
+      if (res?.valid && res.qrPayload) {
+        QRCode.toDataURL(res.qrPayload, { margin: 1, width: 160, color: { dark: "#0e7c5b", light: "#ffffff" } })
+          .then(setQrDataUrl)
+          .catch(() => setQrDataUrl(""));
+      }
       if (!res?.valid) toast.warning(lang === "ml" ? "കണ്ടെത്തിയില്ല — ഈ കോഡുമായി പൊരുത്തപ്പെടുന്ന സർട്ടിഫിക്കറ്റ് ഇല്ല" : "Not found — this code does not match any issued certificate");
     } catch (e: any) {
       toast.error(e.message);
     } finally {
       setVerifyBusy(false);
+    }
+  };
+
+  const runQrCheck = async () => {
+    if (!qrPayloadInput.trim()) { toast.error(lang === "ml" ? "QR ഉള്ളടക്കം നൽകുക" : "Paste the QR payload"); return; }
+    setQrCheckBusy(true);
+    setQrCheckResult(null);
+    try {
+      const res = await window.mms.certificates.verifyQr(qrPayloadInput.trim());
+      setQrCheckResult(res);
+      if (!res?.valid) toast.warning(lang === "ml" ? "ഈ QR സാധുവല്ല" : "This QR is not valid");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setQrCheckBusy(false);
     }
   };
 
@@ -389,30 +415,67 @@ export function Certificates() {
         })}
       </div>
 
-      {/* Verify a certificate (anti-forgery) */}
-      <div className="flex items-center gap-2 flex-wrap mb-3 rounded-lg border border-border px-3 py-2.5 bg-surface-hover/30">
-        <ShieldCheck size={16} className="text-primary flex-shrink-0" />
-        <span className="text-sm font-medium">{lang === "ml" ? "സർട്ടിഫിക്കറ്റ് പരിശോധന" : "Verify a certificate"}</span>
-        <Input
-          className="w-56"
-          value={verifyCode}
-          onChange={(e) => { setVerifyCode(e.target.value); setVerifyResult(null); }}
-          onKeyDown={(e) => e.key === "Enter" && runVerify()}
-          placeholder={lang === "ml" ? "പരിശോധനാ കോഡ് (ഉദാ. ABCD-2345-WXYZ)" : "Verification code (e.g. ABCD-2345-WXYZ)"}
-        />
-        <Button variant="secondary" onClick={runVerify} disabled={verifyBusy}>
-          {verifyBusy ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-          {lang === "ml" ? "പരിശോധിക്കുക" : "Verify"}
-        </Button>
-        {verifyResult && (
-          verifyResult.valid ? (
-            <span className="text-sm text-emerald-700 font-medium">
-              ✓ {verifyResult.certificate.type} · {verifyResult.certificate.certificate_number} · {lang === "ml" ? "നൽകിയത്" : "issued to"} {verifyResult.certificate.issued_to} · {formatDate(verifyResult.certificate.issued_date)} · {verifyResult.certificate.status}{verifyResult.certificate.reprint_count > 0 ? ` · ${lang === "ml" ? "പുനഃമുദ്രണം" : "reprint"} #${verifyResult.certificate.reprint_count}` : ""}
-            </span>
-          ) : (
-            <span className="text-sm text-rose-700 font-medium">✗ {lang === "ml" ? "ഈ കോഡുമായി പൊരുത്തപ്പെടുന്ന സർട്ടിഫിക്കറ്റ് ഇല്ല" : "No certificate matches this code"}</span>
-          )
+      {/* Verify a certificate (anti-forgery: code + QR + device fingerprint) */}
+      <div className="mb-3 rounded-lg border border-border px-3 py-2.5 bg-surface-hover/30 space-y-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <ShieldCheck size={16} className="text-primary flex-shrink-0" />
+          <span className="text-sm font-medium">{lang === "ml" ? "സർട്ടിഫിക്കറ്റ് പരിശോധന" : "Verify a certificate"}</span>
+          <Input
+            className="w-56"
+            value={verifyCode}
+            onChange={(e) => { setVerifyCode(e.target.value); setVerifyResult(null); setQrDataUrl(""); }}
+            onKeyDown={(e) => e.key === "Enter" && runVerify()}
+            placeholder={lang === "ml" ? "പരിശോധനാ കോഡ് (ഉദാ. ABCD-2345-WXYZ)" : "Verification code (e.g. ABCD-2345-WXYZ)"}
+          />
+          <Button variant="secondary" onClick={runVerify} disabled={verifyBusy}>
+            {verifyBusy ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+            {lang === "ml" ? "പരിശോധിക്കുക" : "Verify"}
+          </Button>
+        </div>
+        {verifyResult && verifyResult.valid && (
+          <div className="flex items-start gap-3 rounded-lg bg-surface-hover/40 border border-border px-3 py-2.5 flex-wrap">
+            {qrDataUrl && <img src={qrDataUrl} alt="QR" className="w-20 h-20 rounded-md border border-border bg-white" />}
+            <div className="text-sm min-w-0 flex-1">
+              <div className="text-emerald-700 font-medium">
+                ✓ {verifyResult.certificate.type} · {verifyResult.certificate.certificate_number} · {lang === "ml" ? "നൽകിയത്" : "issued to"} {verifyResult.certificate.issued_to} · {formatDate(verifyResult.certificate.issued_date)} · {verifyResult.certificate.status}{verifyResult.certificate.reprint_count > 0 ? ` · ${lang === "ml" ? "പുനഃമുദ്രണം" : "reprint"} #${verifyResult.certificate.reprint_count}` : ""}
+              </div>
+              <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted flex-wrap">
+                <MonitorCheck size={13} className="text-primary" />
+                {lang === "ml" ? "ഈ സർട്ടിഫിക്കറ്റ് ഈ കമ്പ്യൂട്ടറിന്റെ ഫിംഗർപ്രിന്റുമായി ബന്ധിപ്പിച്ചിരിക്കുന്നു" : "This certificate is bound to this computer's fingerprint"}: <b className="code-text-sm text-primary">{verifyResult.deviceFingerprint || "—"}</b>
+              </div>
+            </div>
+          </div>
         )}
+        {verifyResult && !verifyResult.valid && (
+          <div className="text-sm text-rose-700 font-medium">✗ {lang === "ml" ? "ഈ കോഡുമായി പൊരുത്തപ്പെടുന്ന സർട്ടിഫിക്കറ്റ് ഇല്ല" : "No certificate matches this code"}</div>
+        )}
+        {/* QR payload check — scan the printed QR with any phone and paste its text */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <ScanLine size={16} className="text-primary flex-shrink-0" />
+          <span className="text-xs text-muted">{lang === "ml" ? "QR വായിച്ചത് ഇവിടെ ഒട്ടിക്കുക" : "Paste a scanned QR payload to verify"}</span>
+          <Input
+            className="w-64"
+            value={qrPayloadInput}
+            onChange={(e) => { setQrPayloadInput(e.target.value); setQrCheckResult(null); }}
+            onKeyDown={(e) => e.key === "Enter" && runQrCheck()}
+            placeholder={lang === "ml" ? "MMS|CERT|..." : "MMS|CERT|..."}
+          />
+          <Button variant="secondary" onClick={runQrCheck} disabled={qrCheckBusy}>
+            {qrCheckBusy ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
+            {lang === "ml" ? "QR പരിശോധിക്കുക" : "Check QR"}
+          </Button>
+          {qrCheckResult && qrCheckResult.valid && (
+            <span className={`text-sm font-medium ${qrCheckResult.issuedOnThisDevice ? "text-emerald-700" : "text-amber-700"}`}>
+              {qrCheckResult.issuedOnThisDevice
+                ? (lang === "ml" ? "✓ ഈ കമ്പ്യൂട്ടറിൽ തന്നെ ഇഷ്യൂ ചെയ്തത് — ആധികാരികം" : "✓ Issued on this computer — authentic")
+                : (lang === "ml" ? "⚠ മറ്റൊരു കമ്പ്യൂട്ടറിൽ ഇഷ്യൂ ചെയ്തത് — പരിശോധിക്കുക" : "⚠ Issued on a different computer — verify carefully")}
+              {" "}· {qrCheckResult.certificate?.certificate_number}
+            </span>
+          )}
+          {qrCheckResult && !qrCheckResult.valid && (
+            <span className="text-sm text-rose-700 font-medium">✗ {lang === "ml" ? "ഈ QR സാധുവല്ല / പൊരുത്തപ്പെടുന്ന രേഖയില്ല" : "QR invalid / no matching record"}</span>
+          )}
+        </div>
       </div>
 
       <DataTable

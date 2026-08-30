@@ -7,6 +7,7 @@ import { randomInt } from "node:crypto";
 import { hashPasswordForStorage } from "./auth.service.js";
 import { computeEntryHash, verifyAuditChain } from "./audit-chain.js";
 import { makeVerificationCode } from "./codes.js";
+import { buildQrPayload, parseQrPayload } from "./qr-code.js";
 
 // ================= HELPERS =================
 
@@ -807,7 +808,7 @@ export const accounting = {
       if (range) { w.push("d.donation_date >= ?"); w.push("d.donation_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All" && filter.type !== "Income") { w.push("1=0"); } // donations are income only
       if (filter.search) { w.push("(d.donor_name LIKE ? OR d.receipt_number LIKE ? OR d.purpose LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t, t); }
-      parts.push(`SELECT d.id AS source_id, 'donations' AS source, d.donation_date AS ledger_date, 'Income' AS type, d.amount, (d.donor_name || COALESCE(' — ' || d.purpose, '')) AS description, d.payment_method, '' AS transaction_ref, d.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee FROM donations d WHERE ${w.join(" AND ")}`);
+      parts.push(`SELECT d.id AS source_id, 'donations' AS source, d.donation_date AS ledger_date, 'Income' AS type, d.amount, (d.donor_name || COALESCE(' — ' || d.purpose, '')) AS description, d.payment_method, '' AS transaction_ref, d.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, NULL AS status, NULL AS void_reason, NULL AS voided_at FROM donations d WHERE ${w.join(" AND ")}`);
     }
     // 3. Subscription payments from the immutable ledger (Income)
     {
@@ -815,7 +816,7 @@ export const accounting = {
       if (range) { w.push("sp.payment_date >= ?"); w.push("sp.payment_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All" && filter.type !== "Income") { w.push("1=0"); }
       if (filter.search) { w.push("(sp.receipt_number LIKE ? OR sp.remarks LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t); }
-      parts.push(`SELECT sp.id AS source_id, 'subscriptions' AS source, COALESCE(sp.payment_date, sp.period_start) AS ledger_date, 'Income' AS type, sp.amount, ('Subscription — ' || COALESCE(sp.receipt_number, '')) AS description, sp.payment_method, sp.transaction_ref, sp.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee FROM subscription_payments sp WHERE ${w.join(" AND ")}`);
+      parts.push(`SELECT sp.id AS source_id, 'subscriptions' AS source, COALESCE(sp.payment_date, sp.period_start) AS ledger_date, 'Income' AS type, sp.amount, ('Subscription — ' || COALESCE(sp.receipt_number, '')) AS description, sp.payment_method, sp.transaction_ref, sp.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, NULL AS status, NULL AS void_reason, NULL AS voided_at FROM subscription_payments sp WHERE ${w.join(" AND ")}`);
     }
     // 4. Welfare disbursements (Expense)
     {
@@ -823,7 +824,7 @@ export const accounting = {
       if (range) { w.push("w.disbursed_date >= ?"); w.push("w.disbursed_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All" && filter.type !== "Expense") { w.push("1=0"); }
       if (filter.search) { w.push("(w.applicant_name LIKE ? OR w.request_number LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t); }
-      parts.push(`SELECT w.id AS source_id, 'welfare' AS source, COALESCE(w.disbursed_date, w.created_at) AS ledger_date, 'Expense' AS type, w.amount_approved AS amount, ('Welfare — ' || w.applicant_name) AS description, '' AS payment_method, '' AS transaction_ref, w.request_number AS receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee FROM welfare_requests w WHERE ${w.join(" AND ")}`);
+      parts.push(`SELECT w.id AS source_id, 'welfare' AS source, COALESCE(w.disbursed_date, w.created_at) AS ledger_date, 'Expense' AS type, w.amount_approved AS amount, ('Welfare — ' || w.applicant_name) AS description, '' AS payment_method, '' AS transaction_ref, w.request_number AS receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, NULL AS status, NULL AS void_reason, NULL AS voided_at FROM welfare_requests w WHERE ${w.join(" AND ")}`);
     }
     // 5. Staff salary payments (Expense, status='Paid')
     {
@@ -831,7 +832,7 @@ export const accounting = {
       if (range) { w.push("sp.payment_date >= ?"); w.push("sp.payment_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All" && filter.type !== "Expense") { w.push("1=0"); }
       if (filter.search) { w.push("(s.name LIKE ? OR s.staff_code LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t); }
-      parts.push(`SELECT sp.id AS source_id, 'salary' AS source, sp.payment_date AS ledger_date, 'Expense' AS type, sp.amount, ('Salary — ' || s.name || ' (' || printf('%02d', sp.period_month) || '/' || sp.period_year || ')') AS description, sp.payment_method, sp.transaction_ref, '' AS receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee FROM staff_payments sp LEFT JOIN staff s ON s.id = sp.staff_id WHERE ${w.join(" AND ")}`);
+      parts.push(`SELECT sp.id AS source_id, 'salary' AS source, sp.payment_date AS ledger_date, 'Expense' AS type, sp.amount, ('Salary — ' || s.name || ' (' || printf('%02d', sp.period_month) || '/' || sp.period_year || ')') AS description, sp.payment_method, sp.transaction_ref, '' AS receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, NULL AS status, NULL AS void_reason, NULL AS voided_at FROM staff_payments sp LEFT JOIN staff s ON s.id = sp.staff_id WHERE ${w.join(" AND ")}`);
     }
 
     // Combine — wrap in a sub-select so we can filter by source + paginate uniformly.
@@ -1278,6 +1279,8 @@ export const certificates = {
       [clean, clean]
     );
     if (!cert) return { valid: false, certificate: null };
+    const row = one<any>("SELECT device_fingerprint FROM settings WHERE id = 1");
+    const fingerprint = row?.device_fingerprint || "";
     return {
       valid: true,
       certificate: {
@@ -1288,9 +1291,53 @@ export const certificates = {
         status: cert.status,
         reprint_count: cert.reprint_count || 0,
       },
+      // QR anti-forgery: the payload that is printed on this certificate.
+      qrPayload: buildQrPayload({
+        certificateNumber: String(cert.certificate_number || ""),
+        verificationCode: String(cert.verification_code || ""),
+        fingerprint,
+        issuedDate: String(cert.issued_date || "").slice(0, 10),
+      }),
+      deviceFingerprint: fingerprint,
     };
   },
-  /** Count reprints so printed copies can be watermarked DUPLICATE. */
+  /**
+   * QR anti-forgery: verify a scanned QR payload ("MMS|CERT|num|code|fp|date").
+   * Checks the register code AND compares the fingerprint embedded in the QR
+   * against this machine's fingerprint — a certificate printed on another
+   * computer, or a photocopy, fails the fingerprint check.
+   */
+  verifyQr: (payload: string) => {
+    const parsed = parseQrPayload(payload);
+    if (!parsed) return { valid: false, reason: "malformed", certificate: null };
+    const cert = one<any>(
+      `SELECT id, certificate_number, type, issued_to, issued_date, issued_by, status, reprint_count, verification_code
+       FROM certificates WHERE verification_code = ?`,
+      [parsed.verificationCode]
+    );
+    const row = one<any>("SELECT device_fingerprint FROM settings WHERE id = 1");
+    const currentFp = row?.device_fingerprint || "";
+    if (!cert) return { valid: false, reason: "not-found", certificate: null };
+    return {
+      valid: true,
+      certificate: {
+        certificate_number: cert.certificate_number,
+        type: cert.type,
+        issued_to: cert.issued_to,
+        issued_date: cert.issued_date,
+        status: cert.status,
+        reprint_count: cert.reprint_count || 0,
+      },
+      qr: {
+        fingerprint: parsed.fingerprint,
+        issuedDate: parsed.issuedDate,
+        certificateNumber: parsed.certificateNumber,
+      },
+      issuedOnThisDevice: !!currentFp && parsed.fingerprint.toUpperCase() === currentFp.toUpperCase(),
+      certificateMatchesRegister: parsed.certificateNumber === cert.certificate_number,
+    };
+  },
+  /** Count reprints so printed copies carry a "Reprinted on" corner note. */
   markReprint: (id: number) => {
     run("UPDATE certificates SET reprint_count = COALESCE(reprint_count, 0) + 1, updated_at = datetime('now') WHERE id = ?", [id]);
     return one<any>("SELECT * FROM certificates WHERE id = ?", [id]);
