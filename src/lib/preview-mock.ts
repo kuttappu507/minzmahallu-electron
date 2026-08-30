@@ -106,10 +106,147 @@ export function installPreviewMock() {
     close: () => ({}),
   };
 
+  // ===== Accounting (unified ledger) — realistic demo data =====
+  // Dates are generated relative to today so "this month" always has rows,
+  // and the period presets (this_month / last_month / …) resolve like the
+  // real backend. Rows are module-scoped mutable so add/edit/void flows work.
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  const iso = (y: number, m: number, d: number) => `${y}-${pad2(m + 1)}-${pad2(d)}`;
+  const daysAgo = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return iso(d.getFullYear(), d.getMonth(), d.getDate()); };
+
+  const resolveRange = (period?: string, from?: string, to?: string): { from: string; to: string } | null => {
+    if (!period || period === "all") return null;
+    if (period === "custom") return from && to ? { from, to } : null;
+    const now = new Date(); const y = now.getFullYear(); const m = now.getMonth();
+    if (period === "this_month") return { from: iso(y, m, 1), to: iso(y, m + 1, 0) };
+    if (period === "last_month") return { from: iso(y, m - 1, 1), to: iso(y, m, 0) };
+    if (period === "this_quarter") { const q = Math.floor(m / 3) * 3; return { from: iso(y, q, 1), to: iso(y, q + 3, 0) }; }
+    if (period === "last_quarter") { const q = Math.floor(m / 3) * 3 - 3; const cy = q < 0 ? y - 1 : y; const cm = q < 0 ? q + 12 : q; return { from: iso(cy, cm, 1), to: iso(cy, cm + 3, 0) }; }
+    if (period === "this_year") return { from: `${y}-01-01`, to: `${y}-12-31` };
+    if (period === "last_year") return { from: `${y - 1}-01-01`, to: `${y - 1}-12-31` };
+    return null;
+  };
+  const inRange = (date: string, r: { from: string; to: string } | null) => !r || (date >= r.from && date <= r.to);
+
+  interface MockLedgerRow {
+    source_id: number; source: string; ledger_date: string; type: "Income" | "Expense";
+    amount: number; description: string; payment_method: string; transaction_ref: string; receipt_number: string;
+    voucher_no?: string | null; bill_no?: string | null; payee?: string | null; account_id?: number | null;
+    linked_module?: string | null; linked_id?: number | null; status?: string | null; void_reason?: string | null; voided_at?: string | null;
+  }
+  let mockTxnSeq = 200;
+  const ledgerRows: MockLedgerRow[] = [
+    // Manual transactions (source: transactions) — editable / voidable
+    { source_id: 1, source: "transactions", ledger_date: daysAgo(3), type: "Income", amount: 5000, description: "Donation — Haji Abdulla", payment_method: "Bank Transfer", transaction_ref: "NEFT-22310", receipt_number: "TXN-2026-0101", voucher_no: "V-2026-118", payee: "Haji Abdulla", account_id: 1, status: "Posted" },
+    { source_id: 2, source: "transactions", ledger_date: daysAgo(9), type: "Income", amount: 8000, description: "Community hall rent — July", payment_method: "Cash", transaction_ref: "CASH-00312", receipt_number: "TXN-2026-0098", voucher_no: "V-2026-115", payee: "Moulavi Hassan", account_id: 1, status: "Posted" },
+    { source_id: 3, source: "transactions", ledger_date: daysAgo(2), type: "Expense", amount: 3420, description: "Electricity bill (July)", payment_method: "Bank Transfer", transaction_ref: "NEFT-55912", receipt_number: "TXN-2026-0103", voucher_no: "V-2026-120", bill_no: "KSEB-77812", payee: "KSEB Ltd", account_id: 1, status: "Posted" },
+    { source_id: 4, source: "transactions", ledger_date: daysAgo(12), type: "Expense", amount: 2750, description: "Maintenance — plumbing repair", payment_method: "Cash", transaction_ref: "CASH-00451", receipt_number: "TXN-2026-0095", voucher_no: "V-2026-112", bill_no: "PL-0881", payee: "Basheer Plumbers", account_id: 1, status: "Posted" },
+    { source_id: 5, source: "transactions", ledger_date: daysAgo(20), type: "Income", amount: 1450, description: "FD interest", payment_method: "Bank Transfer", transaction_ref: "NEFT-11022", receipt_number: "TXN-2026-0090", voucher_no: "V-2026-108", payee: "Canara Bank", account_id: 1, status: "Posted" },
+    { source_id: 6, source: "transactions", ledger_date: daysAgo(16), type: "Expense", amount: 1200, description: "Stationery", payment_method: "Cash", transaction_ref: "CASH-00418", receipt_number: "TXN-2026-0092", voucher_no: "V-2026-110", bill_no: "ST-041", payee: "City Stationers", account_id: 1, status: "Posted" },
+    { source_id: 7, source: "transactions", ledger_date: daysAgo(6), type: "Expense", amount: 1000, description: "Duplicate payment (voided)", payment_method: "Cash", transaction_ref: "CASH-00433", receipt_number: "TXN-2026-0099", voucher_no: "V-2026-116", payee: "Rashid Traders", account_id: 1, status: "Void", void_reason: "Duplicate entry — original already posted", voided_at: daysAgo(5) },
+    // Donations (income, auto)
+    { source_id: 11, source: "donations", ledger_date: daysAgo(4), type: "Income", amount: 2500, description: "Donation — Amina Beevi — Eid fund", payment_method: "UPI", transaction_ref: "UPI-334455", receipt_number: "RCP-2026-0021" },
+    { source_id: 12, source: "donations", ledger_date: daysAgo(18), type: "Income", amount: 1500, description: "Donation — Ramzan relief fund", payment_method: "Cash", transaction_ref: "CASH-00398", receipt_number: "RCP-2026-0014" },
+    // Subscription payments (income, auto)
+    { source_id: 21, source: "subscriptions", ledger_date: daysAgo(2), type: "Income", amount: 150, description: "Subscription — RCP-2026-0003", payment_method: "UPI", transaction_ref: "UPI-88912033", receipt_number: "RCP-2026-0003" },
+    { source_id: 22, source: "subscriptions", ledger_date: daysAgo(5), type: "Income", amount: 150, description: "Subscription — RCP-2026-0002", payment_method: "Cash", transaction_ref: "CASH-000221", receipt_number: "RCP-2026-0002" },
+    { source_id: 23, source: "subscriptions", ledger_date: daysAgo(8), type: "Income", amount: 150, description: "Subscription — RCP-2026-0001", payment_method: "UPI", transaction_ref: "UPI-88922144", receipt_number: "RCP-2026-0001" },
+    { source_id: 24, source: "subscriptions", ledger_date: daysAgo(11), type: "Income", amount: 100, description: "Subscription — RCP-2026-0007 (partial)", payment_method: "Bank Transfer", transaction_ref: "NEFT-66230", receipt_number: "RCP-2026-0007" },
+    { source_id: 25, source: "subscriptions", ledger_date: daysAgo(40), type: "Income", amount: 150, description: "Subscription — RCP-2026-0601", payment_method: "UPI", transaction_ref: "UPI-77110123", receipt_number: "RCP-2026-0601" },
+    // Welfare disbursements (expense, auto)
+    { source_id: 31, source: "welfare", ledger_date: daysAgo(7), type: "Expense", amount: 5000, description: "Welfare — medical aid — Abdul Khader", payment_method: "Cash", transaction_ref: "", receipt_number: "WLF-2026-0007" },
+    { source_id: 32, source: "welfare", ledger_date: daysAgo(21), type: "Expense", amount: 3000, description: "Welfare — funeral assistance", payment_method: "Cash", transaction_ref: "", receipt_number: "WLF-2026-0004" },
+    // Staff salary (expense, auto)
+    { source_id: 41, source: "salary", ledger_date: daysAgo(1), type: "Expense", amount: 12000, description: "Salary — Office clerk (08/2026)", payment_method: "Bank Transfer", transaction_ref: "NEFT-77001", receipt_number: "" },
+    { source_id: 42, source: "salary", ledger_date: daysAgo(35), type: "Expense", amount: 12000, description: "Salary — Office clerk (07/2026)", payment_method: "Bank Transfer", transaction_ref: "NEFT-66990", receipt_number: "" },
+  ];
+
+  const accounting = {
+    unifiedList: (filter: any = {}) => {
+      const range = resolveRange(filter.period || "all", filter.from, filter.to);
+      let rows = ledgerRows.filter((r) =>
+        inRange(r.ledger_date, range) &&
+        (!filter.source || filter.source === "All" || r.source === filter.source) &&
+        (!filter.type || filter.type === "All" || r.type === filter.type) &&
+        (!filter.search || (r.description + " " + r.receipt_number + " " + (r.voucher_no || "") + " " + (r.bill_no || "")).toLowerCase().includes(String(filter.search).toLowerCase()))
+      );
+      const total = rows.length;
+      const page = filter.page || 1; const pageSize = filter.pageSize || 20;
+      rows = rows.slice((page - 1) * pageSize, page * pageSize);
+      return Promise.resolve({ rows, total });
+    },
+    unifiedSummary: (filter: any = {}) => {
+      const range = resolveRange(filter.period || "all", filter.from, filter.to);
+      const rows = ledgerRows.filter((r) => inRange(r.ledger_date, range) && r.status !== "Void");
+      let totalIncome = 0, totalExpense = 0, incomeDonations = 0, incomeSubscriptions = 0, incomeManual = 0, expenseWelfare = 0, expenseSalary = 0, expenseManual = 0;
+      for (const r of rows) {
+        if (r.type === "Income") {
+          totalIncome += r.amount;
+          if (r.source === "donations") incomeDonations += r.amount;
+          else if (r.source === "subscriptions") incomeSubscriptions += r.amount;
+          else incomeManual += r.amount;
+        } else {
+          totalExpense += r.amount;
+          if (r.source === "welfare") expenseWelfare += r.amount;
+          else if (r.source === "salary") expenseSalary += r.amount;
+          else expenseManual += r.amount;
+        }
+      }
+      return Promise.resolve({
+        totalIncome, totalExpense, balance: totalIncome - totalExpense,
+        incomeDonations, incomeSubscriptions, incomeManual, expenseWelfare, expenseSalary, expenseManual,
+        entryCount: rows.length, period: filter.period || "all", from: range?.from ?? null, to: range?.to ?? null,
+      });
+    },
+    get: (id: number) => {
+      const row = ledgerRows.find((r) => r.source === "transactions" && r.source_id === id);
+      if (!row) return Promise.resolve(null);
+      return Promise.resolve({
+        id, receipt_number: row.receipt_number, txn_date: row.ledger_date, type: row.type, amount: row.amount,
+        payment_method: row.payment_method, description: row.description, account_id: row.account_id ?? 1,
+        transaction_ref: row.transaction_ref, voucher_no: row.voucher_no || "", bill_no: row.bill_no || "",
+        payee: row.payee || "", linked_module: row.linked_module || "", linked_id: row.linked_id || 0,
+      });
+    },
+    create: (payload: any) => {
+      const nextId = ++mockTxnSeq;
+      ledgerRows.unshift({
+        source_id: nextId, source: "transactions", ledger_date: payload.txnDate, type: payload.type, amount: payload.amount,
+        description: payload.description || "Manual entry", payment_method: payload.paymentMethod || "Cash",
+        transaction_ref: payload.transactionRef || "", receipt_number: payload.receiptNumber || "",
+        voucher_no: payload.voucherNo || "", bill_no: payload.billNo || "", payee: payload.payee || "",
+        account_id: payload.accountId || 1, linked_module: payload.linkedModule || "", linked_id: payload.linkedId || null, status: "Posted",
+      });
+      return Promise.resolve({ success: true, duplicateBill: false });
+    },
+    update: (id: number, payload: any) => {
+      const row = ledgerRows.find((r) => r.source === "transactions" && r.source_id === id);
+      if (row) Object.assign(row, {
+        ledger_date: payload.txnDate, type: payload.type, amount: payload.amount, description: payload.description,
+        payment_method: payload.paymentMethod, transaction_ref: payload.transactionRef, receipt_number: payload.receiptNumber,
+        voucher_no: payload.voucherNo, bill_no: payload.billNo, payee: payload.payee,
+      });
+      return Promise.resolve({ success: true });
+    },
+    void: (id: number, reason: string) => {
+      const row = ledgerRows.find((r) => r.source === "transactions" && r.source_id === id);
+      if (row) { row.status = "Void"; row.void_reason = reason; row.voided_at = iso(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()); }
+      return Promise.resolve({ success: true, id });
+    },
+    receiptSequence: () => {
+      const receipts = ledgerRows
+        .filter((r) => r.receipt_number && /^TXN-/.test(r.receipt_number))
+        .map((r) => ({ id: r.source_id, receipt_number: r.receipt_number, txn_date: r.ledger_date, type: r.type, amount: r.amount, status: r.status || "Posted", void_reason: r.void_reason || null }));
+      return Promise.resolve({ receipts, missing: [], count: receipts.length });
+    },
+    exportPdf: (filter: any = {}) => accounting.unifiedList({ ...filter, page: undefined, pageSize: undefined }).then((res: any) => ({ success: true, count: res.total, cancelled: false })),
+    exportExcel: (filter: any = {}) => accounting.unifiedList({ ...filter, page: undefined, pageSize: undefined }).then((res: any) => ({ success: true, count: res.total, cancelled: false })),
+  };
+
   // Heuristic fallback: any other mms.<module>.<method> returns a safe default.
   // List-ish methods → empty array (pages read the array directly or fall back
   // to []); everything else → a neutral success object.
-  const base: Record<string, unknown> = { dashboard, settings, auth, win };
+  const base: Record<string, unknown> = { dashboard, settings, auth, win, accounting };
   const handler: ProxyHandler<Record<string, unknown>> = {
     get(target, prop) {
       if (prop === "then") return undefined; // avoid thenable detection
