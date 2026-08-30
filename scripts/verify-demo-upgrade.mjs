@@ -32,7 +32,20 @@ db.exec("PRAGMA foreign_keys = ON");
 // --- Phase 1: build the "old" database -------------------------------------
 console.log("— Phase 1: simulate pre-existing database (old seed + migrations to V031) —");
 db.exec(fs.readFileSync(path.join(sqlDir, "schema.sql"), "utf8"));
-const oldSeed = execSync("git show HEAD:resources/sql/seed.sql", { cwd: root, encoding: "utf8" });
+// The pre-rebuild placeholder seed (15 families / 30 members / donations /
+// subscriptions / transactions) is no longer the seed at HEAD — retrieve it
+// from the first git revision that ever touched seed.sql.
+const seedRevs = execSync("git rev-list --all -- resources/sql/seed.sql", { cwd: root, encoding: "utf8" })
+  .trim().split(/\s+/).filter(Boolean);
+let oldSeed = null;
+for (const rev of [...seedRevs].reverse()) {
+  const candidate = execSync(`git show ${rev}:resources/sql/seed.sql`, { cwd: root, encoding: "utf8" });
+  if (/INSERT OR IGNORE INTO families/i.test(candidate)) { oldSeed = candidate; break; }
+}
+if (!oldSeed) {
+  console.error("✗ could not find the pre-rebuild placeholder seed.sql in git history");
+  process.exit(1);
+}
 db.exec(oldSeed);
 check("old seed present (families > 0)", db.prepare("SELECT COUNT(*) c FROM families").get().c > 0,
   `${db.prepare("SELECT COUNT(*) c FROM families").get().c} families`);
