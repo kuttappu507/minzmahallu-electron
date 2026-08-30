@@ -485,7 +485,7 @@ export function Staff() {
       </Dialog>
 
       {/* Pay salary dialog */}
-      <Dialog open={payOpen} onClose={() => setPayOpen(false)} title={t("staff_pay_salary_title")}>
+      <Dialog open={payOpen} onClose={() => setPayOpen(false)} title={t("staff_pay_salary_title")} className="modal-sm">
         <div className="p-6 space-y-4">
           <div className="bg-surface-hover/50 rounded-lg p-3 text-sm">
             <b>{payForm.staffName}</b> · <span className="code-text-sm">{payForm.staffCode}</span>

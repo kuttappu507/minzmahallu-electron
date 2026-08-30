@@ -39,7 +39,10 @@ export function Badge({ variant = "default", children, className }: { variant?: 
 
 export function Dialog({ open, onClose, title, description, children, className }: { open: boolean; onClose: () => void; title?: string; description?: string; children: React.ReactNode; className?: string }) {
   if (!open) return null;
-  return <div className={cn("modal-root", open && "open")} onClick={onClose}><div className={cn("modal", className)} onClick={(e) => e.stopPropagation()}>{title && <div className="m-h"><b>{title}</b><button className="ibtn ml-auto" onClick={onClose}><X size={16} /></button></div>}<div className="m-b">{children}</div></div></div>;
+  // Popups are full-window by design (revamp). Width-cap utilities like
+  // max-w-2xl are ignored so a dialog never shrinks into a small box.
+  const clean = (className || "").split(" ").filter((c) => c && !c.startsWith("max-w-")).join(" ");
+  return <div className={cn("modal-root", open && "open")} onClick={onClose}><div className={cn("modal", clean)} onClick={(e) => e.stopPropagation()}>{title && <div className="m-h"><b>{title}</b><button className="ibtn ml-auto" onClick={onClose}><X size={16} /></button></div>}<div className="m-b">{children}</div></div></div>;
 }
 
 export function Table({ headers, children, className }: { headers: string[]; children: React.ReactNode; className?: string }) {

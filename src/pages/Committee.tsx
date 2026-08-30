@@ -310,7 +310,7 @@ export function Committee() {
       </Dialog>
 
       {/* Archive dialog */}
-      <Dialog open={archiveOpen} onClose={() => setArchiveOpen(false)} title={t("committee_archive")}>
+      <Dialog open={archiveOpen} onClose={() => setArchiveOpen(false)} title={t("committee_archive")} className="modal-sm">
         <div className="p-6 space-y-4">
           <p>{tx("The committee member will be archived. Term history will be preserved.", "കമ്മിറ്റി അംഗത്തെ ആർക്കൈവ് ചെയ്യും. കാലാവധി ചരിത്രം സംരക്ഷിക്കും.")}</p>
           <div>

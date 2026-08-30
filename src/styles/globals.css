@@ -261,9 +261,10 @@
   #app { min-height: 100vh; }
   @media (min-width: 1500px) { #content { padding-left: 32px; padding-right: 32px; } }
 
-  /* ===== Sidebar — floating rounded panel ===== */
+  /* ===== Sidebar — floating rounded panel (island menu) ===== */
   .sidebar {
     width: 248px; flex: none;
+    margin: 12px 0 12px 12px;
     background: var(--panel); border: 1px solid var(--line);
     border-radius: 18px;
     display: flex; flex-direction: column; overflow: visible;
@@ -362,11 +363,11 @@
   .sidebar.min .sb-user { flex-direction: column; padding: 12px 0 16px; }
   .sidebar.min .sb-user .nm, .sidebar.min .sb-user .ibtn { display: none; }
 
-  /* ===== Main column ===== */
+  /* ===== Main column — full-window pane, no island ===== */
   .maincol {
     flex: 1; display: flex; flex-direction: column; min-width: 0;
-    background: var(--panel); border: 1px solid var(--line);
-    border-radius: 18px; overflow: hidden; box-shadow: var(--sh);
+    background: var(--panel);
+    border: 0; border-radius: 0; box-shadow: none; overflow: hidden;
   }
   .topbar {
     height: 62px; flex: none; display: flex; align-items: center; gap: 12px;
@@ -752,6 +753,7 @@
 
   /* ===== Dialog helpers ===== */
   .dlg-pad { padding: 2px 0; }
+  .modal .dlg-pad { padding: 22px 26px 30px; }
   .dlg-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
   .dlg-hero { display: flex; align-items: center; gap: 14px; padding: 12px 14px; margin-bottom: 14px; background: var(--sb); border: 1.5px solid var(--sl); border-radius: 14px; }
   .dlg-hero-ic { width: 48px; height: 48px; border-radius: 14px; flex: none; background: var(--sc); color: #fff; display: grid; place-items: center; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12); font: 500 18px Poppins; }
@@ -764,11 +766,11 @@
   .code-text { font: 500 13px Poppins; letter-spacing: 0.04em; }
   .code-text-sm { font: 500 12px Poppins; letter-spacing: 0.03em; }
 
-  /* ===== App wrapper — floating-panel shell =====
-     The chrome no longer touches the window edges: sidebar and main column
-     are rounded panels floating on a soft canvas. */
+  /* ===== App wrapper — island menu + full-window main pane =====
+     Only the sidebar floats as a rounded panel; the main column runs edge
+     to edge (top/right/bottom) like a classic desktop app window. */
   .app-shell {
-    height: 100vh; display: flex; gap: 12px; padding: 12px; overflow: hidden;
+    height: 100vh; display: flex; gap: 12px; padding: 0; overflow: hidden;
     background:
       radial-gradient(900px 480px at 85% -10%, color-mix(in srgb, var(--c-sky) 8%, transparent), transparent 70%),
       radial-gradient(800px 420px at -10% 110%, color-mix(in srgb, var(--c-em) 8%, transparent), transparent 70%),
@@ -1166,3 +1168,33 @@ html.lang-ml .btn { line-height: 20px !important; }
 .act-del { display: none !important; }
 .view:has(.cert-issue-grid) .act-del, .view:has(.heart-sep) .act-del, .view:has(.lucide-eye) .act-del { display: none !important; }
 .tbl:has(.token-family-code) tbody td:last-child .t-em { display: none !important; }
+
+/* ============================================================================
+   Full-window popups (structural revamp, round 2)
+   ----------------------------------------------------------------------------
+   Every Dialog now opens as a full-window overlay: header bar pinned on top,
+   body scrolls internally, and the page behind is never involved. Small
+   confirmations opt into the compact box via .modal-sm.
+   These rules are intentionally UNLAYERED so they always beat Tailwind
+   utility classes (max-w-2xl etc.) that used to shrink dialogs.
+   ========================================================================== */
+.modal-root { background: rgba(13, 21, 33, 0.48); }
+.modal {
+  width: 100%; max-width: none; height: 100%; max-height: none;
+  border-radius: 0; border: 0;
+  display: flex; flex-direction: column;
+  transform: translateY(14px);
+}
+.modal-root.open .modal { transform: none; }
+.modal .m-b { flex: 1; overflow-y: auto; }
+.modal .m-h { flex: none; background: color-mix(in srgb, var(--panel2) 60%, transparent); }
+
+/* Compact box for quick confirmations / small forms */
+.modal.modal-sm {
+  width: min(540px, 94%); max-width: min(540px, 94%);
+  height: auto; max-height: 90%;
+  border-radius: 18px; border: 1px solid var(--line);
+  transform: translateY(16px) scale(0.97);
+}
+.modal.modal-sm .m-b { flex: none; }
+.modal.modal-sm .m-f { border-radius: 0 0 18px 18px; }

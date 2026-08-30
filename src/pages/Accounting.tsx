@@ -532,7 +532,7 @@ export function Accounting() {
       </Dialog>
 
       {/* Custom date range dialog */}
-      <Dialog open={customOpen} onClose={() => setCustomOpen(false)} title={t("filter_custom")}>
+      <Dialog open={customOpen} onClose={() => setCustomOpen(false)} title={t("filter_custom")} className="modal-sm">
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -552,7 +552,7 @@ export function Accounting() {
       </Dialog>
 
       {/* VOID dialog — the entry is kept for audit, never deleted */}
-      <Dialog open={voidOpen} onClose={() => setVoidOpen(false)} title={tx("Void entry", "എൻട്രി റദ്ദാക്കുക")}>
+      <Dialog open={voidOpen} onClose={() => setVoidOpen(false)} title={tx("Void entry", "എൻട്രി റദ്ദാക്കുക")} className="modal-sm">
         <div className="p-6 space-y-4">
           <p className="text-sm text-muted">{tx("The entry will NOT be deleted. The receipt number stays occupied and the record remains visible (marked VOID) for the auditor, with the reason below.", "എൻട്രി ഇല്ലാതാക്കില്ല. രസീത് നമ്പർ നിലനിർത്തും, രേഖ ഓഡിറ്ററിനായി (VOID അടയാളത്തോടെ) ദൃശ്യമായിരിക്കും — കാരണം ചുവടെ നൽകുക.")}</p>
           <div>

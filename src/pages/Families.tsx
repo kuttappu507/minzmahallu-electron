@@ -72,7 +72,7 @@ export function Families() {
       </div>
     </Dialog>
 
-    <Dialog open={securityOpen} onClose={()=>setSecurityOpen(false)} title={pendingAction==="archive"?tx("Archive family","കുടുംബം ആർക്കൈവ് ചെയ്യുക"):tx("Restore family","കുടുംബം പുനഃസ്ഥാപിക്കുക")}>
+    <Dialog open={securityOpen} onClose={()=>setSecurityOpen(false)} title={pendingAction==="archive"?tx("Archive family","കുടുംബം ആർക്കൈവ് ചെയ്യുക"):tx("Restore family","കുടുംബം പുനഃസ്ഥാപിക്കുക")} className="modal-sm">
       <div className="p-6 space-y-4"><p>{pendingAction==="archive"?tx("All active members of this family will also be archived. Their records and history will be preserved.","ഈ കുടുംബത്തിലെ എല്ലാ സജീവ അംഗങ്ങളും ആർക്കൈവ് ചെയ്യപ്പെടും. അവരുടെ രേഖകളും ചരിത്രവും സംരക്ഷിക്കപ്പെടും."):tx("Only members archived because of this family archive will be restored.","ഈ കുടുംബം ആർക്കൈവ് ചെയ്തതിനെ തുടർന്ന് ആർക്കൈവ് ചെയ്ത അംഗങ്ങളെ മാത്രം പുനഃസ്ഥാപിക്കും.")}</p><div><Label>{tx("Reason","കാരണം")}{pendingAction==="archive"?" *":""}</Label><Textarea rows={3} value={reason} onChange={e=>setReason(e.target.value)} placeholder={tx("Why is this action being performed?","ഈ പ്രവർത്തനം നടത്തുന്നതിനുള്ള കാരണം?")}/></div><div className="flex justify-end gap-2"><Button variant="secondary" onClick={()=>setSecurityOpen(false)}>{t("action_cancel")}</Button><Button onClick={executeSecurity}>{pendingAction==="archive"?tx("Archive family","കുടുംബം ആർക്കൈവ് ചെയ്യുക"):tx("Restore family","കുടുംബം പുനഃസ്ഥാപിക്കുക")}</Button></div></div>
     </Dialog>
 

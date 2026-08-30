@@ -28,7 +28,7 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, description, co
 
   if (!open) return null;
   return (
-    <Dialog open={open} onClose={onClose} title={resolvedTitle}>
+    <Dialog open={open} onClose={onClose} title={resolvedTitle} className="modal-sm">
       <div className="dlg-pad">
         <div className={cn("dlg-hero", danger ? "t-rose" : "t-em")}>
           <div className="dlg-hero-ic"><AlertTriangle size={18} /></div>

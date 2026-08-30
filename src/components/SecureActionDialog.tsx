@@ -77,7 +77,7 @@ export function SecureActionDialog({
   };
 
   return (
-    <Dialog open={open} onClose={close} title={title || tx("Confirm secure action", "സുരക്ഷിത പ്രവർത്തനം ഉറപ്പാക്കുക")}>
+    <Dialog open={open} onClose={close} title={title || tx("Confirm secure action", "സുരക്ഷിത പ്രവർത്തനം ഉറപ്പാക്കുക")} className="modal-sm">
       <div className="dlg-pad space-y-4">
         <div className="dlg-hero t-rose">
           <div className="dlg-hero-ic"><ShieldAlert size={18} /></div>
