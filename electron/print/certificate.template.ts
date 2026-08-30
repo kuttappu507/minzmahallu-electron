@@ -12,6 +12,9 @@ interface CertData {
   marriage_id: number | null;
   death_id: number | null;
   notes: string;
+  // Anti-forgery:
+  verification_code?: string;
+  reprint_count?: number;
   // Enriched fields (fetched from related tables):
   mahallu_name?: string;
   mahallu_address?: string;
@@ -324,6 +327,13 @@ body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayala
 .corner.tr{right:7mm;top:7mm;transform:scaleX(-1)}
 .corner.bl{left:7mm;bottom:7mm;transform:scaleY(-1)}
 .corner.br{right:7mm;bottom:7mm;transform:scale(-1,-1)}
+/* Anti-forgery: verification code box + DUPLICATE reprint watermark */
+.verify-box{margin:6mm 2mm 0;padding:2.5mm 4mm;border:.35mm solid #9fcfbc;border-radius:1.5mm;background:#f2faf6;display:flex;align-items:center;gap:3mm;flex-wrap:wrap}
+.verify-label{font-size:7.5pt;letter-spacing:.8px;color:#5f7268;text-transform:uppercase}
+.verify-code{font-family:'Courier New',monospace;font-weight:700;font-size:10.5pt;letter-spacing:2px;color:#0e7c5b}
+.verify-hint{font-size:6.5pt;color:#8ba096;flex-basis:100%}
+.watermark{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:50}
+.watermark span{font-size:42pt;font-weight:800;letter-spacing:6px;color:rgba(190,40,45,.16);transform:rotate(-32deg);border:1.2mm solid rgba(190,40,45,.25);padding:4mm 12mm;border-radius:3mm}
 /* Header: 3-column grid (spacer | centered name block | reg-no stack).
    The fixed side columns guarantee the mahallu name stays dead-center on the
    page and can NEVER slide under the reg-number boxes, no matter how long
@@ -662,7 +672,7 @@ function buildNocCert(c: CertData, ml: boolean): string {
 </main>`;
 }
 
-export function buildCertificateHtml(cert: any, lang: 'en' | 'ml' = 'en'): string {
+export function buildCertificateHtml(cert: any, lang: 'en' | 'ml' = 'en', reprintCount = 0): string {
   const ml = lang === 'ml';
   const c = enrichCertificate(cert);
   // The official SMF death certificate is A4 LANDSCAPE; all other
@@ -678,5 +688,18 @@ export function buildCertificateHtml(cert: any, lang: 'en' | 'ml' = 'en'): strin
     case 'noc': body = buildNocCert(c, ml); break;
     default: body = buildMembershipCert(c, ml); break; // fallback
   }
-  return `<!doctype html><html lang="${ml ? 'ml' : 'en'}"><head><meta charset="utf-8"><title>${esc(c.type)} Certificate</title><style>${css}</style></head><body>${body}</body></html>`;
+  // Anti-forgery: every certificate carries a verification code; reprints are
+  // watermarked DUPLICATE so a photocopy can never pass as the original issue.
+  const reprints = Math.max(0, reprintCount || c.reprint_count || 0);
+  const verifyBox = c.verification_code ? `
+  <div class="verify-box">
+    <span class="verify-label">${ml ? 'പരിശോധനാ കോഡ്' : 'VERIFICATION CODE'}</span>
+    <span class="verify-code">${esc(c.verification_code)}</span>
+    <span class="verify-hint">${ml ? 'ഈ കോഡ് മഹല്ല് ഓഫീസിൽ പരിശോധിച്ച് ആധികാരികത ഉറപ്പാക്കാം' : 'Authenticity can be confirmed at the Mahallu office with this code'}</span>
+  </div>` : '';
+  body = body.replace('</main>', `${verifyBox}</main>`);
+  const watermark = reprints > 0
+    ? `<div class="watermark"><span>${ml ? 'പകർപ്പ്' : 'DUPLICATE'} · ${ml ? 'പുനഃമുദ്രണം' : 'REPRINT'} #${reprints}</span></div>`
+    : '';
+  return `<!doctype html><html lang="${ml ? 'ml' : 'en'}"><head><meta charset="utf-8"><title>${esc(c.type)} Certificate</title><style>${css}</style></head><body>${body}${watermark}</body></html>`;
 }

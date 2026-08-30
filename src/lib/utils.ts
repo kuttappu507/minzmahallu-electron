@@ -19,6 +19,20 @@ export function formatDate(date: string | null | undefined): string {
   return `${dd}-${mm}-${yyyy}`;
 }
 
+/** Today's date (yyyy-mm-dd) in INDIAN time (Asia/Kolkata) — the app is
+ * used in India only, so a machine set to another zone must still record the
+ * date the office sees. Never UTC, never the machine's local zone. */
+export function todayIST(): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
 export function formatDateTime(date: string | null | undefined): string {
   if (!date) return "—";
   const d = new Date(date);

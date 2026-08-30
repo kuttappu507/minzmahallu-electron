@@ -1,9 +1,0 @@
-/* Unified MinZ Mahallu brand treatment. */
-.sb-logo .logo,
-.login-logo-box,
-.login-logo-box-sm { background:transparent !important; border:0 !important; }
-.sb-logo .logo img,
-.login-logo-box img,
-.login-logo-box-sm img { width:100%; height:100%; object-fit:contain; display:block; }
-html.dark .sb-logo .logo img,
-.login-left .login-logo-box img { filter:brightness(0) invert(1) !important; }

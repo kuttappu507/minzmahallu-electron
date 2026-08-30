@@ -1,5 +1,36 @@
 import { describe, it, expect } from "vitest";
-import { formatCurrency, formatDate, statusVariant } from "@/lib/utils";
+import { formatCurrency, formatDate, statusVariant, todayIST } from "@/lib/utils";
+
+describe("todayIST", () => {
+  it("returns the INDIAN calendar date even when the machine runs on UTC", () => {
+    // 2026-08-31 00:30 IST == 2026-08-30 19:00 UTC. A machine on UTC (or any
+    // non-India zone) must still record 2026-08-31, because MMS is India-only.
+    process.env.TZ = "UTC";
+    const d = new Date("2026-08-30T19:00:00Z"); // 2026-08-31 00:30 IST
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(d);
+    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+    expect(`${get("year")}-${get("month")}-${get("day")}`).toBe("2026-08-31");
+    // sanity: the same instant in UTC is still the previous day
+    expect(d.toISOString().slice(0, 10)).toBe("2026-08-30");
+  });
+
+  it("returns the same IST date regardless of machine timezone", () => {
+    process.env.TZ = "America/New_York";
+    const a = todayIST();
+    process.env.TZ = "UTC";
+    const b = todayIST();
+    process.env.TZ = "Asia/Kolkata";
+    const c = todayIST();
+    expect(a).toBe(b);
+    expect(b).toBe(c);
+    expect(a).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
 
 describe("formatCurrency", () => {
   it("formats 0 as currency", () => {

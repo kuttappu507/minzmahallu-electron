@@ -53,9 +53,9 @@ export const security = {
         );
       }
     }
-    db.prepare(`UPDATE members SET family_id=?, name=?, arabic_name=?, gender=?, date_of_birth=?, age=?, blood_group=?, occupation=?, education=?, marital_status=?, mobile=?, email=?, emergency_contact=?, relationship=?, is_head=?, status=?, nationality=?, address=?, updated_at=datetime('now') WHERE id=?`).run(before.family_id, data.name, data.arabicName ?? "", data.gender, data.dateOfBirth, data.age, data.bloodGroup, data.occupation, data.education, data.maritalStatus, data.mobile, data.email, data.emergencyContact, data.relationship, data.relationship === "Head" ? 1 : 0, data.status, data.nationality, data.address, memberId);
+    db.prepare(`UPDATE members SET family_id=?, name=?, arabic_name=?, gender=?, date_of_birth=?, age=?, blood_group=?, occupation=?, education=?, marital_status=?, mobile=?, email=?, emergency_contact=?, relationship=?, is_head=?, status=?, nationality=?, address=?, father_id=?, mother_id=?, spouse_id=?, updated_at=datetime('now') WHERE id=?`).run(before.family_id, data.name, data.arabicName ?? "", data.gender, data.dateOfBirth, data.age, data.bloodGroup, data.occupation, data.education, data.maritalStatus, data.mobile, data.email, data.emergencyContact, data.relationship, data.relationship === "Head" ? 1 : 0, data.status, data.nationality, data.address, data.fatherId ?? null, data.motherId ?? null, data.spouseId ?? null, memberId);
     const after = db.prepare("SELECT * FROM members WHERE id=?").get(memberId) as any;
-    const changes = changedFields(before, after, ["name","arabic_name","gender","date_of_birth","age","blood_group","occupation","education","marital_status","mobile","email","emergency_contact","relationship","status","nationality","address"]);
+    const changes = changedFields(before, after, ["name","arabic_name","gender","date_of_birth","age","blood_group","occupation","education","marital_status","mobile","email","emergency_contact","relationship","status","nationality","address","father_id","mother_id","spouse_id"]);
     if (Object.keys(changes).length) history(actor, "member", memberId, "EDIT", "Member details updated", changes);
     return { id: memberId, changes };
   },

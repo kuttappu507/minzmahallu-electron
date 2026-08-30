@@ -6,7 +6,7 @@ import { Card, CardContent, Button, Dialog, Input, Label, Select, Textarea, Badg
 import { SecureActionDialog } from "@/components/SecureActionDialog";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
-import { formatCurrency, formatDate, statusVariant } from "@/lib/utils";
+import { formatCurrency, formatDate, statusVariant, todayIST } from "@/lib/utils";
 
 interface Subscription {
   id: number;
@@ -98,7 +98,7 @@ export function Subscriptions() {
   }, []);
 
   const openNew = () => {
-    setForm({ ...emptyForm, payment_date: new Date().toISOString().slice(0, 10) });
+    setForm({ ...emptyForm, payment_date: todayIST() });
     setEditingId(null);
     setDialogOpen(true);
   };
@@ -163,7 +163,7 @@ export function Subscriptions() {
 
   const handleEdit = async (id: number) => {
     const s = await window.mms.subscriptions.get(id);
-    setForm({ ...emptyForm, ...s, payment_date: s?.payment_date || new Date().toISOString().slice(0, 10) });
+    setForm({ ...emptyForm, ...s, payment_date: s?.payment_date || todayIST() });
     setEditingId(id);
     setDialogOpen(true);
   };

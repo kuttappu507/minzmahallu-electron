@@ -12,6 +12,9 @@ interface LedgerRow {
   payment_method: string;
   transaction_ref: string;
   receipt_number: string;
+  status?: string | null;
+  void_reason?: string | null;
+  voided_at?: string | null;
 }
 
 interface Summary {
@@ -98,6 +101,7 @@ export function buildAccountStatementHtml(rows: LedgerRow[], summary: Summary, f
     description: 'വിവരണം',
     receipt: 'രസീത്',
     method: 'അടവ് രീതി',
+    status: 'നില',
     amount: 'തുക',
     income: 'വരുമാനം',
     expense: 'ചെലവ്',
@@ -121,6 +125,7 @@ export function buildAccountStatementHtml(rows: LedgerRow[], summary: Summary, f
     description: 'Description',
     receipt: 'Receipt',
     method: 'Method',
+    status: 'Status',
     amount: 'Amount',
     income: 'Income',
     expense: 'Expense',
@@ -151,9 +156,12 @@ export function buildAccountStatementHtml(rows: LedgerRow[], summary: Summary, f
       <td style="padding:7px 8px">${esc(r.description || '—')}</td>
       <td style="padding:7px 8px;text-align:center;font-family:monospace;font-size:9pt">${esc(r.receipt_number || '—')}</td>
       <td style="padding:7px 8px;text-align:center">${esc(r.payment_method || '—')}</td>
+      <td style="padding:7px 8px;text-align:center">${r.status === 'Void'
+        ? `<span style="color:#b02a37;font-weight:700;letter-spacing:1px">VOID</span>${r.void_reason ? `<div style="font-size:7pt;color:#b02a37">${esc(String(r.void_reason).slice(0, 40))}${String(r.void_reason).length > 40 ? '…' : ''}</div>` : ''}`
+        : '<span style="color:#64748b">—</span>'}</td>
       <td style="padding:7px 8px;text-align:right;font-weight:600;color:${isIn ? '#0eab7f' : '#e8556e'};white-space:nowrap">${isIn ? '+' : '−'}${amt}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="7" style="padding:30px;text-align:center;color:#94a3b8">${esc(L.noEntries)}</td></tr>`;
+  }).join('') : `<tr><td colspan="8" style="padding:30px;text-align:center;color:#94a3b8">${esc(L.noEntries)}</td></tr>`;
 
   return `<!doctype html><html lang="${ml ? 'ml' : 'en'}"><head><meta charset="utf-8"><title>${esc(L.title)}</title><style>
 ${anekCss}
@@ -238,6 +246,7 @@ tbody td{border-top:1px solid #e6ede7;font-size:9.5px}
     <th>${esc(L.description)}</th>
     <th class="center">${esc(L.receipt)}</th>
     <th class="center">${esc(L.method)}</th>
+    <th class="center">${esc(L.status)}</th>
     <th class="right">${esc(L.amount)}</th>
   </tr></thead>
   <tbody>${tableRows}</tbody>

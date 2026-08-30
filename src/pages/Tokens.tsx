@@ -6,7 +6,7 @@ import {
 import { useI18n } from "@/i18n";
 import { Button, Dialog, Input, Label, Select, Badge } from "@/components/ui";
 import { toast } from "@/lib/toast";
-import { formatDate } from "@/lib/utils";
+import { formatDate, todayIST } from "@/lib/utils";
 
 type ViewMode = "list" | "select" | "review" | "generated";
 
@@ -106,7 +106,7 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
   const [actionReason, setActionReason] = useState("");
 
   const selectedEvent = events.find(e => e.id === selectedEventId);
-  const canDeleteTokens = !!selectedEvent?.event_date && selectedEvent.event_date < new Date().toISOString().slice(0, 10);
+  const canDeleteTokens = !!selectedEvent?.event_date && selectedEvent.event_date < todayIST();
 
   const loadEvents = useCallback(async () => {
     try {

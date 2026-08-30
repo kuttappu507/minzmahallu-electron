@@ -54,6 +54,16 @@ function ensureRuntimeSchema(database: DB) {
     ["marriages","updated_at","TEXT"],["deaths","updated_at","TEXT"],
     ["welfare_requests","request_date","TEXT"],["welfare_requests","rejection_reason","TEXT"],["welfare_requests","processed_by","INTEGER"],["welfare_requests","processed_date","TEXT"],
     ["certificates","status","TEXT NOT NULL DEFAULT 'Issued'"],["audit_log","metadata","TEXT"],
+    // V030 — voucher/bill control fields on manual transactions (audit evidence for expenses)
+    ["transactions","voucher_no","TEXT"],["transactions","bill_no","TEXT"],["transactions","payee","TEXT"],
+    // V031 — receipt VOID workflow + certificate anti-forgery
+    ["transactions","status","TEXT NOT NULL DEFAULT 'Posted'"],["transactions","voided_at","TEXT"],["transactions","voided_by","INTEGER"],["transactions","void_reason","TEXT"],
+    ["certificates","verification_code","TEXT"],["certificates","reprint_count","INTEGER NOT NULL DEFAULT 0"],
+    // V030 — member family-tree links (father/mother/spouse as member references)
+    ["members","father_id","INTEGER"],["members","mother_id","INTEGER"],["members","spouse_id","INTEGER"],
+    // V030 — tamper-evident audit chain columns + demo-data flag
+    ["audit_log","prev_hash","TEXT"],["audit_log","entry_hash","TEXT"],
+    ["settings","demo_data","INTEGER NOT NULL DEFAULT 0"],
   ];
   for (const [table,name,definition] of fields) if (tables.has(table)) addColumn(database, table, name, definition);
   if (tables.has("welfare_requests")) database.exec("UPDATE welfare_requests SET request_date = COALESCE(request_date, created_at) WHERE request_date IS NULL");
@@ -125,6 +135,15 @@ function ensureRuntimeSchema(database: DB) {
     CREATE INDEX IF NOT EXISTS idx_record_history_entity ON record_history(entity_type, entity_id, changed_at DESC);
     CREATE TABLE IF NOT EXISTS family_moves (id INTEGER PRIMARY KEY AUTOINCREMENT, member_id INTEGER NOT NULL, old_family_id INTEGER NOT NULL, new_family_id INTEGER NOT NULL, move_type TEXT NOT NULL CHECK(move_type IN ('ExistingFamily','NewFamily')), reason TEXT NOT NULL, moved_at TEXT NOT NULL DEFAULT(datetime('now')), moved_by INTEGER, FOREIGN KEY(member_id) REFERENCES members(id) ON DELETE RESTRICT, FOREIGN KEY(old_family_id) REFERENCES families(id) ON DELETE RESTRICT, FOREIGN KEY(new_family_id) REFERENCES families(id) ON DELETE RESTRICT, FOREIGN KEY(moved_by) REFERENCES users(id));
     CREATE INDEX IF NOT EXISTS idx_family_moves_member ON family_moves(member_id, moved_at DESC);
+    -- V030 — tamper-evidence anchor: stores the hash of the newest audit event so
+    -- chain verification can also detect truncation of the tail of the log.
+    CREATE TABLE IF NOT EXISTS audit_chain (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      last_hash TEXT,
+      event_count INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT
+    );
+    INSERT OR IGNORE INTO audit_chain (id, last_hash, event_count) VALUES (1, NULL, 0);
   `);
 
   // Staff module tables — created here (idempotent) so the module works on any

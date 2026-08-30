@@ -5,11 +5,18 @@
 import { all, one, run, scalar, getDB } from "../db/connection.js";
 import { randomInt } from "node:crypto";
 import { hashPasswordForStorage } from "./auth.service.js";
+import { computeEntryHash, verifyAuditChain } from "./audit-chain.js";
+import { makeVerificationCode } from "./codes.js";
 
 // ================= HELPERS =================
 
+// All MMS calendar dates are INDIAN time (Asia/Kolkata) — see ist-date.ts.
+// Imported for local use AND re-exported so existing importers keep working.
+import { todayIST, istMonth, istPlusDays, istDateStr } from "./ist-date.js";
+export { todayIST, istMonth, istPlusDays, istDateStr };
+
 function nowDate(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayIST();
 }
 
 /**
@@ -180,8 +187,8 @@ export const members = {
     const isHead = data.relationship === "Head" ? 1 : 0;
     const { id } = run(
       `INSERT INTO members
-        (member_code, family_id, name, arabic_name, father_name, gender, date_of_birth, age, blood_group, occupation, education, marital_status, mobile, email, emergency_contact, relationship, is_head, status, nationality, address)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (member_code, family_id, name, arabic_name, father_name, gender, date_of_birth, age, blood_group, occupation, education, marital_status, mobile, email, emergency_contact, relationship, is_head, status, nationality, address, father_id, mother_id, spouse_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         num, data.familyId, data.name ?? "", data.arabicName ?? "",
         data.fatherName ?? "", data.gender ?? "Male", data.dateOfBirth ?? "", data.age ?? null,
@@ -190,7 +197,8 @@ export const members = {
         data.email ?? "", data.emergencyContact ?? "",
         data.relationship ?? "Other", isHead,
         data.status ?? "Active",
-        data.nationality ?? "Indian", data.address ?? ""
+        data.nationality ?? "Indian", data.address ?? "",
+        data.fatherId ?? null, data.motherId ?? null, data.spouseId ?? null
       ]
     );
     return { id, memberCode: num };
@@ -198,7 +206,7 @@ export const members = {
   update: (id: number, data: any) => {
     if (data.relationship === "Head") members.assertSingleHead(data.familyId, id);
     return run(
-      `UPDATE members SET family_id = ?, name = ?, arabic_name = ?, father_name = ?, gender = ?, date_of_birth = ?, age = ?, blood_group = ?, occupation = ?, education = ?, marital_status = ?, mobile = ?, email = ?, emergency_contact = ?, relationship = ?, is_head = ?, status = ?, nationality = ?, address = ?, updated_at = datetime('now') WHERE id = ?`,
+      `UPDATE members SET family_id = ?, name = ?, arabic_name = ?, father_name = ?, gender = ?, date_of_birth = ?, age = ?, blood_group = ?, occupation = ?, education = ?, marital_status = ?, mobile = ?, email = ?, emergency_contact = ?, relationship = ?, is_head = ?, status = ?, nationality = ?, address = ?, father_id = ?, mother_id = ?, spouse_id = ?, updated_at = datetime('now') WHERE id = ?`,
       [
         data.familyId, data.name ?? "", data.arabicName ?? "", data.fatherName ?? "",
         data.gender ?? "Male", data.dateOfBirth ?? "", data.age ?? null, data.bloodGroup ?? "",
@@ -206,11 +214,46 @@ export const members = {
         data.mobile ?? "", data.email ?? "", data.emergencyContact ?? "",
         data.relationship ?? "Other", data.relationship === "Head" ? 1 : 0,
         data.status ?? "Active", data.nationality ?? "Indian",
-        data.address ?? "", id
+        data.address ?? "",
+        data.fatherId ?? null, data.motherId ?? null, data.spouseId ?? null,
+        id
       ]
     );
   },
   remove: (id: number) => run("DELETE FROM members WHERE id = ?", [id]),
+  /**
+   * Family-tree relations for a member: father, mother, spouse (direct member
+   * links) and children (members whose father_id or mother_id points here).
+   */
+  relations: (id: number) => {
+    const member = one<any>("SELECT id FROM members WHERE id = ?", [id]);
+    if (!member) return null;
+    const pick = (ids: (number | null)[]): any[] => {
+      const clean = [...new Set(ids.filter((x): x is number => !!x && Number.isFinite(x)))];
+      if (!clean.length) return [];
+      return all<any>(
+        `SELECT id, member_code, name, gender, relationship, is_head, mobile, date_of_birth, status, archive_state
+         FROM members WHERE id IN (${clean.map(() => "?").join(",")}) AND archive_state = 0`,
+        clean
+      );
+    };
+    const self = one<any>("SELECT father_id, mother_id, spouse_id FROM members WHERE id = ?", [id]);
+    const links = pick([self?.father_id, self?.mother_id, self?.spouse_id]);
+    const byId = (v: any) => links.find((l) => l.id === v) || null;
+    const children = all<any>(
+      `SELECT id, member_code, name, gender, date_of_birth, status
+       FROM members
+       WHERE (father_id = ? OR mother_id = ?) AND archive_state = 0 AND id != ?
+       ORDER BY date_of_birth ASC, id ASC`,
+      [id, id, id]
+    );
+    return {
+      father: byId(self?.father_id),
+      mother: byId(self?.mother_id),
+      spouse: byId(self?.spouse_id),
+      children,
+    };
+  },
   relationships: () => [
     "Head", "Spouse", "Son", "Daughter", "Parent",
     "Brother", "Sister", "Nephew", "Niece",
@@ -229,11 +272,13 @@ export const members = {
 // are locked.
 
 function currentMonthPeriod(): { periodStart: string; periodEnd: string } {
-  const first = new Date();
-  first.setDate(1);
-  const periodStart = first.toISOString().slice(0, 10);
-  const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
-  const periodEnd = last.toISOString().slice(0, 10);
+  // First and last day of the CURRENT calendar month as seen in India.
+  const ymd = istDateStr(new Date()); // "yyyy-mm-dd" in IST
+  const year = ymd.slice(0, 4);
+  const month = ymd.slice(5, 7);
+  const periodStart = `${year}-${month}-01`;
+  const lastDay = new Date(Date.UTC(Number(year), Number(month), 0)).getUTCDate(); // days in this month (pure arithmetic)
+  const periodEnd = `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
   return { periodStart, periodEnd };
 }
 
@@ -548,19 +593,19 @@ export const donations = {
     return run("DELETE FROM donation_categories WHERE id = ?", [id]);
   },
   memberBalance: (familyId: number, memberId?: number) => subscriptions.memberBalance(familyId, memberId),
-  totalThisMonth: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM donations WHERE strftime('%Y-%m', donation_date) = strftime('%Y-%m','now')"),
+  totalThisMonth: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM donations WHERE strftime('%Y-%m', donation_date) = ?", [istMonth()]),
 };
 
 // ================= ACCOUNTING =================
 
 export const accounting = {
   list: (filter: { search?: string; type?: string; page?: number; pageSize?: number } = {}) => {
-    const where: string[] = ["1=1"];
+    const where: string[] = ["(t.status IS NULL OR t.status != 'Void')"];
     const params: any[] = [];
     if (filter.search) {
-      where.push("(t.description LIKE ? OR t.receipt_number LIKE ? OR t.transaction_ref LIKE ?)");
+      where.push("(t.description LIKE ? OR t.receipt_number LIKE ? OR t.transaction_ref LIKE ? OR t.voucher_no LIKE ? OR t.bill_no LIKE ? OR t.payee LIKE ?)");
       const t = `%${filter.search}%`;
-      params.push(t, t, t);
+      params.push(t, t, t, t, t, t);
     }
     if (filter.type && filter.type !== "All") {
       where.push("t.type = ?");
@@ -584,36 +629,110 @@ export const accounting = {
   },
   get: (id: number) => one<any>("SELECT * FROM transactions WHERE id = ?", [id]),
   create: (data: any) => {
-    const receipt = data.receiptNumber || scalar<string>(
-      "SELECT 'TXN-' || printf('%03d', COALESCE(MAX(id), 0) + 1) AS n FROM transactions"
+    // Receipt numbers must NEVER be reused. MAX(id)+1 breaks if an operator
+    // types a high manual receipt number (a later auto number would collide).
+    // Use the same suffix-max scheme as the official registers instead.
+    const receipt = data.receiptNumber || (() => {
+      const rows = all<{ n: string }>("SELECT receipt_number AS n FROM transactions");
+      let max = 0;
+      for (const r of rows) { const m = /(\d+)\s*$/.exec(String(r.n ?? "")); if (m) max = Math.max(max, parseInt(m[1], 10)); }
+      return `TXN-${String(max + 1).padStart(4, "0")}`;
+    })();
+    // Voucher control: auto-fill a sequential voucher number when the operator
+    // didn't type one, so every expense can be traced to a voucher reference.
+    const year = new Date().getFullYear();
+    const voucher = data.voucherNo || scalar<string>(
+      "SELECT 'VOU-' || ? || '-' || printf('%04d', COALESCE(MAX(id), 0) + 1) AS n FROM transactions",
+      [String(year)]
     );
+    // Duplicate bill detection: warn (don't block) when the same bill number was
+    // already entered for another expense — a classic duplicate-payment red flag.
+    let duplicateBill: { id: number; txn_date: string; description: string; amount: number } | null = null;
+    if (data.billNo && String(data.billNo).trim()) {
+      const found = one<any>(
+        `SELECT id, txn_date, description, amount FROM transactions
+          WHERE bill_no = ? AND type = 'Expense' AND id != ? AND (status IS NULL OR status != 'Void')
+          ORDER BY id DESC LIMIT 1`,
+        [String(data.billNo).trim(), data.id ?? -1]
+      );
+      if (found) duplicateBill = found;
+    }
     const { id } = run(
       `INSERT INTO transactions
-        (txn_date, account_id, type, amount, payment_method, description, linked_module, linked_id, receipt_number, transaction_ref, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (txn_date, account_id, type, amount, payment_method, description, linked_module, linked_id, receipt_number, transaction_ref, voucher_no, bill_no, payee, status, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Posted', ?)`,
       [
         data.txnDate || nowDate(), data.accountId ?? 1, data.type,
         data.amount, data.paymentMethod ?? "Cash", data.description ?? "",
         data.linkedModule ?? "", data.linkedId ?? null,
-        receipt, data.transactionRef ?? "", data.createdBy ?? 1
+        receipt, data.transactionRef ?? "",
+        voucher, data.billNo ? String(data.billNo).trim() : null,
+        data.payee ? String(data.payee).trim() : null,
+        data.createdBy ?? 1
       ]
     );
-    return { id, receiptNumber: receipt };
+    return { id, receiptNumber: receipt, voucherNo: voucher, duplicateBill };
   },
-  update: (id: number, data: any) =>
-    run(
-      `UPDATE transactions SET txn_date = ?, account_id = ?, type = ?, amount = ?, payment_method = ?, description = ?, linked_module = ?, linked_id = ?, transaction_ref = ?, updated_at = datetime('now') WHERE id = ?`,
+  update: (id: number, data: any) => {
+    const existing = one<any>("SELECT status FROM transactions WHERE id = ?", [id]);
+    if (existing?.status === "Void") throw new Error("Voided entries cannot be edited. Enter a new entry instead.");
+    return run(
+      `UPDATE transactions SET txn_date = ?, account_id = ?, type = ?, amount = ?, payment_method = ?, description = ?, linked_module = ?, linked_id = ?, transaction_ref = ?, voucher_no = ?, bill_no = ?, payee = ?, updated_at = datetime('now') WHERE id = ?`,
       [
         data.txnDate, data.accountId, data.type, data.amount,
         data.paymentMethod, data.description,
         data.linkedModule ?? "", data.linkedId,
-        data.transactionRef, id
+        data.transactionRef,
+        data.voucherNo ? String(data.voucherNo).trim() : null,
+        data.billNo ? String(data.billNo).trim() : null,
+        data.payee ? String(data.payee).trim() : null,
+        id
       ]
-    ),
+    );
+  },
+  /**
+   * VOID instead of delete: the receipt number stays occupied, the entry stays
+   * visible (struck through) with who/when/why. An auditor can always see both
+   * the original entry and the void reason.
+   */
+  void: (id: number, reason: string, userId: number) => {
+    if (!reason?.trim()) throw new Error("A void reason is required");
+    const existing = one<any>("SELECT * FROM transactions WHERE id = ?", [id]);
+    if (!existing) throw new Error("Transaction not found");
+    if (existing.status === "Void") throw new Error("This entry is already voided");
+    run(
+      `UPDATE transactions SET status = 'Void', voided_at = datetime('now'), voided_by = ?, void_reason = ?, updated_at = datetime('now') WHERE id = ?`,
+      [userId, String(reason).trim(), id]
+    );
+    return { id, receiptNumber: existing.receipt_number };
+  },
+  /**
+   * Receipt sequence for continuity checks: every receipt number in order,
+   * with status (Posted/Void) so an auditor can spot gaps or missing numbers.
+   */
+  receiptSequence: () => {
+    const rows = all<any>(
+      `SELECT id, receipt_number, txn_date, type, amount, status, void_reason
+       FROM transactions
+       WHERE receipt_number LIKE 'TXN-%'
+       ORDER BY receipt_number ASC`
+    );
+    // Flag gaps: consecutive numbers that are missing entirely (only possible
+    // if someone edited the DB manually, since deletion is blocked).
+    const nums = rows
+      .map((r) => parseInt(String(r.receipt_number).replace(/^TXN-/, ""), 10))
+      .filter((n) => Number.isFinite(n))
+      .sort((a, b) => a - b);
+    const missing: number[] = [];
+    for (let i = 1; i < nums.length; i++) {
+      for (let n = nums[i - 1] + 1; n < nums[i]; n++) missing.push(n);
+    }
+    return { receipts: rows, missing, count: rows.length };
+  },
   remove: (id: number) => run("DELETE FROM transactions WHERE id = ?", [id]),
-  totalIncome: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM transactions WHERE type = 'Income'"),
-  totalExpense: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM transactions WHERE type = 'Expense'"),
-  balance: () => scalar<number>("SELECT (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Income') - (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Expense') AS v"),
+  totalIncome: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM transactions WHERE type = 'Income' AND (status IS NULL OR status != 'Void')"),
+  totalExpense: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM transactions WHERE type = 'Expense' AND (status IS NULL OR status != 'Void')"),
+  balance: () => scalar<number>("SELECT (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Income' AND (status IS NULL OR status != 'Void')) - (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Expense' AND (status IS NULL OR status != 'Void')) AS v"),
 
   // ===== Unified ledger — combines manual transactions with auto-entries from
   // donations, subscriptions, welfare disbursements, and staff salary payments.
@@ -679,8 +798,8 @@ export const accounting = {
       const w: string[] = ["1=1"];
       if (range) { w.push("t.txn_date >= ?"); w.push("t.txn_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All") { w.push("t.type = ?"); params.push(filter.type); }
-      if (filter.search) { w.push("(t.description LIKE ? OR t.receipt_number LIKE ? OR t.transaction_ref LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t, t); }
-      parts.push(`SELECT t.id AS source_id, 'transactions' AS source, t.txn_date AS ledger_date, t.type, t.amount, t.description, t.payment_method, t.transaction_ref, t.receipt_number, t.account_id, t.linked_module, t.linked_id FROM transactions t WHERE ${w.join(" AND ")}`);
+      if (filter.search) { w.push("(t.description LIKE ? OR t.receipt_number LIKE ? OR t.transaction_ref LIKE ? OR t.voucher_no LIKE ? OR t.bill_no LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t, t, t, t); }
+      parts.push(`SELECT t.id AS source_id, 'transactions' AS source, t.txn_date AS ledger_date, t.type, t.amount, t.description, t.payment_method, t.transaction_ref, t.receipt_number, t.account_id, t.linked_module, t.linked_id, t.voucher_no, t.bill_no, t.payee, t.status, t.void_reason, t.voided_at FROM transactions t WHERE ${w.join(" AND ")}`);
     }
     // 2. Donations (always Income)
     {
@@ -688,7 +807,7 @@ export const accounting = {
       if (range) { w.push("d.donation_date >= ?"); w.push("d.donation_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All" && filter.type !== "Income") { w.push("1=0"); } // donations are income only
       if (filter.search) { w.push("(d.donor_name LIKE ? OR d.receipt_number LIKE ? OR d.purpose LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t, t); }
-      parts.push(`SELECT d.id AS source_id, 'donations' AS source, d.donation_date AS ledger_date, 'Income' AS type, d.amount, (d.donor_name || COALESCE(' — ' || d.purpose, '')) AS description, d.payment_method, '' AS transaction_ref, d.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id FROM donations d WHERE ${w.join(" AND ")}`);
+      parts.push(`SELECT d.id AS source_id, 'donations' AS source, d.donation_date AS ledger_date, 'Income' AS type, d.amount, (d.donor_name || COALESCE(' — ' || d.purpose, '')) AS description, d.payment_method, '' AS transaction_ref, d.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee FROM donations d WHERE ${w.join(" AND ")}`);
     }
     // 3. Subscription payments from the immutable ledger (Income)
     {
@@ -696,7 +815,7 @@ export const accounting = {
       if (range) { w.push("sp.payment_date >= ?"); w.push("sp.payment_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All" && filter.type !== "Income") { w.push("1=0"); }
       if (filter.search) { w.push("(sp.receipt_number LIKE ? OR sp.remarks LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t); }
-      parts.push(`SELECT sp.id AS source_id, 'subscriptions' AS source, COALESCE(sp.payment_date, sp.period_start) AS ledger_date, 'Income' AS type, sp.amount, ('Subscription — ' || COALESCE(sp.receipt_number, '')) AS description, sp.payment_method, sp.transaction_ref, sp.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id FROM subscription_payments sp WHERE ${w.join(" AND ")}`);
+      parts.push(`SELECT sp.id AS source_id, 'subscriptions' AS source, COALESCE(sp.payment_date, sp.period_start) AS ledger_date, 'Income' AS type, sp.amount, ('Subscription — ' || COALESCE(sp.receipt_number, '')) AS description, sp.payment_method, sp.transaction_ref, sp.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee FROM subscription_payments sp WHERE ${w.join(" AND ")}`);
     }
     // 4. Welfare disbursements (Expense)
     {
@@ -704,7 +823,7 @@ export const accounting = {
       if (range) { w.push("w.disbursed_date >= ?"); w.push("w.disbursed_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All" && filter.type !== "Expense") { w.push("1=0"); }
       if (filter.search) { w.push("(w.applicant_name LIKE ? OR w.request_number LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t); }
-      parts.push(`SELECT w.id AS source_id, 'welfare' AS source, COALESCE(w.disbursed_date, w.created_at) AS ledger_date, 'Expense' AS type, w.amount_approved AS amount, ('Welfare — ' || w.applicant_name) AS description, '' AS payment_method, '' AS transaction_ref, w.request_number AS receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id FROM welfare_requests w WHERE ${w.join(" AND ")}`);
+      parts.push(`SELECT w.id AS source_id, 'welfare' AS source, COALESCE(w.disbursed_date, w.created_at) AS ledger_date, 'Expense' AS type, w.amount_approved AS amount, ('Welfare — ' || w.applicant_name) AS description, '' AS payment_method, '' AS transaction_ref, w.request_number AS receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee FROM welfare_requests w WHERE ${w.join(" AND ")}`);
     }
     // 5. Staff salary payments (Expense, status='Paid')
     {
@@ -712,7 +831,7 @@ export const accounting = {
       if (range) { w.push("sp.payment_date >= ?"); w.push("sp.payment_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All" && filter.type !== "Expense") { w.push("1=0"); }
       if (filter.search) { w.push("(s.name LIKE ? OR s.staff_code LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t); }
-      parts.push(`SELECT sp.id AS source_id, 'salary' AS source, sp.payment_date AS ledger_date, 'Expense' AS type, sp.amount, ('Salary — ' || s.name || ' (' || printf('%02d', sp.period_month) || '/' || sp.period_year || ')') AS description, sp.payment_method, sp.transaction_ref, '' AS receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id FROM staff_payments sp LEFT JOIN staff s ON s.id = sp.staff_id WHERE ${w.join(" AND ")}`);
+      parts.push(`SELECT sp.id AS source_id, 'salary' AS source, sp.payment_date AS ledger_date, 'Expense' AS type, sp.amount, ('Salary — ' || s.name || ' (' || printf('%02d', sp.period_month) || '/' || sp.period_year || ')') AS description, sp.payment_method, sp.transaction_ref, '' AS receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee FROM staff_payments sp LEFT JOIN staff s ON s.id = sp.staff_id WHERE ${w.join(" AND ")}`);
     }
 
     // Combine — wrap in a sub-select so we can filter by source + paginate uniformly.
@@ -748,7 +867,7 @@ export const accounting = {
     // back to the renderer just to sum them.
     const parts: string[] = [];
     {
-      const w: string[] = ["1=1"];
+      const w: string[] = ["(t.status IS NULL OR t.status != 'Void')"];
       if (range) { w.push("t.txn_date >= ?"); w.push("t.txn_date <= ?"); }
       parts.push(`SELECT t.txn_date AS ledger_date, t.type, t.amount, 'transactions' AS source FROM transactions t WHERE ${w.join(" AND ")}`);
     }
@@ -813,6 +932,67 @@ export const accounting = {
       to: range?.to ?? null
     };
   },
+
+  /**
+   * Annual audit pack for a financial year (default 01-Apr → 31-Mar, matching
+   * the settings financial_year_start of "04-01").
+   * Produces: Receipts & Payments, Income & Expenditure, the 7% Waqf
+   * contribution indicator (S.77), and the voucher-indexed transaction
+   * listing — everything a Kerala Waqf Board / society auditor asks for.
+   */
+  auditPack: (fyYear: number) => {
+    const fy = Number(fyYear) || new Date().getFullYear();
+    const fyStart = `${fy}-04-01`;
+    const fyEnd = `${fy + 1}-03-31`;
+    const s = (sql: string) => scalar<number>(sql) || 0;
+
+    // Opening balance = everything received/spent BEFORE the FY (all sources).
+    const opening = s(`SELECT
+        (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Income' AND (status IS NULL OR status != 'Void') AND txn_date < '${fyStart}')
+      + (SELECT COALESCE(SUM(amount),0) FROM donations WHERE donation_date < '${fyStart}')
+      + (SELECT COALESCE(SUM(amount),0) FROM subscription_payments WHERE status='Active' AND COALESCE(payment_date, period_start) < '${fyStart}')
+      - (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Expense' AND (status IS NULL OR status != 'Void') AND txn_date < '${fyStart}')
+      - (SELECT COALESCE(SUM(amount_approved),0) FROM welfare_requests WHERE status='Disbursed' AND COALESCE(disbursed_date, created_at) < '${fyStart}')
+      - (SELECT COALESCE(SUM(amount),0) FROM staff_payments WHERE status='Paid' AND payment_date < '${fyStart}')`);
+
+    const receipts = {
+      donations: s(`SELECT COALESCE(SUM(amount),0) FROM donations WHERE donation_date >= '${fyStart}' AND donation_date <= '${fyEnd}'`),
+      subscriptions: s(`SELECT COALESCE(SUM(amount),0) FROM subscription_payments WHERE status='Active' AND COALESCE(payment_date, period_start) >= '${fyStart}' AND COALESCE(payment_date, period_start) <= '${fyEnd}'`),
+      manual: s(`SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Income' AND (status IS NULL OR status != 'Void') AND txn_date >= '${fyStart}' AND txn_date <= '${fyEnd}'`),
+    };
+    const payments = {
+      welfare: s(`SELECT COALESCE(SUM(amount_approved),0) FROM welfare_requests WHERE status='Disbursed' AND COALESCE(disbursed_date, created_at) >= '${fyStart}' AND COALESCE(disbursed_date, created_at) <= '${fyEnd}'`),
+      salary: s(`SELECT COALESCE(SUM(amount),0) FROM staff_payments WHERE status='Paid' AND payment_date >= '${fyStart}' AND payment_date <= '${fyEnd}'`),
+      manual: s(`SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Expense' AND (status IS NULL OR status != 'Void') AND txn_date >= '${fyStart}' AND txn_date <= '${fyEnd}'`),
+    };
+    const totalReceipts = receipts.donations + receipts.subscriptions + receipts.manual;
+    const totalPayments = payments.welfare + payments.salary + payments.manual;
+    const closing = opening + totalReceipts - totalPayments;
+
+    // Voucher-indexed transaction listing (manual entries with audit evidence).
+    const transactions = all<any>(
+      `SELECT txn_date, receipt_number, voucher_no, bill_no, payee, description, type, amount, payment_method, status, void_reason
+       FROM transactions
+       WHERE txn_date >= ? AND txn_date <= ?
+       ORDER BY txn_date ASC, id ASC`,
+      [fyStart, fyEnd]
+    );
+
+    const settings = one<any>("SELECT mahallu_name, wakf_reg_no, society_reg_no, village, taluk, district, state FROM settings WHERE id = 1") || {};
+    return {
+      fyLabel: `${fy}-04-01 to ${fy + 1}-03-31`,
+      fyYear: fy,
+      mahalluName: settings.mahallu_name || "Minz Mahallu",
+      wakfRegNo: settings.wakf_reg_no || "",
+      societyRegNo: settings.society_reg_no || "",
+      village: settings.village || "", taluk: settings.taluk || "", district: settings.district || "", state: settings.state || "",
+      opening, closing,
+      receipts, payments, totalReceipts, totalPayments,
+      waqfContribution: Math.round(totalReceipts * 0.07 * 100) / 100,
+      transactions,
+      generatedAt: new Date().toISOString(),
+    };
+  },
 };
 
 // ================= MARRIAGE =================
@@ -868,6 +1048,11 @@ export const marriages = {
       ]
     ),
   remove: (id: number) => run("DELETE FROM marriages WHERE id = ?", [id]),
+  // Raw rows for the printed marriage register (chronological, numbered).
+  registerRows: () => all<any>(
+    `SELECT id, marriage_number, nikah_date, bride_name, bride_father, groom_name, groom_father, place, mahar
+     FROM marriages ORDER BY nikah_date ASC, id ASC`
+  ),
 };
 
 // ================= DEATH =================
@@ -923,6 +1108,11 @@ export const deaths = {
       ]
     ),
   remove: (id: number) => run("DELETE FROM deaths WHERE id = ?", [id]),
+  // Raw rows for the printed death register (chronological, numbered).
+  registerRows: () => all<any>(
+    `SELECT id, death_number, deceased_name, father_name, gender, age, date_of_death, place_of_death, burial_date, burial_place
+     FROM deaths ORDER BY date_of_death ASC, id ASC`
+  ),
 };
 
 // ================= WELFARE =================
@@ -1031,8 +1221,8 @@ export const certificates = {
     if (!m) throw new Error("Member not found");
     const certNum = `MMS-${new Date().getFullYear()}-${String(scalar<number>("SELECT COALESCE(MAX(id),0)+1 FROM certificates WHERE type='Membership' AND strftime('%Y', issued_date)=strftime('%Y','now')")).padStart(6, "0")}`;
     const { id } = run(
-      "INSERT INTO certificates (certificate_number, type, member_id, family_id, issued_to, issued_date, issued_by, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      [certNum, "Membership", m.id, m.family_id, m.name, nowDate(), userId, "Issued"]
+      "INSERT INTO certificates (certificate_number, type, member_id, family_id, issued_to, issued_date, issued_by, status, verification_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [certNum, "Membership", m.id, m.family_id, m.name, nowDate(), userId, "Issued", makeVerificationCode()]
     );
     return { id, certificateNumber: certNum };
   },
@@ -1041,8 +1231,8 @@ export const certificates = {
     if (!f) throw new Error("Family not found");
     const certNum = `RES-${new Date().getFullYear()}-${String(scalar<number>("SELECT COALESCE(MAX(id),0)+1 FROM certificates WHERE type='Residence' AND strftime('%Y', issued_date)=strftime('%Y','now')")).padStart(6, "0")}`;
     const { id } = run(
-      "INSERT INTO certificates (certificate_number, type, member_id, family_id, issued_to, issued_date, issued_by, status) VALUES (?, ?, NULL, ?, ?, ?, ?, ?)",
-      [certNum, "Residence", f.id, issuedTo || f.house_name, nowDate(), userId, "Issued"]
+      "INSERT INTO certificates (certificate_number, type, member_id, family_id, issued_to, issued_date, issued_by, status, verification_code) VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?)",
+      [certNum, "Residence", f.id, issuedTo || f.house_name, nowDate(), userId, "Issued", makeVerificationCode()]
     );
     return { id, certificateNumber: certNum };
   },
@@ -1051,8 +1241,8 @@ export const certificates = {
     if (!m) throw new Error("Marriage record not found");
     const certNum = `MAR-${new Date().getFullYear()}-${String(scalar<number>("SELECT COALESCE(MAX(id),0)+1 FROM certificates WHERE type='Marriage' AND strftime('%Y', issued_date)=strftime('%Y','now')")).padStart(6, "0")}`;
     const { id } = run(
-      "INSERT INTO certificates (certificate_number, type, member_id, family_id, issued_to, issued_date, issued_by, status) VALUES (?, ?, NULL, NULL, ?, ?, ?, ?)",
-      [certNum, "Marriage", m.bride_name + " & " + m.groom_name, nowDate(), userId, "Issued"]
+      "INSERT INTO certificates (certificate_number, type, member_id, family_id, issued_to, issued_date, issued_by, status, verification_code) VALUES (?, ?, NULL, NULL, ?, ?, ?, ?, ?)",
+      [certNum, "Marriage", m.bride_name + " & " + m.groom_name, nowDate(), userId, "Issued", makeVerificationCode()]
     );
     return { id, certificateNumber: certNum };
   },
@@ -1062,9 +1252,9 @@ export const certificates = {
     const certificateNumber = scalar<string>("SELECT 'NOC-' || printf('%04d', COALESCE(MAX(id),0)+1) FROM certificates");
     const issuedTo = [marriage.bride_name, marriage.groom_name].filter(Boolean).join(" & ");
     const result = run(
-      `INSERT INTO certificates (certificate_number, type, marriage_id, issued_to, issued_date, issued_by, notes)
-       VALUES (?, 'NOC', ?, ?, date('now'), ?, ?)`,
-      [certificateNumber, marriage.id, issuedTo, userId, `No Objection Certificate for marriage ${marriage.marriage_number}`]
+      `INSERT INTO certificates (certificate_number, type, marriage_id, issued_to, issued_date, issued_by, notes, verification_code)
+       VALUES (?, 'NOC', ?, ?, ?, ?, ?, ?)`,
+      [certificateNumber, marriage.id, issuedTo, todayIST(), userId, `No Objection Certificate for marriage ${marriage.marriage_number}`, makeVerificationCode()]
     );
     return { id: result.id, certificate_number: certificateNumber };
   },
@@ -1073,10 +1263,37 @@ export const certificates = {
     if (!d) throw new Error("Death record not found");
     const certNum = `DTH-${new Date().getFullYear()}-${String(scalar<number>("SELECT COALESCE(MAX(id),0)+1 FROM certificates WHERE type='Death' AND strftime('%Y', issued_date)=strftime('%Y','now')")).padStart(6, "0")}`;
     const { id } = run(
-      "INSERT INTO certificates (certificate_number, type, member_id, family_id, marriage_id, death_id, issued_to, issued_date, issued_by, status) VALUES (?, 'Death', NULL, ?, NULL, ?, ?, ?, ?, 'Issued')",
-      [certNum, d.family_id ?? null, d.id, d.deceased_name, nowDate(), userId]
+      "INSERT INTO certificates (certificate_number, type, member_id, family_id, marriage_id, death_id, issued_to, issued_date, issued_by, status, verification_code) VALUES (?, 'Death', NULL, ?, NULL, ?, ?, ?, ?, 'Issued', ?)",
+      [certNum, d.family_id ?? null, d.id, d.deceased_name, nowDate(), userId, makeVerificationCode()]
     );
     return { id, certificateNumber: certNum };
+  },
+  /** Anti-forgery lookup: any printed code can be checked against the register. */
+  verify: (code: string) => {
+    const clean = String(code || "").trim().toUpperCase();
+    if (!clean) throw new Error("Enter a verification code");
+    const cert = one<any>(
+      `SELECT id, certificate_number, type, issued_to, issued_date, issued_by, status, reprint_count, verification_code
+       FROM certificates WHERE verification_code = ? OR certificate_number = ?`,
+      [clean, clean]
+    );
+    if (!cert) return { valid: false, certificate: null };
+    return {
+      valid: true,
+      certificate: {
+        certificate_number: cert.certificate_number,
+        type: cert.type,
+        issued_to: cert.issued_to,
+        issued_date: cert.issued_date,
+        status: cert.status,
+        reprint_count: cert.reprint_count || 0,
+      },
+    };
+  },
+  /** Count reprints so printed copies can be watermarked DUPLICATE. */
+  markReprint: (id: number) => {
+    run("UPDATE certificates SET reprint_count = COALESCE(reprint_count, 0) + 1, updated_at = datetime('now') WHERE id = ?", [id]);
+    return one<any>("SELECT * FROM certificates WHERE id = ?", [id]);
   },
   remove: (id: number) => run("DELETE FROM certificates WHERE id = ?", [id]),
 };
@@ -1144,13 +1361,53 @@ export const audit = {
   },
   log: (userId: number, username: string, action: string, module: string, entityId: number, description: string, metadata: string = "") => {
     try {
-      run(
-        "INSERT INTO audit_log (user_id, username, action, module, entity_id, description, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))",
-        [userId, username, action, module, entityId, description, metadata]
-      );
+      const db = getDB();
+      // Tamper-evident chain: every new event stores the hash of the previous
+      // event. The append-only triggers (V010) block UPDATE/DELETE on this
+      // table, so once written, a row cannot be altered without breaking the
+      // chain for every later event.
+      const prev = db.prepare("SELECT entry_hash FROM audit_log ORDER BY id DESC LIMIT 1").get() as { entry_hash: string | null } | undefined;
+      const prevHash = prev?.entry_hash || null;
+      const entryHash = computeEntryHash(prevHash, {
+        userId, username, action, module, entityId, description, metadata,
+      });
+      db.prepare(
+        `INSERT INTO audit_log (user_id, username, action, module, entity_id, description, metadata, prev_hash, entry_hash, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+      ).run(userId, username, action, module, entityId, description, metadata, prevHash, entryHash);
+      // Update the anchor so verification can also detect truncation of the tail.
+      const anchor = db.prepare("SELECT event_count FROM audit_chain WHERE id = 1").get() as { event_count: number } | undefined;
+      db.prepare("INSERT OR REPLACE INTO audit_chain (id, last_hash, event_count, updated_at) VALUES (1, ?, ?, datetime('now'))")
+        .run(entryHash, (anchor?.event_count ?? 0) + 1);
     } catch (e) {
       console.error("[audit] Failed to log:", e);
     }
+  },
+  /**
+   * Walk the whole audit log and verify the hash chain. Returns:
+   *   { intact, verified, legacyRows, brokenAtId, anchor }
+   */
+  verify: () => {
+    const rows = all<any>(
+      `SELECT id, prev_hash, entry_hash, user_id, username, action, module, entity_id, description, metadata, created_at
+       FROM audit_log ORDER BY id ASC`
+    );
+    const result = verifyAuditChain(rows);
+    const anchor = one<any>("SELECT last_hash, event_count, updated_at FROM audit_chain WHERE id = 1") || null;
+    // Cross-check the tail: the newest entry_hash must match the anchor.
+    const newest = rows.length ? rows[rows.length - 1] : null;
+    const tailMatches = !anchor?.last_hash
+      ? newest?.entry_hash == null
+      : newest?.entry_hash === anchor.last_hash;
+    return {
+      intact: result.intact && !!tailMatches,
+      verified: result.verified,
+      legacyRows: result.legacyRows,
+      brokenAtId: result.brokenAtId,
+      eventCount: anchor?.event_count ?? rows.length,
+      anchorMatches: tailMatches,
+      verifiedAt: new Date().toISOString(),
+    };
   },
 };
 
@@ -1200,8 +1457,8 @@ export const dashboard = {
     const row = one<any>("SELECT * FROM v_dashboard_summary");
     return row ?? {};
   },
-  incomeThisMonth: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM transactions WHERE type='Income' AND strftime('%Y-%m', txn_date) = strftime('%Y-%m','now')"),
-  expenseThisMonth: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM transactions WHERE type='Expense' AND strftime('%Y-%m', txn_date) = strftime('%Y-%m','now')"),
+  incomeThisMonth: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM transactions WHERE type='Income' AND (status IS NULL OR status != 'Void') AND strftime('%Y-%m', txn_date) = ?", [istMonth()]),
+  expenseThisMonth: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM transactions WHERE type='Expense' AND (status IS NULL OR status != 'Void') AND strftime('%Y-%m', txn_date) = ?", [istMonth()]),
   // Fund balance now uses the SAME unified ledger as the Accounting page
   // (manual transactions + donations + paid subscriptions + welfare
   // disbursements + paid salaries). Previously this summed the transactions
@@ -1211,25 +1468,25 @@ export const dashboard = {
     // Recursive month series so the chart shows a continuous X axis with
     // zero-filled months instead of only months that happen to have rows.
     `WITH RECURSIVE months(m) AS (
-       SELECT strftime('%Y-%m', date('now', ?))
+       SELECT strftime('%Y-%m', date(?, ?))
        UNION ALL
-       SELECT strftime('%Y-%m', date(m || '-01', '+1 month')) FROM months WHERE m < strftime('%Y-%m','now')
+       SELECT strftime('%Y-%m', date(m || '-01', '+1 month')) FROM months WHERE m < ?
      )
      SELECT m AS month,
        COALESCE((SELECT SUM(amount) FROM subscription_payments WHERE status='Active' AND amount > 0 AND strftime('%Y-%m', payment_date) = m), 0) AS amount
      FROM months ORDER BY m`,
-    [`-${months - 1} months`]
+    [todayIST(), `-${months - 1} months`, istMonth()]
   ),
   monthlyDonations: (months: number = 6) => all<any>(
     `WITH RECURSIVE months(m) AS (
-       SELECT strftime('%Y-%m', date('now', ?))
+       SELECT strftime('%Y-%m', date(?, ?))
        UNION ALL
-       SELECT strftime('%Y-%m', date(m || '-01', '+1 month')) FROM months WHERE m < strftime('%Y-%m','now')
+       SELECT strftime('%Y-%m', date(m || '-01', '+1 month')) FROM months WHERE m < ?
      )
      SELECT m AS month,
        COALESCE((SELECT SUM(amount) FROM donations WHERE strftime('%Y-%m', donation_date) = m), 0) AS amount
      FROM months ORDER BY m`,
-    [`-${months - 1} months`]
+    [todayIST(), `-${months - 1} months`, istMonth()]
   ),
   // Income vs Expense chart — uses the SAME unified ledger as the Accounting
   // page (manual transactions + donations + paid subscriptions + welfare
@@ -1238,21 +1495,21 @@ export const dashboard = {
   // donation / subscription / welfare / salary entry existed.
   incomeVsExpense: (months: number = 6) => all<any>(
     `WITH RECURSIVE months(m) AS (
-       SELECT strftime('%Y-%m', date('now', ?))
+       SELECT strftime('%Y-%m', date(?, ?))
        UNION ALL
-       SELECT strftime('%Y-%m', date(m || '-01', '+1 month')) FROM months WHERE m < strftime('%Y-%m','now')
+       SELECT strftime('%Y-%m', date(m || '-01', '+1 month')) FROM months WHERE m < ?
      )
      SELECT m AS month,
-       COALESCE((SELECT SUM(amount) FROM transactions WHERE type='Income' AND strftime('%Y-%m', txn_date) = m), 0)
+       COALESCE((SELECT SUM(amount) FROM transactions WHERE type='Income' AND (status IS NULL OR status != 'Void') AND strftime('%Y-%m', txn_date) = m), 0)
          + COALESCE((SELECT SUM(amount) FROM donations WHERE strftime('%Y-%m', donation_date) = m), 0)
          + COALESCE((SELECT SUM(amount) FROM subscription_payments WHERE status='Active' AND amount > 0 AND strftime('%Y-%m', COALESCE(payment_date, period_start)) = m), 0)
        AS income,
-       COALESCE((SELECT SUM(amount) FROM transactions WHERE type='Expense' AND strftime('%Y-%m', txn_date) = m), 0)
+       COALESCE((SELECT SUM(amount) FROM transactions WHERE type='Expense' AND (status IS NULL OR status != 'Void') AND strftime('%Y-%m', txn_date) = m), 0)
          + COALESCE((SELECT SUM(amount_approved) FROM welfare_requests WHERE status='Disbursed' AND strftime('%Y-%m', COALESCE(disbursed_date, created_at)) = m), 0)
          + COALESCE((SELECT SUM(amount) FROM staff_payments WHERE status='Paid' AND strftime('%Y-%m', payment_date) = m), 0)
        AS expense
      FROM months ORDER BY m`,
-    [`-${months - 1} months`]
+    [todayIST(), `-${months - 1} months`, istMonth()]
   ),
   recentActivity: (limit: number = 10) => all<any>(
     `SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ?`, [limit]
@@ -1261,11 +1518,13 @@ export const dashboard = {
   // Real data for the "Today at a Glance" card (no more hardcoded values).
   todayAtGlance: () => {
     const receiptsToday = scalar<number>(
-      `SELECT (SELECT COUNT(*) FROM subscription_payments WHERE status='Active' AND amount > 0 AND date(payment_date) = date('now'))
-       + (SELECT COUNT(*) FROM donations WHERE date(donation_date) = date('now')) AS v`
+      `SELECT (SELECT COUNT(*) FROM subscription_payments WHERE status='Active' AND amount > 0 AND date(payment_date) = ?)
+       + (SELECT COUNT(*) FROM donations WHERE date(donation_date) = ?) AS v`,
+      [todayIST(), todayIST()]
     ) || 0;
     const donationsToday = scalar<number>(
-      `SELECT COALESCE(SUM(amount),0) FROM donations WHERE date(donation_date) = date('now')`
+      `SELECT COALESCE(SUM(amount),0) FROM donations WHERE date(donation_date) = ?`,
+      [todayIST()]
     ) || 0;
     const welfarePending = scalar<number>(
       `SELECT COUNT(*) FROM welfare_requests WHERE status = 'Pending'`
@@ -1282,7 +1541,7 @@ export const dashboard = {
       const endingSoon = scalar<number>(
         `SELECT COUNT(*) AS v FROM committee_members
          WHERE archive_state = 0 AND status = 'Active' AND term_end IS NOT NULL
-           AND term_end >= date('now') AND term_end <= date('now', '+30 days')`, []
+           AND term_end >= ? AND term_end <= ?`, [todayIST(), istPlusDays(30)]
       );
       if (endingSoon > 0) alerts.push({ type: "committee_ending", count: endingSoon, route: "/committee" });
 
@@ -1297,6 +1556,15 @@ export const dashboard = {
         `SELECT COUNT(*) AS v FROM welfare_requests WHERE status = 'Pending'`, []
       );
       if (pendingWelfare > 0) alerts.push({ type: "welfare_pending", count: pendingWelfare, route: "/welfare" });
+
+      // Receipt sequence gaps — deletion is blocked in-app, so gaps can only
+      // mean manual DB tampering; surface it right on the dashboard.
+      try {
+        const seq = accounting.receiptSequence();
+        if (seq.missing.length > 0) {
+          alerts.push({ type: "receipt_gaps", count: seq.missing.length, missing: seq.missing, route: "/accounting" });
+        }
+      } catch { /* non-fatal */ }
     } catch (e) { console.warn("[alerts] Failed:", e); }
     return alerts;
   },
@@ -1769,8 +2037,8 @@ export const committee = {
     const endingSoon = scalar<number>(
       `SELECT COUNT(*) AS v FROM committee_members
        WHERE archive_state = 0 AND status = 'Active' AND term_end IS NOT NULL
-         AND term_end >= date('now') AND term_end <= date('now', '+30 days')`,
-      []
+         AND term_end >= ? AND term_end <= ?`,
+      [todayIST(), istPlusDays(30)]
     );
     const totalCount = scalar<number>("SELECT COUNT(*) AS v FROM committee_members", []);
     return { activeCount, endingSoon, totalCount };

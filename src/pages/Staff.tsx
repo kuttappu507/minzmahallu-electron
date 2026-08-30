@@ -6,7 +6,7 @@ import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/compone
 import { SecureActionDialog } from "@/components/SecureActionDialog";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
-import { statusVariant, formatDate, formatCurrency } from "@/lib/utils";
+import { statusVariant, formatDate, formatCurrency, todayIST } from "@/lib/utils";
 
 interface StaffRow {
   id: number;
@@ -87,7 +87,7 @@ export function Staff() {
   const [payOpen, setPayOpen] = useState(false);
   const [payForm, setPayForm] = useState<any>({
     staffId: 0, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(),
-    amount: 0, paymentDate: new Date().toISOString().slice(0, 10), paymentMethod: "Cash",
+    amount: 0, paymentDate: todayIST(), paymentMethod: "Cash",
     transactionRef: "", notes: ""
   });
 
@@ -198,7 +198,7 @@ export function Staff() {
       periodMonth: new Date().getMonth() + 1,
       periodYear: new Date().getFullYear(),
       amount: target.salary || 0,
-      paymentDate: new Date().toISOString().slice(0, 10),
+      paymentDate: todayIST(),
       paymentMethod: "Cash",
       transactionRef: "",
       notes: ""
@@ -424,7 +424,7 @@ export function Staff() {
             : ""
         }
         dateLabel={statusAction === "Expelled" ? tx("Effective date of expulsion", "പുറത്താക്കലിന്റെ തീയതി") : tx("Resignation effective date", "രാജിയുടെ തീയതി")}
-        dateDefault={new Date().toISOString().slice(0, 10)}
+        dateDefault={todayIST()}
         confirmLabel={statusAction === "Expelled" ? tx("Expel", "പുറത്താക്കുക") : tx("Record resignation", "രാജി രേഖപ്പെടുത്തുക")}
       />
 

@@ -8,12 +8,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { ToastContainer } from "@/components/ToastContainer";
 import { Splash } from "@/components/Splash";
 import "@fontsource-variable/anek-malayalam/wght.css";
-import "@/styles/visual-enhancement.css";
-import "@/styles/layout-stability.css";
-import "@/styles/global-search.css";
-import "@/styles/topbar-fixes.css";
-import "@/styles/branding.css";
-import "@/styles/visual-elevations.css";
+import "@/styles/globals.css";
 import { LoginPage } from "@/pages/LoginPage";
 
 // Lazy-load all page components so the initial bundle is smaller.

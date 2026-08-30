@@ -20,6 +20,7 @@
     "package:linux": "npm run build && electron-builder --linux AppImage deb --publish never",
     "lint": "eslint .",
     "audit:i18n": "node scripts/i18n-audit.mjs",
+    "verify:demo": "node --no-warnings --experimental-loader=./scripts/electron-loader.mjs scripts/verify-demo-rebuild.mjs && node --no-warnings scripts/verify-demo-upgrade.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

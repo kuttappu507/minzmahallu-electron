@@ -11,32 +11,29 @@ function sha256(file: string) {
   return hash.digest("hex");
 }
 
-export function createBackup(filePath: string): BackupMeta {
+export async function createBackup(filePath: string): Promise<BackupMeta> {
   const temp = `${filePath}.tmp-db`;
   try {
-    // Use .backup() which returns a promise in newer better-sqlite3, or
-    // works synchronously in older versions. Wrap in try to handle both.
+    // better-sqlite3 v11's db.backup() is ASYNC — it must be awaited before the
+    // resulting file is read/hashed, otherwise sha256() reads a file that does
+    // not exist yet and every backup throws ENOENT.
     const db = getDB();
     try {
-      // Synchronous backup (better-sqlite3 v9+)
-      db.backup(temp);
+      await db.backup(temp);
     } catch (syncErr: any) {
-      // If synchronous backup fails (e.g. file in use, WAL mode), try
-      // copying the DB file directly as a fallback.
-      console.warn("[backup] Sync backup failed, trying file copy fallback:", syncErr.message);
+      // Fallback for older better-sqlite3 versions or locked DBs: checkpoint the
+      // WAL into the main file, then copy it (with WAL/SHM) to the target.
+      console.warn("[backup] Async backup failed, trying file copy fallback:", syncErr.message);
       const dbPath = path.join(path.dirname(temp), "mms.db");
-      if (require("fs").existsSync(dbPath)) {
-        // Copy main DB file
+      if (fs.existsSync(dbPath)) {
+        try { db.pragma("wal_checkpoint(TRUNCATE)"); } catch {}
         fs.copyFileSync(dbPath, temp);
-        // Copy WAL and SHM if they exist (to get a consistent snapshot)
         for (const suffix of ["-wal", "-shm"]) {
           const src = dbPath + suffix;
           if (fs.existsSync(src)) {
             try { fs.copyFileSync(src, temp + suffix); } catch {}
           }
         }
-        // Checkpoint to merge WAL into the main DB before hashing
-        try { db.pragma("wal_checkpoint(TRUNCATE)"); } catch {}
       } else {
         throw syncErr;
       }

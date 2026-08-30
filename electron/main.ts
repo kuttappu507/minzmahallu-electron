@@ -7,14 +7,18 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { login, changePassword, needsInitialSetup, createInitialAdministrator } from "./services/auth.service.js";
 import * as data from "./services/data.service.js";
+import { todayIST } from "./services/data.service.js";
 import { closeDB, getDB } from "./db/connection.js";
 import { createBackup, verifyBackup, extractVerifiedBackup, listBackups } from "./services/backup.service.js";
 import { buildTokenSheetHtml } from "./print/token.template.js";
 import { buildCollectionSheetHtml } from "./print/collection-sheet.template.js";
 import { buildCertificateHtml } from "./print/certificate.template.js";
 import { buildAccountStatementHtml } from "./print/account-statement.template.js";
+import { buildAuditPackHtml } from "./print/audit-pack.template.js";
+import { buildRegisterBookHtml } from "./print/register-book.template.js";
 import { getAnekMalayalamCss } from "./print/utils.js";
 import { registerSecurityIpc } from "./security-ipc.js";
+import XLSX from "xlsx";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let mainWindow: BrowserWindow | null = null;
@@ -179,7 +183,24 @@ app.whenReady().then(() => {
   });
   ipcMain.handle("certificates:generatePdf", async (_e, certId: number) => {
     if (!session.user) return { success: false, error: "Authentication required" };
-    try { const listResult = data.certificates.list({}); const cert = (listResult?.rows || []).find((c: any) => c.id === certId); if (!cert) return { success: false, error: "Certificate not found" }; const lang = await mainWindow!.webContents.executeJavaScript("document.documentElement.classList.contains('lang-ml') ? 'ml' : 'en'"); const html = buildCertificateHtml(cert, lang); const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Certificate PDF", defaultPath: `certificate-${cert.certificate_number || certId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] }); if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true }; const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer); return { success: true, path: saveResult.filePath }; } catch (err: any) { return { success: false, error: err.message }; } });
+    try {
+      const listResult = data.certificates.list({});
+      const cert = (listResult?.rows || []).find((c: any) => c.id === certId);
+      if (!cert) return { success: false, error: "Certificate not found" };
+      const lang = await mainWindow!.webContents.executeJavaScript("document.documentElement.classList.contains('lang-ml') ? 'ml' : 'en'");
+      // Anti-forgery: the NEXT print is a reprint, so it is watermarked
+      // DUPLICATE even before the count is persisted (the count only
+      // increments if the PDF is actually saved).
+      const expectedReprint = (cert.reprint_count || 0) + 1;
+      const html = buildCertificateHtml(cert, lang, expectedReprint);
+      const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Certificate PDF", defaultPath: `certificate-${cert.certificate_number || certId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] });
+      if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true };
+      const pdfBuffer = await renderHtmlToPdf(html);
+      fs.writeFileSync(saveResult.filePath, pdfBuffer);
+      try { data.certificates.markReprint(certId); } catch (e) { console.warn("[certificates] reprint count not updated:", e); }
+      return { success: true, path: saveResult.filePath, reprint: expectedReprint > 1 };
+    } catch (err: any) { return { success: false, error: err.message }; }
+  });
   // Returns the certificate HTML so the renderer can show a print preview in an iframe.
   ipcMain.handle("certificates:previewHtml", async (_e, certId: number) => {
     if (!session.user) return { success: false, error: "Authentication required" };
@@ -205,7 +226,7 @@ app.whenReady().then(() => {
       ]);
       const html = buildAccountStatementHtml(listRes.rows || [], summary, allFilter);
       const periodLabel = filter?.period || "all";
-      const defaultName = `account-statement-${periodLabel}-${new Date().toISOString().slice(0, 10)}.pdf`;
+      const defaultName = `account-statement-${periodLabel}-${todayIST()}.pdf`;
       const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Account Statement PDF", defaultPath: defaultName, filters: [{ name: "PDF Document", extensions: ["pdf"] }] });
       if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true };
       const pdfBuffer = await renderHtmlToPdf(html);
@@ -225,9 +246,6 @@ app.whenReady().then(() => {
       const rows = listRes.rows || [];
       const periodLabel = filter?.period || "all";
 
-      // Build the XLSX using SheetJS (xlsx package).
-      const XLSX = require("xlsx");
-
       // Sheet 1: Ledger entries
       const ledgerData = rows.map((r: any) => ({
         "Date": r.ledger_date || "",
@@ -235,8 +253,13 @@ app.whenReady().then(() => {
         "Type": r.type || "",
         "Description": r.description || "",
         "Receipt No": r.receipt_number || "",
+        "Voucher No": r.voucher_no || "",
+        "Bill No": r.bill_no || "",
+        "Payee": r.payee || "",
         "Payment Method": r.payment_method || "",
         "Transaction Ref": r.transaction_ref || "",
+        "Status": r.status === "Void" ? "VOID" : (r.status || "Posted"),
+        "Void Reason": r.void_reason || "",
         "Amount": Number(r.amount || 0),
       }));
 
@@ -257,7 +280,8 @@ app.whenReady().then(() => {
       ];
 
       const wb = XLSX.utils.book_new();
-      const ws1 = XLSX.utils.json_to_sheet(ledgerData, { header: ["Date", "Source", "Type", "Description", "Receipt No", "Payment Method", "Transaction Ref", "Amount"] });
+      const LEDGER_HEADERS = ["Date", "Source", "Type", "Description", "Receipt No", "Voucher No", "Bill No", "Payee", "Payment Method", "Transaction Ref", "Status", "Void Reason", "Amount"];
+      const ws1 = XLSX.utils.json_to_sheet(ledgerData, { header: LEDGER_HEADERS });
       // Column widths sized from the actual content so no value is truncated.
       const fitCols = (data: any[], header: string[]) =>
         header.map((k) => {
@@ -268,14 +292,14 @@ app.whenReady().then(() => {
           }
           return { wch: Math.min(60, Math.max(11, Math.ceil(max * 1.15) + 3)) };
         });
-      ws1["!cols"] = fitCols(ledgerData, ["Date", "Source", "Type", "Description", "Receipt No", "Payment Method", "Transaction Ref", "Amount"]);
+      ws1["!cols"] = fitCols(ledgerData, LEDGER_HEADERS);
       XLSX.utils.book_append_sheet(wb, ws1, "Ledger");
 
       const ws2 = XLSX.utils.json_to_sheet(summaryData, { header: ["Metric", "Value"] });
       ws2["!cols"] = fitCols(summaryData, ["Metric", "Value"]);
       XLSX.utils.book_append_sheet(wb, ws2, "Summary");
 
-      const defaultName = `account-statement-${periodLabel}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const defaultName = `account-statement-${periodLabel}-${todayIST()}.xlsx`;
       const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Account Statement Excel", defaultPath: defaultName, filters: [{ name: "Excel Spreadsheet", extensions: ["xlsx"] }] });
       if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true };
 
@@ -284,6 +308,46 @@ app.whenReady().then(() => {
       return { success: true, path: saveResult.filePath, count: rows.length };
     } catch (err: any) { return { success: false, error: err.message }; }
   });
+
+  // ===== Annual audit pack (Waqf Board / society auditor format) =====
+  ipcMain.handle("accounting:exportAuditPack", async (_e, fyYear: number) => {
+    if (!session.user) return { success: false, error: "Authentication required" };
+    try {
+      const pack = data.accounting.auditPack(fyYear);
+      const lang = await mainWindow!.webContents.executeJavaScript("document.documentElement.classList.contains('lang-ml') ? 'ml' : 'en'");
+      const html = buildAuditPackHtml(pack, lang);
+      const defaultName = `audit-pack-${fyYear}-${(fyYear + 1).toString().slice(2)}.pdf`;
+      const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Annual Audit Pack", defaultPath: defaultName, filters: [{ name: "PDF Document", extensions: ["pdf"] }] });
+      if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true };
+      const pdfBuffer = await renderHtmlToPdf(html);
+      fs.writeFileSync(saveResult.filePath, pdfBuffer);
+      return { success: true, path: saveResult.filePath, receipts: pack.totalReceipts, payments: pack.totalPayments, count: pack.transactions.length };
+    } catch (err: any) { return { success: false, error: err.message }; }
+  });
+
+  // ===== Register-book printing (marriage / death) =====
+  const printRegisterPdf = async (type: "marriage" | "death", _e: Electron.IpcMainInvokeEvent) => {
+    if (!session.user) return { success: false, error: "Authentication required" };
+    try {
+      const settings = data.settings.load();
+      const lang = await mainWindow!.webContents.executeJavaScript("document.documentElement.classList.contains('lang-ml') ? 'ml' : 'en'");
+      const regData = {
+        type,
+        mahalluName: settings?.mahallu_name || "Minz Mahallu",
+        generatedAt: new Date().toISOString(),
+        rows: type === "marriage" ? data.marriages.registerRows() : data.deaths.registerRows(),
+      };
+      const html = buildRegisterBookHtml(regData, lang);
+      const defaultName = type === "marriage" ? "marriage-register.pdf" : "death-register.pdf";
+      const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Register PDF", defaultPath: defaultName, filters: [{ name: "PDF Document", extensions: ["pdf"] }] });
+      if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true };
+      const pdfBuffer = await renderHtmlToPdf(html);
+      fs.writeFileSync(saveResult.filePath, pdfBuffer);
+      return { success: true, path: saveResult.filePath, count: regData.rows.length };
+    } catch (err: any) { return { success: false, error: err.message }; }
+  };
+  ipcMain.handle("marriages:registerPdf", (e) => printRegisterPdf("marriage", e));
+  ipcMain.handle("deaths:registerPdf", (e) => printRegisterPdf("death", e));
 
   ipcMain.handle("users:list", () => data.users.list());
   ipcMain.handle("users:create", (_e, d) => data.users.create(d, session.user?.role ?? ""));
@@ -333,7 +397,7 @@ app.whenReady().then(() => {
         filters: [{ name: "MMS Verified Backup", extensions: ["mmbak"] }],
       });
       if (result.canceled || !result.filePath) return { success: false, error: "cancelled" };
-      const meta = createBackup(result.filePath);
+      const meta = await createBackup(result.filePath);
       return { success: true, path: result.filePath, size: meta.size, sha256: meta.sha256 };
     } catch (err: any) {
       return { success: false, error: err.message };
@@ -368,7 +432,7 @@ app.whenReady().then(() => {
       // 2. Make a safety pre-restore backup of the current live DB.
       const userData = app.getPath("userData");
       const safetyPath = path.join(userData, `backup-pre-restore-${new Date().toISOString().slice(0,19).replace(/[:T]/g,"-")}.mmbak`);
-      try { createBackup(safetyPath); } catch (e) { console.warn("[backup] Pre-restore safety backup failed:", e); }
+      try { await createBackup(safetyPath); } catch (e) { console.warn("[backup] Pre-restore safety backup failed:", e); }
       // 3. Close the live DB connection so the file can be safely replaced.
       try { closeDB(); } catch {}
       // 4. Extract the verified backup into the live DB path.
@@ -451,7 +515,7 @@ app.whenReady().then(() => {
       }
       const name = `backup-auto-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.mmbak`;
       const filePath = path.join(userData, name);
-      createBackup(filePath);
+      await createBackup(filePath);
       console.log(`[auto-backup] Created: ${name}`);
     } catch (e) {
       console.warn("[auto-backup] Failed:", e);

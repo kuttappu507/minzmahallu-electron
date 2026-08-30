@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS certificates_v012 (
     issued_by           INTEGER,
     qr_payload          TEXT,
     notes               TEXT,
+    status              TEXT NOT NULL DEFAULT 'Issued',
+    verification_code   TEXT,
+    reprint_count       INTEGER NOT NULL DEFAULT 0,
     created_at          TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE SET NULL,
     FOREIGN KEY (family_id) REFERENCES families(id) ON DELETE SET NULL,
@@ -23,8 +26,9 @@ CREATE TABLE IF NOT EXISTS certificates_v012 (
 );
 
 INSERT INTO certificates_v012
-(id, certificate_number, type, member_id, family_id, marriage_id, death_id, issued_to, issued_date, issued_by, qr_payload, notes, created_at)
-SELECT id, certificate_number, type, member_id, family_id, marriage_id, death_id, issued_to, issued_date, issued_by, qr_payload, notes, created_at
+(id, certificate_number, type, member_id, family_id, marriage_id, death_id, issued_to, issued_date, issued_by, qr_payload, notes, status, verification_code, reprint_count, created_at)
+SELECT id, certificate_number, type, member_id, family_id, marriage_id, death_id, issued_to, issued_date, issued_by, qr_payload, notes,
+       COALESCE(status, 'Issued'), verification_code, COALESCE(reprint_count, 0), created_at
 FROM certificates;
 
 DROP TABLE certificates;

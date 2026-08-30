@@ -2,6 +2,8 @@ import { BrowserWindow, ipcMain } from "electron";
 import * as data from "./services/data.service.js";
 import { changePassword, createInitialAdministrator, needsInitialSetup, verifyCurrentActorPassword } from "./services/auth.service.js";
 import { security, type Actor } from "./services/security.service.js";
+import { getDB } from "./db/connection.js";
+import { todayIST } from "./services/data.service.js";
 
 // Install the sender guard before main.ts registers any handlers. This makes
 // the protection apply to read, write, export and utility IPC channels alike.
@@ -122,7 +124,16 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("donations:remove", () => { admin(); throw new Error("Financial records cannot be permanently deleted. Use a correction/reversal instead."); });
   register("accounting:create", (d: any) => { const a = actor(); return data.accounting.create({ ...d, createdBy: a.id }); });
   register("accounting:update", (id: number, d: any) => { actor(); return data.accounting.update(id, d); });
-  register("accounting:remove", () => { admin(); throw new Error("Financial records cannot be permanently deleted. Use a correction/reversal instead."); });
+  register("accounting:remove", () => { admin(); throw new Error("Financial records cannot be deleted. VOID the entry instead — the record stays for audit."); });
+  // VOID instead of delete: keeps the receipt number and the entry, adds
+  // who/when/why. Administrator-only because it reverses a financial record.
+  register("accounting:void", (id: number, reason: string) => {
+    const a = admin();
+    const r = data.accounting.void(id, reason, a.id);
+    try { data.audit.log(a.id, a.username, "VOID", "accounting", id, `Entry voided: ${reason} (receipt ${r.receiptNumber || ""})`, ""); } catch {}
+    return r;
+  });
+  register("accounting:receiptSequence", () => { actor(); return data.accounting.receiptSequence(); });
   register("marriages:create", (d: any) => { const a = actor(); return data.marriages.create({ ...d, createdBy: a.id }); });
   register("marriages:update", (id: number, d: any) => { const a = actor(); return data.marriages.update(id, d); });
   register("deaths:create", (d: any) => { const a = actor(); return data.deaths.create({ ...d, createdBy: a.id }); });
@@ -171,6 +182,7 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("users:resetPassword", (id: number, p: string) => { const a = admin(); validatePassword(p); changePassword(id, p); try { data.audit.log(a.id, a.username, "PASSWORD_RESET", "users", id, "Administrator reset user password", ""); } catch {} return { success: true }; });
   register("users:remove", (id: number) => { admin(); return data.users.remove(id); });
   register("audit:list", (filter: any) => { actor(); return data.audit.list(filter || {}); });
+  register("audit:verify", () => { actor(); return data.audit.verify(); });
   register("settings:load", () => { actor(); return data.settings.load(); });
   register("settings:save", (d: any) => { const a = admin(); return data.settings.save({ ...d, updatedBy: a.id }); });
   // Read-side IPC guards — every handler below requires an authenticated actor.
@@ -182,6 +194,7 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("members:list", (filter: any) => { actor(); return data.members.list(filter || {}); });
   register("members:get", (id: number) => { actor(); return data.members.get(id); });
   register("members:relationships", () => { actor(); return data.members.relationships(); });
+  register("members:relations", (id: number) => { actor(); return data.members.relations(id); });
   register("subscriptions:list", (filter: any) => { actor(); return data.subscriptions.list(filter || {}); });
   register("subscriptions:get", (id: number) => { actor(); return data.subscriptions.get(id); });
   register("subscriptions:markOverdue", () => { actor(); return data.subscriptions.markOverdue(); });
@@ -215,6 +228,7 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("deaths:list", (filter: any) => { actor(); return data.deaths.list(filter || {}); });
   register("deaths:get", (id: number) => { actor(); return data.deaths.get(id); });
   register("certificates:list", (filter: any) => { actor(); return data.certificates.list(filter || {}); });
+  register("certificates:verify", (code: string) => { actor(); return data.certificates.verify(code); });
   register("dashboard:summary", () => { actor(); return data.dashboard.summary(); });
   register("dashboard:incomeThisMonth", () => { actor(); return data.dashboard.incomeThisMonth(); });
   register("dashboard:expenseThisMonth", () => { actor(); return data.dashboard.expenseThisMonth(); });
@@ -235,14 +249,28 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("tokens:collect", (tokenId: number) => data.tokens.collect(tokenId, actor().id));
   register("tokens:cancel", (tokenId: number, reason: string) => { actor(); return data.tokens.cancel(tokenId, reason); });
   register("tokens:replace", (tokenId: number, reason: string) => data.tokens.replace(tokenId, reason, actor().id));
-  // Delete a single token (only allowed after the event date has passed).
+  // Delete a single token — Administrator only, and only AFTER the event date
+  // has passed (mirrors the UI gate server-side so a tampered renderer can't
+  // bypass it). The audit row is written in the SAME transaction as the
+  // deletion so a missing audit can never be silently ignored (V009 intent).
   register("tokens:remove", (tokenId: number, reason: string) => {
     const a = admin();
-    const db = (globalThis as any).__mmsGetActor ? require("../db/connection.js").getDB() : null;
-    if (db) {
-      db.prepare("DELETE FROM token_assignments WHERE id = ?").run(tokenId);
+    const db = getDB();
+    const row = db.prepare(
+      `SELECT ta.id, e.event_date FROM token_assignments ta
+         LEFT JOIN token_events e ON e.id = ta.event_id
+       WHERE ta.id = ?`
+    ).get(tokenId) as { id: number; event_date: string | null } | undefined;
+    if (!row) throw new Error("Token not found");
+    const today = todayIST();
+    if (!row.event_date || row.event_date >= today) {
+      throw new Error("Tokens can only be deleted after the event date has passed");
     }
-    try { data.audit.log(a.id, a.username, "DELETE", "tokens", tokenId, `Token deleted: ${reason}`, ""); } catch {}
+    if (!reason?.trim()) throw new Error("A deletion reason is required");
+    db.transaction(() => {
+      db.prepare("DELETE FROM token_assignments WHERE id = ?").run(tokenId);
+      data.audit.log(a.id, a.username, "DELETE", "tokens", tokenId, `Token deleted: ${reason.trim()}`, "");
+    })();
     return { success: true };
   });
   register("tokens:removeEvent", () => { admin(); throw new Error("Token events cannot be permanently deleted after creation."); });

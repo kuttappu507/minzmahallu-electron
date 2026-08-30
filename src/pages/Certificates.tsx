@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
-  FileText, Home, Heart, Skull, Search, Loader2, FileCheck2, Printer, Eye,
+  FileText, Home, Heart, Skull, Search, Loader2, FileCheck2, Printer, Eye, Copy, ShieldCheck,
 } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
@@ -17,6 +17,8 @@ interface Certificate {
   issued_date: string;
   issued_by: string;
   reference_id: number;
+  verification_code?: string;
+  reprint_count?: number;
 }
 
 type IssueType = "membership" | "residence" | "marriage" | "marriage_noc" | "death";
@@ -37,7 +39,7 @@ interface IssueDialogConfig {
 }
 
 export function Certificates() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [issueType, setIssueType] = useState<IssueType | null>(null);
@@ -51,10 +53,30 @@ export function Certificates() {
   const [processing, setProcessing] = useState(false);
   const [pdfLoadingId, setPdfLoadingId] = useState<number | null>(null);
 
+  // Anti-forgery: verification-code lookup.
+  const [verifyCode, setVerifyCode] = useState("");
+  const [verifyResult, setVerifyResult] = useState<any>(null);
+  const [verifyBusy, setVerifyBusy] = useState(false);
+
   const { rows, total, totalPages, loading, refetch } = useList(
     (filter) => window.mms.certificates.list(filter),
     { pageSize: 20 }
   );
+
+  const runVerify = async () => {
+    if (!verifyCode.trim()) { toast.error(lang === "ml" ? "പരിശോധനാ കോഡ് നൽകുക" : "Enter a verification code"); return; }
+    setVerifyBusy(true);
+    setVerifyResult(null);
+    try {
+      const res = await window.mms.certificates.verify(verifyCode.trim());
+      setVerifyResult(res);
+      if (!res?.valid) toast.warning(lang === "ml" ? "കണ്ടെത്തിയില്ല — ഈ കോഡുമായി പൊരുത്തപ്പെടുന്ന സർട്ടിഫിക്കറ്റ് ഇല്ല" : "Not found — this code does not match any issued certificate");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setVerifyBusy(false);
+    }
+  };
 
   const ISSUE_DIALOG_INFO: Record<IssueType, IssueDialogConfig> = {
     membership: {
@@ -266,6 +288,31 @@ export function Certificates() {
       },
     },
     { header: t("cert_issued_to"), accessor: (r) => r.issued_to || "—" },
+    {
+      header: lang === "ml" ? "പരിശോധനാ കോഡ്" : "Verify code",
+      accessor: (r) => (
+        <span className="inline-flex items-center gap-1">
+          {r.verification_code ? (
+            <button
+              className="code-text-sm text-primary hover:underline inline-flex items-center gap-1"
+              title={lang === "ml" ? "കോഡ് പകർത്താൻ ക്ലിക്ക് ചെയ്യുക" : "Click to copy"}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard?.writeText(r.verification_code || "").then(() => {
+                  toast.success(lang === "ml" ? "കോഡ് പകർത്തി" : "Code copied");
+                }).catch(() => {});
+              }}
+            >
+              {r.verification_code}
+              <Copy size={11} className="text-muted" />
+            </button>
+          ) : (
+            <span className="text-muted">—</span>
+          )}
+          {(r.reprint_count ?? 0) > 0 && <span title={lang === "ml" ? "പുനഃമുദ്രണങ്ങൾ" : "Reprints"}><Badge variant="warning">{lang === "ml" ? `പുനഃമുദ്രണം ${r.reprint_count}` : `reprint ${r.reprint_count}`}</Badge></span>}
+        </span>
+      ),
+    },
     { header: t("cert_issued_date"), accessor: (r) => formatDate(r.issued_date) },
     { header: t("cert_issued_by"), accessor: (r) => r.issued_by || "—" },
     {
@@ -295,7 +342,7 @@ export function Certificates() {
                 }
               } catch (e: any) { toast.error(e.message); }
             }}
-            title="Preview"
+            title={lang === "ml" ? "പ്രിവ്യൂ" : "Preview"}
           >
             <Eye className="h-4 w-4" />
           </button>
@@ -340,6 +387,32 @@ export function Certificates() {
             </button>
           );
         })}
+      </div>
+
+      {/* Verify a certificate (anti-forgery) */}
+      <div className="flex items-center gap-2 flex-wrap mb-3 rounded-lg border border-border px-3 py-2.5 bg-surface-hover/30">
+        <ShieldCheck size={16} className="text-primary flex-shrink-0" />
+        <span className="text-sm font-medium">{lang === "ml" ? "സർട്ടിഫിക്കറ്റ് പരിശോധന" : "Verify a certificate"}</span>
+        <Input
+          className="w-56"
+          value={verifyCode}
+          onChange={(e) => { setVerifyCode(e.target.value); setVerifyResult(null); }}
+          onKeyDown={(e) => e.key === "Enter" && runVerify()}
+          placeholder={lang === "ml" ? "പരിശോധനാ കോഡ് (ഉദാ. ABCD-2345-WXYZ)" : "Verification code (e.g. ABCD-2345-WXYZ)"}
+        />
+        <Button variant="secondary" onClick={runVerify} disabled={verifyBusy}>
+          {verifyBusy ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+          {lang === "ml" ? "പരിശോധിക്കുക" : "Verify"}
+        </Button>
+        {verifyResult && (
+          verifyResult.valid ? (
+            <span className="text-sm text-emerald-700 font-medium">
+              ✓ {verifyResult.certificate.type} · {verifyResult.certificate.certificate_number} · {lang === "ml" ? "നൽകിയത്" : "issued to"} {verifyResult.certificate.issued_to} · {formatDate(verifyResult.certificate.issued_date)} · {verifyResult.certificate.status}{verifyResult.certificate.reprint_count > 0 ? ` · ${lang === "ml" ? "പുനഃമുദ്രണം" : "reprint"} #${verifyResult.certificate.reprint_count}` : ""}
+            </span>
+          ) : (
+            <span className="text-sm text-rose-700 font-medium">✗ {lang === "ml" ? "ഈ കോഡുമായി പൊരുത്തപ്പെടുന്ന സർട്ടിഫിക്കറ്റ് ഇല്ല" : "No certificate matches this code"}</span>
+          )
+        )}
       </div>
 
       <DataTable
