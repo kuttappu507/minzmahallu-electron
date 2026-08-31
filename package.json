@@ -13,12 +13,12 @@
     "postinstall": "electron-builder install-app-deps",
     "rebuild:native": "electron-builder install-app-deps",
     "prepare:waha": "node scripts/prepare-waha.mjs",
-    "build": "npm run prepare:waha && tsc -b && vite build && tsc -p electron/tsconfig.json",
-    "package": "npm run build && electron-builder --publish never",
-    "package:win": "npm run build && electron-builder --win nsis portable --publish never",
-    "package:portable": "npm run build && electron-builder --win portable --publish never",
-    "package:mac": "npm run build && electron-builder --mac dmg zip --publish never",
-    "package:linux": "npm run build && electron-builder --linux AppImage deb --publish never",
+    "build": "tsc -b && vite build && tsc -p electron/tsconfig.json",
+    "package": "npm run prepare:waha && npm run build && electron-builder --publish never",
+    "package:win": "npm run prepare:waha && npm run build && electron-builder --win nsis portable --publish never",
+    "package:portable": "npm run prepare:waha && npm run build && electron-builder --win portable --publish never",
+    "package:mac": "npm run prepare:waha && npm run build && electron-builder --mac dmg zip --publish never",
+    "package:linux": "npm run prepare:waha && npm run build && electron-builder --linux AppImage deb --publish never",
     "lint": "eslint .",
     "audit:i18n": "node scripts/i18n-audit.mjs",
     "test": "vitest run",
@@ -75,7 +75,9 @@
     "directories": { "output": "release" },
     "files": [
       "dist/**/*",
-      "dist-electron/**/*"
+      "dist-electron/**/*",
+      "resources/**/*",
+      "!resources/waha/**/*"
     ],
     "extraResources": [
       { "from": "resources", "to": "resources" }
