@@ -758,7 +758,7 @@
 
   /* ===== Dialog helpers ===== */
   .dlg-pad { padding: 2px 0; }
-  .modal .dlg-pad { padding: 18px 22px 24px; }
+  .modal .dlg-pad { padding: 26px 30px 34px; }
   .dlg-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
   .dlg-hero { display: flex; align-items: center; gap: 14px; padding: 12px 14px; margin-bottom: 14px; background: var(--sb); border: 1.5px solid var(--sl); border-radius: 14px; }
   .dlg-hero-ic { width: 48px; height: 48px; border-radius: 14px; flex: none; background: var(--sc); color: #fff; display: grid; place-items: center; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12); font: 500 18px Poppins; }
@@ -1177,34 +1177,60 @@ html.lang-ml .btn { line-height: 20px !important; }
 .tbl:has(.token-family-code) tbody td:last-child .t-em { display: none !important; }
 
 /* ============================================================================
-   Popups — framed centered dialogs (classic modal look)
+   Popups — styled like the main app window
    ----------------------------------------------------------------------------
-   Dialogs open as a centered floating window with rounded corners and a
-   pinned header; the body scrolls INSIDE the dialog (min-height:0 is the key
-   flex rule that lets the tall content area shrink and scroll instead of
-   pushing the dialog beyond the screen). Previews default to a wide ~720px
-   panel; forms keep their max-w-* caps (Tailwind utilities); quick
-   confirmations opt into the compact .modal-sm box.
+   A dialog opens as a full-window overlay that mirrors the main UI: a top
+   band exactly like the topbar (page title left, close right) and a content
+   body on the same gradient canvas as the pages. The body scrolls inside the
+   popup (min-height:0 is the key flex rule) so nothing ever pushes beyond the
+   screen. Quick confirmations opt into the compact .modal-sm box.
    ========================================================================== */
-.modal-root { background: rgba(13, 21, 33, 0.48); }
+.modal-root { background: rgba(13, 21, 33, 0.55); }
 .modal {
-  height: auto; max-height: 90vh;
-  border-radius: 16px; border: 1px solid var(--line);
-  box-shadow: var(--shl);
+  width: 100%; max-width: none; height: 100%; max-height: none;
+  border: 0; border-radius: 0; box-shadow: none;
+  background: var(--panel);
   display: flex; flex-direction: column;
-  transform: translateY(16px) scale(0.97);
+  transform: translateY(14px);
 }
 .modal-root.open .modal { transform: none; }
-.modal .m-b { flex: 1; min-height: 0; overflow-y: auto; }
-.modal .m-h { flex: none; background: color-mix(in srgb, var(--panel2) 60%, transparent); }
+
+/* Top band — mirrors .topbar */
+.modal .m-h {
+  flex: none; height: 60px;
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  position: relative; z-index: 2;
+}
+.modal .m-h b { font: 700 16.5px Poppins; color: var(--tx); letter-spacing: -0.01em; }
+.modal .m-h .ibtn { margin-left: auto; }
+.modal .m-h .ibtn:hover { background: var(--rose-bg); color: var(--c-rose); }
+
+/* Body — mirrors #content canvas; scrolls internally */
+.modal .m-b {
+  flex: 1; min-height: 0; overflow-y: auto;
+  padding: 24px 28px 34px;
+  background:
+    radial-gradient(720px 360px at 92% -8%, color-mix(in srgb, var(--c-sky) 6%, transparent), transparent 70%),
+    radial-gradient(640px 320px at -6% 8%, color-mix(in srgb, var(--c-em) 6%, transparent), transparent 70%),
+    var(--bg);
+  scrollbar-width: thin; scrollbar-color: var(--line2) transparent;
+}
 
 /* Compact box for quick confirmations / small forms */
 .modal.modal-sm {
   width: min(540px, 94%); max-width: min(540px, 94%);
   height: auto; max-height: 90%;
   border-radius: 16px; border: 1px solid var(--line);
+  box-shadow: var(--shl);
   transform: translateY(16px) scale(0.97);
   overflow-y: auto;
 }
-.modal.modal-sm .m-b { flex: none; }
+.modal.modal-sm .m-h {
+  height: auto; padding: 14px 18px;
+  border-radius: 16px 16px 0 0;
+}
+.modal.modal-sm .m-b { flex: none; padding: 18px 20px; background: var(--panel); }
 .modal.modal-sm .m-f { border-radius: 0 0 16px 16px; }
