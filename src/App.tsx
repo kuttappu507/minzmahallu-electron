@@ -16,8 +16,6 @@ import "@/styles/branding.css";
 import "@/styles/visual-elevations.css";
 import { LoginPage } from "@/pages/LoginPage";
 
-// Lazy-load all page components so the initial bundle is smaller.
-// Each page loads on-demand when first navigated to.
 const Dashboard = lazy(() => import("@/pages/Dashboard").then(m => ({ default: m.Dashboard })));
 const Families = lazy(() => import("@/pages/Families").then(m => ({ default: m.Families })));
 const Members = lazy(() => import("@/pages/Members").then(m => ({ default: m.Members })));
@@ -25,6 +23,7 @@ const Staff = lazy(() => import("@/pages/Staff").then(m => ({ default: m.Staff }
 const Committee = lazy(() => import("@/pages/Committee").then(m => ({ default: m.Committee })));
 const Subscriptions = lazy(() => import("@/pages/Subscriptions").then(m => ({ default: m.Subscriptions })));
 const Donations = lazy(() => import("@/pages/Donations").then(m => ({ default: m.Donations })));
+const WhatsApp = lazy(() => import("@/pages/WhatsApp").then(m => ({ default: m.WhatsApp })));
 const Accounting = lazy(() => import("@/pages/Accounting").then(m => ({ default: m.Accounting })));
 const Marriages = lazy(() => import("@/pages/Marriages").then(m => ({ default: m.Marriages })));
 const Deaths = lazy(() => import("@/pages/Deaths").then(m => ({ default: m.Deaths })));
@@ -45,49 +44,18 @@ function OfflineMalayalamLayer() {
   useEffect(() => {
     if (lang !== "ml") return;
     const selector = 'input:not([type="password"]):not([type="email"]):not([type="number"]):not([type="search"]), textarea';
-    const shouldTransliterate = (el: HTMLInputElement | HTMLTextAreaElement) => {
-      const text = `${el.name} ${el.id} ${el.placeholder} ${el.getAttribute("aria-label") || ""}`.toLowerCase();
-      return /(name|address|house|event|venue|description|family|member|head|father|mother|spouse|groom|bride|witness|place|remarks|reason|mahallu)/.test(text);
-    };
-    const handler = (event: Event) => {
-      const el = event.target as HTMLInputElement | HTMLTextAreaElement;
-      if (!el || !shouldTransliterate(el) || el.dataset.mlTransliterateBusy === "1") return;
-      if (!/[a-z]/i.test(el.value) || /[\u0D00-\u0D7F]/.test(el.value)) return;
-      const next = transliterateMalayalam(el.value);
-      if (next === el.value) return;
-      const start = el.selectionStart ?? next.length;
-      const oldLength = el.value.length;
-      el.dataset.mlTransliterateBusy = "1";
-      el.value = next;
-      const delta = next.length - oldLength;
-      el.setSelectionRange(Math.max(0, start + delta), Math.max(0, start + delta));
-      el.dispatchEvent(new Event("input", { bubbles: true }));
-      delete el.dataset.mlTransliterateBusy;
-    };
-    document.addEventListener("input", handler, true);
-    return () => document.removeEventListener("input", handler, true);
-  }, [lang]);
-  return null;
+    const shouldTransliterate = (el: HTMLInputElement | HTMLTextAreaElement) => { const text = `${el.name} ${el.id} ${el.placeholder} ${el.getAttribute("aria-label") || ""}`.toLowerCase(); return /(name|address|house|event|venue|description|family|member|head|father|mother|spouse|groom|bride|witness|place|remarks|reason|mahallu)/.test(text); };
+    const handler = (event: Event) => { const el = event.target as HTMLInputElement | HTMLTextAreaElement; if (!el || !shouldTransliterate(el) || el.dataset.mlTransliterateBusy === "1") return; if (!/[a-z]/i.test(el.value) || /[\u0D00-\u0D7F]/.test(el.value)) return; const next = transliterateMalayalam(el.value); if (next === el.value) return; const start = el.selectionStart ?? next.length; const oldLength = el.value.length; el.dataset.mlTransliterateBusy = "1"; el.value = next; const delta = next.length - oldLength; el.setSelectionRange(Math.max(0,start+delta),Math.max(0,start+delta)); el.dispatchEvent(new Event("input",{bubbles:true})); delete el.dataset.mlTransliterateBusy; };
+    document.addEventListener("input",handler,true); return()=>document.removeEventListener("input",handler,true);
+  },[lang]); return null;
 }
-
 function ProtectedLayout() {
-  const location = useLocation();
-  useEffect(() => { document.body.classList.toggle("route-accounting", location.pathname === "/accounting"); return () => document.body.classList.remove("route-accounting"); }, [location.pathname]);
-  return <div id="app" className="app-shell"><Sidebar /><div className="maincol"><Topbar /><div id="content"><Suspense fallback={<div className="flex items-center justify-center h-64"><div className="spinner-sm" /></div>}><Routes>
-    <Route path="/" element={<Dashboard />} /><Route path="/families" element={<Families />} /><Route path="/members" element={<Members />} /><Route path="/staff" element={<Staff />} /><Route path="/committee" element={<Committee />} /><Route path="/subscriptions" element={<Subscriptions />} /><Route path="/donations" element={<Donations />} /><Route path="/accounting" element={<Accounting />} /><Route path="/marriages" element={<Marriages />} /><Route path="/deaths" element={<Deaths />} /><Route path="/welfare" element={<Welfare />} /><Route path="/certificates" element={<Certificates />} /><Route path="/tokens" element={<TokenEvents />} /><Route path="/tokens/manage" element={<TokensWithPrint />} /><Route path="/reports" element={<Reports />} /><Route path="/settings" element={<Settings />} /><Route path="/users" element={<Users />} /><Route path="/audit" element={<AuditLog />} /><Route path="/backup" element={<Backup />} />
+  const location=useLocation();
+  useEffect(()=>{document.body.classList.toggle("route-accounting",location.pathname==="/accounting");return()=>document.body.classList.remove("route-accounting");},[location.pathname]);
+  return <div id="app" className="app-shell"><Sidebar/><div className="maincol"><Topbar/><div id="content"><Suspense fallback={<div className="flex items-center justify-center h-64"><div className="spinner-sm"/></div>}><Routes>
+    <Route path="/" element={<Dashboard/>}/><Route path="/families" element={<Families/>}/><Route path="/members" element={<Members/>}/><Route path="/staff" element={<Staff/>}/><Route path="/committee" element={<Committee/>}/><Route path="/subscriptions" element={<Subscriptions/>}/><Route path="/donations" element={<Donations/>}/><Route path="/whatsapp" element={<WhatsApp/>}/><Route path="/accounting" element={<Accounting/>}/><Route path="/marriages" element={<Marriages/>}/><Route path="/deaths" element={<Deaths/>}/><Route path="/welfare" element={<Welfare/>}/><Route path="/certificates" element={<Certificates/>}/><Route path="/tokens" element={<TokenEvents/>}/><Route path="/tokens/manage" element={<TokensWithPrint/>}/><Route path="/reports" element={<Reports/>}/><Route path="/settings" element={<Settings/>}/><Route path="/users" element={<Users/>}/><Route path="/audit" element={<AuditLog/>}/><Route path="/backup" element={<Backup/>}/>
   </Routes></Suspense></div></div></div>;
 }
-
-function LanguagePersistence() {
-  const { lang } = useI18n();
-  useEffect(() => { let cancelled = false; (async () => { try { const current = await window.mms.settings.load(); if (!cancelled && current && current.language !== lang) await window.mms.settings.save({ mahalluName: current.mahallu_name, address: current.address, phone: current.phone, email: current.email, financialYearStart: current.financial_year_start, currencySymbol: current.currency_symbol, theme: current.theme, language: lang, autoBackup: !!current.auto_backup, backupIntervalHours: current.backup_interval_hours, receiptPrefix: current.receipt_prefix }); } catch (err) { console.warn("Could not persist active language:", err); } })(); return () => { cancelled = true; }; }, [lang]);
-  return null;
-}
-
-export default function App() {
-  const { apply } = useTheme(); const { user } = useAuth(); const [splashDone, setSplashDone] = useState(false);
-  useEffect(() => { apply(); }, [apply]); useEffect(() => { if (splashDone) document.body.classList.add("app-loaded"); }, [splashDone]);
-  /* The app mounts beneath the splash overlay so the splash can cross-fade
-     into it — the transparent frameless window never shows the desktop. */
-  return <><LanguagePersistence /><OfflineMalayalamLayer /><Routes><Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} /><Route path="/*" element={user ? <ProtectedLayout /> : <Navigate to="/login" />} /></Routes><ToastContainer />{!splashDone && <Splash onDone={() => setSplashDone(true)} />}</>;
+function LanguagePersistence(){const {lang}=useI18n();useEffect(()=>{let cancelled=false;(async()=>{try{const current=await window.mms.settings.load();if(!cancelled&&current&&current.language!==lang)await window.mms.settings.save({mahalluName:current.mahallu_name,address:current.address,phone:current.phone,email:current.email,financialYearStart:current.financial_year_start,currencySymbol:current.currency_symbol,theme:current.theme,language:lang,autoBackup:!!current.auto_backup,backupIntervalHours:current.backup_interval_hours,receiptPrefix:current.receipt_prefix});}catch(err){console.warn("Could not persist active language:",err);}})();return()=>{cancelled=true;};},[lang]);return null;}
+export default function App(){const {apply}=useTheme();const {user}=useAuth();const [splashDone,setSplashDone]=useState(false);useEffect(()=>{apply();},[apply]);useEffect(()=>{if(splashDone)document.body.classList.add("app-loaded");},[splashDone]);return <><LanguagePersistence/><OfflineMalayalamLayer/><Routes><Route path="/login" element={user?<Navigate to="/"/>:<LoginPage/>}/><Route path="/*" element={user?<ProtectedLayout/>:<Navigate to="/login"/>}/></Routes><ToastContainer/>{!splashDone&&<Splash onDone={()=>setSplashDone(true)}/>}</>;
 }
