@@ -1177,29 +1177,30 @@ html.lang-ml .btn { line-height: 20px !important; }
 .tbl:has(.token-family-code) tbody td:last-child .t-em { display: none !important; }
 
 /* ============================================================================
-   Popups — centered over the WHOLE app window, 20% blank on every side
+   Popups — full-screen dialog over the WHOLE app window
    ----------------------------------------------------------------------------
    The overlay covers the entire app screen (position:fixed inset:0) — it sits
    ON TOP of the sidebar and the top bar, never inside the main column. The
-   dialog is centered and capped at 60vw x 60vh so at least 20% of the screen
-   stays free on every side. The top band mirrors the topbar and the body uses
-   the same gradient canvas as the pages. The body scrolls inside the dialog
-   (min-height:0 is the key flex rule) so content never pushes beyond the
-   screen. Quick confirmations opt into the compact .modal-sm box.
+   dialog fills almost the whole window (a slim margin on each side — far less
+   than the 20% the user allows — so it reads as a full-screen page, "lesser
+   dimension" than the 20% offset). The top band mirrors the topbar and the
+   body uses the same gradient canvas as the pages. The body scrolls inside
+   the dialog (min-height:0 is the key flex rule) so content never pushes
+   beyond the screen. Quick confirmations opt into the compact .modal-sm box.
    ========================================================================== */
 .modal-root { background: rgba(13, 21, 33, 0.55); }
 .modal {
-  width: 60vw;
-  max-width: 60vw;
-  height: auto;
-  max-height: 60vh;
+  width: calc(100vw - 40px);
+  max-width: calc(100vw - 40px);
+  height: calc(100vh - 40px);
+  max-height: calc(100vh - 40px);
   border: 1px solid var(--line);
   border-radius: 18px;
   box-shadow: var(--shl);
   overflow: hidden;
   background: var(--panel);
   display: flex; flex-direction: column;
-  transform: translateY(16px) scale(0.97);
+  transform: translateY(14px) scale(0.985);
 }
 .modal-root.open .modal { transform: none; }
 
