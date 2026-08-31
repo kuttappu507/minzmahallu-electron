@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { one, run, scalar } from "../db/connection.js";
-import "./whatsapp.service.js";
+import "../whatsapp-ipc.js";
 
 interface UserRow { id:number; username:string; full_name:string; password_hash:string; password_salt:string; role:string; is_active:number; is_locked:number; failed_attempts:number; locked_until:string|null; must_change_pwd:number; }
 export interface AuthUser { id:number; username:string; fullName:string; role:string; isActive:boolean; mustChangePwd:boolean; initials:string; }
