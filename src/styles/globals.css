@@ -1177,21 +1177,28 @@ html.lang-ml .btn { line-height: 20px !important; }
 .tbl:has(.token-family-code) tbody td:last-child .t-em { display: none !important; }
 
 /* ============================================================================
-   Popups — styled like the main app window
+   Popups — centered dialog styled like the main app window
    ----------------------------------------------------------------------------
-   A dialog opens as a full-window overlay that mirrors the main UI: a top
-   band exactly like the topbar (page title left, close right) and a content
-   body on the same gradient canvas as the pages. The body scrolls inside the
-   popup (min-height:0 is the key flex rule) so nothing ever pushes beyond the
+   A dialog opens centered in the whole window with at least 10% blank space
+   on every side (max 80vw / 80vh), mirroring the main UI: a top band exactly
+   like the topbar (page title left, close right) and a content body on the
+   same gradient canvas as the pages. The body scrolls inside the dialog
+   (min-height:0 is the key flex rule) so content never pushes beyond the
    screen. Quick confirmations opt into the compact .modal-sm box.
    ========================================================================== */
 .modal-root { background: rgba(13, 21, 33, 0.55); }
 .modal {
-  width: 100%; max-width: none; height: 100%; max-height: none;
-  border: 0; border-radius: 0; box-shadow: none;
+  width: min(80vw, 1280px);
+  max-width: 80vw;
+  height: auto;
+  max-height: 80vh;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shl);
+  overflow: hidden;
   background: var(--panel);
   display: flex; flex-direction: column;
-  transform: translateY(14px);
+  transform: translateY(16px) scale(0.97);
 }
 .modal-root.open .modal { transform: none; }
 
@@ -1199,7 +1206,7 @@ html.lang-ml .btn { line-height: 20px !important; }
 .modal .m-h {
   flex: none; height: 60px;
   display: flex; align-items: center; gap: 12px;
-  padding: 0 18px;
+  padding: 0 20px;
   background: var(--panel);
   border-bottom: 1px solid var(--line);
   position: relative; z-index: 2;
@@ -1221,8 +1228,8 @@ html.lang-ml .btn { line-height: 20px !important; }
 
 /* Compact box for quick confirmations / small forms */
 .modal.modal-sm {
-  width: min(540px, 94%); max-width: min(540px, 94%);
-  height: auto; max-height: 90%;
+  width: min(540px, 80vw); max-width: 80vw;
+  height: auto; max-height: 80vh;
   border-radius: 16px; border: 1px solid var(--line);
   box-shadow: var(--shl);
   transform: translateY(16px) scale(0.97);
