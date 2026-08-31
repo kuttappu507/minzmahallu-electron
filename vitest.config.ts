@@ -5,6 +5,11 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Plain-Node test environment: route the Electron runtime module and the
+      // native better-sqlite3 to the same stubs the smoke scripts use so the
+      // service layer (data.service, whatsapp.service, …) is testable.
+      electron: path.resolve(__dirname, "./scripts/electron-stub.mjs"),
+      "better-sqlite3": path.resolve(__dirname, "./scripts/better-sqlite3-shim.mjs"),
     },
   },
   test: {

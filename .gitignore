@@ -45,3 +45,4 @@ vite.config.d.ts
 
 # Test
 coverage/
+resources/waha/

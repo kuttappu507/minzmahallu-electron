@@ -279,7 +279,28 @@ export function installPreviewMock() {
   // Heuristic fallback: any other mms.<module>.<method> returns a safe default.
   // List-ish methods → empty array (pages read the array directly or fall back
   // to []); everything else → a neutral success object.
-  const base: Record<string, unknown> = { dashboard, settings, auth, win, accounting, certificates: mockCertificates };
+  const whatsapp = {
+    status: () => Promise.resolve({ status: "UNAVAILABLE", connected: false, internet: true, number: "", name: "", message: "WhatsApp service unavailable (dev preview)" }),
+    connect: () => Promise.resolve({ success: true }),
+    qr: () => Promise.reject(new Error("QR code is not available yet")),
+    disconnect: () => Promise.resolve({ success: true }),
+    checkNumber: () => Promise.resolve({ available: false, reason: "Preview mode" }),
+    setFamily: () => Promise.resolve({ success: true }),
+    getFamily: () => Promise.resolve({ whatsapp_phone: "", whatsapp_enabled: 1 }),
+    sendMessage: () => Promise.resolve({ success: true }),
+    sendDonationReceipt: () => Promise.resolve({ success: true }),
+    recipientStats: (type: string) => Promise.resolve({ type, activeFamilies: 0, eligible: 0, missingWhatsApp: 0, disabledWhatsApp: 0, alreadySent: 0, willSend: 0 }),
+    createSubscriptionCampaign: () => Promise.resolve({ campaignId: 1, total: 0 }),
+    createAnnouncementCampaign: () => Promise.resolve({ campaignId: 1, total: 0 }),
+    runCampaign: () => Promise.resolve({ campaignId: 1, sent: 0, failed: 0, skipped: 0, paused: false }),
+    getCampaign: () => Promise.resolve(null),
+    listCampaigns: () => Promise.resolve([]),
+    listHistory: () => Promise.resolve([]),
+    retryFailed: () => Promise.resolve({ sent: 0, failed: 0, skipped: 0, paused: false }),
+    runtimeState: () => Promise.resolve({ available: false, running: false }),
+  };
+
+  const base: Record<string, unknown> = { dashboard, settings, auth, win, accounting, certificates: mockCertificates, whatsapp };
   const handler: ProxyHandler<Record<string, unknown>> = {
     get(target, prop) {
       if (prop === "then") return undefined; // avoid thenable detection

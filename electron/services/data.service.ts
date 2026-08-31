@@ -98,25 +98,25 @@ export const families = {
     );
     const { id } = run(
       `INSERT INTO families
-        (family_number, house_name, house_number, ward, area, address, pincode, phone, alternative_phone, status, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (family_number, house_name, house_number, ward, area, address, pincode, phone, alternative_phone, status, notes, whatsapp_phone, whatsapp_enabled)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         num, data.houseName ?? "", data.houseNumber ?? "", data.ward ?? "",
         data.area ?? "", data.address ?? "", data.pincode ?? "",
         data.phone ?? "", data.altPhone ?? "", data.status ?? "Active",
-        data.notes ?? ""
+        data.notes ?? "", data.whatsappPhone ?? "", data.whatsappEnabled === 0 ? 0 : 1
       ]
     );
     return { id, familyNumber: num };
   },
   update: (id: number, data: any) =>
     run(
-      `UPDATE families SET house_name = ?, house_number = ?, ward = ?, area = ?, address = ?, pincode = ?, phone = ?, alternative_phone = ?, status = ?, notes = ?, updated_at = datetime('now') WHERE id = ?`,
+      `UPDATE families SET house_name = ?, house_number = ?, ward = ?, area = ?, address = ?, pincode = ?, phone = ?, alternative_phone = ?, status = ?, notes = ?, whatsapp_phone = ?, whatsapp_enabled = ?, updated_at = datetime('now') WHERE id = ?`,
       [
         data.houseName ?? "", data.houseNumber ?? "", data.ward ?? "",
         data.area ?? "", data.address ?? "", data.pincode ?? "",
         data.phone ?? "", data.altPhone ?? "", data.status ?? "Active",
-        data.notes ?? "", id
+        data.notes ?? "", data.whatsappPhone ?? "", data.whatsappEnabled === 0 ? 0 : 1, id
       ]
     ),
   remove: (id: number) => run("DELETE FROM families WHERE id = ?", [id]),

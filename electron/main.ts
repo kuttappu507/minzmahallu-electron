@@ -20,6 +20,7 @@ import { buildAuditPackHtml } from "./print/audit-pack.template.js";
 import { buildRegisterBookHtml } from "./print/register-book.template.js";
 import { getAnekMalayalamCss } from "./print/utils.js";
 import { registerSecurityIpc } from "./security-ipc.js";
+import { registerWhatsAppIpc } from "./whatsapp-ipc.js";
 import XLSX from "xlsx";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -505,6 +506,7 @@ app.whenReady().then(() => {
     try { const tokenList = data.tokens.listForPdf(eventId); if (!tokenList || tokenList.length === 0) return { success: false, error: "No tokens found for this event" }; const event = data.tokens.getEvent(eventId); const html = buildCollectionSheetHtml(tokenList, event); const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Collection Sheet PDF", defaultPath: `collection-sheet-${event?.event_name?.replace(/\s+/g, "-") || eventId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] }); if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true }; const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer); return { success: true, path: saveResult.filePath, count: tokenList.length }; } catch (err: any) { return { success: false, error: err.message }; } });
 
   registerSecurityIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null);
+  registerWhatsAppIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null);
   createWindow();
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 

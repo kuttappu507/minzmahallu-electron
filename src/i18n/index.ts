@@ -29,6 +29,7 @@ const translations: Record<string, { en: string; ml: string }> = {
   nav_members: { en: "Members", ml: "അംഗങ്ങൾ" },
   nav_subscriptions: { en: "Subscriptions", ml: "സബ്സ്ക്രിപ്ഷൻ" },
   nav_donations: { en: "Donations", ml: "സംഭാവനകൾ" },
+  nav_whatsapp: { en: "WhatsApp", ml: "വാട്ട്സ്ആപ്പ്" },
   nav_accounting: { en: "Accounting", ml: "അക്കൗണ്ടിംഗ്" },
   nav_marriage: { en: "Marriage Register", ml: "വിവാഹ രജിസ്റ്റർ" },
   nav_death: { en: "Death Register", ml: "മരണ രജിസ്റ്റർ" },

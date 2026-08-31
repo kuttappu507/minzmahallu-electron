@@ -116,7 +116,7 @@ const fkIssues = db.prepare("PRAGMA foreign_key_check").all();
 check("no foreign-key violations", fkIssues.length === 0, fkIssues.length ? JSON.stringify(fkIssues.slice(0,2)) : "all clean");
 const triggers = db.prepare("SELECT name FROM sqlite_master WHERE type='trigger' AND name IN ('trg_block_family_delete','trg_block_member_delete','trg_block_certificate_delete','trg_block_audit_log_update','trg_block_audit_log_delete')").all();
 check("guard triggers restored", triggers.length === 5, `found ${triggers.length}`);
-check("schema_version latest = V032", q("SELECT MAX(version) v FROM schema_version").v === 32);
+check("schema_version latest = V034", q("SELECT MAX(version) v FROM schema_version").v === 34);
 check("settings.demo_data = 1", q("SELECT demo_data FROM settings WHERE id=1").demo_data === 1);
 
 // Upgrade path: re-run init on an existing DB (schema_version present) must be a no-op

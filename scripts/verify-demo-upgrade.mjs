@@ -80,8 +80,9 @@ db.exec(`CREATE TABLE IF NOT EXISTS family_moves (id INTEGER PRIMARY KEY AUTOINC
 check("runtime columns present (transaction_ref, verification_code)", db.prepare("SELECT COUNT(*) c FROM pragma_table_info('transactions') WHERE name='transaction_ref'").get().c === 1
   && db.prepare("SELECT COUNT(*) c FROM pragma_table_info('certificates') WHERE name='verification_code'").get().c === 1);
 
-// apply all migrations except V032 with the runner's duplicate-column tolerance
-const skip = new Set([32]);
+// apply all migrations except the upgrade-phase set (V032 demo rebuild,
+// V033/V034 WhatsApp) with the runner's duplicate-column tolerance
+const skip = new Set([32, 33, 34]);
 const files = fs.readdirSync(migDir).filter((f) => /^V\d+.*\.sql$/i.test(f)).sort();
 let version = 0;
 for (const f of files) {
@@ -104,15 +105,17 @@ check("old DB has demo data (families/members > 0)", db.prepare("SELECT COUNT(*)
   `families=${db.prepare("SELECT COUNT(*) c FROM families").get().c} members=${db.prepare("SELECT COUNT(*) c FROM members").get().c}`);
 check("old DB schema_version max = V031", db.prepare("SELECT MAX(version) v FROM schema_version").get().v === 31);
 
-// --- Phase 2: run V032 as the upgrade --------------------------------------
-console.log("\n— Phase 2: apply V032 (the upgrade) —");
-try {
-  db.exec("BEGIN"); db.exec(fs.readFileSync(path.join(migDir, "V032_demo_rebuild_complete.sql"), "utf8"));
-  db.prepare("INSERT OR IGNORE INTO schema_version(version, description) VALUES(?,?)").run(32, "V032_demo_rebuild_complete.sql");
-  db.exec("COMMIT");
-  console.log("  ✓ V032 applied");
-} catch (e) {
-  console.error(`✗ V032: ${e.message}`); process.exit(1);
+// --- Phase 2: run V032→V034 as the upgrade --------------------------------
+console.log("\n— Phase 2: apply V032→V034 (the upgrade) —");
+for (const [file, version] of [["V032_demo_rebuild_complete.sql", 32], ["V033_whatsapp_family_fields.sql", 33], ["V034_whatsapp_india_number_normalization.sql", 34]]) {
+  try {
+    db.exec("BEGIN"); db.exec(fs.readFileSync(path.join(migDir, file), "utf8"));
+    db.prepare("INSERT OR IGNORE INTO schema_version(version, description) VALUES(?,?)").run(version, file);
+    db.exec("COMMIT");
+    console.log(`  ✓ V0${version} applied`);
+  } catch (e) {
+    console.error(`✗ V0${version}: ${e.message}`); process.exit(1);
+  }
 }
 
 // --- Phase 3: assert the rebuilt state matches a fresh install --------------
@@ -131,7 +134,7 @@ const cols = { families: ["family_number","house_name"], members: ["member_code"
   welfare_requests: ["request_date"], token_assignments: ["token_code","status"] };
 for (const [t, cs] of Object.entries(cols)) for (const c of cs) check(`${t}.${c} filled`, missing(t, c) === 0);
 check("settings.demo_data = 1", q("SELECT demo_data FROM settings WHERE id=1").demo_data === 1);
-check("schema_version max = V032", q("SELECT MAX(version) v FROM schema_version").v === 32);
+check("schema_version max = V034", q("SELECT MAX(version) v FROM schema_version").v === 34);
 
 // passwords still work after upgrade
 const verify = (pw, stored) => {
