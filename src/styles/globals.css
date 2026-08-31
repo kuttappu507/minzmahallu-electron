@@ -1177,21 +1177,22 @@ html.lang-ml .btn { line-height: 20px !important; }
 .tbl:has(.token-family-code) tbody td:last-child .t-em { display: none !important; }
 
 /* ============================================================================
-   Popups — centered dialog styled like the main app window
+   Popups — centered over the WHOLE app window, 20% blank on every side
    ----------------------------------------------------------------------------
-   A dialog opens centered in the whole window with at least 10% blank space
-   on every side (max 80vw / 80vh), mirroring the main UI: a top band exactly
-   like the topbar (page title left, close right) and a content body on the
-   same gradient canvas as the pages. The body scrolls inside the dialog
+   The overlay covers the entire app screen (position:fixed inset:0) — it sits
+   ON TOP of the sidebar and the top bar, never inside the main column. The
+   dialog is centered and capped at 60vw x 60vh so at least 20% of the screen
+   stays free on every side. The top band mirrors the topbar and the body uses
+   the same gradient canvas as the pages. The body scrolls inside the dialog
    (min-height:0 is the key flex rule) so content never pushes beyond the
    screen. Quick confirmations opt into the compact .modal-sm box.
    ========================================================================== */
 .modal-root { background: rgba(13, 21, 33, 0.55); }
 .modal {
-  width: min(80vw, 1280px);
-  max-width: 80vw;
+  width: 60vw;
+  max-width: 60vw;
   height: auto;
-  max-height: 80vh;
+  max-height: 60vh;
   border: 1px solid var(--line);
   border-radius: 18px;
   box-shadow: var(--shl);
@@ -1228,8 +1229,8 @@ html.lang-ml .btn { line-height: 20px !important; }
 
 /* Compact box for quick confirmations / small forms */
 .modal.modal-sm {
-  width: min(540px, 80vw); max-width: 80vw;
-  height: auto; max-height: 80vh;
+  width: min(540px, 60vw); max-width: 60vw;
+  height: auto; max-height: 60vh;
   border-radius: 16px; border: 1px solid var(--line);
   box-shadow: var(--shl);
   transform: translateY(16px) scale(0.97);
