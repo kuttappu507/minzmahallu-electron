@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, Users, Home, Receipt, Gift, Calculator, Gem, Flower, Activity, Award, Ticket, Briefcase, Users as UsersIcon, X } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useNavigate } from "react-router-dom";
@@ -44,7 +44,16 @@ export function GlobalSearch({ value, onChange }: { value: string; onChange: (va
   const [open, setOpen] = useState(false);
   const [results, setResults] = useState<Result[]>([]);
   const [loading, setLoading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const ml = lang === "ml";
+  /* Ctrl/⌘ + K focuses the command bar from anywhere. */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); inputRef.current?.focus(); inputRef.current?.select(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   useEffect(() => {
     const q = value.trim();
     if (q.length < 2) { setResults([]); setOpen(false); return; }
@@ -70,7 +79,8 @@ export function GlobalSearch({ value, onChange }: { value: string; onChange: (va
   const select = (item: Result) => { setOpen(false); onChange(""); navigate(item.route); };
   return <div className="global-search" data-global-search>
     <Search className="global-search-icon" size={16} strokeWidth={2} />
-    <input value={value} onChange={e => onChange(e.target.value)} onFocus={() => value.trim().length >= 2 && setOpen(true)} placeholder={ml ? "കുടുംബം, അംഗം, സർട്ടിഫിക്കറ്റ്..." : "Search families, members, certificates..."} aria-label={ml ? "തിരയുക" : "Global search"} />
+    <input ref={inputRef} value={value} onChange={e => onChange(e.target.value)} onFocus={() => value.trim().length >= 2 && setOpen(true)} placeholder={ml ? "കുടുംബം, അംഗം, സർട്ടിഫിക്കറ്റ്..." : "Search families, members, certificates..."} aria-label={ml ? "തിരയുക" : "Global search"} />
+    {!value && <kbd className="gs-kbd" aria-hidden="true">Ctrl K</kbd>}
     {value && <button className="global-search-clear" type="button" onClick={close} aria-label={t("ui_clear")}><X size={14} /></button>}
     {open && <div className="global-search-results">
       {loading && <div className="global-search-empty">{ml ? "തിരയുന്നു..." : "Searching..."}</div>}

@@ -92,7 +92,7 @@ export function Dashboard() {
   return (
     <div className="view view-enter">
       <div className="hero-row">
-        <div className="hero t-em">
+        <div className="hero">
           <div className="overline">Minz Mahallu · {new Date().toLocaleDateString(displayLocale, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div>
           <h1>
             {t("dash_greeting")} <span className="text-em">{user?.fullName}</span>
@@ -160,12 +160,12 @@ export function Dashboard() {
           const Icon = s.icon;
           return (
             <div key={i} className={`stat ${s.tint}`}>
-              <div className="srow">
-                <span className="sic"><Icon size={18} /></span>
+              <span className="sic"><Icon size={19} strokeWidth={2} /></span>
+              <div className="sbody">
+                <div className="slab">{s.label}</div>
+                <div className="val">{s.value}</div>
                 <span className="delta">{s.delta}</span>
               </div>
-              <div className="val">{s.value}</div>
-              <div className="slab">{s.label}</div>
             </div>
           );
         })}

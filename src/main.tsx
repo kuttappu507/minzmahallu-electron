@@ -7,6 +7,7 @@ import "./styles/globals.css";
 import "./styles/overrides.css";
 import "./styles/typography-fix.css";
 import "./styles/topbar-fixes.css";
+import "./styles/theme-v3.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

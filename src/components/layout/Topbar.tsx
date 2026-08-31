@@ -12,6 +12,11 @@ const PAGE_TITLE_KEYS: Record<string, string> = {
   "/": "nav_dashboard", "/families": "nav_families", "/members": "nav_members", "/staff": "nav_staff", "/committee": "nav_committee", "/subscriptions": "nav_subscriptions", "/donations": "nav_donations", "/accounting": "nav_accounting", "/marriages": "nav_marriage", "/deaths": "nav_death", "/welfare": "nav_welfare", "/certificates": "nav_certificates", "/tokens": "nav_tokens", "/reports": "nav_reports", "/settings": "nav_settings", "/users": "nav_users", "/audit": "nav_audit", "/backup": "nav_backup",
 };
 
+/* Section breadcrumb overline shown above the page title. */
+const SECTION_KEYS: Record<string, [string, string]> = {
+  "/": ["Overview", "അവലോകനം"], "/families": ["Management", "മാനേജ്മെന്റ്"], "/members": ["Management", "മാനേജ്മെന്റ്"], "/staff": ["Management", "മാനേജ്മെന്റ്"], "/committee": ["Management", "മാനേജ്മെന്റ്"], "/subscriptions": ["Management", "മാനേജ്മെന്റ്"], "/donations": ["Management", "മാനേജ്മെന്റ്"], "/accounting": ["Finance", "സാമ്പത്തികം"], "/marriages": ["Registers", "രജിസ്റ്ററുകൾ"], "/deaths": ["Registers", "രജിസ്റ്ററുകൾ"], "/welfare": ["Registers", "രജിസ്റ്ററുകൾ"], "/certificates": ["Registers", "രജിസ്റ്ററുകൾ"], "/tokens": ["Registers", "രജിസ്റ്ററുകൾ"], "/reports": ["System", "സിസ്റ്റം"], "/settings": ["System", "സിസ്റ്റം"], "/users": ["System", "സിസ്റ്റം"], "/audit": ["System", "സിസ്റ്റം"], "/backup": ["System", "സിസ്റ്റം"],
+};
+
 export function Topbar() {
   const { theme, toggle } = useTheme();
   const { t, lang, setLang } = useI18n();
@@ -19,6 +24,7 @@ export function Topbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const pageTitle = t(PAGE_TITLE_KEYS[location.pathname] || "nav_dashboard");
+  const sectionLabel = (SECTION_KEYS[location.pathname] || ["MMS", "MMS"])[lang === "ml" ? 1 : 0];
   const initials = user?.initials ?? "?";
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -63,6 +69,7 @@ export function Topbar() {
 
   return <>
     <header className="topbar">
+      <div className="crumb"><small>MMS · {sectionLabel}</small><b>{pageTitle}</b></div>
       <GlobalSearch value={searchQuery} onChange={setSearchQuery} />
       <div className="tb-right">
         <div className="langseg"><button type="button" className={lang === "en" ? "on" : ""} onClick={() => setLang("en")} title={t("set_lang_english")}>EN</button><button type="button" className={lang === "ml" ? "on" : ""} onClick={() => setLang("ml")} title="മലയാളം">മല</button></div>
