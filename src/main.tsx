@@ -7,6 +7,9 @@ import "./styles/globals.css";
 import "./styles/overrides.css";
 import "./styles/typography-fix.css";
 import "./styles/topbar-fixes.css";
+/* Emerald Noir skin — MUST be the last CSS import so it wins the cascade
+   (globals.css & co. are imported after the App subtree evaluates). */
+import "./styles/modern-refresh.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
