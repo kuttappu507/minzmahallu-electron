@@ -31,7 +31,7 @@ export function wahaProcessState() {
   return { running: !!child?.pid, pid: child?.pid ?? null, error: lastError };
 }
 
-export async function startWaha() {
+export async function startWaha(apiKey: string) {
   if (child?.pid) return;
   if (!isWahaAvailable()) {
     lastError = "Bundled WhatsApp service is not installed";
@@ -39,7 +39,6 @@ export async function startWaha() {
   }
   fs.mkdirSync(sessionRoot(), { recursive: true });
   fs.mkdirSync(filesRoot(), { recursive: true });
-  const apiKey = require("./whatsapp.service.js").__getInternalApiKey?.() || "";
   child = utilityProcess.fork(entrypoint(), [], {
     serviceName: "Mahallu Manager WhatsApp Service",
     cwd: runtimeRoot(),
