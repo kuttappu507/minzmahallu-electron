@@ -493,16 +493,40 @@
   .g-row b { margin-left: auto; font: 600 12.5px Poppins; color: var(--st); }
 
   /* ===== Stat grid — tiles with label → value → footer row ===== */
-  .stat-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 14px; }
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
   .stat { padding: 15px 17px 13px; position: relative; min-height: 128px; display: flex; flex-direction: column; overflow: hidden; }
-  .stat::after { content: ""; position: absolute; right: -22px; top: -22px; width: 74px; height: 74px; border-radius: 50%; background: color-mix(in srgb, var(--sc, var(--em)) 7%, transparent); }
+  .stat::after { content: ""; position: absolute; right: -22px; top: -22px; width: 74px; height: 74px; border-radius: 50%; background: color-mix(in srgb, var(--sc, var(--em)) 8%, transparent); }
+  .stat::before { content: ""; position: absolute; left: 17px; right: 17px; top: 0; height: 3px; border-radius: 0 0 5px 5px; background: linear-gradient(90deg, var(--sc, var(--em)), transparent); opacity: 0.9; }
   .stat:hover { transform: translateY(-3px); border-color: var(--sl); box-shadow: var(--sh); }
   .stat .slab { font: 600 9.5px Poppins; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fnt); margin-bottom: 8px; position: relative; z-index: 1; }
-  .stat .val { font: 700 26px/1.1 Poppins; letter-spacing: -0.02em; color: var(--tx); font-variant-numeric: tabular-nums; margin-bottom: auto; padding-top: 6px; position: relative; z-index: 1; }
+  .stat .val { font: 700 26px/1.1 Poppins; letter-spacing: -0.02em; color: color-mix(in srgb, var(--st, var(--tx)) 82%, var(--tx)); font-variant-numeric: tabular-nums; margin-bottom: auto; padding-top: 6px; position: relative; z-index: 1; }
   .stat .srow { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; position: relative; z-index: 1; }
   .stat .sic { width: 34px; height: 34px; border-radius: 10px; background: var(--sb); color: var(--st); border: 1.5px solid var(--sl); display: grid; place-items: center; transition: 0.16s; }
   .stat:hover .sic { background: var(--sc); color: #fff; transform: scale(1.08) rotate(-5deg); }
-  .stat .delta { font: 600 9.5px Poppins; padding: 4px 9px; border-radius: 99px; background: var(--sb); color: var(--st); border: 1px solid var(--sl); }
+  .stat .delta { font: 600 9.5px Poppins; padding: 4px 9px; border-radius: 99px; background: var(--sb); color: var(--st); border: 1px solid var(--sl); display: inline-flex; align-items: center; gap: 3px; }
+  .stat .delta.pos { background: color-mix(in srgb, var(--c-em) 11%, transparent); color: var(--emd); border-color: color-mix(in srgb, var(--c-em) 32%, transparent); }
+  .stat .delta.neg { background: color-mix(in srgb, var(--c-rose) 11%, transparent); color: var(--c-rose); border-color: color-mix(in srgb, var(--c-rose) 32%, transparent); }
+
+  /* ===== Dashboard hero — greeting bento + fund spotlight + mini P&L ===== */
+  .dash-spot { position: relative; overflow: hidden; padding: 17px 19px 15px; }
+  .dash-spot::after { content: ""; position: absolute; right: -34px; top: -34px; width: 120px; height: 120px; border-radius: 50%; background: color-mix(in srgb, var(--sc) 10%, transparent); }
+  .dash-spot .hs-top { display: flex; align-items: center; gap: 9px; position: relative; z-index: 1; }
+  .dash-spot .hs-ic { width: 34px; height: 34px; border-radius: 11px; background: var(--sc); color: #fff; display: grid; place-items: center; box-shadow: 0 4px 12px -4px var(--sc); }
+  .dash-spot .hs-lab { font: 600 10.5px Poppins; letter-spacing: 0.14em; text-transform: uppercase; color: var(--mut); }
+  .dash-spot .hs-val { font: 700 27px/1.15 Poppins; letter-spacing: -0.02em; color: var(--tx); font-variant-numeric: tabular-nums; margin-top: 12px; position: relative; z-index: 1; }
+  .dash-spot .hs-foot { display: flex; align-items: center; gap: 9px; margin-top: 8px; position: relative; z-index: 1; }
+  .dash-spot .hs-hint { font: 500 10.5px Poppins; color: var(--fnt); }
+  .dash-spot .delta { font: 600 10.5px Poppins; padding: 4px 10px; border-radius: 99px; background: var(--sb); color: var(--st); border: 1px solid var(--sl); display: inline-flex; align-items: center; gap: 3px; }
+  .dash-spot .delta.pos { background: color-mix(in srgb, var(--c-em) 11%, transparent); color: var(--emd); border-color: color-mix(in srgb, var(--c-em) 32%, transparent); }
+  .dash-spot .delta.neg { background: color-mix(in srgb, var(--c-rose) 11%, transparent); color: var(--c-rose); border-color: color-mix(in srgb, var(--c-rose) 32%, transparent); }
+  .dash-mini { padding: 14px 17px; }
+  .dash-mini .dm-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px dashed var(--line); font: 500 12px Poppins; color: var(--mut); }
+  .dash-mini .dm-row:first-child { border-top: 0; padding-top: 0; }
+  .dash-mini .dm-row b { font: 600 12.5px Poppins; color: var(--tx); font-variant-numeric: tabular-nums; }
+  .dash-mini .dm-net { border-top: 1px solid var(--line2); margin-top: 2px; }
+  .dash-mini .dm-net span { font-weight: 600; color: var(--tx); }
+  .dash-mini .dm-net b { color: var(--c-em); }
+  .g-row .g-ic { width: 22px; height: 22px; border-radius: 7px; background: var(--sb); color: var(--st); border: 1px solid var(--sl); display: grid; place-items: center; flex: none; }
 
   /* ===== Chart grid ===== */
   .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
@@ -760,6 +784,15 @@
   .dlg-pad { padding: 2px 0; }
   .modal .dlg-pad { padding: 26px 30px 34px; }
   .dlg-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+  /* Simple divider between popup blocks */
+  .dlg-sep { height: 1px; border: 0; margin: 14px 0 16px; background: linear-gradient(90deg, var(--line2), var(--line), var(--line2)); }
+  /* Labeled section divider — line — title — line, for easy scanning */
+  .dlg-sec { display: flex; align-items: center; gap: 10px; margin: 18px 0 12px; }
+  .dlg-sec::before, .dlg-sec::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--line2), transparent); }
+  .dlg-sec b { font: 600 10.5px Poppins; letter-spacing: 0.16em; text-transform: uppercase; color: var(--mut); white-space: nowrap; }
+  .dlg-sec .ds-ic { width: 24px; height: 24px; border-radius: 8px; background: var(--sb); color: var(--st); border: 1px solid var(--sl); display: grid; place-items: center; flex: none; }
+  .dlg-sec:first-child { margin-top: 0; }
+  .dlg-sec-inset { margin-top: 10px; margin-bottom: 10px; }
   .dlg-hero { display: flex; align-items: center; gap: 14px; padding: 12px 14px; margin-bottom: 14px; background: var(--sb); border: 1.5px solid var(--sl); border-radius: 14px; }
   .dlg-hero-ic { width: 48px; height: 48px; border-radius: 14px; flex: none; background: var(--sc); color: #fff; display: grid; place-items: center; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12); font: 500 18px Poppins; }
   .dlg-hero-body { flex: 1; min-width: 0; }
@@ -1187,7 +1220,7 @@ html.lang-ml .btn { line-height: 20px !important; }
    dialog (min-height:0 is the key flex rule) so content never pushes beyond
    the screen. Quick confirmations opt into the compact .modal-sm box.
    ========================================================================== */
-.modal-root { background: rgba(13, 21, 33, 0.55); }
+.modal-root { background: rgba(13, 21, 33, 0.55); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
 .modal {
   width: 50vw;
   max-width: 50vw;
@@ -1199,9 +1232,16 @@ html.lang-ml .btn { line-height: 20px !important; }
   overflow: hidden;
   background: var(--panel);
   display: flex; flex-direction: column;
-  transform: translateY(14px) scale(0.985);
 }
-.modal-root.open .modal { transform: none; }
+/* Pop-in animation: rise + settle with a tiny overshoot, backdrop fades in */
+@keyframes modalPop {
+  0%   { opacity: 0; transform: translateY(28px) scale(0.93); }
+  62%  { opacity: 1; transform: translateY(-5px) scale(1.012); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes modalFade { from { opacity: 0; } to { opacity: 1; } }
+.modal-root.open { animation: modalFade 0.24s ease both; }
+.modal-root.open .modal { animation: modalPop 0.42s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
 /* Top band — mirrors .topbar */
 .modal .m-h {

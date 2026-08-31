@@ -7,6 +7,7 @@ import {
   Home, Users, UserCheck, Wallet, AlertCircle,
   Gift, Gem, Flower, TrendingUp,
   Plus, User, BarChart3, RefreshCw, Clock, Database, ShieldCheck,
+  ArrowUpRight, ArrowDownRight, ReceiptText, HeartHandshake, CalendarClock,
 } from "lucide-react";
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid,
@@ -73,12 +74,11 @@ export function Dashboard() {
     { label: t("dash_total_families"), value: summary?.total_families ?? 0, icon: Home, tint: "t-em", delta: t("dash_active") },
     { label: t("dash_total_members"), value: summary?.total_members ?? 0, icon: Users, tint: "t-teal", delta: t("dash_total_registered") },
     { label: t("dash_active_members"), value: summary?.active_members ?? 0, icon: UserCheck, tint: "t-sky", delta: t("dash_active") },
-    { label: t("dash_monthly_collection"), value: formatCurrency(summary?.monthly_collection ?? 0), icon: Wallet, tint: "t-gold", delta: collDelta !== null ? `${collDelta >= 0 ? "+" : ""}${collDelta}%` : t("dash_this_month") },
+    { label: t("dash_monthly_collection"), value: formatCurrency(summary?.monthly_collection ?? 0), icon: Wallet, tint: "t-gold", delta: collDelta !== null ? `${collDelta >= 0 ? "+" : ""}${collDelta}%` : t("dash_this_month"), dir: collDelta },
     { label: t("dash_pending_dues"), value: formatCurrency(summary?.pending_dues ?? 0), icon: AlertCircle, tint: "t-rose", delta: t("dash_overdue") },
     { label: t("dash_donations_month"), value: formatCurrency(summary?.monthly_donations ?? 0), icon: Gift, tint: "t-pink", delta: t("dash_this_month") },
     { label: t("dash_marriages_year"), value: summary?.marriages_this_year ?? 0, icon: Gem, tint: "t-orange", delta: t("dash_this_year") },
     { label: t("dash_deaths_year"), value: summary?.deaths_this_year ?? 0, icon: Flower, tint: "t-slate", delta: t("dash_this_year") },
-    { label: t("dash_fund_balance_short"), value: formatCurrency(balanceVal), icon: TrendingUp, tint: "t-blue", delta: balDelta !== null ? `${balDelta >= 0 ? "+" : ""}${balDelta}%` : t("dash_all_funds") },
   ];
 
   const quickActions = [
@@ -91,17 +91,38 @@ export function Dashboard() {
 
   return (
     <div className="view view-enter">
-      {/* ===== Page header: greeting + live chips ===== */}
-      <div className="page-head">
-        <div className="ph-left">
+      {/* ===== Hero bento: greeting card + fund spotlight + mini P&L ===== */}
+      <div className="hero-row">
+        <div className="hero t-em">
           <div className="overline">{t("app_name")} · {new Date().toLocaleDateString(displayLocale, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div>
-          <h1 className="ph-title">{t("dash_greeting")} <span className="text-em">{user?.fullName}</span></h1>
-          <p className="ph-sub">{t("dash_subtitle")}</p>
+          <h1>{t("dash_greeting")} <span className="text-em">{user?.fullName}</span></h1>
+          <p className="sub">{t("dash_subtitle")}</p>
+          <div className="gchips">
+            <span className="gchip t-gold"><Clock size={13} /> {t("dash_week")} {Math.ceil((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000))} · {t("dash_day")} {Math.ceil((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (24 * 60 * 60 * 1000))}</span>
+            <span className="gchip t-sky"><Wallet size={13} /> {t("dash_fy")} {new Date().getFullYear()}-{String(new Date().getFullYear() + 1).slice(-2)} · Q{Math.floor(new Date().getMonth() / 3) + 1}</span>
+            <span className={`gchip ${backupHealthy === false ? "t-rose" : "t-em"}`}><Database size={13} /> {backupHealthy === null ? t("dash_backup_ok") : backupHealthy ? t("dash_backup_ok") : ml("Backup attention needed", "ബാക്കപ്പ് ശ്രദ്ധ ആവശ്യമുണ്ട്")}</span>
+          </div>
         </div>
-        <div className="gchips">
-          <span className="gchip t-gold"><Clock size={13} /> {t("dash_week")} {Math.ceil((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000))} · {t("dash_day")} {Math.ceil((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (24 * 60 * 60 * 1000))}</span>
-          <span className="gchip t-sky"><Wallet size={13} /> {t("dash_fy")} {new Date().getFullYear()}-{String(new Date().getFullYear() + 1).slice(-2)} · Q{Math.floor(new Date().getMonth() / 3) + 1}</span>
-          <span className={`gchip ${backupHealthy === false ? "t-rose" : "t-em"}`}><Database size={13} /> {backupHealthy === null ? t("dash_backup_ok") : backupHealthy ? t("dash_backup_ok") : ml("Backup attention needed", "ബാക്കപ്പ് ശ്രദ്ധ ആവശ്യമുണ്ട്")}</span>
+        <div className="hero-side">
+          <div className="card dash-spot t-gold">
+            <div className="hs-top">
+              <span className="hs-ic"><TrendingUp size={18} /></span>
+              <span className="hs-lab">{t("dash_fund_balance_short")}</span>
+            </div>
+            <div className="hs-val">{formatCurrency(balanceVal)}</div>
+            <div className="hs-foot">
+              <span className={`delta ${balDelta === null ? "" : balDelta >= 0 ? "pos" : "neg"}`}>
+                {balDelta !== null && (balDelta >= 0 ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />)}
+                {balDelta !== null ? `${Math.abs(balDelta)}%` : t("dash_all_funds")}
+              </span>
+              <span className="hs-hint">{ml("vs last month", "കഴിഞ്ഞ മാസവുമായി താരതമ്യം")}</span>
+            </div>
+          </div>
+          <div className="card dash-mini t-em">
+            <div className="dm-row"><span>{t("dash_income")}</span><b>{formatCurrency(thisMonthIncome)}</b></div>
+            <div className="dm-row"><span>{t("dash_expense")}</span><b>{formatCurrency(thisMonthExpense)}</b></div>
+            <div className="dm-row dm-net"><span>{ml("Net this month", "ഈ മാസം അറ്റാദായം")}</span><b>{formatCurrency(netThisMonth)}</b></div>
+          </div>
         </div>
       </div>
 
@@ -137,15 +158,19 @@ export function Dashboard() {
 
       {/* ===== Stat tiles ===== */}
       <div className="stat-grid">
-        {stats.map((s, i) => {
+        {stats.map((s: any, i: number) => {
           const Icon = s.icon;
+          const dir = typeof s.dir === "number" ? s.dir : null;
           return (
             <div key={i} className={`stat ${s.tint}`}>
               <div className="slab">{s.label}</div>
               <div className="val">{s.value}</div>
               <div className="srow">
                 <span className="sic"><Icon size={16} /></span>
-                <span className="delta">{s.delta}</span>
+                <span className={`delta ${dir === null ? "" : dir >= 0 ? "pos" : "neg"}`}>
+                  {dir !== null && (dir >= 0 ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />)}
+                  {s.delta}
+                </span>
               </div>
             </div>
           );
@@ -177,7 +202,7 @@ export function Dashboard() {
                 <XAxis dataKey="label" tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
                 <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid var(--line)", background: "var(--panel)", fontSize: 12 }} />
-                <Area type="monotone" dataKey="amount" stroke="var(--c-em)" strokeWidth={2.6} fill="url(#g1)" />
+                <Area type="monotone" dataKey="amount" stroke="var(--c-em)" strokeWidth={2.6} fill="url(#g1)" dot={{ r: 2.5, fill: "var(--c-em)", strokeWidth: 0 }} activeDot={{ r: 4.5, stroke: "var(--panel)", strokeWidth: 2 }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -197,12 +222,22 @@ export function Dashboard() {
           <div className="ch-body">
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={incomeExpenseChart} barGap={4}>
+                <defs>
+                  <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--c-em)" stopOpacity={1} />
+                    <stop offset="100%" stopColor="color-mix(in srgb, var(--c-em) 55%, transparent)" />
+                  </linearGradient>
+                  <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--c-rose)" stopOpacity={1} />
+                    <stop offset="100%" stopColor="color-mix(in srgb, var(--c-rose) 55%, transparent)" />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 4" stroke="var(--line)" vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
                 <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid var(--line)", background: "var(--panel)", fontSize: 12 }} cursor={{ fill: "var(--selbg)" }} />
-                <Bar dataKey="income" fill="var(--c-em)" radius={[6, 6, 0, 0]} maxBarSize={28} />
-                <Bar dataKey="expense" fill="var(--c-rose)" radius={[6, 6, 0, 0]} maxBarSize={28} />
+                <Bar dataKey="income" fill="url(#g2)" radius={[6, 6, 0, 0]} maxBarSize={28} />
+                <Bar dataKey="expense" fill="url(#g3)" radius={[6, 6, 0, 0]} maxBarSize={28} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -252,10 +287,9 @@ export function Dashboard() {
         <div className="db-side">
           <div className="glance">
             <b>{t("dash_today_glance")}</b>
-            <div className="g-row t-em"><span className="gdot" /><span>{t("dash_receipts_today")}</span><b>{glance?.receiptsToday ?? 0}</b></div>
-            <div className="g-row t-gold"><span className="gdot" /><span>{t("dash_next_backup")}</span><b>{nextBackupLabel}</b></div>
-            <div className="g-row t-pink"><span className="gdot" /><span>{t("dash_welfare_pending")}</span><b>{glance?.welfarePending ?? 0}</b></div>
-            <div className="g-row t-sky"><span className="gdot" /><span>{t("dash_fund_balance")}</span><b>{formatCurrency(glance?.fundBalance ?? balance ?? 0)}</b></div>
+            <div className="g-row t-em"><span className="g-ic"><ReceiptText size={13} /></span><span>{t("dash_receipts_today")}</span><b>{glance?.receiptsToday ?? 0}</b></div>
+            <div className="g-row t-pink"><span className="g-ic"><HeartHandshake size={13} /></span><span>{t("dash_welfare_pending")}</span><b>{glance?.welfarePending ?? 0}</b></div>
+            <div className="g-row t-gold"><span className="g-ic"><CalendarClock size={13} /></span><span>{t("dash_next_backup")}</span><b>{nextBackupLabel}</b></div>
           </div>
           <div className={`db-backup ${backupHealthy === false ? "t-rose" : "t-em"}`}>
             <span className="db-backup-ic"><ShieldCheck size={17} /></span>

@@ -384,8 +384,18 @@ export function Welfare() {
                 </div>
                 <Badge variant={statusVariant(previewRow.status)}>{previewRow.status}</Badge>
               </div>
+              <div className="dlg-sec"><b>{tx("Request & approval", "അപേക്ഷയും അംഗീകാരവും")}</b></div>
               <div className="det-grid">
-                {previewDetails.map((d, i) => (
+                {previewDetails.slice(0, 7).map((d, i) => (
+                  <div key={i} className={`det${d.full ? " full" : ""}`}>
+                    <span className="k">{d.k}</span>
+                    <span className="v">{d.v}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="dlg-sec"><b>{tx("Processing & notes", "നടപടികളും കുറിപ്പുകളും")}</b></div>
+              <div className="det-grid">
+                {previewDetails.slice(7).map((d, i) => (
                   <div key={i} className={`det${d.full ? " full" : ""}`}>
                     <span className="k">{d.k}</span>
                     <span className="v">{d.v}</span>

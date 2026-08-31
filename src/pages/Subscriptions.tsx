@@ -368,8 +368,18 @@ export function Subscriptions() {
                 </div>
                 <Badge variant={statusVariant(previewRow.status)}>{previewRow.status}</Badge>
               </div>
+              <div className="dlg-sec"><b>{tx("Subscription", "സബ്സ്ക്രിപ്ഷൻ")}</b></div>
               <div className="det-grid">
-                {previewDetails.map((d, i) => (
+                {previewDetails.slice(0, 6).map((d, i) => (
+                  <div key={i} className={`det${d.full ? " full" : ""}`}>
+                    <span className="k">{d.k}</span>
+                    <span className="v">{d.v}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="dlg-sec"><b>{tx("Payment & status", "പേയ്മെന്റും അവസ്ഥയും")}</b></div>
+              <div className="det-grid">
+                {previewDetails.slice(6).map((d, i) => (
                   <div key={i} className={`det${d.full ? " full" : ""}`}>
                     <span className="k">{d.k}</span>
                     <span className="v">{d.v}</span>
