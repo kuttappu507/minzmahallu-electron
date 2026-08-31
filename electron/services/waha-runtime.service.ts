@@ -1,6 +1,7 @@
 import { app, utilityProcess, UtilityProcess } from "electron";
 import path from "node:path";
 import fs from "node:fs";
+import { getDB } from "../db/connection.js";
 
 const PORT = 30455;
 let child: UtilityProcess | null = null;
@@ -23,6 +24,10 @@ function filesRoot() {
   return path.join(app.getPath("userData"), "whatsapp", "files");
 }
 
+function apiKey() {
+  return String((getDB().prepare("SELECT api_key FROM whatsapp_settings WHERE id=1").get() as any)?.api_key || "");
+}
+
 export function isWahaAvailable() {
   return fs.existsSync(entrypoint());
 }
@@ -31,7 +36,7 @@ export function wahaProcessState() {
   return { running: !!child?.pid, pid: child?.pid ?? null, error: lastError };
 }
 
-export async function startWaha(apiKey: string) {
+export async function startWaha() {
   if (child?.pid) return;
   if (!isWahaAvailable()) {
     lastError = "Bundled WhatsApp service is not installed";
@@ -57,7 +62,7 @@ export async function startWaha(apiKey: string) {
       WAHA_HTTP_LOG_LEVEL: "error",
       WAHA_DASHBOARD_ENABLED: "false",
       WHATSAPP_SWAGGER_ENABLED: "false",
-      WAHA_API_KEY: apiKey,
+      WAHA_API_KEY: apiKey(),
     },
   });
   child.stdout?.on("data", (data) => console.log(`[WAHA] ${String(data).trimEnd()}`));
