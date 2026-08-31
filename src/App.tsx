@@ -3,17 +3,12 @@ import { lazy, Suspense } from "react";
 import { useTheme } from "@/lib/theme";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/i18n";
-import { Sidebar } from "@/components/layout/Sidebar";
+import { Sidebar } from "@/components/layout/Rail";
 import { Topbar } from "@/components/layout/Topbar";
 import { ToastContainer } from "@/components/ToastContainer";
 import { Splash } from "@/components/Splash";
 import "@fontsource-variable/anek-malayalam/wght.css";
-import "@/styles/visual-enhancement.css";
-import "@/styles/layout-stability.css";
 import "@/styles/global-search.css";
-import "@/styles/topbar-fixes.css";
-import "@/styles/branding.css";
-import "@/styles/visual-elevations.css";
 import { LoginPage } from "@/pages/LoginPage";
 
 // Lazy-load all page components so the initial bundle is smaller.
@@ -73,7 +68,7 @@ function OfflineMalayalamLayer() {
 function ProtectedLayout() {
   const location = useLocation();
   useEffect(() => { document.body.classList.toggle("route-accounting", location.pathname === "/accounting"); return () => document.body.classList.remove("route-accounting"); }, [location.pathname]);
-  return <div id="app" className="app-shell"><Sidebar /><div className="maincol"><Topbar /><div id="content"><Suspense fallback={<div className="flex items-center justify-center h-64"><div className="spinner-sm" /></div>}><Routes>
+  return <div id="app" className="app-shell studio-shell"><Sidebar /><div className="maincol"><Topbar /><div id="content"><Suspense fallback={<div className="flex items-center justify-center h-64"><div className="spinner-sm" /></div>}><Routes>
     <Route path="/" element={<Dashboard />} /><Route path="/families" element={<Families />} /><Route path="/members" element={<Members />} /><Route path="/staff" element={<Staff />} /><Route path="/committee" element={<Committee />} /><Route path="/subscriptions" element={<Subscriptions />} /><Route path="/donations" element={<Donations />} /><Route path="/accounting" element={<Accounting />} /><Route path="/marriages" element={<Marriages />} /><Route path="/deaths" element={<Deaths />} /><Route path="/welfare" element={<Welfare />} /><Route path="/certificates" element={<Certificates />} /><Route path="/tokens" element={<TokenEvents />} /><Route path="/tokens/manage" element={<TokensWithPrint />} /><Route path="/reports" element={<Reports />} /><Route path="/settings" element={<Settings />} /><Route path="/users" element={<Users />} /><Route path="/audit" element={<AuditLog />} /><Route path="/backup" element={<Backup />} />
   </Routes></Suspense></div></div></div>;
 }

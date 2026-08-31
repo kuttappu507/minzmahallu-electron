@@ -6,12 +6,18 @@ import { useNavigate } from "react-router-dom";
 import {
   Home, Users, UserCheck, Wallet, AlertCircle,
   Gift, Gem, Flower, TrendingUp,
-  Plus, User, BarChart3, RefreshCw, Clock, Database,
+  Plus, User, BarChart3, RefreshCw, Clock, Database, History,
 } from "lucide-react";
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
+
+/* ─────────────────────────────────────────────────────────
+   STUDIO DASHBOARD — bento grid composition:
+   hero band → KPI strip → charts + side rail → activity
+   timeline (replaces the classic hero/stat/chart/table stack).
+   ───────────────────────────────────────────────────────── */
 
 export function Dashboard() {
   const { t, isMalayalam } = useI18n();
@@ -28,7 +34,6 @@ export function Dashboard() {
   const { data: alerts } = useAsync(() => window.mms.dashboard.alerts(), []);
   const { data: glance, refresh: refreshGlance } = useAsync(() => window.mms.dashboard.todayAtGlance(), []);
 
-  // Beautify chart month labels: "2026-08" → "Aug 26" (locale-aware).
   const prettyMonth = (m: string) => {
     const d = new Date(`${m}-01T00:00:00`);
     return d.toLocaleDateString(displayLocale, { month: "short", year: "2-digit" });
@@ -36,9 +41,6 @@ export function Dashboard() {
   const collectionsChart = (collections || []).map((r: any) => ({ ...r, label: prettyMonth(r.month) }));
   const incomeExpenseChart = (incomeExpense || []).map((r: any) => ({ ...r, label: prettyMonth(r.month) }));
 
-  // Compute real deltas from available data instead of using hardcoded strings.
-  // For financial stats, compute month-over-month % change from the 6-month
-  // collections/incomeExpense arrays. For count stats, use descriptive labels.
   const thisMonthColl = (collections && collections.length > 0) ? Number(collections[collections.length - 1]?.amount || 0) : 0;
   const lastMonthColl = (collections && collections.length > 1) ? Number(collections[collections.length - 2]?.amount || 0) : 0;
   const collDelta = lastMonthColl > 0 ? Math.round(((thisMonthColl - lastMonthColl) / lastMonthColl) * 100) : null;
@@ -50,8 +52,6 @@ export function Dashboard() {
   const lastMonthNet = (incomeExpense && incomeExpense.length > 1) ? (Number(incomeExpense[incomeExpense.length - 2]?.income || 0) - Number(incomeExpense[incomeExpense.length - 2]?.expense || 0)) : 0;
   const balDelta = lastMonthNet !== 0 ? Math.round(((netThisMonth - lastMonthNet) / Math.abs(lastMonthNet)) * 100) : null;
 
-  // Real backup chip: healthy when auto-backup is on and a backup exists within
-  // the configured interval; otherwise surface a warning instead of "Backup OK".
   const backupHealthy = (() => {
     if (!glance) return null;
     if (!glance.backupEnabled) return false;
@@ -59,7 +59,6 @@ export function Dashboard() {
     return glance.nextBackup ? new Date(glance.nextBackup).getTime() > Date.now() + 10 * 60 * 1000 : true;
   })();
 
-  // Format the next auto-backup time for the glance card.
   const nextBackupLabel = (() => {
     if (!glance?.backupEnabled) return ml("Off", "ഓഫ്");
     if (!glance.nextBackup) return "—";
@@ -69,16 +68,16 @@ export function Dashboard() {
     return t.toLocaleTimeString(displayLocale, sameDay ? { hour: "2-digit", minute: "2-digit" } : { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
   })();
 
-  const stats = [
-    { label: t("dash_total_families"), value: summary?.total_families ?? 0, icon: Home, tint: "t-em", delta: t("dash_active") },
-    { label: t("dash_total_members"), value: summary?.total_members ?? 0, icon: Users, tint: "t-teal", delta: t("dash_total_registered") },
-    { label: t("dash_active_members"), value: summary?.active_members ?? 0, icon: UserCheck, tint: "t-sky", delta: t("dash_active") },
+  const kpis = [
+    { label: t("dash_fund_balance_short"), value: formatCurrency(balanceVal), icon: TrendingUp, tint: "t-em", delta: balDelta !== null ? `${balDelta >= 0 ? "+" : ""}${balDelta}%` : t("dash_all_funds") },
+    { label: t("dash_total_families"), value: String(summary?.total_families ?? 0), icon: Home, tint: "t-vio", delta: t("dash_active") },
+    { label: t("dash_total_members"), value: String(summary?.total_members ?? 0), icon: Users, tint: "t-sky", delta: t("dash_active") },
+    { label: t("dash_active_members"), value: String(summary?.active_members ?? 0), icon: UserCheck, tint: "t-teal", delta: t("dash_active") },
     { label: t("dash_monthly_collection"), value: formatCurrency(summary?.monthly_collection ?? 0), icon: Wallet, tint: "t-gold", delta: collDelta !== null ? `${collDelta >= 0 ? "+" : ""}${collDelta}%` : t("dash_this_month") },
-    { label: t("dash_pending_dues"), value: formatCurrency(summary?.pending_dues ?? 0), icon: AlertCircle, tint: "t-rose", delta: t("dash_overdue") },
     { label: t("dash_donations_month"), value: formatCurrency(summary?.monthly_donations ?? 0), icon: Gift, tint: "t-pink", delta: t("dash_this_month") },
-    { label: t("dash_marriages_year"), value: summary?.marriages_this_year ?? 0, icon: Gem, tint: "t-orange", delta: t("dash_this_year") },
-    { label: t("dash_deaths_year"), value: summary?.deaths_this_year ?? 0, icon: Flower, tint: "t-slate", delta: t("dash_this_year") },
-    { label: t("dash_fund_balance_short"), value: formatCurrency(balanceVal), icon: TrendingUp, tint: "t-blue", delta: balDelta !== null ? `${balDelta >= 0 ? "+" : ""}${balDelta}%` : t("dash_all_funds") },
+    { label: t("dash_pending_dues"), value: formatCurrency(summary?.pending_dues ?? 0), icon: AlertCircle, tint: "t-rose", delta: t("dash_overdue") },
+    { label: t("dash_marriages_year"), value: String(summary?.marriages_this_year ?? 0), icon: Gem, tint: "t-orange", delta: t("dash_this_year") },
+    { label: t("dash_deaths_year"), value: String(summary?.deaths_this_year ?? 0), icon: Flower, tint: "t-slate", delta: t("dash_this_year") },
   ];
 
   const quickActions = [
@@ -89,180 +88,170 @@ export function Dashboard() {
     { label: t("dash_qa_generate_report"), icon: BarChart3, action: "reports" },
   ];
 
+  const hasAlerts = alerts && alerts.length > 0;
+
   return (
     <div className="view view-enter">
-      <div className="hero-row">
-        <div className="hero t-em">
-          <div className="overline">Minz Mahallu · {new Date().toLocaleDateString(displayLocale, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div>
-          <h1>
-            {t("dash_greeting")} <span className="text-em">{user?.fullName}</span>
-          </h1>
-          <div className="sub">{t("dash_subtitle")}</div>
-          <div className="gchips">
-            <span className="gchip t-gold"><Clock size={13} /> {t("dash_week")} {Math.ceil((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000))} · {t("dash_day")} {Math.ceil((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (24 * 60 * 60 * 1000))}</span>
-            <span className="gchip t-sky"><Wallet size={13} /> {t("dash_fy")} {new Date().getFullYear()}-{String(new Date().getFullYear() + 1).slice(-2)} · Q{Math.floor(new Date().getMonth() / 3) + 1}</span>
-            <span className="gchip t-em"><Database size={13} /> {backupHealthy === null ? t("dash_backup_ok") : backupHealthy ? t("dash_backup_ok") : ml("Backup attention needed", "ബാക്കപ്പ് ശ്രദ്ധ ആവശ്യമുണ്ട്")}</span>
+      <div className="bento">
+
+        {/* ── Hero band ── */}
+        <div className="bento-hero">
+          <div className="bh-hi">
+            <span className="bh-over">Minz Mahallu · {new Date().toLocaleDateString(displayLocale, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</span>
+            <h1>{t("dash_greeting")} <span className="name">{user?.fullName}</span></h1>
+            <div className="bh-sub">{t("dash_subtitle")}</div>
+            <div className="bh-chips">
+              <span className="bh-chip t-gold"><Clock size={12} /> {t("dash_week")} {Math.ceil((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000))} · {t("dash_day")} {Math.ceil((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (24 * 60 * 60 * 1000))}</span>
+              <span className="bh-chip t-sky"><Wallet size={12} /> {t("dash_fy")} {new Date().getFullYear()}-{String(new Date().getFullYear() + 1).slice(-2)} · Q{Math.floor(new Date().getMonth() / 3) + 1}</span>
+              <span className="bh-chip t-em"><Database size={12} /> {backupHealthy === null || backupHealthy ? t("dash_backup_ok") : ml("Backup attention needed", "ബാക്കപ്പ് ശ്രദ്ധ ആവശ്യമുണ്ട്")}</span>
+            </div>
           </div>
-          <div className="qa-row">
+          <div className="bh-qa">
             {quickActions.map((qa, i) => {
               const Icon = qa.icon;
               return (
-                <button key={i} className="qa" onClick={() => navigate(`/${qa.action}`)}>
-                  <span className="qic"><Icon size={15} /></span>
-                  <b>{qa.label}</b>
+                <button key={i} className="qa-btn" onClick={() => navigate(`/${qa.action}`)}>
+                  <span className="q-ic"><Icon size={15} /></span>
+                  {qa.label}
                 </button>
               );
             })}
           </div>
         </div>
 
-        <div className="hero-side">
-          <div className="alert-card t-rose">
-            <span className="bic">
-              <AlertCircle size={17} />
-              <i />
-            </span>
-            <b>{t("dash_subs_overdue")}</b>
-            <p>{t("dash_review_pending")}</p>
-            <div className="bx">
-              <button className="btn bs bd" onClick={() => navigate("/subscriptions")}>{t("dash_review_now")}</button>
-            </div>
-          </div>
-
-          <div className="glance">
-            <b>{t("dash_today_glance")}</b>
-            <div className="g-row t-em"><span className="gdot" /><span>{t("dash_receipts_today")}</span><b>{glance?.receiptsToday ?? 0}</b></div>
-            <div className="g-row t-gold"><span className="gdot" /><span>{t("dash_next_backup")}</span><b>{nextBackupLabel}</b></div>
-            <div className="g-row t-pink"><span className="gdot" /><span>{t("dash_welfare_pending")}</span><b>{glance?.welfarePending ?? 0}</b></div>
-            <div className="g-row t-sky"><span className="gdot" /><span>{t("dash_fund_balance")}</span><b>{formatCurrency(glance?.fundBalance ?? balance ?? 0)}</b></div>
-          </div>
-        </div>
-      </div>
-
-      {/* Alerts banner */}
-      {alerts && alerts.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-3">
-          {alerts.map((a: any, i: number) => (
-            <button key={i} onClick={() => navigate(a.route)} className="alert-chip" style={{ cursor: "pointer" }}>
-              <AlertCircle size={14} />
-              <span>
-                {a.type === "committee_ending" && `${a.count} committee ${a.count === 1 ? "term" : "terms"} ending soon`}
-                {a.type === "subscriptions_overdue" && `${a.count} overdue subscription${a.count === 1 ? "" : "s"}`}
-                {a.type === "welfare_pending" && `${a.count} welfare request${a.count === 1 ? "" : "s"} pending`}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="stat-grid">
-        {stats.map((s, i) => {
-          const Icon = s.icon;
-          return (
-            <div key={i} className={`stat ${s.tint}`}>
-              <div className="srow">
-                <span className="sic"><Icon size={18} /></span>
-                <span className="delta">{s.delta}</span>
+        {/* ── KPI strip ── */}
+        <div className="kpi-strip">
+          {kpis.map((s, i) => {
+            const Icon = s.icon;
+            return (
+              <div key={i} className={`kpi ${s.tint}`}>
+                <div className="kpi-top">
+                  <span className="kpi-ic"><Icon size={16} strokeWidth={2.1} /></span>
+                  <span className="kpi-delta">{s.delta}</span>
+                </div>
+                <div className="kpi-num">{s.value}</div>
+                <div className="kpi-lb">{s.label}</div>
               </div>
-              <div className="val">{s.value}</div>
-              <div className="slab">{s.label}</div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
 
-      <div className="chart-grid">
-        <div className="card chart-card t-em">
-          <div className="ch-head">
+        {/* ── Charts + side rail ── */}
+        <div className="b-chart">
+          <div className="panel-h">
             <div>
-              <div className="ch-title">{t("dash_collections_chart")}</div>
-              <div className="ch-sub">{t("dash_subscription_receipts")} · {t("dash_last_6_months")}</div>
+              <div className="ph-title">{t("dash_collections_chart")}</div>
+              <div className="ph-sub">{t("dash_subscription_receipts")} · {t("dash_last_6_months")}</div>
             </div>
-            <div className="ch-legend">
-              <span className="lg lg-em">₹</span>
-            </div>
+            <span className="lg">₹</span>
           </div>
-          <div className="ch-body">
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={collectionsChart}>
-                <defs>
-                  <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--c-em)" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="var(--c-em)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 4" stroke="var(--line)" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid var(--line)", background: "var(--panel)", fontSize: 12 }} />
-                <Area type="monotone" dataKey="amount" stroke="var(--c-em)" strokeWidth={2.6} fill="url(#g1)" />
-              </AreaChart>
-            </ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={collectionsChart}>
+              <defs>
+                <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--c-em)" stopOpacity={0.32} />
+                  <stop offset="95%" stopColor="var(--c-em)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 5" stroke="var(--line)" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid var(--line)", background: "var(--panel)", fontSize: 12, boxShadow: "var(--shl)" }} />
+              <Area type="monotone" dataKey="amount" stroke="var(--c-em)" strokeWidth={2.4} fill="url(#g1)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="b-side">
+          <div className="side-widget">
+            <div className="sw-title">{t("dash_today_glance")}</div>
+            <div className="sw-row t-em"><span className="sw-dot" /><span>{t("dash_receipts_today")}</span><b>{glance?.receiptsToday ?? 0}</b></div>
+            <div className="sw-row t-gold"><span className="sw-dot" /><span>{t("dash_next_backup")}</span><b>{nextBackupLabel}</b></div>
+            <div className="sw-row t-pink"><span className="sw-dot" /><span>{t("dash_welfare_pending")}</span><b>{glance?.welfarePending ?? 0}</b></div>
+            <div className="sw-row t-sky"><span className="sw-dot" /><span>{t("dash_fund_balance")}</span><b>{formatCurrency(glance?.fundBalance ?? balance ?? 0)}</b></div>
+          </div>
+
+          <div className="side-widget sw-alert t-rose">
+            <div className="sw-title">{t("dash_subs_overdue")}</div>
+            {hasAlerts ? (
+              (alerts as any[]).map((a, i) => (
+                <button key={i} className="swa-row" onClick={() => navigate(a.route)}>
+                  <span className="swa-ic"><AlertCircle size={16} /></span>
+                  <span style={{ minWidth: 0 }}>
+                    <b>{a.count}</b> <small>{
+                      a.type === "committee_ending" ? ml("committee terms ending", "കമ്മിറ്റി കാലാവധി അവസാനിക്കുന്നു") :
+                      a.type === "subscriptions_overdue" ? ml("overdue subscriptions", "കാലാവധി കഴിഞ്ഞ സബ്സ്ക്രിപ്ഷനുകൾ") :
+                      ml("welfare requests pending", "ക്ഷേമ അപേക്ഷകൾ ശേഷിക്കുന്നു")
+                    }</small>
+                  </span>
+                </button>
+              ))
+            ) : (
+              <div className="swa-row">
+                <span className="swa-ic"><AlertCircle size={16} /></span>
+                <small>{t("dash_review_pending")}</small>
+              </div>
+            )}
+            <button className="btn bs bd" style={{ width: "100%" }} onClick={() => navigate("/subscriptions")}>{t("dash_review_now")}</button>
           </div>
         </div>
 
-        <div className="card chart-card t-gold">
-          <div className="ch-head">
+        {/* ── Income vs expense (second chart, full-width under the grid) ── */}
+        <div className="b-chart" style={{ gridColumn: "1 / -1" }}>
+          <div className="panel-h">
             <div>
-              <div className="ch-title">{t("dash_income_vs_expense")}</div>
-              <div className="ch-sub">{t("dash_financial_year")} · {t("dash_to_date")}</div>
+              <div className="ph-title">{t("dash_income_vs_expense")}</div>
+              <div className="ph-sub">{t("dash_financial_year")} · {t("dash_to_date")}</div>
             </div>
-            <div className="ch-legend">
-              <span className="lg lg-em">{t("dash_income")}</span>
+            <div style={{ display: "flex", gap: 14 }}>
+              <span className="lg">{t("dash_income")}</span>
               <span className="lg lg-rose">{t("dash_expense")}</span>
             </div>
           </div>
-          <div className="ch-body">
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={incomeExpenseChart} barGap={4}>
-                <CartesianGrid strokeDasharray="3 4" stroke="var(--line)" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid var(--line)", background: "var(--panel)", fontSize: 12 }} cursor={{ fill: "var(--selbg)" }} />
-                <Bar dataKey="income" fill="var(--c-em)" radius={[6, 6, 0, 0]} maxBarSize={28} />
-                <Bar dataKey="expense" fill="var(--c-rose)" radius={[6, 6, 0, 0]} maxBarSize={28} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={incomeExpenseChart} barGap={5}>
+              <CartesianGrid strokeDasharray="3 5" stroke="var(--line)" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid var(--line)", background: "var(--panel)", fontSize: 12, boxShadow: "var(--shl)" }} cursor={{ fill: "var(--panel2)" }} />
+              <Bar dataKey="income" fill="var(--c-em)" radius={[7, 7, 0, 0]} maxBarSize={30} />
+              <Bar dataKey="expense" fill="var(--c-rose)" radius={[7, 7, 0, 0]} maxBarSize={30} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
-      </div>
 
-      <div className="card card-pad-4 mt-3">
-        <div className="ch-head">
-          <div>
-            <div className="ch-title">{t("dash_recent_activity")}</div>
-            <div className="ch-sub">{t("dash_last_audit")}</div>
+        {/* ── Activity timeline ── */}
+        <div className="b-activity">
+          <div className="panel-h">
+            <div>
+              <div className="ph-title">{t("dash_recent_activity")}</div>
+              <div className="ph-sub">{t("dash_last_audit")}</div>
+            </div>
+            <button className="btn bs bg" onClick={() => { refreshSummary(); refreshActivity(); refreshGlance(); }}>
+              <RefreshCw size={13} /> {t("action_refresh")}
+            </button>
           </div>
-          <button className="btn bs bg" onClick={() => { refreshSummary(); refreshActivity(); refreshGlance(); }}>
-            <RefreshCw size={13} /> {t("action_refresh")}
-          </button>
+          <div className="tl">
+            {(recentActivity || []).length === 0 ? (
+              <div className="empty-state"><div className="es-title">{t("dash_no_activity")}</div></div>
+            ) : (
+              (recentActivity || []).slice(0, 6).map((a: any) => (
+                <div key={a.id} className="tl-it t-vio">
+                  <span className="tl-dot"><History size={14} /></span>
+                  <div className="tl-body">
+                    <div className="tl-line1">
+                      <b>{a.username}</b>
+                      <span className="tl-user">{a.action}</span>
+                      <span className="tl-time">{new Date(a.created_at).toLocaleTimeString(displayLocale, { hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                    <div className="tl-desc">{a.description}</div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
-        <div className="tbl tbl-flat mt-2">
-          <table>
-            <thead>
-              <tr>
-                <th>{t("audit_time")}</th>
-                <th>{t("audit_user")}</th>
-                <th>{t("audit_action")}</th>
-                <th>{t("audit_description")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(recentActivity || []).length === 0 ? (
-                <tr><td colSpan={4} className="tempty">{t("dash_no_activity")}</td></tr>
-              ) : (
-                (recentActivity || []).slice(0, 6).map((a: any) => (
-                  <tr key={a.id}>
-                    <td><span className="recent-time">{new Date(a.created_at).toLocaleTimeString(displayLocale, { hour: "2-digit", minute: "2-digit" })}</span></td>
-                    <td>{a.username}</td>
-                    <td><span className="pill t-slate">{a.action}</span></td>
-                    <td><span className="recent-desc">{a.description}</span></td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+
       </div>
     </div>
   );
