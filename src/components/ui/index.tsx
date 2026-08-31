@@ -4,6 +4,7 @@
  * .card .inp .lbl .pill .tbl .modal .toast etc.
  */
 import React from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 import { useI18n } from "@/i18n";
@@ -39,7 +40,18 @@ export function Badge({ variant = "default", children, className }: { variant?: 
 
 export function Dialog({ open, onClose, title, description, children, className }: { open: boolean; onClose: () => void; title?: string; description?: string; children: React.ReactNode; className?: string }) {
   if (!open) return null;
-  return <div className={cn("modal-root", open && "open")} onClick={onClose}><div className={cn("modal", className)} onClick={(e) => e.stopPropagation()}>{title && <div className="m-h"><b>{title}</b><button className="ibtn ml-auto" onClick={onClose}><X size={16} /></button></div>}<div className="m-b">{children}</div></div></div>;
+  // Portal to <body> so the overlay's position:fixed always measures the whole
+  // viewport — an ancestor with a transform (e.g. the page view animation)
+  // would otherwise trap the dialog inside the content column only.
+  return createPortal(
+    <div className="modal-root open" onClick={onClose}>
+      <div className={cn("modal", className)} onClick={(e) => e.stopPropagation()}>
+        {title && <div className="m-h"><b>{title}</b><button className="ibtn ml-auto" onClick={onClose}><X size={16} /></button></div>}
+        <div className="m-b">{children}</div>
+      </div>
+    </div>,
+    document.body
+  );
 }
 
 export function Table({ headers, children, className }: { headers: string[]; children: React.ReactNode; className?: string }) {
