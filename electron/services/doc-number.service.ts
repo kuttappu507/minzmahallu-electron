@@ -2,16 +2,19 @@
  * Unified document numbering — one short, unique, auditable scheme for every
  * receipt and certificate the mahallu issues:
  *
- *     PREFIX / YYYY / MM / NNN          e.g.  MMH/2026/09/001
+ *     Receipt:      PREFIX / YYYY / MM / NNN           e.g.  MM/2026/09/001
+ *     Certificate:  PREFIX / CODE / YYYY / MM / NNN    e.g.  MM/DT/2026/09/001
  *
- *   PREFIX  1–5 capital letters.
- *     · Receipts (donations + subscription payments): the "Receipt Prefix"
- *       field in Settings. When it is blank or still the legacy placeholder
- *       "RCP", the INITIALS OF THE MAHALLU NAME are used ("Minz Mahallu" →
- *       MM) — so every mahallu's receipts are self-identifying by default.
- *     · Certificates: fixed type codes so two document kinds can never share
- *       a number — DT (death), MB (membership), RS (residence), MR
- *       (marriage), NOC (no-objection).
+ *   PREFIX  1–5 capital letters identifying THE MAHALLU — the "Numbering
+ *     Prefix" field in Settings. When it is blank or still the legacy
+ *     placeholder "RCP", the INITIALS OF THE MAHALLU NAME are used
+ *     ("Minz Mahallu" → MM). Because the mahallu's letters lead EVERY
+ *     number — receipts AND certificates — two mahallus running this app
+ *     can never issue the same number to two different people.
+ *   CODE    certificate type only: DT (death), MB (membership), RS
+ *     (residence), MR (marriage), NOC (no-objection) — keeps certificate
+ *     kinds in separate series. Receipts share ONE series (donations +
+ *     subscription payments — the same money book), so they carry no code.
  *   YYYY/MM the document's OWN date in IST — a backdated receipt is numbered
  *     inside its own month.
  *   NNN     zero-padded 3-digit sequence restarting each month; it simply
@@ -30,8 +33,9 @@
 import { getDB } from "../db/connection.js";
 import { todayIST } from "./ist-date.js";
 
-/** Certificate type → number prefix. Death certificates use "DT" per the
- *  mahallu's request; every other type gets its own short code. */
+/** Certificate type → number code. Death certificates use "DT" per the
+ *  mahallu's request; every other type gets its own short code. The code
+ *  rides AFTER the mahallu prefix (MM/DT/…), never instead of it. */
 export const CERT_TYPE_CODES: Record<string, string> = {
   Death: "DT",
   Membership: "MB",
@@ -108,7 +112,10 @@ function columnValues(table: string, column: string): string[] {
   }
 }
 
-function receiptPrefix(): string {
+/** The mahallu's own letters — lead EVERY receipt AND certificate number.
+ *  Reads the "Numbering Prefix" setting; blank or legacy "RCP" falls back
+ *  to the initials of the mahallu name. */
+function mahalluPrefix(): string {
   try {
     const row = getDB().prepare("SELECT receipt_prefix, mahallu_name FROM settings WHERE id = 1").get() as
       | { receipt_prefix?: string; mahallu_name?: string }
@@ -131,7 +138,7 @@ function receiptPrefix(): string {
  *  series can never produce a duplicate. */
 export function nextReceiptNumber(dateStr?: string | null): string {
   const { y, m } = yearMonthOf(dateStr);
-  const prefix = receiptPrefix();
+  const prefix = mahalluPrefix();
   const used = [
     ...columnValues("donations", "receipt_number"),
     ...columnValues("subscription_payments", "receipt_number"),
@@ -140,10 +147,13 @@ export function nextReceiptNumber(dateStr?: string | null): string {
   return formatDocNumber(prefix, y, m, maxSeriesUsed(used, prefix, y, m) + 1);
 }
 
-/** Next certificate number — DT/MB/RS/MR/NOC per certificate type. */
+/** Next certificate number — MAHALLU/CODE/YYYY/MM/NNN. The mahallu's own
+ *  letters lead the number (same letters the receipts carry), so mahallus
+ *  using this app never issue duplicate certificate numbers; the type code
+ *  after the prefix keeps certificate kinds in separate series. */
 export function nextCertificateNumber(type: string, dateStr?: string | null): string {
   const { y, m } = yearMonthOf(dateStr);
-  const prefix = CERT_TYPE_CODES[type] || "CRT";
+  const prefix = `${mahalluPrefix()}/${CERT_TYPE_CODES[type] || "CRT"}`;
   const used = columnValues("certificates", "certificate_number");
   return formatDocNumber(prefix, y, m, maxSeriesUsed(used, prefix, y, m) + 1);
 }

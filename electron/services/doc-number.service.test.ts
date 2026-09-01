@@ -60,6 +60,16 @@ describe("doc-number pure helpers", () => {
     expect(maxSeriesUsed(used, "MMH", "2026", "01")).toBe(0);
   });
 
+  it("never lets receipt numbers inflate a certificate series (or vice versa)", () => {
+    // Receipts are PREFIX/YYYY/MM/NNN; certificates are PREFIX/CODE/YYYY/MM/NNN —
+    // the heads cannot cross-match, so the two series stay independent.
+    expect(maxSeriesUsed(["MM/2026/09/001", "MM/2026/09/007"], "MM/DT", "2026", "09")).toBe(0);
+    expect(maxSeriesUsed(["MM/DT/2026/09/004"], "MM", "2026", "09")).toBe(0);
+    // Old-scheme certificate numbers (no mahallu prefix) never match the new
+    // head either — no collision, no sequence inflation after an upgrade.
+    expect(maxSeriesUsed(["DT/2026/09/001"], "MM/DT", "2026", "09")).toBe(0);
+  });
+
   it("makes numbers file-name safe", () => {
     expect(fileNameSafe("MMH/2026/09/001")).toBe("MMH-2026-09-001");
     expect(fileNameSafe(123)).toBe("123");
@@ -104,6 +114,9 @@ describe("doc-number allocation (real CRUD layer)", () => {
     db.prepare("UPDATE settings SET receipt_prefix = 'KMJ' WHERE id = 1").run();
     try {
       expect(nextReceiptNumber("2026-09-01")).toMatch(/^KMJ\/2026\/09\/\d{3}$/);
+      // The customized prefix leads certificate numbers too — one mahallu
+      // identity across every document the app issues.
+      expect(nextCertificateNumber("Death", "2026-09-01")).toMatch(/^KMJ\/DT\/2026\/09\/\d{3}$/);
     } finally {
       db.prepare("UPDATE settings SET receipt_prefix = 'RCP' WHERE id = 1").run();
     }
@@ -129,31 +142,32 @@ describe("doc-number allocation (real CRUD layer)", () => {
     expect(ledger.receipt_number).toBe(paid.receiptNumber);
   });
 
-  it("numbers certificates per type — DT for death, MB for membership", () => {
+  it("numbers certificates MAHALLU/CODE/YYYY/MM/NNN — the mahallu letters lead every certificate", () => {
     // Certificates are append-only (delete triggers guard the register), so
     // the issued rows are verified in place — the test database is a
     // throwaway per-process copy.
     const death = certificates.issueDeath("DTH-2026-0001", 1);
-    expect(death.certificateNumber).toMatch(/^DT\/\d{4}\/\d{2}\/\d{3}$/);
+    expect(death.certificateNumber).toMatch(/^MM\/DT\/\d{4}\/\d{2}\/\d{3}$/);
     const deathRow = getDB().prepare("SELECT certificate_number, type FROM certificates WHERE id = ?").get(death.id) as { certificate_number: string; type: string };
     expect(deathRow.certificate_number).toBe(death.certificateNumber);
     expect(deathRow.type).toBe("Death");
 
     const member = certificates.issueMembership("MEM-001", 1);
-    expect(member.certificateNumber).toMatch(/^MB\/\d{4}\/\d{2}\/\d{3}$/);
+    expect(member.certificateNumber).toMatch(/^MM\/MB\/\d{4}\/\d{2}\/\d{3}$/);
     const memberRow = getDB().prepare("SELECT certificate_number, type FROM certificates WHERE id = ?").get(member.id) as { certificate_number: string; type: string };
     expect(memberRow.certificate_number).toBe(member.certificateNumber);
     expect(memberRow.type).toBe("Membership");
 
-    // Every certificate type has its own series, so numbers never collide
-    // across kinds within a month.
+    // Every certificate type has its own series AND carries the mahallu's
+    // letters (MM here), so numbers never collide across kinds — or across
+    // mahallus using the app.
     const dt = nextCertificateNumber("Death", "2026-09-01");
     const mb = nextCertificateNumber("Membership", "2026-09-01");
     const noc = nextCertificateNumber("NOC", "2026-09-01");
     expect(new Set([dt, mb, noc]).size).toBe(3);
-    expect(dt).toMatch(/^DT\/2026\/09\/\d{3}$/);
-    expect(mb).toMatch(/^MB\/2026\/09\/\d{3}$/);
-    expect(noc).toMatch(/^NOC\/2026\/09\/\d{3}$/);
+    expect(dt).toMatch(/^MM\/DT\/2026\/09\/\d{3}$/);
+    expect(mb).toMatch(/^MM\/MB\/2026\/09\/\d{3}$/);
+    expect(noc).toMatch(/^MM\/NOC\/2026\/09\/\d{3}$/);
   });
 
   it("backfills a number on first generation for legacy blank rows, never renumbering issued ones", () => {

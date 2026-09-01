@@ -294,10 +294,10 @@ const translations: Record<string, { en: string; ml: string }> = {
   set_email: { en: "Email", ml: "ഇമെയിൽ" },
   set_financial_year_start: { en: "Financial Year Start", ml: "സാമ്പത്തിക വർഷം ആരംഭം" },
   set_currency_symbol: { en: "Currency Symbol", ml: "കറൻസി ചിഹ്നം" },
-  set_receipt_prefix: { en: "Receipt Prefix", ml: "രസീത് പ്രിഫിക്സ്" },
+  set_receipt_prefix: { en: "Numbering Prefix", ml: "നമ്പറിംഗ് പ്രിഫിക്സ്" },
   set_receipt_prefix_hint: {
-    en: "Receipts number as PREFIX/YYYY/MM/NNN — e.g. MMH/2026/09/001. Leave as RCP or blank to auto-use the mahallu name's initials (2–4 letters).",
-    ml: "രസീറ്റ് നമ്പർ രൂപം: PREFIX/YYYY/MM/NNN — ഉദാ: MMH/2026/09/001. RCP അല്ലെങ്കിൽ ഒഴിവായാൽ മഹല്ല് പേരിന്റെ ഇനീഷ്യലുകൾ (2–4 അക്ഷരം) സ്വയമേവ ഉപയോഗിക്കും.",
+    en: "These mahallu letters lead EVERY number — receipts MM/2026/09/001 and certificates MM/DT/2026/09/001 (DT death, MB membership, RS residence, MR marriage, NOC), so no two mahallus can issue the same number. Leave as RCP or blank to auto-use the mahallu name's initials.",
+    ml: "ഈ മഹല്ല് അക്ഷരങ്ങളിൽ എല്ലാ നമ്പറും തുടങ്ങും — രസീറ്റ് MM/2026/09/001, സർട്ടിഫിക്കറ്റ് MM/DT/2026/09/001 (DT മരണം, MB അംഗത്വം, RS താമസം, MR വിവാഹം, NOC). അതുകൊണ്ട് രണ്ട് മഹല്ലുകൾക്ക് ഒരേ നമ്പർ വരില്ല. RCP അല്ലെങ്കിൽ ഒഴിവായാൽ മഹല്ല് പേരിന്റെ ഇനീഷ്യലുകൾ സ്വയമേവ ഉപയോഗിക്കും.",
   },
   set_auto_backup: { en: "Auto Backup", ml: "ഓട്ടോ ബാക്കപ്പ്" },
   set_financial_sub_section: { en: "Financial & Subscription", ml: "സാമ്പത്തികവും സബ്സ്ക്രിപ്ഷനും" },

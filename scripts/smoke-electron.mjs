@@ -207,8 +207,9 @@ try {
     console.log("  WARN  no pending subscription row to exercise the payment receipt hook");
   }
 
-  // 6d) certificate numbering — death certificates carry the DT prefix in the
-  //     same YEAR/MM scheme (the demo profile has demo death records).
+  // 6d) certificate numbering — the mahallu's letters lead EVERY number, so
+  //     death certificates read MAHALLU/DT/YYYY/MM/NNN (prefix defaults to
+  //     the mahallu name's initials when the stored prefix is legacy "RCP").
   try {
     const deaths = await evaluate(conn, `window.mms.deaths.list({page:1,pageSize:1})`);
     const deathRow = (deaths?.rows || [])[0];
@@ -216,7 +217,7 @@ try {
       const cert = await evaluate(conn, `window.mms.certificates.issueDeath(${JSON.stringify(deathRow.death_number)}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
       const certParsed = (() => { try { return JSON.parse(String(cert)); } catch { return null; } })();
       const certNumber = String(certParsed?.certificateNumber || certParsed?.certificate_number || "");
-      check("death certificate number follows DT/YYYY/MM/NNN", /^DT\/\d{4}\/\d{2}\/\d{3,}$/.test(certNumber), `cert=${certNumber}`);
+      check("death certificate number follows MAHALLU/DT/YYYY/MM/NNN", /^[A-Z]{1,5}\/DT\/\d{4}\/\d{2}\/\d{3,}$/.test(certNumber), `cert=${certNumber}`);
     } else {
       console.log("  WARN  no death record to exercise certificate numbering");
     }
