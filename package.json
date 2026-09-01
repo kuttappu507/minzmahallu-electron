@@ -78,6 +78,7 @@
     "directories": {
       "output": "release"
     },
+    "beforePack": "scripts/electron-builder-before-pack.cjs",
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
