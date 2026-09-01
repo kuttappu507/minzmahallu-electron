@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   MessageCircle, RefreshCw, Smartphone, Wifi, WifiOff, Send, ShieldCheck,
-  Clock3, Megaphone, ReceiptText, RotateCcw, AlertTriangle, Users,
+  Clock3, Megaphone, ReceiptText, RotateCcw, AlertTriangle, Users, Power, Unlink,
 } from "lucide-react";
 import { Button, Badge, Textarea } from "@/components/ui";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { toast } from "@/lib/toast";
 import { useI18n } from "@/i18n";
+import { formatDateTime } from "@/lib/utils";
 
 const STATUS_LABELS: Record<string, { en: string; ml: string }> = {
   CONNECTED: { en: "Connected", ml: "കണക്റ്റ് ചെയ്തു" },
@@ -45,6 +47,7 @@ export function WhatsApp() {
   const [history, setHistory] = useState<any[]>([]);
   const [subStats, setSubStats] = useState<any>(null);
   const [annStats, setAnnStats] = useState<any>(null);
+  const [unlinkOpen, setUnlinkOpen] = useState(false);
   const busy = useRef(false);
 
   const refresh = useCallback(async () => {
@@ -100,14 +103,29 @@ export function WhatsApp() {
     catch (e: any) { toast.error(e?.message || tx("QR code is not ready yet", "QR കോഡ് ഇതുവരെ തയ്യാറായിട്ടില്ല")); }
   };
 
-  const disconnect = async () => {
+  // PAUSE — the engine stops but the device stays linked on the phone, so
+  // Connect resumes without a new QR scan. (The old Disconnect actually
+  // logged the device out — the "logged out after close" surprise.)
+  const pause = async () => {
     setLoading(true);
     try {
       await window.mms.whatsapp.disconnect();
-      toast.success(tx("WhatsApp disconnected", "വാട്ട്സ്ആപ്പ് വിച്ഛേദിച്ചു"));
+      toast.success(tx("WhatsApp paused — pairing kept, Connect resumes it", "വാട്ട്സ്ആപ്പ് താൽക്കാലികമായി നിർത്തി — പെയറിംഗ് നിലനിൽക്കും, കണക്റ്റ് ചെയ്താൽ തുടരും"));
       await refresh();
-    } catch (e: any) { toast.error(e?.message || tx("Could not disconnect", "വിച്ഛേദിക്കാനായില്ല")); }
+    } catch (e: any) { toast.error(e?.message || tx("Could not pause WhatsApp", "വാട്ട്സ്ആപ്പ് നിർത്താനായില്ല")); }
     finally { setLoading(false); }
+  };
+
+  // UNLINK — removes the device from the phone's Linked Devices and wipes
+  // the stored credentials; a fresh QR scan is required afterwards.
+  const unlink = async () => {
+    setLoading(true);
+    try {
+      await window.mms.whatsapp.unlink();
+      toast.success(tx("Device unlinked — scan the QR code to reconnect", "ഡിവൈസ് വിച്ഛേദിച്ചു — വീണ്ടും കണക്റ്റ് ചെയ്യാൻ QR സ്കാൻ ചെയ്യുക"));
+      await refresh();
+    } catch (e: any) { toast.error(e?.message || tx("Could not unlink the device", "ഡിവൈസ് വിച്ഛേദിക്കാനായില്ല")); }
+    finally { setLoading(false); setUnlinkOpen(false); }
   };
 
   const sendSubscription = async () => {
@@ -193,7 +211,10 @@ export function WhatsApp() {
 
           <div className="wa-actions">
             {connected
-              ? <Button variant="secondary" onClick={disconnect} disabled={loading}><Smartphone className="h-4 w-4" />{tx("Disconnect", "വിച്ഛേദിക്കുക")}</Button>
+              ? <>
+                  <Button variant="secondary" onClick={pause} disabled={loading}><Power className="h-4 w-4" />{tx("Pause (keeps pairing)", "താൽക്കാലിക നിർത്തുക (പെയറിംഗ് നിലനിൽക്കും)")}</Button>
+                  <Button variant="danger" onClick={() => setUnlinkOpen(true)} disabled={loading}><Unlink className="h-4 w-4" />{tx("Unlink phone", "ഫോൺ വിച്ഛേദിക്കുക")}</Button>
+                </>
               : <Button onClick={connect} disabled={loading || !status.internet}><Smartphone className="h-4 w-4" />{tx("Connect WhatsApp", "വാട്ട്സ്ആപ്പ് കണക്റ്റ് ചെയ്യുക")}</Button>}
           </div>
         </div>
@@ -270,7 +291,7 @@ export function WhatsApp() {
               <div key={c.id} className="wa-row">
                 <div className="wa-row-main">
                   <b>{c.campaign_type === "SUBSCRIPTION_REMINDER" ? tx("Subscription reminder", "സബ്സ്ക്രിപ്ഷൻ റിമൈൻഡർ") : tx("Announcement", "അറിയിപ്പ്")}</b>
-                  <small>{c.created_at} · {c.total_recipients} {tx("recipients", "സ്വീകർത്താക്കൾ")} · {c.sent_count} {tx("sent", "അയച്ചു")}{c.failed_count ? ` · ${c.failed_count} ${tx("failed", "പരാജയം")}` : ""}</small>
+                  <small>{formatDateTime(c.created_at)} · {c.total_recipients} {tx("recipients", "സ്വീകർത്താക്കൾ")} · {c.sent_count} {tx("sent", "അയച്ചു")}{c.failed_count ? ` · ${c.failed_count} ${tx("failed", "പരാജയം")}` : ""}</small>
                 </div>
                 <div className="wa-row-side">
                   <Badge variant={campaignBadge(c.status)}>{c.status}</Badge>
@@ -297,7 +318,7 @@ export function WhatsApp() {
               <div key={m.id} className="wa-row">
                 <div className="wa-row-main">
                   <b className="truncate">{m.recipient_name || m.recipient_phone}</b>
-                  <small>{m.message_type} · {m.created_at}</small>
+                  <small>{m.message_type} · {formatDateTime(m.created_at)}</small>
                 </div>
                 <div className="wa-row-side">
                   <Badge variant={m.status === "SENT" ? "success" : m.status === "FAILED" ? "danger" : "muted"}>{m.status}</Badge>
@@ -309,6 +330,18 @@ export function WhatsApp() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={unlinkOpen}
+        onClose={() => setUnlinkOpen(false)}
+        onConfirm={unlink}
+        title={tx("Unlink phone", "ഫോൺ വിച്ഛേദിക്കുക")}
+        description={tx(
+          "Remove this device from the phone's Linked Devices? A new QR scan will be needed to reconnect. If you only want to stop it for now, use Pause instead — that keeps the pairing.",
+          "ഫോണിലെ Linked Devices-ൽ നിന്ന് ഈ ഡിവൈസ് നീക്കം ചെയ്യണോ? വീണ്ടും കണക്റ്റ് ചെയ്യാൻ പുതിയ QR സ്കാൻ വേണം. താൽക്കാലികമായി നിർത്താൻ മാത്രമാണെങ്കിൽ Pause ഉപയോഗിക്കുക — അത് പെയറിംഗ് നിലനിർത്തും."
+        )}
+        confirmLabel={tx("Unlink device", "ഡിവൈസ് വിച്ഛേദിക്കുക")}
+      />
     </div>
   );
 }

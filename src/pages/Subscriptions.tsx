@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Edit2, AlertCircle, Wallet, Eye, Ban, History, RefreshCw } from "lucide-react";
+import { Edit2, AlertCircle, Wallet, Eye, Ban, History, RefreshCw, Printer, MessageCircle } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useList, useAsync } from "@/hooks/useList";
 import { Card, CardContent, Button, Dialog, Input, Label, Select, Textarea, Badge, SectionLabel } from "@/components/ui";
@@ -139,16 +139,24 @@ export function Subscriptions() {
       return;
     }
     try {
-      const r = await window.mms.subscriptions.update(editingId, {
+      const r: any = await window.mms.subscriptions.update(editingId, {
         amountPaid: Number(form.amount_paid),
         paymentDate: form.payment_date,
         paymentMethod: form.payment_method,
         transactionRef: form.transaction_ref || "",
         remarks: form.remarks || "",
       });
+      // The receipt (A6) is generated and saved in the app automatically;
+      // WhatsApp delivery depends on pairing + the family's number.
+      const waNote: string =
+        r?.receiptWhatsApp === "sent" ? tx(" — receipt sent on WhatsApp", " — രസീറ്റ് വാട്ട്സ്ആപ്പിൽ അയച്ചു")
+        : r?.receiptWhatsApp === "no-phone" ? tx(" — receipt saved (no WhatsApp number for this family)", " — രസീറ്റ് സേവ് ചെയ്തു (ഈ കുടുംബത്തിന് വാട്ട്സ്ആപ്പ് നമ്പർ ഇല്ല)")
+        : r?.receiptWhatsApp === "not-connected" ? tx(" — receipt saved (WhatsApp not connected)", " — രസീറ്റ് സേവ് ചെയ്തു (വാട്ട്സ്ആപ്പ് കണക്റ്റ് അല്ല)")
+        : r?.receiptWhatsApp === "failed" ? tx(` — receipt not sent: ${r.receiptError || "failed"}`, ` — രസീറ്റ് അയച്ചില്ല: ${r.receiptError || "പരാജയം"}`)
+        : "";
       toast.success(tx(
-        `Payment saved — ${r.status}${r.receiptNumber ? ` (receipt ${r.receiptNumber})` : ""}`,
-        `പേയ്‌മെന്റ് സേവ് ചെയ്തു — ${r.status}${r.receiptNumber ? ` (രസീറ്റ് ${r.receiptNumber})` : ""}`
+        `Payment saved — ${r.status}${r.receiptNumber ? ` (receipt ${r.receiptNumber})` : ""}${waNote}`,
+        `പേയ്‌മെന്റ് സേവ് ചെയ്തു — ${r.status}${r.receiptNumber ? ` (രസീറ്റ് ${r.receiptNumber})` : ""}${waNote}`
       ));
       setDialogOpen(false);
       setForm(emptyForm);
@@ -180,6 +188,38 @@ export function Subscriptions() {
     refetch();
     refreshCollected();
     refreshPending();
+  };
+
+  // ===== A6 payment receipts (print / WhatsApp) =====
+  const printReceipt = async (id: number) => {
+    try {
+      const r: any = await window.mms.receipts.printSubscription(id);
+      if (r?.cancelled) { /* closed the print dialog */ }
+      else if (r?.success) toast.success(tx("Receipt sent to the printer", "\u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d4d \u0d2a\u0d4d\u0d30\u0d3f\u0d28\u0d4d\u0d31\u0d30\u0d3f\u0d32\u0d47\u0d15\u0d4d\u0d15\u0d4d \u0d05\u0d2f\u0d1a\u0d4d\u0d1a\u0d41"));
+      else toast.error(r?.reason || tx("Could not print the receipt", "\u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d4d \u0d2a\u0d4d\u0d30\u0d3f\u0d28\u0d4d\u0d31\u0d4d \u0d1a\u0d46\u0d2f\u0d4d\u0d2f\u0d3e\u0d28\u0d3e\u0d2f\u0d3f\u0d32\u0d4d\u0d32"));
+    } catch (e: any) { toast.error(e?.message || tx("Could not print the receipt", "\u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d4d \u0d2a\u0d4d\u0d30\u0d3f\u0d28\u0d4d\u0d31\u0d4d \u0d1a\u0d46\u0d2f\u0d4d\u0d2f\u0d3e\u0d28\u0d3e\u0d2f\u0d3f\u0d32\u0d4d\u0d32")); }
+  };
+  const sendReceipt = async (id: number) => {
+    try {
+      const r: any = await window.mms.whatsapp.sendSubscriptionReceipt(id);
+      if (r?.status === "sent" || r?.success) toast.success(tx("Payment receipt sent on WhatsApp", "\u0d2a\u0d47\u0d2f\u0d4d\u200c\u0d2e\u0d46\u0d28\u0d4d\u0d31\u0d4d \u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d4d \u0d35\u0d3e\u0d1f\u0d4d\u0d38\u0d3e\u0d2a\u0d4d\u0d2a\u0d3f\u0d32\u0d4d \u0d05\u0d2f\u0d1a\u0d4d\u0d1a\u0d41"));
+      else toast.error(r?.error || tx("Could not send the receipt", "\u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d4d \u0d05\u0d2f\u0d2f\u0d4d\u0d15\u0d4d\u0d15\u0d3e\u0d28\u0d3e\u0d2f\u0d3f\u0d32\u0d4d\u0d32"));
+    } catch (e: any) { toast.error(e?.message || tx("Could not send the receipt", "\u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d4d \u0d05\u0d2f\u0d2f\u0d4d\u0d15\u0d4d\u0d15\u0d3e\u0d28\u0d3e\u0d2f\u0d3f\u0d32\u0d4d\u0d32")); }
+  };
+  const printReceiptBatch = async () => {
+    try {
+      const list: any = await window.mms.subscriptions.list({
+        search: search || undefined,
+        status: statusFilter !== "All" ? statusFilter : undefined,
+        page: 1, pageSize: 500,
+      });
+      const ids = (list?.rows || []).filter((r: any) => Number(r.amount_paid || 0) > 0).map((r: any) => r.id);
+      if (!ids.length) { toast.error(tx("No paid subscriptions to print", "\u0d2a\u0d4d\u0d30\u0d3f\u0d28\u0d4d\u0d31\u0d4d \u0d1a\u0d46\u0d2f\u0d4d\u0d2f\u0d3e\u0d28\u0d4d \u0d05\u0d1f\u0d1a\u0d4d\u0d1a \u0d38\u0d2c\u0d4d\u200c\u0d38\u0d4d\u0d15\u0d4d\u0d30\u0d3f\u0d2a\u0d4d\u0d36\u0d28\u0d41\u0d15\u0d33\u0d3f\u0d32\u0d4d\u0d32")); return; }
+      const r: any = await window.mms.receipts.printSubscriptionBatch(ids);
+      if (r?.cancelled) { /* closed the print dialog */ }
+      else if (r?.success) toast.success(tx(`Sent ${r.count} receipts to the printer (4 per A4 sheet)`, `${r.count} \u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d41\u0d15\u0d33\u0d4d \u0d2a\u0d4d\u0d30\u0d3f\u0d28\u0d4d\u0d31\u0d30\u0d3f\u0d32\u0d47\u0d15\u0d4d\u0d15\u0d4d \u0d05\u0d2f\u0d1a\u0d4d\u0d1a\u0d41 (\u0d12\u0d30\u0d41 A4 \u0d37\u0d40\u0d31\u0d4d\u0d1f\u0d3f\u0d7d 4 \u0d0e\u0d23\u0d4d\u0d23\u0d02)`));
+      else toast.error(r?.reason || tx("Could not print the receipts", "\u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d41\u0d15\u0d33\u0d4d \u0d2a\u0d4d\u0d30\u0d3f\u0d28\u0d4d\u0d31\u0d4d \u0d1a\u0d46\u0d2f\u0d4d\u0d2f\u0d3e\u0d28\u0d3e\u0d2f\u0d3f\u0d32\u0d4d\u0d32"));
+    } catch (e: any) { toast.error(e?.message || tx("Could not print the receipts", "\u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d41\u0d15\u0d33\u0d4d \u0d2a\u0d4d\u0d30\u0d3f\u0d28\u0d4d\u0d31\u0d4d \u0d1a\u0d46\u0d2f\u0d4d\u0d2f\u0d3e\u0d28\u0d3e\u0d2f\u0d3f\u0d32\u0d4d\u0d32")); }
   };
 
   const handleRowDoubleClick = async (row: Subscription) => {
@@ -237,6 +277,14 @@ export function Subscriptions() {
       header: "",
       accessor: (r) => (
         <div className="flex items-center gap-1 justify-end">
+          {Number(r.amount_paid) > 0 && <>
+            <button className="act-btn" title={tx("Print A6 receipt", "\u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d4d \u0d2a\u0d4d\u0d30\u0d3f\u0d28\u0d4d\u0d31\u0d4d \u0d1a\u0d46\u0d2f\u0d4d\u0d2f\u0d41\u0d15")} onClick={() => printReceipt(r.id)}>
+              <Printer className="h-4 w-4 text-primary" />
+            </button>
+            <button className="act-btn" title={tx("Send receipt on WhatsApp", "\u0d35\u0d3e\u0d1f\u0d4d\u0d38\u0d3e\u0d2a\u0d4d\u0d2a\u0d3f\u0d7d \u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d4d \u0d05\u0d2f\u0d2f\u0d4d\u0d15\u0d4d\u0d15\u0d41\u0d15")} onClick={() => sendReceipt(r.id)}>
+              <MessageCircle className="h-4 w-4 text-primary" />
+            </button>
+          </>}
           <button className="act-btn act-edit" title={tx("Record payment", "പേയ്‌മെന്റ് രേഖപ്പെടുത്തുക")} onClick={() => handleEdit(r.id)}>
             <Edit2 className="h-4 w-4" />
           </button>
@@ -285,6 +333,10 @@ export function Subscriptions() {
           )}</div>
         </div>
         <div className="vr">
+          <Button variant="secondary" onClick={printReceiptBatch} title={tx("Print A6 payment receipts \u2014 4 per A4 sheet (paid rows, current filter)", "\u0d05\u0d1f\u0d1a\u0d4d\u0d1a \u0d38\u0d2c\u0d4d\u200c\u0d38\u0d4d\u0d15\u0d4d\u0d30\u0d3f\u0d2a\u0d4d\u0d36\u0d28\u0d4d \u0d30\u0d38\u0d40\u0d1f\u0d41\u0d15\u0d7d \u0d2a\u0d4d\u0d30\u0d3f\u0d28\u0d4d\u0d31\u0d4d \u0d1a\u0d46\u0d2f\u0d4d\u0d2f\u0d41\u0d15")}>
+            <Printer className="h-4 w-4" />
+            {tx("Print receipts", "\u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d41\u0d15\u0d7d \u0d2a\u0d4d\u0d30\u0d3f\u0d28\u0d4d\u0d31\u0d4d \u0d1a\u0d46\u0d2f\u0d4d\u0d2f\u0d41\u0d15")}
+          </Button>
           <Button variant="secondary" onClick={handleMarkOverdue}>
             <AlertCircle className="h-4 w-4" />
             {t("sub_mark_overdue")}
@@ -413,6 +465,14 @@ export function Subscriptions() {
             <Button variant="secondary" onClick={() => { setPreviewOpen(false); setPreviewRow(null); }}>
               {t("ui_close")}
             </Button>
+            {Number(previewRow?.amount_paid) > 0 && <>
+              <Button variant="secondary" onClick={() => previewRow && printReceipt(previewRow.id)}>
+                <Printer size={14} />{tx("Print A6", "A6 \u0d2a\u0d4d\u0d30\u0d3f\u0d28\u0d4d\u0d31\u0d4d")}
+              </Button>
+              <Button variant="secondary" onClick={() => previewRow && sendReceipt(previewRow.id)}>
+                <MessageCircle size={14} />{tx("WhatsApp receipt", "\u0d35\u0d3e\u0d1f\u0d4d\u0d38\u0d3e\u0d2a\u0d4d\u0d2a\u0d4d \u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d4d")}
+              </Button>
+            </>}
             <Button onClick={switchToEdit}>
               <Edit2 size={14} />
               {tx("Record payment", "പേയ്‌മെന്റ് രേഖപ്പെടുത്തുക")}

@@ -283,12 +283,14 @@ export function installPreviewMock() {
     status: () => Promise.resolve({ status: "DISCONNECTED", connected: false, internet: navigator.onLine, service: "", number: "", name: "", message: "WhatsApp pairing is available in the installed desktop app (dev preview)." }),
     connect: () => Promise.resolve({ success: true }),
     qr: () => Promise.reject(new Error("QR code is not available yet")),
-    disconnect: () => Promise.resolve({ success: true }),
+    disconnect: () => Promise.resolve({ success: true, keptPairing: true }),
+    unlink: () => Promise.resolve({ success: true, unlinked: true }),
     checkNumber: () => Promise.resolve({ available: false, reason: "Preview mode" }),
     setFamily: () => Promise.resolve({ success: true }),
     getFamily: () => Promise.resolve({ whatsapp_phone: "", whatsapp_enabled: 1 }),
     sendMessage: () => Promise.resolve({ success: true }),
     sendDonationReceipt: () => Promise.resolve({ success: true }),
+    sendSubscriptionReceipt: () => Promise.resolve({ status: "skipped", error: "Preview mode" }),
     recipientStats: (type: string) => Promise.resolve({ type, activeFamilies: 0, eligible: 0, missingWhatsApp: 0, disabledWhatsApp: 0, alreadySent: 0, willSend: 0 }),
     createSubscriptionCampaign: () => Promise.resolve({ campaignId: 1, total: 0 }),
     createAnnouncementCampaign: () => Promise.resolve({ campaignId: 1, total: 0 }),
@@ -300,7 +302,19 @@ export function installPreviewMock() {
     runtimeState: () => Promise.resolve({ installed: true, running: false, starting: false, state: "STOPPED", pid: null, lastError: "" }),
   };
 
-  const base: Record<string, unknown> = { dashboard, settings, auth, win, accounting, certificates: mockCertificates, whatsapp };
+  // Receipts (A6) — preview-safe stubs; the real PDF work happens in the app.
+  const receipts = {
+    getDonationPdf: () => Promise.resolve({ success: true, receiptNumber: "PREVIEW", pdfBase64: "", sizeBytes: 0 }),
+    getSubscriptionPdf: () => Promise.resolve({ success: true, receiptNumber: "PREVIEW", pdfBase64: "", sizeBytes: 0 }),
+    saveDonationPdf: () => Promise.resolve({ success: true, cancelled: false }),
+    saveSubscriptionPdf: () => Promise.resolve({ success: true, cancelled: false }),
+    printDonation: () => Promise.resolve({ success: true, cancelled: false, reason: "" }),
+    printSubscription: () => Promise.resolve({ success: true, cancelled: false, reason: "" }),
+    printDonationBatch: () => Promise.resolve({ success: true, cancelled: false, reason: "", count: 0 }),
+    printSubscriptionBatch: () => Promise.resolve({ success: true, cancelled: false, reason: "", count: 0 }),
+  };
+
+  const base: Record<string, unknown> = { dashboard, settings, auth, win, accounting, certificates: mockCertificates, whatsapp, receipts };
   const handler: ProxyHandler<Record<string, unknown>> = {
     get(target, prop) {
       if (prop === "then") return undefined; // avoid thenable detection

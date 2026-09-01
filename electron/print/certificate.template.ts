@@ -1,6 +1,6 @@
 import { esc, getAnekMalayalamCss } from './utils.js';
 import { getDB } from '../db/connection.js';
-import { istDateTimeStr } from '../services/ist-date.js';
+import { istDateTimeDm } from '../services/ist-date.js';
 
 interface CertData {
   type: string;
@@ -706,7 +706,7 @@ export function buildCertificateHtml(cert: any, lang: 'en' | 'ml' = 'en', reprin
   </div>` : '';
   body = body.replace('</main>', `${verifyBox}</main>`);
   const reprintNote = reprints > 0
-    ? `<div class="reprint-note">${ml ? 'പുനഃമുദ്രണം' : 'Reprinted on'} <b>${esc(reprintedAt || istDateTimeStr(new Date()))}</b></div>`
+    ? `<div class="reprint-note">${ml ? 'പുനഃമുദ്രണം' : 'Reprinted on'} <b>${esc(reprintedAt || istDateTimeDm(new Date()))}</b></div>`
     : '';
   return `<!doctype html><html lang="${ml ? 'ml' : 'en'}"><head><meta charset="utf-8"><title>${esc(c.type)} Certificate</title><style>${css}</style></head><body>${body}${reprintNote}</body></html>`;
 }

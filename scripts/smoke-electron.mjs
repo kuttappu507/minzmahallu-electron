@@ -159,6 +159,27 @@ try {
     check("receipt without donor phone asks for the number", /No WhatsApp number saved/i.test(String(noPhone)), String(noPhone).slice(0, 120));
   }
 
+  // 6b) A6 receipt generation — the PDF is rendered in-process and stored in
+  //     the app database (works even though WhatsApp is not paired here).
+  if (withPhone) {
+    const pdf = await evaluate(conn, `window.mms.receipts.getDonationPdf(${withPhone.id})`);
+    check("A6 donation receipt PDF generated and stored in app", pdf?.success === true && Number(pdf?.sizeBytes) > 500 && !!pdf?.receiptNumber, `receipt=${pdf?.receiptNumber} size=${pdf?.sizeBytes}`);
+  }
+
+  // 6c) recording a subscription payment generates the receipt and reports
+  //     the WhatsApp delivery status without failing the payment itself.
+  const pending = await evaluate(conn, `window.mms.subscriptions.list({status:'Pending', page:1, pageSize:5})`);
+  const pendingRow = (pending?.rows || [])[0];
+  if (pendingRow) {
+    const payDate = new Date().toISOString().slice(0, 10);
+    const pay = await evaluate(conn, `window.mms.subscriptions.update(${pendingRow.id}, {amountPaid: 50, paymentDate: "${payDate}", paymentMethod: "Cash"})`);
+    check("payment save returns a receipt + WhatsApp status", ["sent", "skipped", "no-phone", "not-connected", "failed"].includes(String(pay?.receiptWhatsApp)) && !!pay?.receiptNumber, `receiptWhatsApp=${pay?.receiptWhatsApp} receipt=${pay?.receiptNumber}`);
+    const subPdf = await evaluate(conn, `window.mms.receipts.getSubscriptionPdf(${pendingRow.id})`);
+    check("A6 subscription receipt PDF generated and stored", subPdf?.success === true && Number(subPdf?.sizeBytes) > 500, `size=${subPdf?.sizeBytes}`);
+  } else {
+    console.log("  WARN  no pending subscription row to exercise the payment receipt hook");
+  }
+
   // 7) recipient stats + announcement campaign (IPC args + DB wiring)
   const stats = await evaluate(conn, `window.mms.whatsapp.recipientStats("ANNOUNCEMENT")`);
   check("recipient stats resolve via family phone fallback", Number(stats?.activeFamilies) > 0 && Number(stats?.willSend) > 0, JSON.stringify(stats));
@@ -167,8 +188,13 @@ try {
   const campaign = await evaluate(conn, `window.mms.whatsapp.createAnnouncementCampaign("Smoke test announcement").then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
   check("announcement campaign accepts text and creates", /"campaignId"\s*:/.test(String(campaign)), String(campaign).slice(0, 120));
 
-  log("disconnecting engine (fresh temp profile — nothing was paired)…");
-  await evaluate(conn, `window.mms.whatsapp.disconnect().then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`).catch(() => {});
+  // 8) PAUSE (not logout): the engine stops but any stored pairing survives
+  //    — the old Disconnect unlinked the device, which read as "logged out".
+  log("pausing engine (fresh temp profile — nothing was paired)…");
+  const paused = await evaluate(conn, `window.mms.whatsapp.disconnect().then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
+  check("pause keeps the pairing (no logout)", /"keptPairing":true/.test(String(paused)), String(paused).slice(0, 80));
+  const pausedStatus = await evaluate(conn, `window.mms.whatsapp.status()`);
+  check("status after pause is DISCONNECTED (not crashed/unavailable)", pausedStatus?.status === "DISCONNECTED", `status=${pausedStatus?.status}`);
 } catch (err) {
   console.error("[smoke] fatal:", err);
   failures.push("fatal: " + err.message);

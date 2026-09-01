@@ -1,7 +1,7 @@
 import { app, ipcMain } from "electron";
 import { whatsapp } from "./services/whatsapp.service.js";
 import { recipientStats } from "./services/whatsapp-recipient.service.js";
-import { maybeStartEngine, stopEngine } from "./services/whatsapp-engine.service.js";
+import { flushAuthWrites, maybeStartEngine, stopEngine } from "./services/whatsapp-engine.service.js";
 import type { Actor } from "./services/security.service.js";
 
 // WhatsApp IPC — auth-gated exactly like the rest of the app. The actor
@@ -37,7 +37,12 @@ export function registerWhatsAppIpc(getActor: () => Actor | null) {
   register("whatsapp:status", () => { requireAuth(); return whatsapp.status(); });
   register("whatsapp:connect", () => { requireAuth(); return whatsapp.connect(); });
   register("whatsapp:qr", () => { requireAuth(); return whatsapp.qr(); });
+  // PAUSE the engine — the paired device stays linked on the phone, so
+  // Connect resumes without a new QR scan.
   register("whatsapp:disconnect", () => { requireAuth(); return whatsapp.disconnect(); });
+  // Full unlink — removes the device from the phone's Linked Devices and
+  // wipes stored credentials. Only for an explicit "Unlink phone" action.
+  register("whatsapp:unlink", () => { requireAuth(); return whatsapp.unlink(); });
   // `register` (above) already strips the Electron IPC event from the
   // argument list (`handler(...args)`), so the handlers below receive the
   // renderer's arguments DIRECTLY — no leading `_event` parameter. The earlier
@@ -49,6 +54,7 @@ export function registerWhatsAppIpc(getActor: () => Actor | null) {
   register("whatsapp:getFamily", (familyId: number) => { requireAuth(); return whatsapp.familyWhatsApp(familyId); });
   register("whatsapp:sendMessage", (input: any) => { requireAuth(); return whatsapp.sendMessage(input); });
   register("whatsapp:sendDonationReceipt", (donationId: number) => { requireAuth(); return whatsapp.sendDonationReceipt(donationId); });
+  register("whatsapp:sendSubscriptionReceipt", (subscriptionId: number) => { requireAuth(); return whatsapp.sendSubscriptionReceipt(subscriptionId); });
   register("whatsapp:recipientStats", (type: "ANNOUNCEMENT" | "SUBSCRIPTION_REMINDER") => { requireAuth(); return recipientStats(type); });
   register("whatsapp:createSubscriptionCampaign", () => { requireAuth(); return whatsapp.createSubscriptionCampaign(); });
   register("whatsapp:createAnnouncementCampaign", (text: string) => { requireAuth(); return whatsapp.createAnnouncementCampaign(text); });
@@ -62,7 +68,25 @@ export function registerWhatsAppIpc(getActor: () => Actor | null) {
   // The WhatsApp engine lives in-process — nothing to spawn. When a paired
   // session exists on disk it logs back in silently with the app; an
   // unpaired machine stays idle until the user presses Connect (no QR
-  // handshake churn). Teardown on quit is a graceful socket close.
+  // handshake churn).
   maybeStartEngine();
-  app.on("before-quit", () => { void stopEngine(); });
+  // GRACEFUL QUIT: end the WebSocket cleanly and give Baileys' async auth
+  // writes (fs/promises) a moment to reach disk BEFORE the process exits.
+  // Exiting the instant the socket closes can lose a pending key rotation —
+  // the next login then presents stale keys, the server answers 401, and the
+  // pairing looks "logged out after close". (main.ts' before-quit closes the
+  // DB first; this handler runs after it and finishes the exit itself.)
+  let quitting = false;
+  app.on("before-quit", (event) => {
+    if (quitting) return;
+    quitting = true;
+    event.preventDefault();
+    void (async () => {
+      try {
+        await stopEngine();
+        await flushAuthWrites();
+      } catch { /* best effort */ }
+      app.exit(0);
+    })();
+  });
 }

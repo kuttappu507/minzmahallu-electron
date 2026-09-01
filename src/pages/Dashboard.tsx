@@ -66,9 +66,17 @@ export function Dashboard() {
     if (!glance.nextBackup) return "—";
     const t = new Date(glance.nextBackup);
     if (t.getTime() <= Date.now()) return ml("Soon", "ഉടൻ");
+    const dd = String(t.getDate()).padStart(2, "0");
+    const mm = String(t.getMonth() + 1).padStart(2, "0");
+    const yyyy = t.getFullYear();
+    const time = t.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
     const sameDay = t.toDateString() === new Date().toDateString();
-    return t.toLocaleTimeString(displayLocale, sameDay ? { hour: "2-digit", minute: "2-digit" } : { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+    return sameDay ? time : `${dd}-${mm}-${yyyy} ${time}`;
   })();
+
+  // Headline date is always dd-mm-yyyy (the app's display convention).
+  const today = new Date();
+  const todayLabel = `${today.toLocaleDateString(displayLocale, { weekday: "long" })}, ${String(today.getDate()).padStart(2, "0")}-${String(today.getMonth() + 1).padStart(2, "0")}-${today.getFullYear()}`;
 
   const stats = [
     { label: t("dash_total_families"), value: summary?.total_families ?? 0, icon: Home, tint: "t-em", delta: t("dash_active") },
@@ -94,7 +102,7 @@ export function Dashboard() {
       {/* ===== Hero bento: greeting card + fund spotlight + mini P&L ===== */}
       <div className="hero-row">
         <div className="hero t-em">
-          <div className="overline">{t("app_name")} · {new Date().toLocaleDateString(displayLocale, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div>
+          <div className="overline">{t("app_name")} · {todayLabel}</div>
           <h1>{t("dash_greeting")} <span className="text-em">{user?.fullName}</span></h1>
           <p className="sub">{t("dash_subtitle")}</p>
           <div className="gchips">

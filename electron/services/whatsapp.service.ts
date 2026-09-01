@@ -2,8 +2,11 @@ import { randomBytes } from "node:crypto";
 import { getDB } from "../db/connection.js";
 import {
   startEngine, maybeStartEngine, stopEngine, currentQr, engineState,
-  requireConnectedSocket, resolveJid, engineSendText, clearLegacyWahaData,
+  requireConnectedSocket, resolveJid, engineSendText, engineSendDocument,
+  clearLegacyWahaData,
 } from "./whatsapp-engine.service.js";
+import { generateDonationReceiptPdf, generateSubscriptionReceiptPdf, markReceiptSent } from "./receipt.service.js";
+import { fmtDdMmYyyy, monthLabel } from "./ist-date.js";
 
 type WhatsAppStatus = "NOT_CONFIGURED" | "STARTING" | "QR_REQUIRED" | "CONNECTED" | "DISCONNECTED" | "OFFLINE" | "ERROR";
 
@@ -145,6 +148,21 @@ async function sendTextInternal(phone: string, text: string): Promise<{ id?: str
   return engineSendText(jid, text);
 }
 
+/** Send a PDF (receipt) with a text caption and log it in the message
+ * history. Returns the provider message id. */
+async function sendDocumentInternal(input: {
+  phone: string; text: string; pdf: Buffer; fileName: string;
+  type: string; name?: string; familyId?: number | null; donationId?: number | null;
+  markReceipt?: { kind: "donation" | "subscription"; id: number };
+}): Promise<{ id: string }> {
+  requirePairedSession();
+  const jid = await resolveJid(input.phone);
+  const result = await engineSendDocument(jid, input.pdf, input.fileName, input.text);
+  saveMessage({ type: input.type, name: input.name, phone: input.phone, text: input.text, status: "SENT", familyId: input.familyId, donationId: input.donationId, providerId: result.id });
+  if (input.markReceipt) markReceiptSent(input.markReceipt.kind, input.markReceipt.id);
+  return result;
+}
+
 function monthKey(date = new Date()) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`; }
 function dayKey(date = new Date()) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }
 
@@ -226,11 +244,14 @@ export const whatsapp = {
         return { status: "STARTING", connected: false, internet, service: "STARTING", number: "", name: "", message: snap.state === "RECONNECTING" ? "WhatsApp connection was lost — reconnecting…" : "WhatsApp is connecting…" };
       }
       default: {
-        // IDLE — no live socket. On an unpaired machine this is the resting
-        // state (nothing is auto-started); say so instead of blaming a service.
+        // IDLE — no live socket. A paused-but-paired machine (Quit the app or
+        // pressed Pause) resumes WITHOUT a new QR scan; say so instead of
+        // implying the pairing was lost. Unpaired machines rest here too.
         const message = snap.lastError
           ? `WhatsApp is not connected. ${snap.lastError}`
-          : "WhatsApp is not connected yet. Use the Connect button to pair a phone.";
+          : snap.hasSession
+            ? "WhatsApp is paused — press Connect to resume. Your pairing is kept; no new QR scan is needed."
+            : "WhatsApp is not connected yet. Use the Connect button to pair a phone.";
         updateStatus("DISCONNECTED", snap.lastError);
         return { status: "DISCONNECTED", connected: false, internet, service: "", number: "", name: "", message };
       }
@@ -256,11 +277,20 @@ export const whatsapp = {
   },
   disconnect: async () => {
     ensureSchema();
-    // Logs the device out on the phone side (WhatsApp → Linked Devices) and
-    // wipes the stored credentials — the next Connect needs a fresh QR scan.
+    // PAUSE, not logout: the engine stops but the paired device STAYS linked
+    // on the phone, so Connect resumes without a new QR scan. (Unlinking is a
+    // separate, deliberate action — see whatsapp.unlink.)
+    await stopEngine();
+    updateStatus("DISCONNECTED", "");
+    return { success: true, keptPairing: true };
+  },
+  unlink: async () => {
+    ensureSchema();
+    // Full unlink: the device is removed from the phone's Linked Devices and
+    // stored credentials are wiped — the next connection needs a fresh QR.
     await stopEngine({ logout: true });
-    updateStatus("DISCONNECTED");
-    return { success: true };
+    updateStatus("DISCONNECTED", "Device unlinked — scan the QR code again to reconnect");
+    return { success: true, unlinked: true };
   },
   setFamilyWhatsApp: (familyId: number, phone: string, enabled: boolean) => {
     ensureSchema();
@@ -302,14 +332,81 @@ export const whatsapp = {
       throw new Error("Donation record not found. Refresh the donations page and try again.");
     }
     const phone = normalizePhone(String(d.donor_phone || ""));
+    // 1. Generate and SAVE the A6 receipt in the app first — this works even
+    //    when WhatsApp is not set up yet, so the record always has its PDF.
+    const receipt = await generateDonationReceiptPdf(donationId);
+    // 2. Sending needs a number, internet and a paired session (truthful
+    //    pre-checks so the toast explains the real problem).
     if (!phone) throw new Error("No WhatsApp number saved for this donor. Add the donor's phone number in the donation record first.");
-    // Pre-checks in the right order so the toast explains the real problem.
     await requireInternet();
-    requirePairedSession();
     const settingsRow = getDB().prepare("SELECT mahallu_name, currency_symbol FROM settings WHERE id=1").get() as any;
     const currency = settingsRow?.currency_symbol || "₹";
-    const text = `Assalamu Alaikum ${d.donor_name},\n\nYour donation has been received successfully.\n\nReceipt: ${d.receipt_number}\nAmount: ${currency}${Number(d.amount || 0).toLocaleString("en-IN")}\nCategory: ${d.category_name || "Donation"}\nDate: ${d.donation_date}\n${settingsRow?.mahallu_name ? `\n${settingsRow.mahallu_name}` : ""}\n\nJazakallahu Khairan.`;
-    return whatsapp.sendMessage({ phone, name: d.donor_name, text, type: "DONATION_RECEIPT", donationId });
+    const text = `Assalamu Alaikum ${d.donor_name},\n\nYour donation receipt is attached.\n\nReceipt: ${d.receipt_number}\nAmount: ${currency}${Number(d.amount || 0).toLocaleString("en-IN")}\nCategory: ${d.category_name || "Donation"}\nDate: ${fmtDdMmYyyy(String(d.donation_date || ""))}\n${settingsRow?.mahallu_name ? `\n${settingsRow.mahallu_name}` : ""}\n\nJazakallahu Khairan.`;
+    const result = await sendDocumentInternal({
+      phone, text, pdf: receipt.buffer, fileName: `receipt-${receipt.receiptNumber || donationId}.pdf`,
+      type: "DONATION_RECEIPT", name: d.donor_name, donationId,
+      markReceipt: { kind: "donation", id: donationId },
+    });
+    return { success: true, providerMessageId: result.id || "", receiptSaved: true, receiptNumber: receipt.receiptNumber };
+  },
+  sendSubscriptionReceipt: async (subscriptionId: number, opts: { soft?: boolean } = {}) => {
+    ensureSchema();
+    const soft = !!opts.soft;
+    const s = getDB().prepare(
+      `SELECT s.*, f.house_name, f.family_number, ${FAMILY_PHONE_SQL} AS family_phone,
+         (SELECT m.name FROM members m WHERE m.id = s.member_id) AS member_name
+       FROM subscriptions s LEFT JOIN families f ON f.id = s.family_id WHERE s.id = ?`
+    ).get(subscriptionId) as any;
+    if (!s) {
+      if (soft) return { status: "failed", error: "Subscription not found" };
+      throw new Error("Subscription not found");
+    }
+    if (Number(s.amount_paid || 0) <= 0) {
+      // Nothing paid — nothing to receipt (manual presses only reach here).
+      if (soft) return { status: "skipped", error: "No payment recorded yet" };
+      throw new Error("No payment recorded for this subscription yet. Record the payment first, then send the receipt.");
+    }
+    // Always generate + store the A6 receipt (works without WhatsApp).
+    let receipt: { buffer: Buffer; receiptNumber: string; paymentId: number | null };
+    try {
+      const r = await generateSubscriptionReceiptPdf(subscriptionId);
+      receipt = { buffer: r.buffer, receiptNumber: r.receiptNumber, paymentId: r.paymentId };
+    } catch (err: any) {
+      if (soft) return { status: "failed", error: String(err?.message || err) };
+      throw err;
+    }
+    const phone = normalizePhone(String(s.family_phone || ""));
+    const settingsRow = getDB().prepare("SELECT mahallu_name, currency_symbol FROM settings WHERE id=1").get() as any;
+    const currency = settingsRow?.currency_symbol || "₹";
+    const paid = Number(s.amount_paid || 0);
+    const due = Math.max(0, Number(s.amount || 0) - paid);
+    const who = s.house_name || s.family_number || "Family";
+    const text = `Assalamu Alaikum,\n\nPayment received — thank you.\n\nReceipt: ${s.receipt_number || receipt.receiptNumber}\nFamily: ${who}${s.family_number ? ` (${s.family_number})` : ""}\nMonth: ${monthLabel(String(s.period_start || ""))}\nAmount: ${currency}${paid.toLocaleString("en-IN")}${due > 0 ? `\nBalance this month: ${currency}${due.toLocaleString("en-IN")}` : "\nThis month is fully paid."}\nDate: ${fmtDdMmYyyy(String(s.payment_date || s.period_start || ""))}\n\nThe receipt (PDF) is attached.\n${settingsRow?.mahallu_name ? `\n${settingsRow.mahallu_name}` : ""}\n\nJazakallahu Khairan.`;
+    // Soft mode (auto-send after a payment is recorded): report instead of
+    // throwing — the payment itself must never fail because of messaging.
+    if (soft) {
+      if (!phone) return { status: "no-phone", error: "No WhatsApp number for this family" };
+      const snap = engineState();
+      if (!snap.connected) return { status: "not-connected", error: "WhatsApp is not connected", receiptSaved: true, receiptNumber: receipt.receiptNumber };
+      try {
+        const result = await sendDocumentInternal({
+          phone, text, pdf: receipt.buffer, fileName: `receipt-${receipt.receiptNumber || subscriptionId}.pdf`,
+          type: "SUBSCRIPTION_RECEIPT", name: s.member_name || who, familyId: s.family_id,
+          markReceipt: receipt.paymentId ? { kind: "subscription", id: receipt.paymentId } : undefined,
+        });
+        return { status: "sent", providerMessageId: result.id || "", receiptSaved: true, receiptNumber: receipt.receiptNumber };
+      } catch (err: any) {
+        return { status: "failed", error: String(err?.message || err), receiptSaved: true, receiptNumber: receipt.receiptNumber };
+      }
+    }
+    if (!phone) throw new Error("No WhatsApp number saved for this family. Add the family's phone or WhatsApp number first.");
+    await requireInternet();
+    const result = await sendDocumentInternal({
+      phone, text, pdf: receipt.buffer, fileName: `receipt-${receipt.receiptNumber || subscriptionId}.pdf`,
+      type: "SUBSCRIPTION_RECEIPT", name: s.member_name || who, familyId: s.family_id,
+      markReceipt: receipt.paymentId ? { kind: "subscription", id: receipt.paymentId } : undefined,
+    });
+    return { success: true, providerMessageId: result.id || "", receiptSaved: true, receiptNumber: receipt.receiptNumber };
   },
   createSubscriptionCampaign: async () => {
     ensureSchema();
@@ -328,7 +425,7 @@ export const whatsapp = {
     withTransaction(() => {
       for (const r of eligible) {
         const due = Math.max(0, Number(r.amount || 0) - Number(r.amount_paid || 0));
-        const text = `Assalamu Alaikum,\n\n${r.house_name || r.family_number || "Family"} — your subscription for ${monthKey()} is pending.\nAmount due: ${currency}${due.toLocaleString("en-IN")}\n\nPlease pay at your convenience.${mahallu ? `\n\n${mahallu}` : ""}`;
+        const text = `Assalamu Alaikum,\n\n${r.house_name || r.family_number || "Family"} — your subscription for ${monthLabel(String(r.period_start || key))} is pending.\nAmount due: ${currency}${due.toLocaleString("en-IN")}\n\nPlease pay at your convenience.${mahallu ? `\n\n${mahallu}` : ""}`;
         insert.run(campaignId, r.family_id, r.house_name || r.family_number || "Family Head", normalizePhone(r.whatsapp_phone), text);
       }
     });

@@ -72,11 +72,29 @@ function setState(next: EngineState, error = "") {
   else if (error === "") lastError = "";
 }
 
-/** A paired session's credentials exist on disk (login without a new QR). */
+/** A paired session's credentials exist AND registration completed on disk.
+ * Leftovers from an ABORTED pairing (creds.json written before the QR was
+ * scanned) are wiped so the next start doesn't run a doomed handshake that
+ * the server answers with 401 — the "logged out after close" class. */
 export function hasPersistedSession(): boolean {
   const dir = authDir();
   if (!dir) return false;
-  try { return fs.existsSync(path.join(dir, "creds.json")); } catch { return false; }
+  try {
+    const credsPath = path.join(dir, "creds.json");
+    if (!fs.existsSync(credsPath)) return false;
+    const creds = JSON.parse(fs.readFileSync(credsPath, "utf-8"));
+    if (creds?.registered === true) return true;
+    // Only wipe when no socket is live — mid-pairing creds are expected to
+    // be unregistered for a while and must not be destroyed.
+    if (!sock && !startPromise) {
+      try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* best effort */ }
+    }
+    return false;
+  } catch {
+    // Unreadable/corrupt file (possibly mid-write) — do NOT wipe; the next
+    // successful write will heal it.
+    return false;
+  }
 }
 
 /** Full engine snapshot for the service layer / UI status mapping. */
@@ -211,8 +229,18 @@ export function maybeStartEngine(): void {
   startEngine().catch(() => { /* recorded in state */ });
 }
 
-/** Tear the session down. `logout: true` also unlinks the device from the
- *  phone (Disconnect) and clears stored credentials. */
+/** Wait for Baileys' ASYNC auth writes (fs/promises under a mutex) to reach
+ * the disk. Called on quit: if the app exits the instant the socket closes,
+ * a pending key rotation can be lost — the next login then presents stale
+ * keys, the server answers 401, and the session looks "logged out". */
+export function flushAuthWrites(ms = 600): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Tear the session down. WITHOUT `logout` the paired device STAYS linked on
+ *  the phone (clean WebSocket close) — the close/quit path. With
+ * `logout: true` the device is unlinked on the phone AND credentials are
+ * wiped — only for an explicit "Unlink phone" action. */
 export async function stopEngine(opts: { logout?: boolean } = {}): Promise<void> {
   intentionalStop = true;
   clearReconnectTimer();
@@ -221,8 +249,11 @@ export async function stopEngine(opts: { logout?: boolean } = {}): Promise<void>
   qrDataUrl = "";
   if (!current) { setState("IDLE", ""); return; }
   try {
-    if (opts.logout) await Promise.race([current.logout(), new Promise((r) => setTimeout(r, 6000))]);
-    else current.end(new Error("stopped"));
+    if (opts.logout) {
+      await Promise.race([current.logout(), new Promise((r) => setTimeout(r, 6000))]);
+    } else {
+      await Promise.race([current.end(new Error("stopped")), new Promise((r) => setTimeout(r, 3000))]);
+    }
   } catch { /* already closed */ }
   if (opts.logout) resetAuth();
   me = null;
@@ -272,6 +303,18 @@ export async function resolveJid(phone: string): Promise<string> {
 export async function engineSendText(jid: string, text: string): Promise<{ id: string }> {
   const s = requireConnectedSocket();
   const result: any = await s.sendMessage(jid, { text });
+  return { id: String(result?.key?.id || "") };
+}
+
+/** Send a PDF document (e.g. an A6 receipt) with a text caption. */
+export async function engineSendDocument(jid: string, pdf: Buffer, fileName: string, caption: string): Promise<{ id: string }> {
+  const s = requireConnectedSocket();
+  const result: any = await s.sendMessage(jid, {
+    document: pdf,
+    fileName,
+    mimetype: "application/pdf",
+    caption,
+  });
   return { id: String(result?.key?.id || "") };
 }
 

@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { login, changePassword, needsInitialSetup, createInitialAdministrator } from "./services/auth.service.js";
 import * as data from "./services/data.service.js";
 import { todayIST } from "./services/data.service.js";
-import { istDateTimeStr } from "./services/ist-date.js";
+import { istDateTimeDm } from "./services/ist-date.js";
 import { closeDB, getDB } from "./db/connection.js";
 import { createBackup, verifyBackup, extractVerifiedBackup, listBackups } from "./services/backup.service.js";
 import { buildTokenSheetHtml } from "./print/token.template.js";
@@ -21,6 +21,7 @@ import { buildRegisterBookHtml } from "./print/register-book.template.js";
 import { getAnekMalayalamCss } from "./print/utils.js";
 import { registerSecurityIpc } from "./security-ipc.js";
 import { registerWhatsAppIpc } from "./whatsapp-ipc.js";
+import { registerReceiptIpc } from "./receipt-ipc.js";
 import XLSX from "xlsx";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -116,9 +117,14 @@ app.whenReady().then(() => {
   ipcMain.handle("members:relationships", () => data.members.relationships());
   ipcMain.handle("subscriptions:list", (_e, filter) => data.subscriptions.list(filter || {}));
   ipcMain.handle("subscriptions:get", (_e, id) => data.subscriptions.get(id));
-  ipcMain.handle("subscriptions:create", (_e, d) => data.subscriptions.create(d));
-  ipcMain.handle("subscriptions:update", (_e, id, d) => data.subscriptions.update(id, d));
   ipcMain.handle("subscriptions:remove", (_e, id) => data.subscriptions.remove(id));
+  // NOTE: subscriptions:update / subscriptions:create are re-registered with
+  // the security layer (auth + audit + the A6 receipt/WhatsApp hook) in
+  // security-ipc.ts, which runs after this and wins. The registrations below
+  // are the fail-closed fallbacks if the security layer is ever disabled —
+  // they record payments but do not attempt messaging.
+  ipcMain.handle("subscriptions:update", (_e, id, d) => data.subscriptions.update(id, d));
+  ipcMain.handle("subscriptions:create", (_e, d) => data.subscriptions.create(d));
   ipcMain.handle("subscriptions:markOverdue", () => data.subscriptions.markOverdue());
   ipcMain.handle("subscriptions:totalCollected", () => data.subscriptions.totalCollected());
   ipcMain.handle("subscriptions:totalPending", () => data.subscriptions.totalPending());
@@ -208,7 +214,7 @@ app.whenReady().then(() => {
       // (the count only increments if the PDF is actually saved).
       const expectedReprint = (cert.reprint_count || 0) + 1;
       const qrSvg = await qrSvgDataUrl(buildQrPayloadFor(cert));
-      const html = buildCertificateHtml(cert, lang, expectedReprint, istDateTimeStr(new Date()), qrSvg);
+      const html = buildCertificateHtml(cert, lang, expectedReprint, istDateTimeDm(new Date()), qrSvg);
       const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Certificate PDF", defaultPath: `certificate-${cert.certificate_number || certId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] });
       if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true };
       const pdfBuffer = await renderHtmlToPdf(html);
@@ -507,6 +513,7 @@ app.whenReady().then(() => {
 
   registerSecurityIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null);
   registerWhatsAppIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null);
+  registerReceiptIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow);
   createWindow();
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 

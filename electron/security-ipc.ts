@@ -4,6 +4,7 @@ import { changePassword, createInitialAdministrator, needsInitialSetup, verifyCu
 import { security, type Actor } from "./services/security.service.js";
 import { getDB } from "./db/connection.js";
 import { todayIST } from "./services/data.service.js";
+import { whatsapp } from "./services/whatsapp.service.js";
 
 // Install the sender guard before main.ts registers any handlers. This makes
 // the protection apply to read, write, export and utility IPC channels alike.
@@ -95,16 +96,34 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("certificates:remove", () => { throw new Error("Issued certificates cannot be permanently deleted. Revoke the certificate instead."); });
   register("families:create", (d: any) => { actor(); return data.families.create(d); });
   register("members:create", (d: any) => { actor(); return data.members.create(d); });
-  register("subscriptions:create", (d: any) => { const a = actor(); const r = data.subscriptions.create({ ...d, collectedBy: a.id }); try { data.audit.log(a.id, a.username, "ADD", "subscriptions", r.id, `Subscription account created for family #${d.familyId}`, ""); } catch {} return r; });
+  register("subscriptions:create", async (d: any) => { const a = actor(); const r = data.subscriptions.create({ ...d, collectedBy: a.id }); try { data.audit.log(a.id, a.username, "ADD", "subscriptions", r.id, `Subscription account created for family #${d.familyId}`, ""); } catch {}
+    // First payment (if any) gets the A6 receipt treatment: generated + saved
+    // in the app, and sent on WhatsApp when the engine + family number allow.
+    let receipt: any = { status: "skipped" };
+    if (Number(d?.amountPaid ?? 0) > 0 && r?.id) {
+      try { receipt = await whatsapp.sendSubscriptionReceipt(Number(r.id), { soft: true }); }
+      catch (err: any) { receipt = { status: "failed", error: String(err?.message || err) }; }
+    }
+    return { ...r, receiptWhatsApp: receipt.status, receiptError: receipt.error || "" };
+  });
   // Payment edits are restricted to "how much was given" (plus date/method/
   // ref/remarks) — family, member, period and rate are locked server-side in
   // data.subscriptions.applyPayment.
-  register("subscriptions:update", (id: number, d: any) => {
+  register("subscriptions:update", async (id: number, d: any) => {
     const a = actor();
     const before = data.subscriptions.get(id) as any;
     const r = data.subscriptions.applyPayment(id, { ...d, collectedBy: a.id });
     try { data.audit.log(a.id, a.username, "PAY", "subscriptions", id, `Payment recorded: ${d.amountPaid} of ${before?.amount} (${r.status})${r.receiptNumber ? ` receipt ${r.receiptNumber}` : ""}`, ""); } catch {}
-    return r;
+    // Recording a payment also generates the A6 receipt (saved in the app)
+    // and — when WhatsApp is paired and the family has a number — sends it
+    // automatically. The payment NEVER fails because of messaging; the send
+    // result rides along as receiptWhatsApp on the response.
+    let receipt: any = { status: "skipped" };
+    if (Number(d?.amountPaid ?? 0) > 0 && r?.receiptNumber) {
+      try { receipt = await whatsapp.sendSubscriptionReceipt(id, { soft: true }); }
+      catch (err: any) { receipt = { status: "failed", error: String(err?.message || err) }; }
+    }
+    return { ...r, receiptWhatsApp: receipt.status, receiptError: receipt.error || "" };
   });
   // Cancelling a payment is a SECURE action: reason + admin password (the
   // renderer verifies the password via auth:verifyAdminPassword before calling).
