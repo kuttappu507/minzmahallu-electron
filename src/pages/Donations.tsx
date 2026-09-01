@@ -12,7 +12,7 @@ interface Donation { id:number; receipt_number:string; donor_name:string; donor_
 const emptyForm:Partial<Donation>={receipt_number:"",donor_name:"",donor_phone:"",donor_address:"",family_id:0,member_id:0,category_id:0,category_name:"",amount:0,donation_date:"",purpose:"",payment_method:"Cash",transaction_ref:"",remarks:""};
 const codeFontStyle="code-text-sm";
 // WhatsApp numbers are stored in international form (91 + 10 digits) so the
-// messaging layer can hand them straight to WAHA.
+// messaging layer can hand them straight to the WhatsApp engine.
 const normalizeWhatsApp=(value:string)=>{const d=String(value||"").replace(/\D/g,"");return !d?"":d.length===10?`91${d}`:d;};
 
 export function Donations(){

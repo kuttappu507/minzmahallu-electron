@@ -280,7 +280,7 @@ export function installPreviewMock() {
   // List-ish methods → empty array (pages read the array directly or fall back
   // to []); everything else → a neutral success object.
   const whatsapp = {
-    status: () => Promise.resolve({ status: "UNAVAILABLE", connected: false, internet: true, service: "NOT_INSTALLED", number: "", name: "", message: "WhatsApp service unavailable (dev preview)" }),
+    status: () => Promise.resolve({ status: "DISCONNECTED", connected: false, internet: navigator.onLine, service: "", number: "", name: "", message: "WhatsApp pairing is available in the installed desktop app (dev preview)." }),
     connect: () => Promise.resolve({ success: true }),
     qr: () => Promise.reject(new Error("QR code is not available yet")),
     disconnect: () => Promise.resolve({ success: true }),
@@ -297,7 +297,7 @@ export function installPreviewMock() {
     listCampaigns: () => Promise.resolve([]),
     listHistory: () => Promise.resolve([]),
     retryFailed: () => Promise.resolve({ sent: 0, failed: 0, skipped: 0, paused: false }),
-    runtimeState: () => Promise.resolve({ installed: false, running: false, starting: false, state: "NOT_INSTALLED", pid: null, lastError: "" }),
+    runtimeState: () => Promise.resolve({ installed: true, running: false, starting: false, state: "STOPPED", pid: null, lastError: "" }),
   };
 
   const base: Record<string, unknown> = { dashboard, settings, auth, win, accounting, certificates: mockCertificates, whatsapp };

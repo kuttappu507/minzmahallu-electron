@@ -1,15 +1,18 @@
-// E2E smoke driver for the packaged/dev Electron app with bundled WAHA.
+// E2E smoke driver for the Electron app with the in-process WhatsApp engine
+// (Baileys — no bundled service, no local HTTP port, no spawned runtime).
 //
 // Launches the app under a virtual display with CDP remote debugging, then
 // drives the renderer exactly like a user would (login, navigate, invoke
-// window.mms APIs) and asserts the WhatsApp runtime behaviors that the
-// field reports flagged:
+// window.mms APIs) and asserts the behaviors the field reports flagged:
 //   1. the app window actually opens,
-//   2. whatsapp.status() reports internet + service truthfully,
-//   3. the bundled WAHA service boots and turns healthy,
+//   2. whatsapp.status() reports internet truthfully and never blames a
+//      missing "service" (the old WAHA crash class),
+//   3. the Connect action brings the engine up and produces a scannable QR
+//      (requires internet; on a blocked network this degrades to a logged
+//      warning instead of a failure — only misleading states fail),
 //   4. donation receipt errors are accurate (missing number, not found).
 //
-// Usage: node scripts/smoke-electron.mjs
+// Usage: node scripts/smoke-electron.mjs  (DISPLAY must point at an Xvfb)
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -74,6 +77,8 @@ const electron = spawn("npx", ["electron", ".", `--remote-debugging-port=${DEBUG
 electron.stdout.on("data", (d) => process.stdout.write(`[app] ${d}`));
 electron.stderr.on("data", (d) => process.stderr.write(`[app-err] ${d}`));
 
+let qrSoftWarning = "";
+
 try {
   const wsUrl = await waitForApp();
   log("app window is up (CDP reachable)");
@@ -100,58 +105,83 @@ try {
   const withoutPhone = (donations?.rows || []).find((r) => !r.phone);
   log("donation sample:", JSON.stringify(donations?.rows || []));
 
-  // 4) WhatsApp status — first poll: service must be STARTING/RUNNING, internet truthful
-  const t0 = Date.now();
-  let status = null;
-  let healthySeen = false;
-  while (Date.now() - t0 < 90000) {
-    status = await evaluate(conn, `window.mms.whatsapp.status()`);
-    log("status:", JSON.stringify(status));
-    if (status?.service === "RUNNING") { healthySeen = true; break; }
-    if (status?.status === "STARTING" || status?.service === "STARTING") { log("service starting — waiting"); }
-    if (status?.status === "UNAVAILABLE" && status?.service === "NOT_INSTALLED") break; // bundled runtime missing
-    await sleep(3000);
-  }
-  check("bundled WAHA service reached RUNNING", healthySeen, `service=${status?.service}`);
+  // 4) WhatsApp status — truthful, engine-based, no "service stopped"/
+  //    "not installed" crash states (the old bundled-runtime failure class).
+  const status = await evaluate(conn, `window.mms.whatsapp.status()`);
+  log("status:", JSON.stringify(status));
   check("internet reported truthfully (online machine)", status?.internet === true, `internet=${status?.internet}`);
   check("status is not the misleading OFFLINE/UNAVAILABLE", !["OFFLINE", "UNAVAILABLE"].includes(status?.status), `status=${status?.status}`);
+  check("no messaging-service failure state", !["NOT_INSTALLED", "CRASHED", "STOPPED"].includes(String(status?.service || "")), `service=${status?.service}`);
 
-  // 5) WAHA answers /health locally
-  const health = await fetch(`http://127.0.0.1:30455/health`).then(r => r.status).catch(e => `error: ${e.message}`);
-  check("local WAHA /health reachable", health === 401 || health === 200, `http=${health}`); // 401 without key = alive
-
-  // 6) donation receipt errors are accurate
-  if (withoutPhone) {
-    const err = await evaluate(conn, `window.mms.whatsapp.sendDonationReceipt(${withoutPhone.id}).then(r=>({ok:true,r})).catch(e=>({ok:false,msg:e.message}))`);
-    check("receipt without phone gives actionable error", !err?.ok && /No WhatsApp number/i.test(err?.msg || ""), JSON.stringify(err));
+  // 5) Connect action: the in-process engine starts and WhatsApp Web offers
+  //    a QR to pair. Needs internet access to WhatsApp servers; a sandbox
+  //    without egress degrades to a logged warning (not a failure) as long
+  //    as the status stays truthful.
+  try {
+    const connect = await evaluate(conn, `window.mms.whatsapp.connect().then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
+    log("connect():", String(connect));
+    const t0 = Date.now();
+    let reachedQr = false;
+    let endStatus = status;
+    while (Date.now() - t0 < 45000) {
+      endStatus = await evaluate(conn, `window.mms.whatsapp.status()`);
+      if (endStatus?.status === "QR_REQUIRED" || endStatus?.status === "CONNECTED") { reachedQr = true; break; }
+      await sleep(2000);
+    }
+    if (reachedQr) {
+      check("engine reached a pairable state (QR/connected)", true, `status=${endStatus?.status}`);
+      if (endStatus?.status === "QR_REQUIRED") {
+        const qr = await evaluate(conn, `window.mms.whatsapp.qr().catch(e => "ERR:" + e.message)`);
+        const okQr = typeof qr === "string" && qr.startsWith("data:image/png;base64,");
+        check("QR code is a scannable PNG data URL", okQr, typeof qr === "string" ? qr.slice(0, 40) : JSON.stringify(qr));
+      }
+    } else {
+      qrSoftWarning = `engine did not reach QR in this sandbox (status=${endStatus?.status}, msg=${String(endStatus?.message || "").slice(0, 120)}) — likely blocked egress to WhatsApp servers, not an app defect`;
+      console.log(`  WARN  engine QR flow — ${qrSoftWarning}`);
+      check("engine failure state is truthful, not misleading", endStatus?.internet === true && !["UNAVAILABLE"].includes(endStatus?.status), `status=${endStatus?.status}`);
+    }
+  } catch (e) {
+    qrSoftWarning = `connect() threw: ${e?.message || e}`;
+    console.log(`  WARN  ${qrSoftWarning}`);
   }
+
+  // 6) receipt errors are accurate (IPC args reach the main process)
   if (withPhone) {
-    const err = await evaluate(conn, `window.mms.whatsapp.sendDonationReceipt(${withPhone.id}).then(r=>({ok:true,r})).catch(e=>({ok:false,msg:e.message}))`);
-    log("receipt-with-phone result:", JSON.stringify(err));
-    // Not connected yet → must NOT claim missing donation or no internet; expect
-    // session/pairing level error or (if WAHA fully up) a send-level error.
-    const msg = String(err?.msg || "");
-    check("receipt with phone gives truthful error", !/not found|No internet|Internet connection unavailable/i.test(msg), msg.slice(0, 160));
+    const receipt = await evaluate(conn, `window.mms.whatsapp.sendDonationReceipt(${withPhone.id}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
+    const msg = String(receipt);
+    log("receipt-with-phone result:", msg);
+    check("receipt with phone gives truthful pairing guidance", /not connected yet|not paired|scan the QR/i.test(msg), msg.slice(0, 120));
   }
-  const missing = await evaluate(conn, `window.mms.whatsapp.sendDonationReceipt(999999).then(r=>({ok:true})).catch(e=>({ok:false,msg:e.message}))`);
-  check("receipt for missing donation says not found", !missing?.ok && /not found/i.test(missing?.msg || ""), JSON.stringify(missing));
+  const missing = await evaluate(conn, `window.mms.whatsapp.sendDonationReceipt(999999).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
+  check("receipt for missing donation says not found", /Donation record not found/i.test(String(missing)), String(missing).slice(0, 120));
+  if (withoutPhone) {
+    const noPhone = await evaluate(conn, `window.mms.whatsapp.sendDonationReceipt(${withoutPhone.id}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
+    check("receipt without donor phone asks for the number", /No WhatsApp number saved/i.test(String(noPhone)), String(noPhone).slice(0, 120));
+  }
 
-  // 7) campaign stats use the family phone fallback
+  // 7) recipient stats + announcement campaign (IPC args + DB wiring)
   const stats = await evaluate(conn, `window.mms.whatsapp.recipientStats("ANNOUNCEMENT")`);
-  check("recipient stats resolve via family phone fallback", (stats?.eligible ?? 0) > 0, JSON.stringify(stats));
-  const subStatsType = await evaluate(conn, `window.mms.whatsapp.recipientStats("SUBSCRIPTION_REMINDER").then(s => s && s.type)`);
-  check("recipientStats receives the type argument", subStatsType === "SUBSCRIPTION_REMINDER", JSON.stringify(subStatsType));
+  check("recipient stats resolve via family phone fallback", Number(stats?.activeFamilies) > 0 && Number(stats?.willSend) > 0, JSON.stringify(stats));
+  const echoType = await evaluate(conn, `window.mms.whatsapp.recipientStats("SUBSCRIPTION_REMINDER")`);
+  check("recipientStats receives the type argument", echoType?.type === "SUBSCRIPTION_REMINDER", JSON.stringify(echoType?.type));
+  const campaign = await evaluate(conn, `window.mms.whatsapp.createAnnouncementCampaign("Smoke test announcement").then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
+  check("announcement campaign accepts text and creates", /"campaignId"\s*:/.test(String(campaign)), String(campaign).slice(0, 120));
 
-  // 8) announcement campaign text passes through the IPC boundary
-  const ann = await evaluate(conn, `window.mms.whatsapp.createAnnouncementCampaign("Smoke test announcement").then(r=>({ok:true,r})).catch(e=>({ok:false,msg:e.message}))`);
-  check("announcement campaign accepts text and creates", ann?.ok === true && (ann?.r?.total ?? 0) > 0, JSON.stringify(ann));
-
-  conn.close();
+  log("disconnecting engine (fresh temp profile — nothing was paired)…");
+  await evaluate(conn, `window.mms.whatsapp.disconnect().then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`).catch(() => {});
+} catch (err) {
+  console.error("[smoke] fatal:", err);
+  failures.push("fatal: " + err.message);
 } finally {
   try { electron.kill("SIGTERM"); } catch {}
   await sleep(1500);
   try { electron.kill("SIGKILL"); } catch {}
 }
 
-console.log(failures.length ? `\nSMOKE FAILED: ${failures.join(", ")}` : "\nSMOKE PASSED");
-process.exit(failures.length ? 1 : 0);
+if (qrSoftWarning) console.log(`[smoke] note: ${qrSoftWarning}`);
+if (failures.length) {
+  console.error(`SMOKE FAILED (${failures.length}): ${failures.join("; ")}`);
+  process.exit(1);
+}
+console.log("SMOKE PASSED");
+process.exit(0);

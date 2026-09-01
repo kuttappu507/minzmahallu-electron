@@ -1,7 +1,7 @@
 import { app, ipcMain } from "electron";
 import { whatsapp } from "./services/whatsapp.service.js";
 import { recipientStats } from "./services/whatsapp-recipient.service.js";
-import { maybeStartWaha, stopWaha } from "./services/waha-runtime.service.js";
+import { maybeStartEngine, stopEngine } from "./services/whatsapp-engine.service.js";
 import type { Actor } from "./services/security.service.js";
 
 // WhatsApp IPC — auth-gated exactly like the rest of the app. The actor
@@ -59,11 +59,10 @@ export function registerWhatsAppIpc(getActor: () => Actor | null) {
   register("whatsapp:retryFailed", (id: number) => { requireAuth(); return whatsapp.retryFailed(id); });
   register("whatsapp:runtimeState", () => { requireAuth(); return whatsapp.runtimeState(); });
 
-  // Bring the bundled local WhatsApp service up with the app and tear it
-  // down cleanly on quit. maybeStartWaha is non-blocking and backoff-aware:
-  // in a dev checkout (no bundled runtime) it is a no-op, and a service that
-  // fails to boot is not relaunched on every status poll. Interactive
-  // actions (connect/send) additionally start it on demand.
-  maybeStartWaha();
-  app.on("before-quit", () => { void stopWaha(); });
+  // The WhatsApp engine lives in-process — nothing to spawn. When a paired
+  // session exists on disk it logs back in silently with the app; an
+  // unpaired machine stays idle until the user presses Connect (no QR
+  // handshake churn). Teardown on quit is a graceful socket close.
+  maybeStartEngine();
+  app.on("before-quit", () => { void stopEngine(); });
 }
