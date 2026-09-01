@@ -188,7 +188,16 @@ try {
   const electronVersion = String(appPkg.devDependencies?.electron || "").replace(/[^0-9.]/g, "");
   if (electronVersion) {
     console.log(`[WAHA] rebuilding native modules for Electron ${electronVersion}`);
-    run("npm", ["exec", "--", "electron-rebuild", "-f", "-m", wahaRoot, "-v", electronVersion], { cwd: ROOT, env: YARN_ENV });
+    // --only better-sqlite3: it is the one module whose binary is tied to the
+    // Node/Electron ABI (rebuilt via a prebuild-install download — no compiler
+    // involved). Every other native module in the tree is N-API based
+    // (sqlite3, bufferutil, utf-8-validate, msgpackr-extract, @napi-rs/canvas,
+    // sharp via @img) and its prebuilt binary already works under Electron's
+    // utilityProcess. Letting electron-rebuild walk the whole tree instead
+    // makes it node-gyp-compile the node-gyp-build style modules, which dies
+    // on windows-latest runners: their Visual Studio 18 install is rejected
+    // by @electron/rebuild 3.x's bundled node-gyp ("unsupported version: 18").
+    run("npm", ["exec", "--", "electron-rebuild", "-f", "--only", "better-sqlite3", "-m", wahaRoot, "-v", electronVersion], { cwd: ROOT, env: YARN_ENV });
   } else {
     console.warn("[WAHA] no Electron version found in devDependencies — skipping native rebuild");
   }
