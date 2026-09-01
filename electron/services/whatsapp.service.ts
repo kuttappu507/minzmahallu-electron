@@ -1,8 +1,9 @@
 import { randomBytes } from "node:crypto";
-import path from "node:path";
-import fs from "node:fs";
 import { getDB } from "../db/connection.js";
-import { startWaha, stopWaha, isWahaAvailable, wahaProcessState } from "./waha-runtime.service.js";
+import {
+  startWaha, isWahaInstalled, isWahaHealthy, wahaState,
+  maybeStartWaha, ensureWahaRunning,
+} from "./waha-runtime.service.js";
 
 type WhatsAppStatus = "NOT_CONFIGURED" | "STARTING" | "QR_REQUIRED" | "CONNECTED" | "DISCONNECTED" | "OFFLINE" | "UNAVAILABLE" | "ERROR";
 
@@ -46,7 +47,7 @@ function ensureSchema() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       campaign_type TEXT NOT NULL,
       period_key TEXT DEFAULT '',
-      message_text TEXT NOT NULL DEFAULT '',
+      message_text TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'PENDING',
       total_recipients INTEGER NOT NULL DEFAULT 0,
       sent_count INTEGER NOT NULL DEFAULT 0,
@@ -62,7 +63,7 @@ function ensureSchema() {
       family_id INTEGER,
       recipient_name TEXT DEFAULT '',
       recipient_phone TEXT NOT NULL,
-      message_text TEXT NOT NULL DEFAULT '',
+      message_text TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'PENDING',
       error_message TEXT DEFAULT '',
       provider_message_id TEXT DEFAULT '',
@@ -106,6 +107,64 @@ async function request(pathname: string, init: RequestInit = {}, timeoutMs = 120
   return body;
 }
 
+// ---------------------------------------------------------------------------
+// Connectivity probes.
+//
+// The previous implementation derived "internet" from the LOCAL WAHA gateway
+// answering /health on 127.0.0.1 — so whenever the bundled service was
+// missing, starting, or crashed, the UI told the user "Internet connection
+// not detected" even with a perfectly working connection. The two concerns
+// are now probed and reported separately:
+//   * checkInternet() — real internet reachability (public captive probes)
+//   * service health  — isWahaHealthy() / wahaState() from the runtime module
+// ---------------------------------------------------------------------------
+const INTERNET_PROBES = [
+  "https://www.gstatic.com/generate_204",
+  "https://cp.cloudflare.com/generate_204",
+];
+const INTERNET_OK_TTL_MS = 30_000;   // cache a positive answer for half a minute
+const INTERNET_FAIL_TTL_MS = 8_000;  // re-probe failures sooner
+let internetCache: { value: boolean; at: number } | null = null;
+
+async function checkInternet(): Promise<boolean> {
+  const now = Date.now();
+  const ttl = internetCache?.value ? INTERNET_OK_TTL_MS : INTERNET_FAIL_TTL_MS;
+  if (internetCache && now - internetCache.at < ttl) return internetCache.value;
+  let value = false;
+  for (const url of INTERNET_PROBES) {
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(4000), headers: { Accept: "*/*" } });
+      if (response.ok || response.status === 204) { value = true; break; }
+    } catch { /* try the next probe */ }
+  }
+  internetCache = { value, at: now };
+  return value;
+}
+
+/** The old name mapped "local gateway answers" to "online" — kept private so
+ *  no caller can reintroduce the misleading semantics. */
+async function checkService(): Promise<boolean> {
+  return isWahaHealthy(3000);
+}
+
+/** Guard for interactive actions (Connect / Send / Check number). Produces an
+ *  accurate, actionable error instead of a generic connectivity claim. */
+async function requireService(): Promise<void> {
+  if (!isWahaInstalled()) throw new Error("WhatsApp messaging service is not installed in this build. Reinstall the app to enable WhatsApp features.");
+  const runtime = await ensureWahaRunning(15000);
+  if (runtime.healthy) return;
+  const state = wahaState();
+  if (state.state === "STARTING") throw new Error("WhatsApp messaging service is still starting. Please wait a moment and try again.");
+  if (!(await checkInternet())) throw new Error("No internet connection. Check your network and try again.");
+  throw new Error(state.lastError
+    ? `WhatsApp messaging service is not running: ${state.lastError}`
+    : "WhatsApp messaging service is not running. Please retry in a moment.");
+}
+
+async function requireInternet(): Promise<void> {
+  if (!(await checkInternet())) throw new Error("No internet connection. Check your network and try again.");
+}
+
 function updateStatus(status: WhatsAppStatus, error = "") {
   ensureSchema();
   getDB().prepare("UPDATE whatsapp_settings SET status = ?, last_error = ?, updated_at = datetime('now') WHERE id = 1").run(status, error.slice(0, 1000));
@@ -134,8 +193,13 @@ async function connectedMe() {
   try { return await request(`/api/sessions/${encodeURIComponent(SESSION)}/me`); } catch { return null; }
 }
 
-async function checkOnline() {
-  try { await request("/health", {}, 3000); return true; } catch { return false; }
+/** Sending requires a paired, working session. Without this pre-check a
+ *  not-yet-paired app surfaces WAHA's cryptic "Session status is not as
+ *  expected" (or a 404 for a missing session) instead of guidance. */
+async function requirePairedSession(): Promise<void> {
+  let session: any = null;
+  try { session = await getSession(); } catch { /* session not created yet */ }
+  if (session?.status !== "WORKING") throw new Error("WhatsApp is not connected yet. Open the WhatsApp page, connect and scan the QR code, then try again.");
 }
 
 async function resolveRecipient(phone: string): Promise<{ chatId: string } | null> {
@@ -147,6 +211,7 @@ async function resolveRecipient(phone: string): Promise<{ chatId: string } | nul
 }
 
 async function sendTextInternal(phone: string, text: string): Promise<{ id?: string }> {
+  await requirePairedSession();
   const recipient = await resolveRecipient(phone);
   if (!recipient) throw new Error("This number is not registered on WhatsApp");
   const result = await request("/api/sendText", { method: "POST", body: JSON.stringify({ session: SESSION, chatId: recipient.chatId, text }) });
@@ -198,35 +263,75 @@ async function runQueue(campaignId: number, delayMs = 3000) {
   return { sent, failed, skipped, paused: false };
 }
 
+// The family head's WhatsApp number: the dedicated field when set, otherwise
+// the family's primary phone (kept practical for mahallu records where the
+// head's phone and WhatsApp number are the same). whatsapp_enabled stays the
+// explicit opt-out for bulk messaging either way.
+const FAMILY_PHONE_SQL = `COALESCE(NULLIF(TRIM(f.whatsapp_phone), ''), NULLIF(TRIM(f.phone), ''))`;
+
 export const whatsapp = {
   init: () => { ensureSchema(); },
   status: async () => {
     ensureSchema();
-    if (!isWahaAvailable()) { updateStatus("UNAVAILABLE", "WhatsApp service is not installed or running"); return { status: "UNAVAILABLE", connected: false, internet: false, number: "", name: "", message: "WhatsApp service unavailable" }; }
-    if (!(await checkOnline())) { updateStatus("OFFLINE", "Internet connection unavailable"); return { status: "OFFLINE", connected: false, internet: false, number: "", name: "", message: "Internet connection unavailable" }; }
+    // Two independent facts, probed separately and reported as such.
+    const internet = await checkInternet();
+    const runtime = wahaState();
+
+    // 1) The bundled messaging service is missing from this build entirely.
+    if (!runtime.installed) {
+      updateStatus("UNAVAILABLE", "WhatsApp messaging service is not installed in this build");
+      return { status: "UNAVAILABLE", connected: false, internet, service: "NOT_INSTALLED", number: "", name: "", message: "WhatsApp messaging service is not installed in this build" };
+    }
+
+    // 2) Service present but not answering yet. If it is merely starting
+    //    (boot, or an on-demand start kicked off below) say exactly that —
+    //    never "no internet". Auto-(re)start once the backoff allows.
+    const healthy = await checkService();
+    if (!healthy) {
+      maybeStartWaha();
+      const state = wahaState();
+      if (state.state === "STARTING" || state.starting) {
+        updateStatus("STARTING", "");
+        return { status: "STARTING", connected: false, internet, service: "STARTING", number: "", name: "", message: "WhatsApp messaging service is starting…" };
+      }
+      const detail = state.lastError || "WhatsApp messaging service is not running";
+      updateStatus("UNAVAILABLE", detail);
+      return { status: "UNAVAILABLE", connected: false, internet, service: state.state, number: "", name: "", message: detail };
+    }
+
+    // 3) Service healthy but no real internet — the one truthful case for OFFLINE.
+    if (!internet) {
+      updateStatus("OFFLINE", "No internet connection");
+      return { status: "OFFLINE", connected: false, internet, service: "RUNNING", number: "", name: "", message: "No internet connection. Check your network and try again." };
+    }
+
     try {
       const session = await getSession();
       const me = await connectedMe();
       if (session?.status === "SCAN_QR_CODE" || session?.status === "STARTING") {
         updateStatus("QR_REQUIRED");
-        return { status: "QR_REQUIRED", connected: false, internet: true, number: "", name: "", message: "Scan the QR code" };
+        return { status: "QR_REQUIRED", connected: false, internet, service: "RUNNING", number: "", name: "", message: "Scan the QR code to connect WhatsApp" };
       }
       if (session?.status === "WORKING" && me?.id) {
         const number = String(me.id).replace(/@.*$/, "");
         const name = String(me.pushName || "");
         getDB().prepare("UPDATE whatsapp_settings SET connected_number=?, connected_name=?, status='CONNECTED', last_error='', updated_at=datetime('now') WHERE id=1").run(number, name);
-        return { status: "CONNECTED", connected: true, internet: true, number, name, message: "WhatsApp connected" };
+        return { status: "CONNECTED", connected: true, internet, service: "RUNNING", number, name, message: "WhatsApp connected" };
       }
       updateStatus("DISCONNECTED", String(session?.status || "Disconnected"));
-      return { status: "DISCONNECTED", connected: false, internet: true, number: "", name: "", message: "WhatsApp is disconnected" };
+      return { status: "DISCONNECTED", connected: false, internet, service: "RUNNING", number: "", name: "", message: "WhatsApp is not connected yet. Use the Connect button to pair a phone." };
     } catch (err: any) {
       updateStatus("ERROR", err.message || "Unable to read WhatsApp status");
-      return { status: "ERROR", connected: false, internet: true, number: "", name: "", message: err.message || "WhatsApp error" };
+      return { status: "ERROR", connected: false, internet, service: "RUNNING", number: "", name: "", message: err.message || "WhatsApp error" };
     }
   },
   connect: async () => {
     ensureSchema();
-    if (!(await checkOnline())) throw new Error("Internet connection unavailable");
+    if (!isWahaInstalled()) throw new Error("WhatsApp messaging service is not installed in this build. Reinstall the app to enable WhatsApp features.");
+    await requireInternet();
+    // Explicit user action — wait for the bundled service to come up.
+    const runtime = await ensureWahaRunning(45000);
+    if (!runtime.healthy) throw new Error(runtime.lastError || "WhatsApp messaging service did not become ready in time. Please try again.");
     await ensureSessionStarted();
     try { await request(`/api/sessions/${encodeURIComponent(SESSION)}/start`, { method: "POST" }); } catch (err: any) { if (!/already|working|starting/i.test(err.message || "")) throw err; }
     return { success: true };
@@ -252,10 +357,10 @@ export const whatsapp = {
   },
   familyWhatsApp: (familyId: number) => {
     ensureSchema();
-    return getDB().prepare("SELECT id, house_name, family_number, whatsapp_phone, whatsapp_enabled, status FROM families WHERE id=?").get(familyId) as any;
+    return getDB().prepare("SELECT id, house_name, family_number, whatsapp_phone, phone, whatsapp_enabled, status FROM families WHERE id=?").get(familyId) as any;
   },
   checkNumber: async (phone: string) => {
-    if (!(await checkOnline())) return { available: false, reason: "Internet connection unavailable" };
+    await requireService();
     const normalized = normalizePhone(phone);
     if (!normalized) return { available: false, reason: "WhatsApp number is missing or invalid" };
     const result = await resolveRecipient(normalized);
@@ -265,7 +370,7 @@ export const whatsapp = {
     ensureSchema();
     const phone = normalizePhone(input.phone);
     if (!phone) throw new Error("WhatsApp number is missing or invalid");
-    if (!(await checkOnline())) throw new Error("Internet connection unavailable");
+    await requireService();
     const result = await sendTextInternal(phone, input.text);
     saveMessage({ type: input.type || "MESSAGE", name: input.name, phone, text: input.text, status: "SENT", familyId: input.familyId, donationId: input.donationId, subscriptionId: input.subscriptionId, providerId: result.id });
     return { success: true, providerMessageId: result.id || "" };
@@ -273,21 +378,27 @@ export const whatsapp = {
   sendDonationReceipt: async (donationId: number) => {
     ensureSchema();
     const d = getDB().prepare(`SELECT d.*, c.name AS category_name FROM donations d LEFT JOIN donation_categories c ON c.id=d.category_id WHERE d.id=?`).get(donationId) as any;
-    if (!d) throw new Error("Donation not found");
-    if (!d.donor_phone) throw new Error("Donor WhatsApp number is not available. Add the donor's WhatsApp number before sending the receipt.");
+    if (!d) {
+      console.error(`[whatsapp] donation receipt requested for id=${donationId} but the record does not exist`);
+      throw new Error("Donation record not found. Refresh the donations page and try again.");
+    }
+    const phone = normalizePhone(String(d.donor_phone || ""));
+    if (!phone) throw new Error("No WhatsApp number saved for this donor. Add the donor's phone number in the donation record first.");
+    // Pre-checks in the right order so the toast explains the real problem.
+    await requireService();
     const settingsRow = getDB().prepare("SELECT mahallu_name, currency_symbol FROM settings WHERE id=1").get() as any;
     const currency = settingsRow?.currency_symbol || "₹";
     const text = `Assalamu Alaikum ${d.donor_name},\n\nYour donation has been received successfully.\n\nReceipt: ${d.receipt_number}\nAmount: ${currency}${Number(d.amount || 0).toLocaleString("en-IN")}\nCategory: ${d.category_name || "Donation"}\nDate: ${d.donation_date}\n${settingsRow?.mahallu_name ? `\n${settingsRow.mahallu_name}` : ""}\n\nJazakallahu Khairan.`;
-    return whatsapp.sendMessage({ phone: d.donor_phone, name: d.donor_name, text, type: "DONATION_RECEIPT", donationId });
+    return whatsapp.sendMessage({ phone, name: d.donor_name, text, type: "DONATION_RECEIPT", donationId });
   },
   createSubscriptionCampaign: async () => {
     ensureSchema();
     const key = monthKey();
     const existing = getDB().prepare("SELECT id,status FROM whatsapp_campaigns WHERE campaign_type='SUBSCRIPTION_REMINDER' AND period_key=? AND status IN ('PENDING','RUNNING','COMPLETED','PAUSED') LIMIT 1").get(key) as any;
     if (existing) throw new Error("The bulk subscription reminder has already been started for this month.");
-    const rows = getDB().prepare(`SELECT f.id AS family_id, f.house_name, f.family_number, f.whatsapp_phone, f.whatsapp_enabled, s.amount, s.amount_paid, s.period_start, s.period_end, s.status AS subscription_status FROM families f JOIN subscriptions s ON s.family_id=f.id WHERE f.status='Active' AND COALESCE(f.whatsapp_enabled,0)=1 AND COALESCE(f.whatsapp_phone,'')<>'' AND s.amount > s.amount_paid AND s.status IN ('Pending','Partial','Overdue') ORDER BY f.family_number`).all() as any[];
+    const rows = getDB().prepare(`SELECT f.id AS family_id, f.house_name, f.family_number, ${FAMILY_PHONE_SQL} AS whatsapp_phone, f.whatsapp_enabled, s.amount, s.amount_paid, s.period_start, s.period_end, s.status AS subscription_status FROM families f JOIN subscriptions s ON s.family_id=f.id WHERE f.status='Active' AND COALESCE(f.whatsapp_enabled,0)=1 AND ${FAMILY_PHONE_SQL} <> '' AND s.amount > s.amount_paid AND s.status IN ('Pending','Partial','Overdue') ORDER BY f.family_number`).all() as any[];
     const eligible = rows.filter(r => normalizePhone(r.whatsapp_phone));
-    if (!eligible.length) throw new Error("No eligible family heads with WhatsApp numbers were found.");
+    if (!eligible.length) throw new Error("No eligible family heads with contact numbers were found.");
     const db = getDB();
     const campaign = db.prepare("INSERT INTO whatsapp_campaigns (campaign_type,period_key,message_text,total_recipients) VALUES ('SUBSCRIPTION_REMINDER',?,?,?)").run(key, "", eligible.length);
     const campaignId = Number(campaign.lastInsertRowid);
@@ -310,9 +421,9 @@ export const whatsapp = {
     const key = dayKey();
     const existing = getDB().prepare("SELECT id FROM whatsapp_campaigns WHERE campaign_type='ANNOUNCEMENT' AND period_key=? AND status IN ('PENDING','RUNNING','COMPLETED','PAUSED') LIMIT 1").get(key) as any;
     if (existing) throw new Error("Today's bulk announcement has already been started.");
-    const rows = getDB().prepare("SELECT id, house_name, family_number, whatsapp_phone FROM families WHERE status='Active' AND COALESCE(whatsapp_enabled,0)=1 AND COALESCE(whatsapp_phone,'')<>'' ORDER BY family_number").all() as any[];
+    const rows = getDB().prepare(`SELECT f.id, f.house_name, f.family_number, ${FAMILY_PHONE_SQL} AS whatsapp_phone FROM families f WHERE f.status='Active' AND COALESCE(f.whatsapp_enabled,0)=1 AND ${FAMILY_PHONE_SQL} <> '' ORDER BY f.family_number`).all() as any[];
     const eligible = rows.filter(r => normalizePhone(r.whatsapp_phone));
-    if (!eligible.length) throw new Error("No eligible family heads with WhatsApp numbers were found.");
+    if (!eligible.length) throw new Error("No eligible family heads with contact numbers were found.");
     const db = getDB();
     const campaign = db.prepare("INSERT INTO whatsapp_campaigns (campaign_type,period_key,message_text,total_recipients) VALUES ('ANNOUNCEMENT',?,?,?)").run(key, clean, eligible.length);
     const campaignId = Number(campaign.lastInsertRowid);
@@ -335,6 +446,8 @@ export const whatsapp = {
     getDB().prepare("UPDATE whatsapp_campaign_recipients SET status='PENDING', error_message='' WHERE campaign_id=? AND status='FAILED'").run(campaignId);
     return runQueue(campaignId, 3000);
   },
-  runtimeState: () => ({ available: isWahaAvailable(), running: wahaProcessState() }),
+  runtimeState: () => wahaState(),
   normalizePhone,
 };
+
+export { checkInternet };

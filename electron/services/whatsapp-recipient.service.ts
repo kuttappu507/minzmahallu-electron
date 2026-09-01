@@ -1,12 +1,16 @@
 import { getDB } from "../db/connection.js";
 
 const normalize=(v:string)=>{const d=String(v||"").replace(/\D/g,"");return d.length===10?`91${d}`:d;};
+// Effective family-head contact number: the dedicated WhatsApp number when
+// set, otherwise the family's primary phone. `whatsapp_enabled` remains the
+// explicit opt-out for bulk messaging either way.
+const FAMILY_PHONE_SQL=`COALESCE(NULLIF(TRIM(f.whatsapp_phone), ''), NULLIF(TRIM(f.phone), ''))`;
 export function recipientStats(type:"ANNOUNCEMENT"|"SUBSCRIPTION_REMINDER"){
   const db=getDB();
-  const families=db.prepare("SELECT id,whatsapp_phone,whatsapp_enabled,status,house_name,family_number FROM families WHERE status='Active'").all() as any[];
+  const families=db.prepare(`SELECT f.id, ${FAMILY_PHONE_SQL} AS whatsapp_phone, f.whatsapp_enabled, f.status, f.house_name, f.family_number FROM families f WHERE f.status='Active'`).all() as any[];
   const active=families.length;
   const missing=families.filter(f=>!normalize(f.whatsapp_phone)).length;
-  const disabled=families.filter(f=>!!f.whatsapp_phone&&!f.whatsapp_enabled).length;
+  const disabled=families.filter(f=>!!normalize(f.whatsapp_phone)&&!f.whatsapp_enabled).length;
   let eligible=families.filter(f=>!!normalize(f.whatsapp_phone)&&!!f.whatsapp_enabled);
   let alreadySent=0;
   if(type==="SUBSCRIPTION_REMINDER"){

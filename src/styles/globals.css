@@ -562,6 +562,8 @@
   .wa-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
   .wa-acct { font: 500 12px Poppins; color: var(--mut); }
   .wa-note { font: 500 11.5px Poppins; color: var(--fnt); margin-top: 8px; }
+  .wa-meta .gchip.wa-chip-danger { border-color: var(--rose-line); background: var(--rose-bg); color: var(--c-rose); }
+  .wa-meta .gchip.wa-chip-danger:hover { border-color: var(--c-rose); box-shadow: none; }
   .wa-qr { margin-top: 14px; padding: 16px; border: 1.5px dashed var(--line2); border-radius: 14px; background: var(--panel2); display: flex; flex-direction: column; align-items: center; gap: 12px; }
   .wa-qr-hint { font: 600 12.5px Poppins; color: var(--tx); }
   .wa-qr-img { width: 216px; height: 216px; border-radius: 12px; background: #fff; padding: 8px; border: 1px solid var(--line); }

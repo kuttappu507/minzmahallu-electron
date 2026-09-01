@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   MessageCircle, RefreshCw, Smartphone, Wifi, WifiOff, Send, ShieldCheck,
   Clock3, Megaphone, ReceiptText, RotateCcw, AlertTriangle, Users,
+  Server, ServerOff, Loader2,
 } from "lucide-react";
 import { Button, Badge, Textarea } from "@/components/ui";
 import { toast } from "@/lib/toast";
@@ -11,10 +12,20 @@ const STATUS_LABELS: Record<string, { en: string; ml: string }> = {
   CONNECTED: { en: "Connected", ml: "കണക്റ്റ് ചെയ്തു" },
   QR_REQUIRED: { en: "Scan QR code", ml: "QR കോഡ് സ്കാൻ ചെയ്യുക" },
   STARTING: { en: "Starting…", ml: "ആരംഭിക്കുന്നു…" },
-  OFFLINE: { en: "Internet not connected", ml: "ഇന്റർനെറ്റ് കണക്റ്റ് ചെയ്തിട്ടില്ല" },
-  DISCONNECTED: { en: "Disconnected", ml: "വിച്ഛേദിച്ചു" },
+  OFFLINE: { en: "No internet", ml: "ഇന്റർനെറ്റ് ഇല്ല" },
+  DISCONNECTED: { en: "Not connected yet", ml: "ഇതുവരെ കണക്റ്റ് ആയിട്ടില്ല" },
   UNAVAILABLE: { en: "Service unavailable", ml: "സേവനം ലഭ്യമല്ല" },
   ERROR: { en: "Error", ml: "പിശക്" },
+};
+
+// The local messaging service is reported independently from the internet
+// connection, so the panel never blames the network for a local problem.
+const SERVICE_LABELS: Record<string, { en: string; ml: string }> = {
+  RUNNING: { en: "Messaging service active", ml: "മെസേജിങ് സേവനം സജീവം" },
+  STARTING: { en: "Messaging service starting…", ml: "മെസേജിങ് സേവനം ആരംഭിക്കുന്നു…" },
+  NOT_INSTALLED: { en: "Messaging service not installed", ml: "മെസേജിങ് സേവനം ഇൻസ്റ്റാൾ ചെയ്തിട്ടില്ല" },
+  CRASHED: { en: "Messaging service error", ml: "മെസേജിങ് സേവന പിശക്" },
+  STOPPED: { en: "Messaging service stopped", ml: "മെസേജിങ് സേവനം നിന്നു" },
 };
 
 function statusBadge(status: string) {
@@ -177,6 +188,14 @@ export function WhatsApp() {
 
           <div className="wa-meta">
             <span className="gchip">{status.internet ? <Wifi size={13} /> : <WifiOff size={13} />}{status.internet ? tx("Internet available", "ഇന്റർനെറ്റ് ലഭ്യമാണ്") : tx("Internet not connected", "ഇന്റർനെറ്റ് കണക്റ്റ് ചെയ്തിട്ടില്ല")}</span>
+            {(() => {
+              const svc = String(status.service || "");
+              const label = SERVICE_LABELS[svc];
+              if (!label) return null;
+              if (svc === "RUNNING") return <span className="gchip"><Server size={13} />{tx(label.en, label.ml)}</span>;
+              if (svc === "STARTING") return <span className="gchip"><Loader2 size={13} className="animate-spin" />{tx(label.en, label.ml)}</span>;
+              return <span className="gchip wa-chip-danger"><ServerOff size={13} />{tx(label.en, label.ml)}</span>;
+            })()}
             {status.number && <span className="wa-acct">{status.name ? <>{status.name} · </> : null}+{status.number}</span>}
           </div>
           {status.message && <div className="wa-note">{status.message}</div>}
@@ -222,7 +241,7 @@ export function WhatsApp() {
           <div className="ch-head">
             <div>
               <div className="ch-title"><Clock3 size={15} className="wa-tit-ic" />{tx("Subscription reminder", "സബ്സ്ക്രിപ്ഷൻ റിമൈൻഡർ")}</div>
-              <div className="ch-sub">{tx("Sends the pending amount to eligible family heads. Limited to once per family each calendar month.", "യോഗ്യരായ കുടുംബനാഥന്മാർക്ക് ബാക്കി തുക അയയ്ക്കും. ഒരു കലണ്ടർ മാസത്തിൽ കുടുംബത്തിന് ഒരിക്കൽ മാത്രം.")}</div>
+              <div className="ch-sub">{tx("Sends the pending amount to eligible family heads. Uses the family's WhatsApp number, or the family phone when no WhatsApp number is set. Limited to once per family each calendar month.", "യോഗ്യരായ കുടുംബനാഥന്മാർക്ക് ബാക്കി തുക അയയ്ക്കും. കുടുംബത്തിന്റെ വാട്ട്സ്ആപ്പ് നമ്പർ ഉപയോഗിക്കും; ഇല്ലെങ്കിൽ കുടുംബ ഫോൺ നമ്പർ. ഒരു കലണ്ടർ മാസത്തിൽ കുടുംബത്തിന് ഒരിക്കൽ മാത്രം.")}</div>
             </div>
           </div>
           {subStats && (
