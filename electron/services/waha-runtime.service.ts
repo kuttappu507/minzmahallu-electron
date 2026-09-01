@@ -103,11 +103,16 @@ export async function startWaha() {
   await waitForHealth();
 }
 
-async function waitForHealth(timeoutMs = 20000) {
+async function waitForHealth(timeoutMs = 45000) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     try {
-      const response = await fetch(`http://127.0.0.1:${PORT}/health`, { signal: AbortSignal.timeout(1500) });
+      // WAHA protects /health with the API key too (401 without it), so the
+      // probe must authenticate — otherwise a healthy service never passes.
+      const response = await fetch(`http://127.0.0.1:${PORT}/health`, {
+        headers: { Accept: "application/json", "X-Api-Key": apiKey() },
+        signal: AbortSignal.timeout(1500),
+      });
       if (response.ok) return;
     } catch {
       // not ready yet — retry
