@@ -105,6 +105,32 @@ try {
   const withoutPhone = (donations?.rows || []).find((r) => !r.phone);
   log("donation sample:", JSON.stringify(donations?.rows || []));
 
+  // 3b) receipt numbering — every new donation lands in the mahallu's
+  //     PREFIX/YYYY/MM/NNN series (prefix defaults to the mahallu name's
+  //     initials when the stored prefix is blank/legacy "RCP").
+  const NUMBER_RE = /^[A-Z]{1,5}\/\d{4}\/\d{2}\/\d{3,}$/;
+  try {
+    const cats = await evaluate(conn, `window.mms.donations.categories()`);
+    const cat = (Array.isArray(cats) ? cats : cats?.rows || [])[0];
+    if (cat?.id) {
+      const made = await evaluate(conn, `window.mms.donations.create({donorName:"Smoke Numbering", amount: 1, categoryId: ${cat.id}, donationDate: "2026-09-01"}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
+      const parsed = (() => { try { return JSON.parse(String(made)); } catch { return null; } })();
+      const number = String(parsed?.receiptNumber || "");
+      check("new donation receipt number follows PREFIX/YYYY/MM/NNN", NUMBER_RE.test(number) && number.includes("/2026/09/"), `receipt=${number}`);
+      if (parsed?.id) {
+        const second = await evaluate(conn, `window.mms.donations.create({donorName:"Smoke Numbering 2", amount: 1, categoryId: ${cat.id}, donationDate: "2026-09-02"}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
+        const parsed2 = (() => { try { return JSON.parse(String(second)); } catch { return null; } })();
+        check("second receipt sequences +1 in the same month", NUMBER_RE.test(String(parsed2?.receiptNumber || "")) && Number(String(parsed2?.receiptNumber).split("/").pop()) === Number(number.split("/").pop()) + 1, `receipt=${parsed2?.receiptNumber}`);
+        await evaluate(conn, `window.mms.donations.remove(${parsed.id}).catch(e => "ERR:" + e.message)`);
+        await evaluate(conn, `window.mms.donations.remove(${parsed2.id}).catch(e => "ERR:" + e.message)`);
+      }
+    } else {
+      console.log("  WARN  no donation category to exercise receipt numbering");
+    }
+  } catch (e) {
+    check("receipt numbering smoke", false, e?.message || String(e));
+  }
+
   // 4) WhatsApp status — truthful, engine-based, no "service stopped"/
   //    "not installed" crash states (the old bundled-runtime failure class).
   const status = await evaluate(conn, `window.mms.whatsapp.status()`);
@@ -174,10 +200,28 @@ try {
     const payDate = new Date().toISOString().slice(0, 10);
     const pay = await evaluate(conn, `window.mms.subscriptions.update(${pendingRow.id}, {amountPaid: 50, paymentDate: "${payDate}", paymentMethod: "Cash"})`);
     check("payment save returns a receipt + WhatsApp status", ["sent", "skipped", "no-phone", "not-connected", "failed"].includes(String(pay?.receiptWhatsApp)) && !!pay?.receiptNumber, `receiptWhatsApp=${pay?.receiptWhatsApp} receipt=${pay?.receiptNumber}`);
+    check("payment receipt number follows PREFIX/YYYY/MM/NNN", NUMBER_RE.test(String(pay?.receiptNumber || "")), `receipt=${pay?.receiptNumber}`);
     const subPdf = await evaluate(conn, `window.mms.receipts.getSubscriptionPdf(${pendingRow.id})`);
     check("A6 subscription receipt PDF generated and stored", subPdf?.success === true && Number(subPdf?.sizeBytes) > 500, `size=${subPdf?.sizeBytes}`);
   } else {
     console.log("  WARN  no pending subscription row to exercise the payment receipt hook");
+  }
+
+  // 6d) certificate numbering — death certificates carry the DT prefix in the
+  //     same YEAR/MM scheme (the demo profile has demo death records).
+  try {
+    const deaths = await evaluate(conn, `window.mms.deaths.list({page:1,pageSize:1})`);
+    const deathRow = (deaths?.rows || [])[0];
+    if (deathRow?.death_number) {
+      const cert = await evaluate(conn, `window.mms.certificates.issueDeath(${JSON.stringify(deathRow.death_number)}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
+      const certParsed = (() => { try { return JSON.parse(String(cert)); } catch { return null; } })();
+      const certNumber = String(certParsed?.certificateNumber || certParsed?.certificate_number || "");
+      check("death certificate number follows DT/YYYY/MM/NNN", /^DT\/\d{4}\/\d{2}\/\d{3,}$/.test(certNumber), `cert=${certNumber}`);
+    } else {
+      console.log("  WARN  no death record to exercise certificate numbering");
+    }
+  } catch (e) {
+    check("certificate numbering smoke", false, e?.message || String(e));
   }
 
   // 7) recipient stats + announcement campaign (IPC args + DB wiring)

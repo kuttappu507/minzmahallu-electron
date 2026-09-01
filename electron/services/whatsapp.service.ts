@@ -7,6 +7,7 @@ import {
 } from "./whatsapp-engine.service.js";
 import { generateDonationReceiptPdf, generateSubscriptionReceiptPdf, markReceiptSent } from "./receipt.service.js";
 import { fmtDdMmYyyy, monthLabel } from "./ist-date.js";
+import { fileNameSafe } from "./doc-number.service.js";
 
 type WhatsAppStatus = "NOT_CONFIGURED" | "STARTING" | "QR_REQUIRED" | "CONNECTED" | "DISCONNECTED" | "OFFLINE" | "ERROR";
 
@@ -343,7 +344,7 @@ export const whatsapp = {
     const currency = settingsRow?.currency_symbol || "₹";
     const text = `Assalamu Alaikum ${d.donor_name},\n\nYour donation receipt is attached.\n\nReceipt: ${d.receipt_number}\nAmount: ${currency}${Number(d.amount || 0).toLocaleString("en-IN")}\nCategory: ${d.category_name || "Donation"}\nDate: ${fmtDdMmYyyy(String(d.donation_date || ""))}\n${settingsRow?.mahallu_name ? `\n${settingsRow.mahallu_name}` : ""}\n\nJazakallahu Khairan.`;
     const result = await sendDocumentInternal({
-      phone, text, pdf: receipt.buffer, fileName: `receipt-${receipt.receiptNumber || donationId}.pdf`,
+      phone, text, pdf: receipt.buffer, fileName: `receipt-${fileNameSafe(receipt.receiptNumber || donationId)}.pdf`,
       type: "DONATION_RECEIPT", name: d.donor_name, donationId,
       markReceipt: { kind: "donation", id: donationId },
     });
@@ -390,7 +391,7 @@ export const whatsapp = {
       if (!snap.connected) return { status: "not-connected", error: "WhatsApp is not connected", receiptSaved: true, receiptNumber: receipt.receiptNumber };
       try {
         const result = await sendDocumentInternal({
-          phone, text, pdf: receipt.buffer, fileName: `receipt-${receipt.receiptNumber || subscriptionId}.pdf`,
+          phone, text, pdf: receipt.buffer, fileName: `receipt-${fileNameSafe(receipt.receiptNumber || subscriptionId)}.pdf`,
           type: "SUBSCRIPTION_RECEIPT", name: s.member_name || who, familyId: s.family_id,
           markReceipt: receipt.paymentId ? { kind: "subscription", id: receipt.paymentId } : undefined,
         });
@@ -402,7 +403,7 @@ export const whatsapp = {
     if (!phone) throw new Error("No WhatsApp number saved for this family. Add the family's phone or WhatsApp number first.");
     await requireInternet();
     const result = await sendDocumentInternal({
-      phone, text, pdf: receipt.buffer, fileName: `receipt-${receipt.receiptNumber || subscriptionId}.pdf`,
+      phone, text, pdf: receipt.buffer, fileName: `receipt-${fileNameSafe(receipt.receiptNumber || subscriptionId)}.pdf`,
       type: "SUBSCRIPTION_RECEIPT", name: s.member_name || who, familyId: s.family_id,
       markReceipt: receipt.paymentId ? { kind: "subscription", id: receipt.paymentId } : undefined,
     });

@@ -15,5 +15,10 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx", "electron/**/*.test.ts"],
+    // Several test files now open the per-process SQLite file (the shim keys
+    // its userData dir by PID, so parallel files share one database). Schema
+    // init from two workers at once would race — files run sequentially; the
+    // whole suite stays well under a second.
+    fileParallelism: false,
   },
 });

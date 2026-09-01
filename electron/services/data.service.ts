@@ -8,6 +8,7 @@ import { hashPasswordForStorage } from "./auth.service.js";
 import { computeEntryHash, verifyAuditChain } from "./audit-chain.js";
 import { makeVerificationCode } from "./codes.js";
 import { buildQrPayload, parseQrPayload } from "./qr-code.js";
+import { nextReceiptNumber, nextCertificateNumber } from "./doc-number.service.js";
 
 // ================= HELPERS =================
 
@@ -291,15 +292,6 @@ function familyHeadMemberId(familyId: number): number | null {
   return head?.id ?? null;
 }
 
-function nextPaymentReceipt(): string {
-  // Receipts sequence off the payment ledger (not the subscription rows) so
-  // the series can never collide with the UNIQUE constraint on
-  // subscriptions.receipt_number after consolidation.
-  return scalar<string>(
-    "SELECT 'RCP-' || printf('%04d', COALESCE(MAX(id), 0) + 1) AS n FROM subscription_payments"
-  );
-}
-
 function ensureCurrentMonth() {
   const { periodStart, periodEnd } = currentMonthPeriod();
   const configured = scalar<number>("SELECT COALESCE(subscription_monthly_amount, 0) FROM settings WHERE id = 1") || 0;
@@ -442,29 +434,38 @@ export const subscriptions = {
     const amount = Number(s.amount || 0);
     const status = amountPaid <= 0 ? "Pending" : amountPaid >= amount ? "Paid" : "Partial";
     const paymentDate = data.paymentDate || nowDate();
-    const receipt = nextPaymentReceipt();
+    let txReceipt = "";
     const tx = db.transaction(() => {
       // One payment record per subscription per month (upsert).
       const paid = one<any>(
-        "SELECT id FROM subscription_payments WHERE subscription_id = ? AND period_start = ? LIMIT 1",
+        "SELECT id, receipt_number FROM subscription_payments WHERE subscription_id = ? AND period_start = ? LIMIT 1",
         [s.id, s.period_start]
       );
+      // A receipt number already issued for this month (printed / sent on
+      // WhatsApp) is NEVER renumbered. A fresh month gets a fresh number in
+      // the mahallu's shared receipt series — the legacy behaviour of
+      // reusing the subscription row's number from a previous month is a
+      // duplicate-receipt bug and is gone.
+      const receipt = String(paid?.receipt_number || "").trim() || nextReceiptNumber(paymentDate);
       if (paid) {
         db.prepare(
           `UPDATE subscription_payments SET member_id = ?, amount = ?, receipt_number = ?, payment_date = ?, payment_method = ?, transaction_ref = ?, remarks = ?, status = 'Active', updated_at = datetime('now') WHERE id = ?`
-        ).run(s.member_id, amountPaid, s.receipt_number || receipt, paymentDate, data.paymentMethod || "Cash", data.transactionRef ?? "", data.remarks ?? "", paid.id);
+        ).run(s.member_id, amountPaid, receipt, paymentDate, data.paymentMethod || "Cash", data.transactionRef ?? "", data.remarks ?? "", paid.id);
       } else {
         db.prepare(
           `INSERT INTO subscription_payments (subscription_id, family_id, member_id, period_start, period_end, amount, receipt_number, payment_date, payment_method, transaction_ref, collected_by, remarks, status)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active')`
         ).run(s.id, s.family_id, s.member_id, s.period_start, s.period_end, amountPaid, receipt, paymentDate, data.paymentMethod || "Cash", data.transactionRef ?? "", data.collectedBy ?? 1, data.remarks ?? "");
       }
+      // The subscription row mirrors the LATEST month's receipt number for
+      // list display and search.
       db.prepare(
         `UPDATE subscriptions SET amount_paid = ?, payment_date = ?, receipt_number = ?, payment_method = ?, transaction_ref = ?, status = ?, remarks = ?, updated_at = datetime('now') WHERE id = ?`
-      ).run(amountPaid, amountPaid > 0 ? paymentDate : null, amountPaid > 0 ? (s.receipt_number || receipt) : null, data.paymentMethod || "Cash", data.transactionRef ?? "", status, data.remarks ?? "", id);
+      ).run(amountPaid, amountPaid > 0 ? paymentDate : null, amountPaid > 0 ? receipt : null, data.paymentMethod || "Cash", data.transactionRef ?? "", status, data.remarks ?? "", id);
+      txReceipt = receipt;
     });
     tx();
-    return { id, receiptNumber: amountPaid > 0 ? (s.receipt_number || receipt) : "", status };
+    return { id, receiptNumber: amountPaid > 0 ? txReceipt : "", status };
   },
   /** Cancel the current month's payment (secure action: reason + admin
    *  password are enforced at the IPC layer). Resets the month to unpaid and
@@ -545,9 +546,9 @@ export const donations = {
   },
   get: (id: number) => one<any>("SELECT * FROM donations WHERE id = ?", [id]),
   create: (data: any) => {
-    const receipt = data.receiptNumber || scalar<string>(
-      "SELECT 'DON-' || printf('%03d', COALESCE(MAX(id), 0) + 1) AS n FROM donations"
-    );
+    // Auto-numbered in the mahallu's PREFIX/YYYY/MM/NNN series unless the
+    // user typed their own number (book migration / manual override).
+    const receipt = data.receiptNumber || nextReceiptNumber(data.donationDate || nowDate());
     const { id } = run(
       `INSERT INTO donations
         (donor_name, donor_phone, donor_address, family_id, member_id, category_id, amount, donation_date, receipt_number, purpose, payment_method, transaction_ref, received_by, remarks)
@@ -1220,7 +1221,7 @@ export const certificates = {
   issueMembership: (memberCode: string, userId: number) => {
     const m = one<any>("SELECT * FROM members WHERE member_code = ?", [memberCode]);
     if (!m) throw new Error("Member not found");
-    const certNum = `MMS-${new Date().getFullYear()}-${String(scalar<number>("SELECT COALESCE(MAX(id),0)+1 FROM certificates WHERE type='Membership' AND strftime('%Y', issued_date)=strftime('%Y','now')")).padStart(6, "0")}`;
+    const certNum = nextCertificateNumber("Membership", nowDate());
     const { id } = run(
       "INSERT INTO certificates (certificate_number, type, member_id, family_id, issued_to, issued_date, issued_by, status, verification_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [certNum, "Membership", m.id, m.family_id, m.name, nowDate(), userId, "Issued", makeVerificationCode()]
@@ -1230,7 +1231,7 @@ export const certificates = {
   issueResidence: (familyNumber: string, issuedTo: string, userId: number) => {
     const f = one<any>("SELECT * FROM families WHERE family_number = ?", [familyNumber]);
     if (!f) throw new Error("Family not found");
-    const certNum = `RES-${new Date().getFullYear()}-${String(scalar<number>("SELECT COALESCE(MAX(id),0)+1 FROM certificates WHERE type='Residence' AND strftime('%Y', issued_date)=strftime('%Y','now')")).padStart(6, "0")}`;
+    const certNum = nextCertificateNumber("Residence", nowDate());
     const { id } = run(
       "INSERT INTO certificates (certificate_number, type, member_id, family_id, issued_to, issued_date, issued_by, status, verification_code) VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?)",
       [certNum, "Residence", f.id, issuedTo || f.house_name, nowDate(), userId, "Issued", makeVerificationCode()]
@@ -1240,7 +1241,7 @@ export const certificates = {
   issueMarriage: (marriageNumber: string, userId: number) => {
     const m = one<any>("SELECT * FROM marriages WHERE marriage_number = ?", [marriageNumber]);
     if (!m) throw new Error("Marriage record not found");
-    const certNum = `MAR-${new Date().getFullYear()}-${String(scalar<number>("SELECT COALESCE(MAX(id),0)+1 FROM certificates WHERE type='Marriage' AND strftime('%Y', issued_date)=strftime('%Y','now')")).padStart(6, "0")}`;
+    const certNum = nextCertificateNumber("Marriage", nowDate());
     const { id } = run(
       "INSERT INTO certificates (certificate_number, type, member_id, family_id, issued_to, issued_date, issued_by, status, verification_code) VALUES (?, ?, NULL, NULL, ?, ?, ?, ?, ?)",
       [certNum, "Marriage", m.bride_name + " & " + m.groom_name, nowDate(), userId, "Issued", makeVerificationCode()]
@@ -1250,7 +1251,7 @@ export const certificates = {
   issueMarriageNoc: (marriageNum: string, userId: number) => {
     const marriage = one<any>("SELECT * FROM marriages WHERE marriage_number = ?", [marriageNum]);
     if (!marriage) throw new Error("Marriage record not found");
-    const certificateNumber = scalar<string>("SELECT 'NOC-' || printf('%04d', COALESCE(MAX(id),0)+1) FROM certificates");
+    const certificateNumber = nextCertificateNumber("NOC", nowDate());
     const issuedTo = [marriage.bride_name, marriage.groom_name].filter(Boolean).join(" & ");
     const result = run(
       `INSERT INTO certificates (certificate_number, type, marriage_id, issued_to, issued_date, issued_by, notes, verification_code)
@@ -1262,7 +1263,7 @@ export const certificates = {
   issueDeath: (deathNumber: string, userId: number) => {
     const d = one<any>("SELECT * FROM deaths WHERE death_number = ?", [deathNumber]);
     if (!d) throw new Error("Death record not found");
-    const certNum = `DTH-${new Date().getFullYear()}-${String(scalar<number>("SELECT COALESCE(MAX(id),0)+1 FROM certificates WHERE type='Death' AND strftime('%Y', issued_date)=strftime('%Y','now')")).padStart(6, "0")}`;
+    const certNum = nextCertificateNumber("Death", nowDate());
     const { id } = run(
       "INSERT INTO certificates (certificate_number, type, member_id, family_id, marriage_id, death_id, issued_to, issued_date, issued_by, status, verification_code) VALUES (?, 'Death', NULL, ?, NULL, ?, ?, ?, ?, 'Issued', ?)",
       [certNum, d.family_id ?? null, d.id, d.deceased_name, nowDate(), userId, makeVerificationCode()]

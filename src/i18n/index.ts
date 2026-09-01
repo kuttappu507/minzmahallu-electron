@@ -295,6 +295,10 @@ const translations: Record<string, { en: string; ml: string }> = {
   set_financial_year_start: { en: "Financial Year Start", ml: "സാമ്പത്തിക വർഷം ആരംഭം" },
   set_currency_symbol: { en: "Currency Symbol", ml: "കറൻസി ചിഹ്നം" },
   set_receipt_prefix: { en: "Receipt Prefix", ml: "രസീത് പ്രിഫിക്സ്" },
+  set_receipt_prefix_hint: {
+    en: "Receipts number as PREFIX/YYYY/MM/NNN — e.g. MMH/2026/09/001. Leave as RCP or blank to auto-use the mahallu name's initials (2–4 letters).",
+    ml: "രസീറ്റ് നമ്പർ രൂപം: PREFIX/YYYY/MM/NNN — ഉദാ: MMH/2026/09/001. RCP അല്ലെങ്കിൽ ഒഴിവായാൽ മഹല്ല് പേരിന്റെ ഇനീഷ്യലുകൾ (2–4 അക്ഷരം) സ്വയമേവ ഉപയോഗിക്കും.",
+  },
   set_auto_backup: { en: "Auto Backup", ml: "ഓട്ടോ ബാക്കപ്പ്" },
   set_financial_sub_section: { en: "Financial & Subscription", ml: "സാമ്പത്തികവും സബ്സ്ക്രിപ്ഷനും" },
   set_sub_frequency: { en: "Subscription frequency", ml: "സബ്സ്ക്രിപ്ഷൻ ആവൃത്തി" },

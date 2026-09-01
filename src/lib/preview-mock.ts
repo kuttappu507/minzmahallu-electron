@@ -86,7 +86,7 @@ export function installPreviewMock() {
       language: "en",
       auto_backup: true,
       backup_interval_hours: 24,
-      receipt_prefix: "TXN-",
+      receipt_prefix: "MMH",
     }),
     save: () => ({ success: true }),
   };

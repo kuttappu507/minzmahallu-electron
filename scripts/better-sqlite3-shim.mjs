@@ -39,6 +39,22 @@ class Database {
     const cleaned = String(sql).replace(/^PRAGMA\s+/i, "");
     return this._db.prepare(`PRAGMA ${cleaned}`).all();
   }
+  // better-sqlite3's transaction(): returns a callable that wraps fn in
+  // BEGIN/COMMIT with rollback on throw. Nested transactions are not used
+  // by MMS, so the simple form is faithful enough for the DB test suite.
+  transaction(fn) {
+    return (...args) => {
+      this._db.exec("BEGIN");
+      try {
+        const out = fn(...args);
+        this._db.exec("COMMIT");
+        return out;
+      } catch (err) {
+        try { this._db.exec("ROLLBACK"); } catch { /* already rolled back */ }
+        throw err;
+      }
+    };
+  }
   close() {
     this._db.close();
   }

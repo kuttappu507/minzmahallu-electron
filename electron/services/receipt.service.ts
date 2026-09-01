@@ -14,6 +14,7 @@ import { getDB } from "../db/connection.js";
 import { renderHtmlToPdf, printHtml } from "../print/pdf-renderer.js";
 import { buildReceiptHtml, buildReceiptSheetHtml, type ReceiptData } from "../print/receipt.template.js";
 import { fmtDdMmYyyy, monthLabel } from "./ist-date.js";
+import { ensureDonationReceiptNumber, ensureSubscriptionReceiptNumber, fileNameSafe } from "./doc-number.service.js";
 
 const require = createRequire(import.meta.url);
 function electron(): typeof import("electron") {
@@ -67,9 +68,13 @@ function donationReceiptData(donationId: number): ReceiptData | null {
   ).get(donationId) as any;
   if (!d) return null;
   const ml = langPref() === "ml";
+  // Legacy rows recorded before the numbering scheme get a number the
+  // moment their receipt is generated — a receipt leaving the app (PDF,
+  // print, WhatsApp) must always carry one. Issued numbers never change.
+  const receiptNumber = ensureDonationReceiptNumber(donationId, String(d.donation_date || ""));
   return {
     kind: "DONATION",
-    receiptNumber: String(d.receipt_number || ""),
+    receiptNumber,
     date: fmtDdMmYyyy(String(d.donation_date || "")),
     payerName: String(d.donor_name || "—"),
     payerDetail: String(d.donor_phone || ""),
@@ -114,9 +119,14 @@ function subscriptionReceiptData(subscriptionId: number): ReceiptData | null {
   const amount = Number(r.amount || 0);
   const paid = Number(r.amount_paid ?? amount ?? 0);
   const balance = Math.max(0, Number(r.amount || 0) - paid);
+  // Blank legacy numbers are backfilled on first generation (never renumbered).
+  const receiptNumber = ensureSubscriptionReceiptNumber(
+    { table: resolved.source === "ledger" ? "subscription_payments" : "subscriptions", id: Number(r.id), receiptNumber: r.receipt_number },
+    String(r.payment_date || r.period_start || "")
+  );
   return {
     kind: "SUBSCRIPTION",
-    receiptNumber: String(r.receipt_number || ""),
+    receiptNumber,
     date: fmtDdMmYyyy(String(r.payment_date || r.period_start || "")),
     payerName: String(r.member_name || r.house_name || r.family_number || "—"),
     payerDetail: String(r.family_number ? `${r.house_name ? r.house_name + " · " : ""}${r.family_number}` : ""),
@@ -212,7 +222,7 @@ export async function saveDonationPdf(donationId: number, win: import("electron"
   const r = await generateDonationReceiptPdf(donationId);
   const save = await dialog.showSaveDialog(win!, {
     title: "Save Donation Receipt (A6)",
-    defaultPath: `receipt-${r.receiptNumber || donationId}.pdf`,
+    defaultPath: `receipt-${fileNameSafe(r.receiptNumber || donationId)}.pdf`,
     filters: [{ name: "PDF Document", extensions: ["pdf"] }],
   });
   if (save.canceled || !save.filePath) return { success: false, cancelled: true };
@@ -226,7 +236,7 @@ export async function saveSubscriptionPdf(subscriptionId: number, win: import("e
   const r = await generateSubscriptionReceiptPdf(subscriptionId);
   const save = await dialog.showSaveDialog(win!, {
     title: "Save Subscription Receipt (A6)",
-    defaultPath: `receipt-${r.receiptNumber || subscriptionId}.pdf`,
+    defaultPath: `receipt-${fileNameSafe(r.receiptNumber || subscriptionId)}.pdf`,
     filters: [{ name: "PDF Document", extensions: ["pdf"] }],
   });
   if (save.canceled || !save.filePath) return { success: false, cancelled: true };
