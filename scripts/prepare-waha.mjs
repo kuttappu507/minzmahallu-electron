@@ -45,6 +45,14 @@ const YARN_ENV = {
   COREPACK_INTEGRITY_KEYS: "0",
   // Mirror WAHA's Dockerfile: tolerate lockfile checksum drift on git deps.
   YARN_CHECKSUM_BEHAVIOR: "update",
+  // Yarn auto-enables "hardened mode" on CI in public repos, which freezes
+  // the lockfile. The npm pin below deliberately diverges the extracted
+  // package.json from WAHA's shipped yarn.lock, so the install MUST be
+  // allowed to update that lockfile (the temp copy is discarded after the
+  // build; every other entry stays byte-pinned). Never triggers locally,
+  // only inside GitHub Actions.
+  YARN_ENABLE_HARDENED_MODE: "0",
+  YARN_ENABLE_IMMUTABLE_INSTALLS: "0",
   // The NOWEB engine does not need a browser — skip the big downloads.
   PUPPETEER_SKIP_DOWNLOAD: "true",
   PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "true",
@@ -122,11 +130,12 @@ try {
   fs.writeFileSync(pkgJsonPath, JSON.stringify(wahaPkg, null, 2));
 
   console.log(`[WAHA] installing dependencies of pinned source ${VERSION} (yarn.lock, no Chromium download)`);
-  // The npm pin above deliberately diverges from WAHA's shipped yarn.lock, so
-  // a plain `yarn install` would refuse to touch the lockfile (YN0028) — the
-  // temp working copy is discarded afterwards, so let yarn update the lockfile
-  // to match the pinned manifest (everything else stays byte-pinned).
-  yarn(["install", "--mode=update-lockfile"], { cwd: wahaRoot });
+  // Plain install, NOT --mode=update-lockfile: that mode only rewrites the
+  // lockfile and SKIPS the link step entirely ("Skipped due to
+  // mode=update-lockfile"), leaving no node_modules for the build. With
+  // hardened mode disabled above, a plain install both updates the lockfile
+  // for the pinned specs AND links the full tree in one pass.
+  yarn(["install"], { cwd: wahaRoot });
 
   // The WPP engine is eagerly imported by WAHA's compiled output, so its
   // package must be present WITH its prebuilt dist — fail loudly here instead
