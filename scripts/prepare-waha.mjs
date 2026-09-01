@@ -122,7 +122,11 @@ try {
   fs.writeFileSync(pkgJsonPath, JSON.stringify(wahaPkg, null, 2));
 
   console.log(`[WAHA] installing dependencies of pinned source ${VERSION} (yarn.lock, no Chromium download)`);
-  yarn(["install"], { cwd: wahaRoot });
+  // The npm pin above deliberately diverges from WAHA's shipped yarn.lock, so
+  // a plain `yarn install` would refuse to touch the lockfile (YN0028) — the
+  // temp working copy is discarded afterwards, so let yarn update the lockfile
+  // to match the pinned manifest (everything else stays byte-pinned).
+  yarn(["install", "--mode=update-lockfile"], { cwd: wahaRoot });
 
   // The WPP engine is eagerly imported by WAHA's compiled output, so its
   // package must be present WITH its prebuilt dist — fail loudly here instead
