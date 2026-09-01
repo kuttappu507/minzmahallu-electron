@@ -94,8 +94,43 @@ try {
     fs.writeFileSync(yarnrcPath, kept.join("\n").trim() + "\n");
   }
 
+  // WAHA pins the WPP engine to MOVING git branches (#master / #main). For git
+  // deps yarn must clone, bootstrap (10+ minutes on Windows CI) and run each
+  // repo's `prepare` build script — and the wppconnect build is flaky on
+  // Windows (its dist/ ended up missing from the packed tarball, so the WAHA
+  // build failed with TS2307 "Cannot find module '@wppconnect-team/wppconnect'").
+  // Both packages are published on npm as prebuilt tarballs (dist included, no
+  // install scripts) at the exact versions WAHA's lockfile pins, so swap the
+  // git specs for those — deterministic, faster, and identical for the NOWEB
+  // build (the WPP engine code just needs to typecheck and be requireable).
+  const npmPins = {
+    "@wppconnect-team/wppconnect": "2.2.7",
+    "@wppconnect/wa-js": "4.5.0",
+  };
+  const pkgJsonPath = path.join(wahaRoot, "package.json");
+  const wahaPkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
+  for (const section of ["dependencies", "devDependencies"]) {
+    const deps = wahaPkg[section];
+    if (!deps) continue;
+    for (const [name, version] of Object.entries(npmPins)) {
+      if (deps[name] && deps[name] !== version) {
+        console.log(`[WAHA] pinning ${name}: ${deps[name]} -> npm ${version} (prebuilt, no git prepare)`);
+        deps[name] = version;
+      }
+    }
+  }
+  fs.writeFileSync(pkgJsonPath, JSON.stringify(wahaPkg, null, 2));
+
   console.log(`[WAHA] installing dependencies of pinned source ${VERSION} (yarn.lock, no Chromium download)`);
   yarn(["install"], { cwd: wahaRoot });
+
+  // The WPP engine is eagerly imported by WAHA's compiled output, so its
+  // package must be present WITH its prebuilt dist — fail loudly here instead
+  // of with a confusing TS2307 / runtime MODULE_NOT_FOUND later.
+  const wppDist = path.join(wahaRoot, "node_modules", "@wppconnect-team", "wppconnect", "dist", "index.js");
+  if (!fs.existsSync(wppDist)) {
+    throw new Error("@wppconnect-team/wppconnect is missing its prebuilt dist/ — cannot build a runnable runtime");
+  }
 
   console.log(`[WAHA] building ${VERSION}`);
   yarn(["build"], { cwd: wahaRoot, env: { WHATSAPP_DEFAULT_ENGINE: "NOWEB" } });
@@ -115,6 +150,11 @@ try {
 
   console.log("[WAHA] pruning development dependencies");
   yarn(["workspaces", "focus", "--production"], { cwd: wahaRoot });
+
+  // The GOWS engine module (eagerly imported) must survive the prune.
+  if (!fs.existsSync(path.join(wahaRoot, "node_modules", "@grpc", "grpc-js", "package.json"))) {
+    throw new Error("@grpc/grpc-js was pruned but is required at runtime");
+  }
 
   // Mirror the official Dockerfile: declaration files are dead weight at
   // runtime. Also drop *.d.ts maps if any.
