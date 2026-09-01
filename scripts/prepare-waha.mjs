@@ -24,6 +24,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { execFileSync } from "node:child_process";
+import { applyEsmInterop } from "./lib/waha-esm-interop.mjs";
 
 const VERSION = "2026.8.1";
 const ROOT = process.cwd();
@@ -178,6 +179,12 @@ try {
       else if (/\.d\.ts$|\.d\.ts\.map$/.test(entry.name)) fs.rmSync(full, { force: true });
     }
   })(path.join(wahaRoot, "dist"));
+
+  // WAHA's compiled output requires ESM-only packages (baileys 7, axios,
+  // zod, ...), which only works on Node >= 22.12 — Electron 33's
+  // utilityProcess runs Node 20.18. Generate the require(esm) interop hook
+  // (must run AFTER the prune so it scans the final node_modules set).
+  applyEsmInterop(wahaRoot);
 
   // WAHA runs under Electron's utilityProcess, whose Node ABI is set by the
   // Electron version, not by the system Node that ran yarn install. Rebuild
