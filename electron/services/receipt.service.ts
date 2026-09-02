@@ -4,14 +4,17 @@
  * One A6 receipt design (print/receipt.template.ts) serves three outputs:
  *   - a PDF copy stored IN THE APP (SQLite BLOB → travels with backups),
  *   - the same PDF sent to the member/donor on WhatsApp,
- *   - admin printing: one A6 receipt, or 4-per-A4 sheets for bulk runs.
+ *   - admin PDF export: one A6 receipt, or one A4 PDF holding 4 receipts
+ *     per sheet (with cut guides) for bulk runs. Every receipt leaving the
+ *     app is a PDF file — no direct-to-printer dialogs (the admin prints
+ *     the saved PDF from any viewer, which also keeps an archival copy).
  *
  * Electron APIs (BrowserWindow, dialog) are resolved lazily so importing this
  * module from plain Node (vitest) stays side-effect free.
  */
 import { createRequire } from "node:module";
 import { getDB } from "../db/connection.js";
-import { renderHtmlToPdf, printHtml } from "../print/pdf-renderer.js";
+import { renderHtmlToPdf } from "../print/pdf-renderer.js";
 import { buildReceiptHtml, buildReceiptSheetHtml, type ReceiptData } from "../print/receipt.template.js";
 import { fmtDdMmYyyy, monthLabel } from "./ist-date.js";
 import { ensureDonationReceiptNumber, ensureSubscriptionReceiptNumber, fileNameSafe } from "./doc-number.service.js";
@@ -215,76 +218,78 @@ export async function getSubscriptionPdf(subscriptionId: number) {
 }
 
 // ---------------------------------------------------------------------------
-// Save-to-file (dialog) and printing
+// Save-to-file (dialog) — the receipt output path. Single A6 PDF or one A4
+// PDF with 4 receipts per sheet; the file is also kept in the app database.
 // ---------------------------------------------------------------------------
-export async function saveDonationPdf(donationId: number, win: import("electron").BrowserWindow | null) {
+function todayStamp(): string { return new Date().toISOString().slice(0, 10); }
+
+async function savePdfWithDialog(opts: {
+  title: string; defaultPath: string; buffer: Buffer; win: import("electron").BrowserWindow | null;
+}): Promise<{ success: boolean; cancelled?: boolean; path?: string }> {
   const { dialog } = electron();
-  const r = await generateDonationReceiptPdf(donationId);
-  const save = await dialog.showSaveDialog(win!, {
-    title: "Save Donation Receipt (A6)",
-    defaultPath: `receipt-${fileNameSafe(r.receiptNumber || donationId)}.pdf`,
+  const save = await dialog.showSaveDialog(opts.win!, {
+    title: opts.title,
+    defaultPath: opts.defaultPath,
     filters: [{ name: "PDF Document", extensions: ["pdf"] }],
   });
   if (save.canceled || !save.filePath) return { success: false, cancelled: true };
   const fs = await import("node:fs");
-  fs.writeFileSync(save.filePath, r.buffer);
+  fs.writeFileSync(save.filePath, opts.buffer);
   return { success: true, path: save.filePath };
+}
+
+export async function saveDonationPdf(donationId: number, win: import("electron").BrowserWindow | null) {
+  const r = await generateDonationReceiptPdf(donationId);
+  return savePdfWithDialog({
+    title: "Save Donation Receipt (A6)",
+    defaultPath: `receipt-${fileNameSafe(r.receiptNumber || donationId)}.pdf`,
+    buffer: r.buffer, win,
+  });
 }
 
 export async function saveSubscriptionPdf(subscriptionId: number, win: import("electron").BrowserWindow | null) {
-  const { dialog } = electron();
   const r = await generateSubscriptionReceiptPdf(subscriptionId);
-  const save = await dialog.showSaveDialog(win!, {
+  return savePdfWithDialog({
     title: "Save Subscription Receipt (A6)",
     defaultPath: `receipt-${fileNameSafe(r.receiptNumber || subscriptionId)}.pdf`,
-    filters: [{ name: "PDF Document", extensions: ["pdf"] }],
+    buffer: r.buffer, win,
   });
-  if (save.canceled || !save.filePath) return { success: false, cancelled: true };
-  const fs = await import("node:fs");
-  fs.writeFileSync(save.filePath, r.buffer);
-  return { success: true, path: save.filePath };
 }
 
-/** Print ONE receipt on A6 paper. */
-export async function printDonation(donationId: number) {
-  const data = donationReceiptData(donationId);
-  if (!data) throw new Error("Donation record not found.");
-  const html = buildReceiptHtml(data, langPref());
-  const result = await printHtml(html, { width: 397, height: 559 });
-  return { success: result.printed, cancelled: !!result.cancelled, reason: result.reason || "" };
-}
-
-export async function printSubscription(subscriptionId: number) {
-  const data = subscriptionReceiptData(subscriptionId);
-  if (!data) throw new Error("No payment recorded for this subscription yet.");
-  const html = buildReceiptHtml(data, langPref());
-  const result = await printHtml(html, { width: 397, height: 559 });
-  return { success: result.printed, cancelled: !!result.cancelled, reason: result.reason || "" };
-}
-
-/** Print MANY receipts — 4 per A4 sheet, dashed cut guides. */
-export async function printDonationBatch(donationIds: number[]) {
+/** MANY donation receipts as ONE A4 PDF — 4 per sheet, dashed cut guides. */
+export async function saveDonationBatchPdf(donationIds: number[], win: import("electron").BrowserWindow | null) {
   const list: ReceiptData[] = [];
   const missing: number[] = [];
   for (const id of donationIds) {
     const d = donationReceiptData(id);
     if (d) list.push(d); else missing.push(id);
   }
-  if (!list.length) throw new Error("No printable donation receipts were found.");
+  if (!list.length) throw new Error("No donation receipts were found for the current filter.");
   const html = buildReceiptSheetHtml(list, langPref());
-  const result = await printHtml(html);
-  return { success: result.printed, cancelled: !!result.cancelled, reason: result.reason || "", count: list.length, missing };
+  const buffer = await renderHtmlToPdf(html);
+  const result = await savePdfWithDialog({
+    title: "Save Donation Receipts (4 per A4)",
+    defaultPath: `receipts-${todayStamp()}.pdf`,
+    buffer, win,
+  });
+  return { ...result, count: list.length, missing };
 }
 
-export async function printSubscriptionBatch(subscriptionIds: number[]) {
+/** MANY subscription payment receipts as ONE A4 PDF — 4 per sheet. */
+export async function saveSubscriptionBatchPdf(subscriptionIds: number[], win: import("electron").BrowserWindow | null) {
   const list: ReceiptData[] = [];
   const skipped: number[] = [];
   for (const id of subscriptionIds) {
     const d = subscriptionReceiptData(id);
     if (d) list.push(d); else skipped.push(id);
   }
-  if (!list.length) throw new Error("No paid subscriptions were found to print.");
+  if (!list.length) throw new Error("No paid subscriptions were found for the current filter.");
   const html = buildReceiptSheetHtml(list, langPref());
-  const result = await printHtml(html);
-  return { success: result.printed, cancelled: !!result.cancelled, reason: result.reason || "", count: list.length, skipped };
+  const buffer = await renderHtmlToPdf(html);
+  const result = await savePdfWithDialog({
+    title: "Save Subscription Receipts (4 per A4)",
+    defaultPath: `receipts-${todayStamp()}.pdf`,
+    buffer, win,
+  });
+  return { ...result, count: list.length, skipped };
 }

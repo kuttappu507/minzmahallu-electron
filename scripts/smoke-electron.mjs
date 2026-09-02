@@ -106,9 +106,9 @@ try {
   log("donation sample:", JSON.stringify(donations?.rows || []));
 
   // 3b) receipt numbering — every new donation lands in the mahallu's
-  //     PREFIX/YYYY/MM/NNN series (prefix defaults to the mahallu name's
-  //     initials when the stored prefix is blank/legacy "RCP").
-  const NUMBER_RE = /^[A-Z]{1,5}\/\d{4}\/\d{2}\/\d{3,}$/;
+  //     PREFIX/yy/MM/NNN series (prefix defaults to the mahallu name's
+  //     own letters when the stored prefix is blank/legacy "RCP").
+  const NUMBER_RE = /^[A-Z]{1,5}\/\d{2}\/\d{2}\/\d{3,}$/;
   try {
     const cats = await evaluate(conn, `window.mms.donations.categories()`);
     const cat = (Array.isArray(cats) ? cats : cats?.rows || [])[0];
@@ -116,7 +116,7 @@ try {
       const made = await evaluate(conn, `window.mms.donations.create({donorName:"Smoke Numbering", amount: 1, categoryId: ${cat.id}, donationDate: "2026-09-01"}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
       const parsed = (() => { try { return JSON.parse(String(made)); } catch { return null; } })();
       const number = String(parsed?.receiptNumber || "");
-      check("new donation receipt number follows PREFIX/YYYY/MM/NNN", NUMBER_RE.test(number) && number.includes("/2026/09/"), `receipt=${number}`);
+      check("new donation receipt number follows PREFIX/yy/MM/NNN", NUMBER_RE.test(number) && number.includes("/26/09/"), `receipt=${number}`);
       if (parsed?.id) {
         const second = await evaluate(conn, `window.mms.donations.create({donorName:"Smoke Numbering 2", amount: 1, categoryId: ${cat.id}, donationDate: "2026-09-02"}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
         const parsed2 = (() => { try { return JSON.parse(String(second)); } catch { return null; } })();
@@ -200,7 +200,7 @@ try {
     const payDate = new Date().toISOString().slice(0, 10);
     const pay = await evaluate(conn, `window.mms.subscriptions.update(${pendingRow.id}, {amountPaid: 50, paymentDate: "${payDate}", paymentMethod: "Cash"})`);
     check("payment save returns a receipt + WhatsApp status", ["sent", "skipped", "no-phone", "not-connected", "failed"].includes(String(pay?.receiptWhatsApp)) && !!pay?.receiptNumber, `receiptWhatsApp=${pay?.receiptWhatsApp} receipt=${pay?.receiptNumber}`);
-    check("payment receipt number follows PREFIX/YYYY/MM/NNN", NUMBER_RE.test(String(pay?.receiptNumber || "")), `receipt=${pay?.receiptNumber}`);
+    check("payment receipt number follows PREFIX/yy/MM/NNN", NUMBER_RE.test(String(pay?.receiptNumber || "")), `receipt=${pay?.receiptNumber}`);
     const subPdf = await evaluate(conn, `window.mms.receipts.getSubscriptionPdf(${pendingRow.id})`);
     check("A6 subscription receipt PDF generated and stored", subPdf?.success === true && Number(subPdf?.sizeBytes) > 500, `size=${subPdf?.sizeBytes}`);
   } else {
@@ -208,8 +208,8 @@ try {
   }
 
   // 6d) certificate numbering — the mahallu's letters lead EVERY number, so
-  //     death certificates read MAHALLU/DT/YYYY/MM/NNN (prefix defaults to
-  //     the mahallu name's initials when the stored prefix is legacy "RCP").
+  //     death certificates read MAHALLU/DT/yy/MM/NNN (prefix defaults to
+  //     the mahallu name's own letters when the stored prefix is legacy "RCP").
   try {
     const deaths = await evaluate(conn, `window.mms.deaths.list({page:1,pageSize:1})`);
     const deathRow = (deaths?.rows || [])[0];
@@ -217,7 +217,7 @@ try {
       const cert = await evaluate(conn, `window.mms.certificates.issueDeath(${JSON.stringify(deathRow.death_number)}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
       const certParsed = (() => { try { return JSON.parse(String(cert)); } catch { return null; } })();
       const certNumber = String(certParsed?.certificateNumber || certParsed?.certificate_number || "");
-      check("death certificate number follows MAHALLU/DT/YYYY/MM/NNN", /^[A-Z]{1,5}\/DT\/\d{4}\/\d{2}\/\d{3,}$/.test(certNumber), `cert=${certNumber}`);
+      check("death certificate number follows MAHALLU/DT/yy/MM/NNN", /^[A-Z]{1,5}\/DT\/\d{2}\/\d{2}\/\d{3,}$/.test(certNumber), `cert=${certNumber}`);
     } else {
       console.log("  WARN  no death record to exercise certificate numbering");
     }

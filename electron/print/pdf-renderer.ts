@@ -1,6 +1,8 @@
 /*
- * Offscreen HTML → PDF / print renderer (shared by main.ts handlers and the
- * receipt service).
+ * Offscreen HTML → PDF renderer (shared by main.ts handlers and the
+ * receipt service). Receipts and certificates leave the app as PDF files —
+ * there is no direct-to-printer path; the admin prints the saved PDF from
+ * any viewer.
  *
  * Runs untrusted HTML in a sandboxed, isolated hidden BrowserWindow: no
  * preload, no node integration, sandbox enforced, webSecurity on. The
@@ -67,38 +69,6 @@ export async function renderHtmlToPdf(html: string, opts: { width?: number; heig
       printBackground: true,
       margins: { top: 0, bottom: 0, left: 0, right: 0 },
       preferCSSPageSize: true,
-    });
-  } finally {
-    if (!win.isDestroyed()) win.destroy();
-  }
-}
-
-/** Send HTML to the system print dialog (A4 sheets / single A6 receipts —
- * the @page rule drives layout). Resolves false if the user cancels. */
-export async function printHtml(html: string, opts: { width?: number; height?: number } = {}): Promise<{ printed: boolean; cancelled?: boolean; reason?: string }> {
-  const win = newHiddenWindow(opts.width ?? 794, opts.height ?? 1123);
-  try {
-    await win.loadURL("data:text/html;charset=UTF-8," + encodeURIComponent(html));
-    await waitForFonts(win);
-    return await new Promise((resolve) => {
-      let settled = false;
-      const finish = (result: { printed: boolean; cancelled?: boolean; reason?: string }) => {
-        if (settled) return;
-        settled = true;
-        try { if (!win.isDestroyed()) win.destroy(); } catch { /* already gone */ }
-        resolve(result);
-      };
-      try {
-        win.webContents.print({ printBackground: true, silent: false }, (success: boolean, reason: string) => {
-          const cancelled = /cancel/i.test(String(reason || ""));
-          finish({ printed: !!success, cancelled, reason: String(reason || "") });
-        });
-        // Safety net: if the print dialog never calls back (headless
-        // environments), resolve after 10 minutes instead of hanging forever.
-        setTimeout(() => finish({ printed: false, cancelled: true, reason: "print-dialog-timeout" }), 10 * 60 * 1000).unref?.();
-      } catch (err: any) {
-        finish({ printed: false, reason: String(err?.message || err) });
-      }
     });
   } finally {
     if (!win.isDestroyed()) win.destroy();

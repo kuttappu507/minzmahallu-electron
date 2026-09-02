@@ -2,21 +2,26 @@
  * Unified document numbering — one short, unique, auditable scheme for every
  * receipt and certificate the mahallu issues:
  *
- *     Receipt:      PREFIX / YYYY / MM / NNN           e.g.  MM/2026/09/001
- *     Certificate:  PREFIX / CODE / YYYY / MM / NNN    e.g.  MM/DT/2026/09/001
+ *     Receipt:      PREFIX / yy / MM / NNN           e.g.  MMJM/26/09/001
+ *     Certificate:  PREFIX / CODE / yy / MM / NNN    e.g.  MMJM/DT/26/09/001
  *
- *   PREFIX  1–5 capital letters identifying THE MAHALLU — the "Numbering
- *     Prefix" field in Settings. When it is blank or still the legacy
- *     placeholder "RCP", the INITIALS OF THE MAHALLU NAME are used
- *     ("Minz Mahallu" → MM). Because the mahallu's letters lead EVERY
- *     number — receipts AND certificates — two mahallus running this app
- *     can never issue the same number to two different people.
+ *   PREFIX  capital letters identifying THE MAHALLU — the "Numbering
+ *     Prefix" field in Settings. Blank or the legacy placeholder "RCP"
+ *     derives the name's letters: the initial of every word (up to four —
+ *     "Minz Mahallu Juma Masjid" → MMJM), or the first three letters when
+ *     the name has fewer than three initials ("Noor" → NOO, "Minz
+ *     Mahallu" → MIN). Because the mahallu's letters lead EVERY number —
+ *     receipts AND certificates — two mahallus running this app can never
+ *     issue the same number to two different people. (A manually chosen
+ *     prefix may still be 1–5 letters.)
  *   CODE    certificate type only: DT (death), MB (membership), RS
  *     (residence), MR (marriage), NOC (no-objection) — keeps certificate
  *     kinds in separate series. Receipts share ONE series (donations +
  *     subscription payments — the same money book), so they carry no code.
- *   YYYY/MM the document's OWN date in IST — a backdated receipt is numbered
- *     inside its own month.
+ *   yy/MM   the document's OWN date in IST — a backdated receipt is numbered
+ *     inside its own month. The year prints as TWO digits (26 = 2026) to
+ *     keep the number short; the month and the zero-padded sequence keep
+ *     the segments unambiguous.
  *   NNN     zero-padded 3-digit sequence restarting each month; it simply
  *     grows to 4+ digits past 999 without renumbering anything.
  *
@@ -52,34 +57,42 @@ export function sanitizePrefix(raw: string | null | undefined, fallback: string)
   return letters ? letters.slice(0, 5) : fallback;
 }
 
-/** Initials of the mahallu name — "Minz Mahallu" → MM, "Kunnoth P O" → KPO.
- *  A single-word name uses its first 3 letters. Malayalam-only names yield
- *  "" (the caller then falls back to a generic prefix). */
+/** The name's letters — the initial of every word (up to four letters:
+ *  "Minz Mahallu Juma Masjid" → MMJM, "Kunnoth P O" → KPO), or the first
+ *  three letters of the name when it yields fewer than three initials
+ *  ("Noor" → NOO, "Minz Mahallu" → MIN). Malayalam-only names yield ""
+ *  (the caller then falls back to a generic prefix). */
 export function mahalluInitials(name: string | null | undefined): string {
-  const words = String(name || "")
-    .toUpperCase()
+  const upper = String(name || "").toUpperCase();
+  const words = upper
     .replace(/[^A-Z\s]/g, " ")
     .split(/\s+/)
     .filter(Boolean);
   if (!words.length) return "";
-  if (words.length === 1) return words[0].slice(0, 3);
-  return words.slice(0, 4).map((w) => w[0]).join("");
+  const initials = words.slice(0, 4).map((w) => w[0]).join("");
+  if (initials.length >= 3) return initials;
+  return upper.replace(/[^A-Z]/g, "").slice(0, 3);
 }
 
-/** yyyy + mm from a stored date (yyyy-mm-dd…); unparseable/empty values fall
- *  back to today in IST so a number is always emitted. */
-function yearMonthOf(dateStr: string | null | undefined): { y: string; m: string } {
+/** yy (2-digit) + mm from a stored date (yyyy-mm-dd…); unparseable/empty
+ *  values fall back to today in IST so a number is always emitted. The
+ *  year prints as its last two digits ("2026" → "26"). */
+export function yearMonthOf(dateStr: string | null | undefined): { y: string; m: string } {
   const match = String(dateStr || "").match(/^(\d{4})-(\d{2})/);
-  if (match) return { y: match[1], m: match[2] };
+  if (match) return { y: match[1].slice(2), m: match[2] };
   const today = todayIST();
-  return { y: today.slice(0, 4), m: today.slice(5, 7) };
+  return { y: today.slice(2, 4), m: today.slice(5, 7) };
 }
 
-/** Highest sequence already used with `prefix/yyyy/mm/` among `numbers`.
- *  Legacy formats (DON-003, RCP-0001, MMS-2026-…) never match the head, so
- *  old data can never collide with or inflate the new series. */
+/** Any year form → its two trailing digits ("2026" → "26", "26" → "26"). */
+const yy = (y: string) => String(y).slice(-2);
+
+/** Highest sequence already used with `prefix/yy/mm/` among `numbers`.
+ *  Legacy formats (DON-003, RCP-0001) and the old four-digit-year scheme
+ *  (MM/2026/09/001) never match the two-digit head, so old data can never
+ *  collide with or inflate the new series. */
 export function maxSeriesUsed(numbers: string[], prefix: string, y: string, m: string): number {
-  const head = `${prefix}/${y}/${m}/`;
+  const head = `${prefix}/${yy(y)}/${m}/`;
   let max = 0;
   for (const n of numbers) {
     if (!n || !String(n).startsWith(head)) continue;
@@ -90,11 +103,11 @@ export function maxSeriesUsed(numbers: string[], prefix: string, y: string, m: s
 }
 
 export function formatDocNumber(prefix: string, y: string, m: string, n: number): string {
-  return `${prefix}/${y}/${m}/${String(n).padStart(3, "0")}`;
+  return `${prefix}/${yy(y)}/${m}/${String(n).padStart(3, "0")}`;
 }
 
 /** Receipt numbers contain "/" — make them file-name safe for saved PDFs and
- *  WhatsApp document names (MMH/2026/09/001 → MMH-2026-09-001). */
+ *  WhatsApp document names (MMJM/26/09/001 → MMJM-26-09-001). */
 export function fileNameSafe(n: string | number): string {
   return String(n).replace(/[^A-Za-z0-9._-]/g, "-");
 }
@@ -114,15 +127,16 @@ function columnValues(table: string, column: string): string[] {
 
 /** The mahallu's own letters — lead EVERY receipt AND certificate number.
  *  Reads the "Numbering Prefix" setting; blank or legacy "RCP" falls back
- *  to the initials of the mahallu name. */
-function mahalluPrefix(): string {
+ *  to three letters derived from the mahallu name. Works on any DB handle
+ *  (the app connection or a fresh migration run) — no getDB() dependency. */
+export function mahalluPrefixFor(db: { prepare(q: string): { get(...a: any[]): any } }): string {
   try {
-    const row = getDB().prepare("SELECT receipt_prefix, mahallu_name FROM settings WHERE id = 1").get() as
+    const row = db.prepare("SELECT receipt_prefix, mahallu_name FROM settings WHERE id = 1").get() as
       | { receipt_prefix?: string; mahallu_name?: string }
       | undefined;
     const stored = String(row?.receipt_prefix || "").trim().toUpperCase();
     // "RCP" is the legacy placeholder default shipped before this scheme —
-    // treat it as "not chosen yet" and use the mahallu's own initials.
+    // treat it as "not chosen yet" and use the mahallu's own letters.
     if (stored && stored !== "RCP") return sanitizePrefix(stored, "RC");
     const initials = sanitizePrefix(mahalluInitials(row?.mahallu_name), "");
     if (initials) return initials;
@@ -130,6 +144,10 @@ function mahalluPrefix(): string {
     /* settings unavailable (odd DB orders) — generic prefix */
   }
   return "RC";
+}
+
+function mahalluPrefix(): string {
+  return mahalluPrefixFor(getDB());
 }
 
 /** Next receipt number for a document dated `dateStr`. ONE series is shared

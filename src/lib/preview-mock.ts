@@ -306,12 +306,10 @@ export function installPreviewMock() {
   const receipts = {
     getDonationPdf: () => Promise.resolve({ success: true, receiptNumber: "PREVIEW", pdfBase64: "", sizeBytes: 0 }),
     getSubscriptionPdf: () => Promise.resolve({ success: true, receiptNumber: "PREVIEW", pdfBase64: "", sizeBytes: 0 }),
-    saveDonationPdf: () => Promise.resolve({ success: true, cancelled: false }),
-    saveSubscriptionPdf: () => Promise.resolve({ success: true, cancelled: false }),
-    printDonation: () => Promise.resolve({ success: true, cancelled: false, reason: "" }),
-    printSubscription: () => Promise.resolve({ success: true, cancelled: false, reason: "" }),
-    printDonationBatch: () => Promise.resolve({ success: true, cancelled: false, reason: "", count: 0 }),
-    printSubscriptionBatch: () => Promise.resolve({ success: true, cancelled: false, reason: "", count: 0 }),
+    saveDonationPdf: () => Promise.resolve({ success: true, cancelled: false, path: "" }),
+    saveSubscriptionPdf: () => Promise.resolve({ success: true, cancelled: false, path: "" }),
+    saveDonationBatchPdf: () => Promise.resolve({ success: true, cancelled: false, count: 0, missing: [] }),
+    saveSubscriptionBatchPdf: () => Promise.resolve({ success: true, cancelled: false, count: 0, skipped: [] }),
   };
 
   const base: Record<string, unknown> = { dashboard, settings, auth, win, accounting, certificates: mockCertificates, whatsapp, receipts };

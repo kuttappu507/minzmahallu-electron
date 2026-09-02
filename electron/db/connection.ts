@@ -5,6 +5,7 @@ import fs from "node:fs";
 import { app, dialog } from "electron";
 import { fileURLToPath } from "node:url";
 import { computeDeviceFingerprint } from "../services/device-fingerprint.js";
+import { renumberDemoDocuments } from "../services/demo-renumber.service.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export type DB = Database.Database;
@@ -311,6 +312,10 @@ function initializeSchema(database: DB) {
   ensureRuntimeSchema(database);
   applyMigrations(database);
   provisionDeviceFingerprint(database);
+  // Demo profile only: re-issue legacy demo numbers (DON-/RCP-/CERT-) in the
+  // unified MAHALLU/… scheme. Idempotent, rolled back on failure, and a
+  // no-op on real mahallu databases (settings.demo_data = 0).
+  renumberDemoDocuments(database as any);
   const users = Number((database.prepare("SELECT COUNT(*) AS c FROM users").get() as {c:number}).c);
   if (users === 0) console.warn("[db] users table is empty — login may require initial setup");
 }
