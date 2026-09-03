@@ -18,6 +18,9 @@ import { renderHtmlToPdf } from "../print/pdf-renderer.js";
 import { buildReceiptHtml, buildReceiptSheetHtml, type ReceiptData } from "../print/receipt.template.js";
 import { fmtDdMmYyyy, monthLabel } from "./ist-date.js";
 import { ensureDonationReceiptNumber, ensureSubscriptionReceiptNumber, fileNameSafe } from "./doc-number.service.js";
+import { makeVerificationCode } from "./codes.js";
+import { signedReceiptQrPayload } from "./qr-signing.js";
+import { qrSvgDataUrl } from "./qr-code.js";
 
 const require = createRequire(import.meta.url);
 function electron(): typeof import("electron") {
@@ -36,12 +39,42 @@ export function ensureReceiptSchema(): void {
     const cols = new Set((db.prepare(`PRAGMA table_info(${table})`).all() as any[]).map((c) => c.name));
     if (!cols.has(name)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`);
   };
-  for (const table of ["donations", "subscription_payments"]) {
+  for (const table of ["donations", "subscription_payments", "subscriptions"]) {
     add(table, "receipt_pdf", "BLOB");
     add(table, "receipt_generated_at", "TEXT");
     add(table, "receipt_sent_at", "TEXT");
+    add(table, "verification_code", "TEXT");
   }
   schemaReady = true;
+}
+
+// ---------------------------------------------------------------------------
+// Verification codes — anti-forgery register codes for receipts, backfilled
+// the moment a receipt leaves the app (PDF/WhatsApp), exactly like receipt
+// numbers. Issued codes never change.
+// ---------------------------------------------------------------------------
+export function ensureDonationVerificationCode(donationId: number): string {
+  const row = getDB().prepare("SELECT verification_code FROM donations WHERE id = ?").get(donationId) as
+    | { verification_code?: string }
+    | undefined;
+  const current = String(row?.verification_code || "").trim();
+  if (current) return current;
+  const code = makeVerificationCode();
+  getDB().prepare("UPDATE donations SET verification_code = ? WHERE id = ?").run(code, donationId);
+  return code;
+}
+
+/** Backfill a receipt code on the ledger payment (or legacy subscription
+ *  mirror) row that backs this receipt. */
+export function ensureSubscriptionVerificationCode(
+  source: { table: "subscription_payments" | "subscriptions"; id: number },
+  existing?: string | null
+): string {
+  const current = String(existing || "").trim();
+  if (current) return current;
+  const code = makeVerificationCode();
+  getDB().prepare(`UPDATE ${source.table} SET verification_code = ? WHERE id = ?`).run(code, source.id);
+  return code;
 }
 
 function langPref(): "en" | "ml" {
@@ -65,7 +98,18 @@ function mahalluName(): string {
 // ---------------------------------------------------------------------------
 // Data assembly
 // ---------------------------------------------------------------------------
-function donationReceiptData(donationId: number): ReceiptData | null {
+/** Anti-forgery QR: pre-render the signed payload as an SVG data-URL so the
+ *  (synchronous, pure) template can embed it. */
+async function receiptQrSvg(receiptNumber: string, verificationCode: string, date: string): Promise<string> {
+  try {
+    const payload = signedReceiptQrPayload({ receiptNumber, verificationCode, date });
+    return await qrSvgDataUrl(payload);
+  } catch {
+    return ""; // never block a receipt because the QR render failed
+  }
+}
+
+async function donationReceiptData(donationId: number): Promise<ReceiptData | null> {
   const d = getDB().prepare(
     `SELECT d.*, c.name AS category_name FROM donations d LEFT JOIN donation_categories c ON c.id = d.category_id WHERE d.id = ?`
   ).get(donationId) as any;
@@ -75,6 +119,8 @@ function donationReceiptData(donationId: number): ReceiptData | null {
   // moment their receipt is generated — a receipt leaving the app (PDF,
   // print, WhatsApp) must always carry one. Issued numbers never change.
   const receiptNumber = ensureDonationReceiptNumber(donationId, String(d.donation_date || ""));
+  // Same for the register verification code riding the QR footer.
+  const verificationCode = ensureDonationVerificationCode(donationId);
   return {
     kind: "DONATION",
     receiptNumber,
@@ -90,6 +136,8 @@ function donationReceiptData(donationId: number): ReceiptData | null {
     transactionRef: String(d.transaction_ref || ""),
     notes: String(d.remarks || ""),
     mahalluName: mahalluName(),
+    verificationCode,
+    qrSvg: await receiptQrSvg(receiptNumber, verificationCode, String(d.donation_date || "")),
   };
 }
 
@@ -114,7 +162,7 @@ function subscriptionPaymentRow(subscriptionId: number): any | null {
   return null;
 }
 
-function subscriptionReceiptData(subscriptionId: number): ReceiptData | null {
+async function subscriptionReceiptData(subscriptionId: number): Promise<ReceiptData | null> {
   const resolved = subscriptionPaymentRow(subscriptionId);
   if (!resolved) return null;
   const r = resolved.row;
@@ -127,10 +175,15 @@ function subscriptionReceiptData(subscriptionId: number): ReceiptData | null {
     { table: resolved.source === "ledger" ? "subscription_payments" : "subscriptions", id: Number(r.id), receiptNumber: r.receipt_number },
     String(r.payment_date || r.period_start || "")
   );
+  const verificationCode = ensureSubscriptionVerificationCode(
+    { table: resolved.source === "ledger" ? "subscription_payments" : "subscriptions", id: Number(r.id) },
+    r.verification_code
+  );
+  const dateStr = String(r.payment_date || r.period_start || "");
   return {
     kind: "SUBSCRIPTION",
     receiptNumber,
-    date: fmtDdMmYyyy(String(r.payment_date || r.period_start || "")),
+    date: fmtDdMmYyyy(dateStr),
     payerName: String(r.member_name || r.house_name || r.family_number || "—"),
     payerDetail: String(r.family_number ? `${r.house_name ? r.house_name + " · " : ""}${r.family_number}` : ""),
     line1Label: ml ? "മാസം" : "Month",
@@ -142,6 +195,8 @@ function subscriptionReceiptData(subscriptionId: number): ReceiptData | null {
     transactionRef: String(r.transaction_ref || ""),
     notes: String(r.remarks || ""),
     mahalluName: mahalluName(),
+    verificationCode,
+    qrSvg: await receiptQrSvg(receiptNumber, verificationCode, dateStr),
     footNote: balance > 0
       ? (ml ? `ഈ മാസത്തെ ബാക്കി: \u20B9${balance.toLocaleString("en-IN")}` : `Balance this month: \u20B9${balance.toLocaleString("en-IN")}`)
       : (ml ? "ഈ മാസത്തെ സബ്സ്ക്രിപ്ഷൻ പൂർണമായി അടയ്ക്കപ്പെട്ടു" : "This month's subscription is fully paid"),
@@ -168,7 +223,7 @@ export interface GeneratedReceipt {
 
 export async function generateDonationReceiptPdf(donationId: number): Promise<GeneratedReceipt> {
   ensureReceiptSchema();
-  const data = donationReceiptData(donationId);
+  const data = await donationReceiptData(donationId);
   if (!data) throw new Error("Donation record not found. Refresh the donations page and try again.");
   const buffer = await renderReceiptPdf(data);
   const generatedAt = new Date().toISOString();
@@ -178,7 +233,7 @@ export async function generateDonationReceiptPdf(donationId: number): Promise<Ge
 
 export async function generateSubscriptionReceiptPdf(subscriptionId: number): Promise<GeneratedReceipt> {
   ensureReceiptSchema();
-  const data = subscriptionReceiptData(subscriptionId);
+  const data = await subscriptionReceiptData(subscriptionId);
   if (!data) throw new Error("No payment recorded for this subscription yet.");
   const buffer = await renderReceiptPdf(data);
   const resolved = subscriptionPaymentRow(subscriptionId);
@@ -258,10 +313,11 @@ export async function saveSubscriptionPdf(subscriptionId: number, win: import("e
 
 /** MANY donation receipts as ONE A4 PDF — 4 per sheet, dashed cut guides. */
 export async function saveDonationBatchPdf(donationIds: number[], win: import("electron").BrowserWindow | null) {
+  ensureReceiptSchema();
   const list: ReceiptData[] = [];
   const missing: number[] = [];
   for (const id of donationIds) {
-    const d = donationReceiptData(id);
+    const d = await donationReceiptData(id);
     if (d) list.push(d); else missing.push(id);
   }
   if (!list.length) throw new Error("No donation receipts were found for the current filter.");
@@ -277,10 +333,11 @@ export async function saveDonationBatchPdf(donationIds: number[], win: import("e
 
 /** MANY subscription payment receipts as ONE A4 PDF — 4 per sheet. */
 export async function saveSubscriptionBatchPdf(subscriptionIds: number[], win: import("electron").BrowserWindow | null) {
+  ensureReceiptSchema();
   const list: ReceiptData[] = [];
   const skipped: number[] = [];
   for (const id of subscriptionIds) {
-    const d = subscriptionReceiptData(id);
+    const d = await subscriptionReceiptData(id);
     if (d) list.push(d); else skipped.push(id);
   }
   if (!list.length) throw new Error("No paid subscriptions were found for the current filter.");

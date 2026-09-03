@@ -2,10 +2,11 @@
 import Database from "better-sqlite3";
 import path from "node:path";
 import fs from "node:fs";
+import crypto from "node:crypto";
 import { app, dialog } from "electron";
 import { fileURLToPath } from "node:url";
 import { computeDeviceFingerprint } from "../services/device-fingerprint.js";
-import { renumberDemoDocuments } from "../services/demo-renumber.service.js";
+import { renumberDemoDocuments, provisionDemoReceiptVerificationCodes } from "../services/demo-renumber.service.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export type DB = Database.Database;
@@ -66,8 +67,15 @@ function ensureRuntimeSchema(database: DB) {
     // V030 — tamper-evident audit chain columns + demo-data flag
     ["audit_log","prev_hash","TEXT"],["audit_log","entry_hash","TEXT"],
     ["settings","demo_data","INTEGER NOT NULL DEFAULT 0"],
-    // QR anti-forgery — device fingerprint bound into certificate QR payloads
+    // QR anti-forgery — device fingerprint + HMAC signing key bound into QR payloads
     ["settings","device_fingerprint","TEXT"],
+    ["settings","qr_signing_key","TEXT"],
+    // Receipt anti-forgery — verification codes on money receipts (V035).
+    // subscriptions is the legacy mirror that can still back a receipt when
+    // an account's payment predates the ledger, so it carries codes too.
+    ["donations","verification_code","TEXT"],
+    ["subscription_payments","verification_code","TEXT"],
+    ["subscriptions","verification_code","TEXT"],
   ];
   for (const [table,name,definition] of fields) if (tables.has(table)) addColumn(database, table, name, definition);
   if (tables.has("welfare_requests")) database.exec("UPDATE welfare_requests SET request_date = COALESCE(request_date, created_at) WHERE request_date IS NULL");
@@ -305,17 +313,26 @@ function initializeSchema(database: DB) {
     database.exec(fs.readFileSync(schema,"utf8")); if (fs.existsSync(seed)) database.exec(fs.readFileSync(seed,"utf8"));
   }
   // ensureRuntimeSchema runs once before migrations to add optional columns that
-  // older databases may be missing (so migrations don't fail on column lookups).
-  // The previous implementation called it twice (before AND after migrations);
-  // the second call was debug residue and has been removed — migrations are
-  // idempotent via the duplicate-column reconciliation in applyMigrations().
+  // older databases may be missing (so migrations don't fail on column lookups),
+  // and ONCE AGAIN afterwards: some tables (e.g. subscription_payments, V030)
+  // are CREATED by a migration, so columns those tables need (e.g. the receipt
+  // verification_code) can only be added after the migration has run. Every
+  // addColumn is guarded by a column-existence check, so the second pass is a
+  // cheap no-op on databases that already have everything.
   ensureRuntimeSchema(database);
   applyMigrations(database);
+  ensureRuntimeSchema(database);
   provisionDeviceFingerprint(database);
+  provisionQrSigningKey(database);
   // Demo profile only: re-issue legacy demo numbers (DON-/RCP-/CERT-) in the
   // unified MAHALLU/… scheme. Idempotent, rolled back on failure, and a
   // no-op on real mahallu databases (settings.demo_data = 0).
   renumberDemoDocuments(database as any);
+  // Demo profile only: receipt verification codes for the seeded money rows
+  // so the verify box works immediately on the demo data (real mahallu rows
+  // get a code the moment their first receipt is generated — see
+  // receipt.service.ts ensureDonation/SubscriptionVerificationCode).
+  provisionDemoReceiptVerificationCodes(database as any);
   const users = Number((database.prepare("SELECT COUNT(*) AS c FROM users").get() as {c:number}).c);
   if (users === 0) console.warn("[db] users table is empty — login may require initial setup");
 }
@@ -329,6 +346,19 @@ function provisionDeviceFingerprint(database: DB) {
       database.prepare("UPDATE settings SET device_fingerprint = ? WHERE id = 1").run(computeDeviceFingerprint());
     }
   } catch (err) { console.warn("[db] could not provision device fingerprint:", err); }
+}
+
+/** Provision the QR signing key once — 32 random bytes, hex-encoded. It
+ *  signs every printed QR (HMAC tail) and is NEVER printed or exported; a
+ *  restored backup keeps its key, so prints issued before the restore still
+ *  verify. Re-runs keep the stored key. */
+function provisionQrSigningKey(database: DB) {
+  try {
+    const row = database.prepare("SELECT qr_signing_key FROM settings WHERE id = 1").get() as { qr_signing_key: string | null } | undefined;
+    if (!row || !row.qr_signing_key) {
+      database.prepare("UPDATE settings SET qr_signing_key = ? WHERE id = 1").run(crypto.randomBytes(32).toString("hex"));
+    }
+  } catch (err) { console.warn("[db] could not provision QR signing key:", err); }
 }
 
 function applyMigrations(database: DB) {

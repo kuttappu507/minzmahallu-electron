@@ -7,7 +7,8 @@ import { randomInt } from "node:crypto";
 import { hashPasswordForStorage } from "./auth.service.js";
 import { computeEntryHash, verifyAuditChain } from "./audit-chain.js";
 import { makeVerificationCode } from "./codes.js";
-import { buildQrPayload, parseQrPayload } from "./qr-code.js";
+import { parseQrPayload, QR_KIND_CERT, QR_KIND_RECEIPT, verifyQrSignature, isSignedPayload } from "./qr-code.js";
+import { getQrPrintContext, signedCertQrPayload, signedReceiptQrPayload } from "./qr-signing.js";
 import { nextReceiptNumber, nextCertificateNumber } from "./doc-number.service.js";
 
 // ================= HELPERS =================
@@ -1200,6 +1201,123 @@ export const welfare = {
 
 // ================= CERTIFICATES =================
 
+// ---------------------------------------------------------------------------
+// Receipt verification lookup (anti-forgery) — donations + subscription
+// payments share ONE receipt series and both carry verification codes.
+// ---------------------------------------------------------------------------
+type ReceiptLookup = {
+  source: "donations" | "subscription_payments" | "subscriptions";
+  receipt: {
+    receipt_number: string;
+    verification_code: string;
+    kind: "DONATION" | "SUBSCRIPTION";
+    payer: string;
+    payer_detail: string;
+    amount: number;
+    date: string;
+    payment_method: string;
+    status: string;
+  };
+};
+
+function donationReceiptLookup(row: any): ReceiptLookup["receipt"] {
+  return {
+    receipt_number: String(row.receipt_number || ""),
+    verification_code: String(row.verification_code || ""),
+    kind: "DONATION",
+    payer: String(row.donor_name || ""),
+    payer_detail: String(row.donor_phone || ""),
+    amount: Number(row.amount || 0),
+    date: String(row.donation_date || "").slice(0, 10),
+    payment_method: String(row.payment_method || ""),
+    status: "Posted",
+  };
+}
+
+function subscriptionReceiptLookup(row: any): ReceiptLookup["receipt"] {
+  // Ledger rows: `amount` IS what was paid. Subscriptions mirror: `amount_paid`
+  // is what was paid (amount = the monthly due). Both are selected AS
+  // paid_amount by the callers.
+  const paid = Number(row.paid_amount ?? row.amount_paid ?? row.amount ?? 0);
+  return {
+    receipt_number: String(row.receipt_number || ""),
+    verification_code: String(row.verification_code || ""),
+    kind: "SUBSCRIPTION",
+    payer: String(row.member_name || row.house_name || row.family_number || ""),
+    payer_detail: String(row.family_number || ""),
+    amount: paid,
+    date: String(row.payment_date || row.period_start || "").slice(0, 10),
+    payment_method: String(row.payment_method || ""),
+    status: String(row.status || ""),
+  };
+}
+
+/** Find a money receipt by its register verification code. Only rows that
+ *  actually carry a code (i.e. a receipt was issued) can match. */
+function findReceiptByCode(code: string): ReceiptLookup | null {
+  const clean = String(code || "").trim().toUpperCase();
+  if (!clean) return null;
+  const d = one<any>(
+    `SELECT receipt_number, verification_code, donor_name, donor_phone, amount, donation_date, payment_method
+     FROM donations WHERE verification_code = ?`,
+    [clean]
+  );
+  if (d) return { source: "donations", receipt: donationReceiptLookup(d) };
+  const sp = one<any>(
+    `SELECT sp.receipt_number, sp.verification_code, sp.amount AS paid_amount, sp.payment_date, sp.period_start, sp.payment_method, sp.status,
+       f.house_name, f.family_number,
+       (SELECT m.name FROM members m WHERE m.id = sp.member_id) AS member_name
+     FROM subscription_payments sp LEFT JOIN families f ON f.id = sp.family_id
+     WHERE sp.verification_code = ?`,
+    [clean]
+  );
+  if (sp) return { source: "subscription_payments", receipt: subscriptionReceiptLookup(sp) };
+  // Legacy mirror: accounts whose payment predates the ledger.
+  const s = one<any>(
+    `SELECT s.receipt_number, s.verification_code, s.amount_paid AS paid_amount, s.payment_date, s.period_start, s.payment_method, s.status,
+       f.house_name, f.family_number,
+       (SELECT m.name FROM members m WHERE m.id = s.member_id) AS member_name
+     FROM subscriptions s LEFT JOIN families f ON f.id = s.family_id
+     WHERE s.verification_code = ?`,
+    [clean]
+  );
+  if (s) return { source: "subscriptions", receipt: subscriptionReceiptLookup(s) };
+  return null;
+}
+
+/** Find a money receipt by verification code OR receipt number. */
+function findReceiptByCodeOrNumber(query: string): ReceiptLookup | null {
+  const byCode = findReceiptByCode(query);
+  if (byCode) return byCode;
+  const clean = String(query || "").trim().toUpperCase();
+  if (!clean) return null;
+  const d = one<any>(
+    `SELECT receipt_number, verification_code, donor_name, donor_phone, amount, donation_date, payment_method
+     FROM donations WHERE receipt_number = ?`,
+    [clean]
+  );
+  if (d) return { source: "donations", receipt: donationReceiptLookup(d) };
+  const sp = one<any>(
+    `SELECT sp.receipt_number, sp.verification_code, sp.amount AS paid_amount, sp.payment_date, sp.period_start, sp.payment_method, sp.status,
+       f.house_name, f.family_number,
+       (SELECT m.name FROM members m WHERE m.id = sp.member_id) AS member_name
+     FROM subscription_payments sp LEFT JOIN families f ON f.id = sp.family_id
+     WHERE sp.receipt_number = ?`,
+    [clean]
+  );
+  if (sp) return { source: "subscription_payments", receipt: subscriptionReceiptLookup(sp) };
+  const s = one<any>(
+    `SELECT s.receipt_number, s.verification_code, s.amount_paid AS paid_amount, s.payment_date, s.period_start, s.payment_method, s.status,
+       f.house_name, f.family_number,
+       (SELECT m.name FROM members m WHERE m.id = s.member_id) AS member_name
+     FROM subscriptions s LEFT JOIN families f ON f.id = s.family_id
+     WHERE s.receipt_number = ?`,
+    [clean]
+  );
+  if (s) return { source: "subscriptions", receipt: subscriptionReceiptLookup(s) };
+  return null;
+}
+
 export const certificates = {
   list: (filter: { type?: string; page?: number; pageSize?: number } = {}) => {
     const where: string[] = ["1=1"];
@@ -1270,20 +1388,38 @@ export const certificates = {
     );
     return { id, certificateNumber: certNum };
   },
-  /** Anti-forgery lookup: any printed code can be checked against the register. */
+  /** Anti-forgery lookup: any printed code or number can be checked against
+   *  the register — certificates (by code or number) AND money receipts
+   *  (donations + subscription payments, by code or receipt number). */
   verify: (code: string) => {
     const clean = String(code || "").trim().toUpperCase();
     if (!clean) throw new Error("Enter a verification code");
     const cert = one<any>(
-      `SELECT id, certificate_number, type, issued_to, issued_date, issued_by, status, reprint_count, verification_code
+      `SELECT id, certificate_number, type, member_id, family_id, issued_to, issued_date, issued_by, status, reprint_count, verification_code
        FROM certificates WHERE verification_code = ? OR certificate_number = ?`,
       [clean, clean]
     );
-    if (!cert) return { valid: false, certificate: null };
-    const row = one<any>("SELECT device_fingerprint FROM settings WHERE id = 1");
-    const fingerprint = row?.device_fingerprint || "";
+    if (!cert) {
+      const receipt = findReceiptByCodeOrNumber(clean);
+      if (!receipt) return { valid: false, kind: null, certificate: null, receipt: null };
+      const { fingerprint } = getQrPrintContext();
+      return {
+        valid: true,
+        kind: "RECEIPT",
+        certificate: null,
+        receipt: receipt.receipt,
+        qrPayload: signedReceiptQrPayload({
+          receiptNumber: String(receipt.receipt.receipt_number || ""),
+          verificationCode: String(receipt.receipt.verification_code || ""),
+          date: String(receipt.receipt.date || "").slice(0, 10),
+        }),
+        deviceFingerprint: fingerprint,
+      };
+    }
+    const { fingerprint } = getQrPrintContext();
     return {
       valid: true,
+      kind: "CERTIFICATE",
       certificate: {
         certificate_number: cert.certificate_number,
         type: cert.type,
@@ -1292,50 +1428,87 @@ export const certificates = {
         status: cert.status,
         reprint_count: cert.reprint_count || 0,
       },
-      // QR anti-forgery: the payload that is printed on this certificate.
-      qrPayload: buildQrPayload({
-        certificateNumber: String(cert.certificate_number || ""),
-        verificationCode: String(cert.verification_code || ""),
-        fingerprint,
-        issuedDate: String(cert.issued_date || "").slice(0, 10),
-      }),
+      receipt: null,
+      // QR anti-forgery: the payload that is printed on this certificate
+      // (signed with the app's key — the tag never leaves the DB).
+      qrPayload: signedCertQrPayload(cert),
       deviceFingerprint: fingerprint,
     };
   },
   /**
-   * QR anti-forgery: verify a scanned QR payload ("MMS|CERT|num|code|fp|date").
-   * Checks the register code AND compares the fingerprint embedded in the QR
-   * against this machine's fingerprint — a certificate printed on another
-   * computer, or a photocopy, fails the fingerprint check.
+   * QR anti-forgery: verify a scanned QR payload.
+   *   MMS|CERT|num|code|fp|date[|sig]  — certificates
+   *   MMS|RCP |num|code|fp|date[|sig]  — receipts (donations/subscription payments)
+   *
+   * Checks, in order: payload shape → HMAC signature (signed payloads only —
+   * a field altered after printing no longer matches the tag) → register
+   * lookup by verification code → number-vs-register match → issuing-device
+   * fingerprint comparison (a print from another computer, or a photocopy,
+   * fails the fingerprint check). Six-field payloads are legacy prints from
+   * earlier builds: no tag to check, but still verified against the register.
    */
   verifyQr: (payload: string) => {
     const parsed = parseQrPayload(payload);
-    if (!parsed) return { valid: false, reason: "malformed", certificate: null };
-    const cert = one<any>(
-      `SELECT id, certificate_number, type, issued_to, issued_date, issued_by, status, reprint_count, verification_code
-       FROM certificates WHERE verification_code = ?`,
-      [parsed.verificationCode]
-    );
-    const row = one<any>("SELECT device_fingerprint FROM settings WHERE id = 1");
-    const currentFp = row?.device_fingerprint || "";
-    if (!cert) return { valid: false, reason: "not-found", certificate: null };
+    if (!parsed) return { valid: false, reason: "malformed", kind: null, certificate: null, receipt: null };
+
+    // Signed payload → the tag must match the mahallu's key. An outsider can
+    // clone a whole QR but cannot alter any field or mint a new one.
+    if (isSignedPayload(parsed)) {
+      const { signingKey } = getQrPrintContext();
+      if (signingKey && !verifyQrSignature(parsed, signingKey)) {
+        return { valid: false, reason: "bad-signature", kind: null, certificate: null, receipt: null };
+      }
+    }
+
+    if (parsed.kind === QR_KIND_CERT) {
+      const cert = one<any>(
+        `SELECT id, certificate_number, type, issued_to, issued_date, issued_by, status, reprint_count, verification_code
+         FROM certificates WHERE verification_code = ?`,
+        [parsed.verificationCode]
+      );
+      if (!cert) return { valid: false, reason: "not-found", kind: "CERTIFICATE", certificate: null, receipt: null };
+      const { fingerprint: currentFp } = getQrPrintContext();
+      return {
+        valid: true,
+        kind: "CERTIFICATE",
+        certificate: {
+          certificate_number: cert.certificate_number,
+          type: cert.type,
+          issued_to: cert.issued_to,
+          issued_date: cert.issued_date,
+          status: cert.status,
+          reprint_count: cert.reprint_count || 0,
+        },
+        receipt: null,
+        qr: {
+          fingerprint: parsed.fingerprint,
+          issuedDate: parsed.issuedDate,
+          certificateNumber: parsed.number,
+          signed: isSignedPayload(parsed),
+        },
+        issuedOnThisDevice: !!currentFp && parsed.fingerprint.toUpperCase() === currentFp.toUpperCase(),
+        certificateMatchesRegister: parsed.number === cert.certificate_number,
+      };
+    }
+
+    // Receipt payload (RCP)
+    const found = findReceiptByCode(parsed.verificationCode);
+    if (!found) return { valid: false, reason: "not-found", kind: "RECEIPT", certificate: null, receipt: null };
+    const { fingerprint: currentFpR } = getQrPrintContext();
     return {
       valid: true,
-      certificate: {
-        certificate_number: cert.certificate_number,
-        type: cert.type,
-        issued_to: cert.issued_to,
-        issued_date: cert.issued_date,
-        status: cert.status,
-        reprint_count: cert.reprint_count || 0,
-      },
+      kind: "RECEIPT",
+      certificate: null,
+      receipt: found.receipt,
       qr: {
         fingerprint: parsed.fingerprint,
         issuedDate: parsed.issuedDate,
-        certificateNumber: parsed.certificateNumber,
+        certificateNumber: parsed.number,
+        receiptNumber: parsed.number,
+        signed: isSignedPayload(parsed),
       },
-      issuedOnThisDevice: !!currentFp && parsed.fingerprint.toUpperCase() === currentFp.toUpperCase(),
-      certificateMatchesRegister: parsed.certificateNumber === cert.certificate_number,
+      issuedOnThisDevice: !!currentFpR && parsed.fingerprint.toUpperCase() === currentFpR.toUpperCase(),
+      receiptMatchesRegister: parsed.number === found.receipt.receipt_number,
     };
   },
   /** Count reprints so printed copies carry a "Reprinted on" corner note. */

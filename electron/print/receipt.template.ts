@@ -32,6 +32,11 @@ export interface ReceiptData {
   mahalluName: string;
   /** Extra footer line (e.g. "Balance this month: ₹0"). */
   footNote?: string;
+  /** Anti-forgery: register verification code printed under the QR. */
+  verificationCode?: string;
+  /** Anti-forgery: signed QR SVG data-URL (pre-rendered by the caller —
+   *  the template stays synchronous and pure). */
+  qrSvg?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -87,12 +92,13 @@ function labels(lang: Lang) {
     amount: 'തുക',
     method: 'പേയ്‌മെന്റ് രീതി',
     ref: 'റഫറൻസ്',
-    sign: 'ഒപ്പ്',
     forMahallu: 'മഹല്ലിന് വേണ്ടി',
     thanks: 'ജസാക്കല്ലാഹു ഖൈറൻ.',
     note: 'കുറിപ്പ്',
     cut: 'മുറിക്കുക',
     page: 'ഷീറ്റ്',
+    scan: 'സ്കാൻ ചെയ്ത് പരിശോധിക്കുക',
+    computerGenerated: 'കമ്പ്യൂട്ടർ ജനറേറ്റ് ചെയ്ത രസീറ്റ് — ഒപ്പ് ആവശ്യമില്ല.',
   } : {
     system: 'Mahallu Management System',
     receipt: 'RECEIPT',
@@ -102,12 +108,13 @@ function labels(lang: Lang) {
     amount: 'Amount',
     method: 'Payment',
     ref: 'Ref',
-    sign: 'Signature',
     forMahallu: 'For',
     thanks: 'Jazakallahu Khairan.',
     note: 'Notes',
     cut: 'cut',
     page: 'Sheet',
+    scan: 'SCAN TO VERIFY',
+    computerGenerated: 'Computer-generated receipt — no signature required.',
   };
 }
 
@@ -147,7 +154,13 @@ function receiptCard(r: ReceiptData, L: ReturnType<typeof labels>): string {
       ${r.footNote ? `<div class="rc-foot-note">${esc(r.footNote)}</div>` : ''}
     </div>
     <footer class="rc-foot">
-      <div class="rc-sign"><i></i><span>${esc(L.sign)}</span></div>
+      <div class="rc-verify">
+        ${r.qrSvg ? `<img class="rc-qr" src="${r.qrSvg}" alt="QR"/>` : ''}
+        <div class="rc-verify-copy">
+          ${r.verificationCode ? `<span class="rc-vcap">${esc(L.scan)}</span><span class="rc-vcode">${esc(r.verificationCode)}</span>` : ''}
+          <span class="rc-vhint">${esc(L.computerGenerated)}</span>
+        </div>
+      </div>
       <div class="rc-for"><b>${esc(L.forMahallu)} ${esc(r.mahalluName || 'MAHALLU')}</b><span>${esc(L.thanks)}</span></div>
     </footer>
   </article>`;
@@ -184,11 +197,14 @@ function baseCss(): string {
     .rc-amount small{font-size:6.2pt;color:#4c5f56;font-style:italic}
     .rc-notes{font-size:6.8pt;color:#4c5f56;border-top:.2mm dashed #c9d8d2;padding-top:1.6mm}
     .rc-foot-note{font-size:7.2pt;color:#0a5c47;font-weight:600}
-    .rc-foot{display:flex;justify-content:space-between;align-items:flex-end;padding:3.5mm 5mm 4mm;border-top:.3mm solid #d9e5e0;background:#fbfdfc}
-    .rc-sign{display:flex;flex-direction:column;align-items:center;gap:1mm}
-    .rc-sign i{display:block;width:26mm;border-bottom:.25mm solid #101a14;height:2.2mm}
-    .rc-sign span{font-size:6pt;color:#5d6f67}
-    .rc-for{text-align:right}
+    .rc-foot{display:flex;justify-content:space-between;align-items:flex-end;gap:3mm;padding:3mm 5mm 3.5mm;border-top:.3mm solid #d9e5e0;background:#fbfdfc}
+    .rc-verify{display:flex;align-items:center;gap:2.5mm;min-width:0}
+    .rc-qr{width:22mm;height:22mm;flex:none;border:.2mm solid #c9e0d4;border-radius:1mm;background:#fff}
+    .rc-verify-copy{display:flex;flex-direction:column;gap:.7mm;min-width:0}
+    .rc-vcap{font-size:5.8pt;font-weight:700;color:#0a5c47;letter-spacing:.5px}
+    .rc-vcode{font-size:8pt;font-weight:800;letter-spacing:.6px;color:#101a14}
+    .rc-vhint{font-size:5.6pt;color:#5d6f67;max-width:52mm;line-height:1.25}
+    .rc-for{text-align:right;flex:none}
     .rc-for b{display:block;font-size:7.6pt}
     .rc-for span{display:block;font-size:6.2pt;color:#5d6f67;margin-top:.6mm}
   `;

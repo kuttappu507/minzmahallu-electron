@@ -26,6 +26,7 @@
  *     existing number keeps its legacy number instead of aborting.
  */
 import { CERT_TYPE_CODES, formatDocNumber, mahalluPrefixFor, yearMonthOf } from "./doc-number.service.js";
+import { makeVerificationCode } from "./codes.js";
 
 type DB = { prepare(q: string): { get(...a: any[]): any; all(...a: any[]): any[]; run(...a: any[]): any } };
 
@@ -126,4 +127,46 @@ export function renumberDemoDocuments(db: DB): { receipts: number; certificates:
   }
   if (receipts || certificates) console.log(`[demo-renumber] re-issued ${receipts} receipt(s) and ${certificates} certificate(s) as ${prefix}/…`);
   return { receipts, certificates };
+}
+
+/**
+ * Demo profile only: assign verification codes to every seeded money receipt
+ * (donations + subscription ledger payments) that is missing one, so the
+ * verify box and receipt QRs work immediately on the demo data. Real mahallu
+ * rows are untouched — they get a code the moment their first receipt is
+ * generated (receipt.service.ts, same lazy pattern as receipt numbers).
+ * Idempotent: coded rows are skipped; failures roll back and never block
+ * startup. Returns how many codes were assigned.
+ */
+export function provisionDemoReceiptVerificationCodes(db: DB): number {
+  const flag = (() => {
+    try {
+      return db.prepare("SELECT demo_data FROM settings WHERE id = 1").get() as { demo_data?: number } | undefined;
+    } catch { return undefined; }
+  })();
+  if (!flag || !Number(flag.demo_data)) return 0;
+
+  let assigned = 0;
+  for (const table of ["donations", "subscription_payments"]) {
+    // Per-table transactions: one table failing (e.g. a column a migration
+    // order glitch hasn't added yet) must never roll back the other's codes.
+    try {
+      db.prepare("BEGIN").run();
+      // Only rows that have actually been issued as receipts (they carry a
+      // number) get a code — a pending/unpaid row has never been printed.
+      const rows = db
+        .prepare(`SELECT id FROM ${table} WHERE (verification_code IS NULL OR verification_code = '') AND receipt_number IS NOT NULL AND receipt_number != ''`)
+        .all() as Array<{ id: number }>;
+      for (const r of rows) {
+        db.prepare(`UPDATE ${table} SET verification_code = ? WHERE id = ?`).run(makeVerificationCode(), Number(r.id));
+        assigned += 1;
+      }
+      db.prepare("COMMIT").run();
+    } catch (err) {
+      try { db.prepare("ROLLBACK").run(); } catch { /* already closed */ }
+      console.warn(`[demo-receipt-codes] ${table} skipped:`, err instanceof Error ? err.message : String(err));
+    }
+  }
+  if (assigned) console.log(`[demo-receipt-codes] assigned ${assigned} receipt verification code(s)`);
+  return assigned;
 }

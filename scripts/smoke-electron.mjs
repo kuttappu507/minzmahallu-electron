@@ -225,6 +225,53 @@ try {
     check("certificate numbering smoke", false, e?.message || String(e));
   }
 
+  // 6e) anti-forgery receipt QR — verify by receipt number AND by printed
+  //     code, round-trip the SIGNED payload, and confirm a tampered payload
+  //     is rejected (the forgery defence: an outsider can clone a QR but not
+  //     alter or mint one). Verification codes are backfilled the moment a
+  //     receipt leaves the app, so the PDF is generated first.
+  try {
+    const row = withPhone || (donations?.rows || [])[0];
+    if (row?.id) {
+      const gen = await evaluate(conn, `window.mms.receipts.getDonationPdf(${row.id}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
+      const genParsed = (() => { try { return JSON.parse(String(gen)); } catch { return null; } })();
+      const receiptNo = String(genParsed?.receiptNumber || "");
+      const byNumber = await evaluate(conn, `window.mms.certificates.verify(${JSON.stringify(receiptNo)}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
+      const parsed = (() => { try { return JSON.parse(String(byNumber)); } catch { return null; } })();
+      const payloadOk = typeof parsed?.qrPayload === "string" && /^MMS\|RCP\|/.test(parsed.qrPayload) && parsed.qrPayload.split("|").length === 7 && !!parsed.qrPayload.split("|")[3];
+      check("receipt verifies by NUMBER with a SIGNED RCP payload", parsed?.valid === true && parsed?.kind === "RECEIPT" && payloadOk, `receipt=${parsed?.receipt?.receipt_number} payer=${parsed?.receipt?.payer}`);
+      if (payloadOk) {
+        const genuine = parsed.qrPayload;
+        // The office workflow: type the CODE printed beside the QR.
+        const printedCode = genuine.split("|")[3];
+        const byCode = await evaluate(conn, `window.mms.certificates.verify(${JSON.stringify(printedCode)}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
+        const byCodeRes = (() => { try { return JSON.parse(String(byCode)); } catch { return null; } })();
+        check("receipt verifies by its printed CODE", byCodeRes?.valid === true && byCodeRes?.kind === "RECEIPT" && byCodeRes?.receipt?.receipt_number === receiptNo, `code=${printedCode}`);
+        const checked = await evaluate(conn, `window.mms.certificates.verifyQr(${JSON.stringify(genuine)}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
+        const qrRes = (() => { try { return JSON.parse(String(checked)); } catch { return null; } })();
+        check("genuine receipt QR round-trips (register + device match)", qrRes?.valid === true && qrRes?.receiptMatchesRegister === true && qrRes?.issuedOnThisDevice === true, `kind=${qrRes?.kind}`);
+        // Forger alters the receipt number but keeps the printed tag → rejected.
+        const parts = genuine.split("|");
+        parts[2] = parts[2].slice(0, -1) + (parts[2].endsWith("9") ? "8" : "9");
+        const forged = await evaluate(conn, `window.mms.certificates.verifyQr(${JSON.stringify(parts.join("|"))}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
+        const forgedRes = (() => { try { return JSON.parse(String(forged)); } catch { return null; } })();
+        check("TAMPERED receipt QR is rejected (bad-signature)", forgedRes?.valid === false && forgedRes?.reason === "bad-signature", `reason=${forgedRes?.reason}`);
+      }
+    } else {
+      console.log("  WARN  no donation row to exercise receipt QR verification");
+    }
+    // Certificate QRs are signed too.
+    const certs = await evaluate(conn, `window.mms.certificates.list({page:1,pageSize:1}).then(r => (r.rows||[]).map(x => x.certificate_number).filter(Boolean))`);
+    const certNo = (Array.isArray(certs) ? certs : [])[0];
+    if (certNo) {
+      const certRes = await evaluate(conn, `window.mms.certificates.verify(${JSON.stringify(certNo)}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
+      const cp = (() => { try { return JSON.parse(String(certRes)); } catch { return null; } })();
+      check("certificate verify returns a SIGNED CERT payload", cp?.valid === true && cp?.kind === "CERTIFICATE" && typeof cp?.qrPayload === "string" && cp.qrPayload.split("|").length === 7, `cert=${certNo}`);
+    }
+  } catch (e) {
+    check("receipt QR verification smoke", false, e?.message || String(e));
+  }
+
   // 7) recipient stats + announcement campaign (IPC args + DB wiring)
   const stats = await evaluate(conn, `window.mms.whatsapp.recipientStats("ANNOUNCEMENT")`);
   check("recipient stats resolve via family phone fallback", Number(stats?.activeFamilies) > 0 && Number(stats?.willSend) > 0, JSON.stringify(stats));

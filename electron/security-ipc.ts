@@ -247,8 +247,32 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("deaths:list", (filter: any) => { actor(); return data.deaths.list(filter || {}); });
   register("deaths:get", (id: number) => { actor(); return data.deaths.get(id); });
   register("certificates:list", (filter: any) => { actor(); return data.certificates.list(filter || {}); });
-  register("certificates:verify", (code: string) => { actor(); return data.certificates.verify(code); });
-  register("certificates:verifyQr", (payload: string) => { actor(); return data.certificates.verifyQr(payload); });
+  // Anti-forgery verification — every scan/lookup is recorded in the tamper-
+  // evident audit log (who checked, which code, and what was found), so a
+  // forgery investigation has a trail of every check performed.
+  register("certificates:verify", (code: string) => {
+    const a = actor();
+    const result = data.certificates.verify(code);
+    try {
+      const label = result?.valid
+        ? (result.kind === "RECEIPT"
+          ? `Receipt ${result.receipt?.receipt_number} (${result.receipt?.payer})`
+          : `Certificate ${result.certificate?.certificate_number} (${result.certificate?.issued_to})`)
+        : "no matching record";
+      data.audit.log(a.id, a.username, "VERIFY", "certificates", 0, `Verification lookup: ${String(code || "").trim().toUpperCase()} → ${label}`, "");
+    } catch { /* audit failure must never block a verification */ }
+    return result;
+  });
+  register("certificates:verifyQr", (payload: string) => {
+    const a = actor();
+    const result = data.certificates.verifyQr(payload);
+    try {
+      const reason = result?.valid ? "valid" : String(result?.reason || "invalid");
+      const kind = result?.kind || "unknown";
+      data.audit.log(a.id, a.username, "VERIFY_QR", "certificates", 0, `QR verification (${kind}): ${reason}`, "");
+    } catch { /* audit failure must never block a verification */ }
+    return result;
+  });
   register("dashboard:summary", () => { actor(); return data.dashboard.summary(); });
   register("dashboard:incomeThisMonth", () => { actor(); return data.dashboard.incomeThisMonth(); });
   register("dashboard:expenseThisMonth", () => { actor(); return data.dashboard.expenseThisMonth(); });

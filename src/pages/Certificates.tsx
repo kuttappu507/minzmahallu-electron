@@ -81,7 +81,7 @@ export function Certificates() {
           .then(setQrDataUrl)
           .catch(() => setQrDataUrl(""));
       }
-      if (!res?.valid) toast.warning(lang === "ml" ? "കണ്ടെത്തിയില്ല — ഈ കോഡുമായി പൊരുത്തപ്പെടുന്ന സർട്ടിഫിക്കറ്റ് ഇല്ല" : "Not found — this code does not match any issued certificate");
+      if (!res?.valid) toast.warning(lang === "ml" ? "കണ്ടെത്തിയില്ല — ഈ കോഡുമായി പൊരുത്തപ്പെടുന്ന സർട്ടിഫിക്കറ്റ് അല്ലെങ്കിൽ രസീറ്റ് ഇല്ല" : "Not found — this code does not match any issued certificate or receipt");
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -415,24 +415,38 @@ export function Certificates() {
         })}
       </div>
 
-      {/* Verify a certificate (anti-forgery: code + QR + device fingerprint) */}
+      {/* Verify a document (anti-forgery: code + QR + device fingerprint + HMAC) */}
       <div className="mb-3 rounded-lg border border-border px-3 py-2.5 bg-surface-hover/30 space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
           <ShieldCheck size={16} className="text-primary flex-shrink-0" />
-          <span className="text-sm font-medium">{lang === "ml" ? "സർട്ടിഫിക്കറ്റ് പരിശോധന" : "Verify a certificate"}</span>
+          <span className="text-sm font-medium">{lang === "ml" ? "സർട്ടിഫിക്കറ്റ് / രസീറ്റ് പരിശോധന" : "Verify a certificate or receipt"}</span>
           <Input
-            className="w-56"
+            className="w-64"
             value={verifyCode}
             onChange={(e) => { setVerifyCode(e.target.value); setVerifyResult(null); setQrDataUrl(""); }}
             onKeyDown={(e) => e.key === "Enter" && runVerify()}
-            placeholder={lang === "ml" ? "പരിശോധനാ കോഡ് (ഉദാ. ABCD-2345-WXYZ)" : "Verification code (e.g. ABCD-2345-WXYZ)"}
+            placeholder={lang === "ml" ? "കോഡ് (ABCD-2345-WXYZ) അല്ലെങ്കിൽ രസീറ്റ് നമ്പർ (MMJM/26/09/001)" : "Code (e.g. ABCD-2345-WXYZ) or receipt no (MMJM/26/09/001)"}
           />
           <Button variant="secondary" onClick={runVerify} disabled={verifyBusy}>
             {verifyBusy ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
             {lang === "ml" ? "പരിശോധിക്കുക" : "Verify"}
           </Button>
         </div>
-        {verifyResult && verifyResult.valid && (
+        {verifyResult && verifyResult.valid && verifyResult.kind === "RECEIPT" && (
+          <div className="flex items-start gap-3 rounded-lg bg-surface-hover/40 border border-border px-3 py-2.5 flex-wrap">
+            {qrDataUrl && <img src={qrDataUrl} alt="QR" className="w-20 h-20 rounded-md border border-border bg-white" />}
+            <div className="text-sm min-w-0 flex-1">
+              <div className="text-emerald-700 font-medium">
+                ✓ {lang === "ml" ? "രസീറ്റ്" : "Receipt"} {verifyResult.receipt?.receipt_number} · {verifyResult.receipt?.kind === "SUBSCRIPTION" ? (lang === "ml" ? "സബ്സ്ക്രിപ്ഷൻ" : "subscription") : (lang === "ml" ? "സംഭാവന" : "donation")} · {lang === "ml" ? "ഇവരിൽ നിന്ന്" : "from"} {verifyResult.receipt?.payer} · {formatDate(verifyResult.receipt?.date)} · ₹{Number(verifyResult.receipt?.amount || 0).toLocaleString("en-IN")}
+              </div>
+              <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted flex-wrap">
+                <MonitorCheck size={13} className="text-primary" />
+                {lang === "ml" ? "ഈ രസീറ്റ് ഈ കമ്പ്യൂട്ടറിന്റെ ഫിംഗർപ്രിന്റുമായി ബന്ധിപ്പിച്ചിരിക്കുന്നു" : "This receipt is bound to this computer's fingerprint"}: <b className="code-text-sm text-primary">{verifyResult.deviceFingerprint || "—"}</b>
+              </div>
+            </div>
+          </div>
+        )}
+        {verifyResult && verifyResult.valid && verifyResult.kind !== "RECEIPT" && (
           <div className="flex items-start gap-3 rounded-lg bg-surface-hover/40 border border-border px-3 py-2.5 flex-wrap">
             {qrDataUrl && <img src={qrDataUrl} alt="QR" className="w-20 h-20 rounded-md border border-border bg-white" />}
             <div className="text-sm min-w-0 flex-1">
@@ -447,18 +461,18 @@ export function Certificates() {
           </div>
         )}
         {verifyResult && !verifyResult.valid && (
-          <div className="text-sm text-rose-700 font-medium">✗ {lang === "ml" ? "ഈ കോഡുമായി പൊരുത്തപ്പെടുന്ന സർട്ടിഫിക്കറ്റ് ഇല്ല" : "No certificate matches this code"}</div>
+          <div className="text-sm text-rose-700 font-medium">✗ {lang === "ml" ? "ഈ കോഡുമായി പൊരുത്തപ്പെടുന്ന രേഖയില്ല — വ്യാജമാകാം" : "No matching record — possibly forged"}</div>
         )}
         {/* QR payload check — scan the printed QR with any phone and paste its text */}
         <div className="flex items-center gap-2 flex-wrap">
           <ScanLine size={16} className="text-primary flex-shrink-0" />
-          <span className="text-xs text-muted">{lang === "ml" ? "QR വായിച്ചത് ഇവിടെ ഒട്ടിക്കുക" : "Paste a scanned QR payload to verify"}</span>
+          <span className="text-xs text-muted">{lang === "ml" ? "QR വായിച്ചത് ഇവിടെ ഒട്ടിക്കുക (MMS|CERT|… അല്ലെങ്കിൽ MMS|RCP|…)" : "Paste a scanned QR payload to verify (MMS|CERT|… or MMS|RCP|…)"}</span>
           <Input
             className="w-64"
             value={qrPayloadInput}
             onChange={(e) => { setQrPayloadInput(e.target.value); setQrCheckResult(null); }}
             onKeyDown={(e) => e.key === "Enter" && runQrCheck()}
-            placeholder={lang === "ml" ? "MMS|CERT|..." : "MMS|CERT|..."}
+            placeholder={lang === "ml" ? "MMS|CERT|... / MMS|RCP|..." : "MMS|CERT|... / MMS|RCP|..."}
           />
           <Button variant="secondary" onClick={runQrCheck} disabled={qrCheckBusy}>
             {qrCheckBusy ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
@@ -469,11 +483,16 @@ export function Certificates() {
               {qrCheckResult.issuedOnThisDevice
                 ? (lang === "ml" ? "✓ ഈ കമ്പ്യൂട്ടറിൽ തന്നെ ഇഷ്യൂ ചെയ്തത് — ആധികാരികം" : "✓ Issued on this computer — authentic")
                 : (lang === "ml" ? "⚠ മറ്റൊരു കമ്പ്യൂട്ടറിൽ ഇഷ്യൂ ചെയ്തത് — പരിശോധിക്കുക" : "⚠ Issued on a different computer — verify carefully")}
-              {" "}· {qrCheckResult.certificate?.certificate_number}
+              {" "}· {qrCheckResult.kind === "RECEIPT"
+                ? `${lang === "ml" ? "രസീറ്റ്" : "receipt"} ${qrCheckResult.receipt?.receipt_number}`
+                : qrCheckResult.certificate?.certificate_number}
+              {qrCheckResult.qr?.signed === false ? ` · ${lang === "ml" ? "ഒപ്പിടാത്ത (പഴയ) അച്ചടി" : "unsigned legacy print"}` : ""}
             </span>
           )}
           {qrCheckResult && !qrCheckResult.valid && (
-            <span className="text-sm text-rose-700 font-medium">✗ {lang === "ml" ? "ഈ QR സാധുവല്ല / പൊരുത്തപ്പെടുന്ന രേഖയില്ല" : "QR invalid / no matching record"}</span>
+            <span className="text-sm text-rose-700 font-medium">✗ {qrCheckResult.reason === "bad-signature"
+              ? (lang === "ml" ? "ഒപ്പ് പൊരുത്തപ്പെടുന്നില്ല — QR മാറ്റം വരുത്തിയിരിക്കുന്നു (വ്യാജം)" : "Signature mismatch — the QR was altered (forged)")
+              : (lang === "ml" ? "ഈ QR സാധുവല്ല / പൊരുത്തപ്പെടുന്ന രേഖയില്ല" : "QR invalid / no matching record")}</span>
           )}
         </div>
       </div>

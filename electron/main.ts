@@ -14,7 +14,8 @@ import { createBackup, verifyBackup, extractVerifiedBackup, listBackups } from "
 import { buildTokenSheetHtml } from "./print/token.template.js";
 import { buildCollectionSheetHtml } from "./print/collection-sheet.template.js";
 import { buildCertificateHtml } from "./print/certificate.template.js";
-import { buildQrPayload, qrSvgDataUrl } from "./services/qr-code.js";
+import { qrSvgDataUrl } from "./services/qr-code.js";
+import { signedCertQrPayload } from "./services/qr-signing.js";
 import { buildAccountStatementHtml } from "./print/account-statement.template.js";
 import { buildAuditPackHtml } from "./print/audit-pack.template.js";
 import { buildRegisterBookHtml } from "./print/register-book.template.js";
@@ -186,16 +187,11 @@ app.whenReady().then(() => {
   // replaced by base64 data URIs. Used by the renderer's TokensWithPrint page
   // to embed the font in client-built HTML so Malayalam glyphs render in the
   // printToPDF BrowserWindow (which doesn't have @fontsource bundled).
-  /** QR payload for a certificate: register code + this machine's fingerprint. */
+  /** QR payload for a certificate: register code + this machine's fingerprint,
+   *  HMAC-signed with the mahallu's key (the tag is unforgeable outside the
+   *  app database — altering any printed field breaks it). */
   function buildQrPayloadFor(cert: any): string {
-    const row = getDB().prepare("SELECT device_fingerprint FROM settings WHERE id = 1").get() as { device_fingerprint?: string } | undefined;
-    const fingerprint = row?.device_fingerprint || "UNBOUND";
-    return buildQrPayload({
-      certificateNumber: String(cert.certificate_number || cert.id || ""),
-      verificationCode: String(cert.verification_code || ""),
-      fingerprint,
-      issuedDate: String(cert.issued_date || "").slice(0, 10),
-    });
+    return signedCertQrPayload(cert);
   }
 
   ipcMain.handle("pdf:getAnekFontCss", () => {
