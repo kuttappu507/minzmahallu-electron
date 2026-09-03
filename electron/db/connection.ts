@@ -6,7 +6,7 @@ import crypto from "node:crypto";
 import { app, dialog } from "electron";
 import { fileURLToPath } from "node:url";
 import { computeDeviceFingerprint } from "../services/device-fingerprint.js";
-import { renumberDemoDocuments, provisionDemoReceiptVerificationCodes } from "../services/demo-renumber.service.js";
+import { renumberDemoDocuments, provisionDemoReceiptVerificationCodes, provisionCertificateVerificationCodes } from "../services/demo-renumber.service.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export type DB = Database.Database;
@@ -333,6 +333,11 @@ function initializeSchema(database: DB) {
   // get a code the moment their first receipt is generated — see
   // receipt.service.ts ensureDonation/SubscriptionVerificationCode).
   provisionDemoReceiptVerificationCodes(database as any);
+  // Certificates issued before the anti-forgery feature have NO verification
+  // code, and without a code a certificate print shows NO verify box / NO QR
+  // at all. Mint codes for every existing certificate once at startup —
+  // additive, idempotent, and issued codes never change afterwards.
+  provisionCertificateVerificationCodes(database as any);
   const users = Number((database.prepare("SELECT COUNT(*) AS c FROM users").get() as {c:number}).c);
   if (users === 0) console.warn("[db] users table is empty — login may require initial setup");
 }

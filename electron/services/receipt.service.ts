@@ -19,7 +19,7 @@ import { buildReceiptHtml, buildReceiptSheetHtml, type ReceiptData } from "../pr
 import { fmtDdMmYyyy, monthLabel } from "./ist-date.js";
 import { ensureDonationReceiptNumber, ensureSubscriptionReceiptNumber, fileNameSafe } from "./doc-number.service.js";
 import { makeVerificationCode } from "./codes.js";
-import { signedReceiptQrPayload } from "./qr-signing.js";
+import { receiptQrVerifyMessage } from "./qr-signing.js";
 import { qrSvgDataUrl } from "./qr-code.js";
 
 const require = createRequire(import.meta.url);
@@ -98,12 +98,15 @@ function mahalluName(): string {
 // ---------------------------------------------------------------------------
 // Data assembly
 // ---------------------------------------------------------------------------
-/** Anti-forgery QR: pre-render the signed payload as an SVG data-URL so the
- *  (synchronous, pure) template can embed it. */
+/** Anti-forgery QR: pre-render the verify message as an SVG data-URL so the
+ *  (synchronous, pure) template can embed it. Scanning the printed QR with
+ *  any phone shows the human-readable instructions ("…can be verified using
+ *  the Minz Mahallu app. Give the following security code for verification:
+ *  XXXX-XXXX-XXXX") instead of a cryptic machine payload. */
 async function receiptQrSvg(receiptNumber: string, verificationCode: string, date: string): Promise<string> {
   try {
-    const payload = signedReceiptQrPayload({ receiptNumber, verificationCode, date });
-    return await qrSvgDataUrl(payload);
+    const text = receiptQrVerifyMessage({ receiptNumber, verificationCode, date });
+    return await qrSvgDataUrl(text);
   } catch {
     return ""; // never block a receipt because the QR render failed
   }

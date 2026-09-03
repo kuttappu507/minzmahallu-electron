@@ -104,6 +104,9 @@
     --rose-line: #f5c6cc;
     --c-em: #0d9488;
     --c-gold: #d9930a;
+    /* Dark golden for detail-grid title labels (Name, Place, …) in preview
+       dialogs — keeps labels clearly distinct from the answer values. */
+    --gold-deep: #9a6b00;
     --c-sky: #2563eb;
     --c-rose: #e11d48;
     --sh: 0 1px 2px rgba(16, 24, 40, 0.04), 0 10px 24px -18px rgba(16, 24, 40, 0.18);
@@ -133,6 +136,9 @@
     --rose-line: #6a2133;
     --c-em: #2dd4bf;
     --c-gold: #f2b83d;
+    /* Dark golden label accent, brightened for dark panels (readable on
+       #151c25 while keeping the golden hue). */
+    --gold-deep: #e0aa3e;
     --c-sky: #6ea8ff;
     --c-rose: #fb7185;
     --sh: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 30px -18px rgba(0, 0, 0, 0.6);
@@ -721,7 +727,7 @@
   /* ===== Detail rows ===== */
   .det-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; }
   .det-grid .det { display: flex; flex-direction: column; gap: 3px; }
-  .det-grid .det .k { font: 600 10.5px Poppins; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mut); }
+  .det-grid .det .k { font: 600 10.5px Poppins; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold-deep); }
   .det-grid .det .v { font: 500 14px Poppins; color: var(--tx); word-break: break-word; }
   .det-grid .det.full { grid-column: 1 / -1; }
   @media (max-width: 560px) { .det-grid { grid-template-columns: 1fr; } }

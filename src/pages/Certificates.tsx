@@ -232,6 +232,22 @@ export function Certificates() {
     [pickRows, selectedId]
   );
 
+  const handleGeneratePdf = async (cert: Certificate) => {
+    setPdfLoadingId(cert.id);
+    try {
+      const result = await window.mms.certificates.generatePdf(cert.id);
+      if (result.success) {
+        toast.success(t("cert_pdf_success"));
+      } else if (!result.cancelled) {
+        toast.error(result.error || t("cert_pdf_failed"));
+      }
+    } catch (err: any) {
+      toast.error(err.message || t("cert_pdf_failed"));
+    } finally {
+      setPdfLoadingId(null);
+    }
+  };
+
   const handleGenerate = useCallback(async () => {
     if (!issueType || !selectedRow) {
       toast.error(t("cert_select_record"));
@@ -261,7 +277,17 @@ export function Certificates() {
           result = await window.mms.certificates.issueDeath(selectedRow.code);
           break;
       }
-      toast.success(`${t("cert_issued_success")}: ${result?.certificate_number || ""}`);
+      const certNumber = String(result?.certificate_number || result?.certificateNumber || "");
+      if (result?.alreadyIssued) {
+        // Duplicate guard: an active certificate of this type already exists for
+        // the selected record — never mint a second one; open the existing copy.
+        toast.warning(`${lang === "ml" ? "ഈ സർട്ടിഫിക്കറ്റ് ഇതിനകം തയ്യാറാക്കി — നിലവിലുള്ള പകർപ്പ് തുറക്കുന്നു" : "This certificate was already generated — opening the existing copy"}: ${certNumber}`);
+        setIssueType(null);
+        refetch();
+        if (result.id) handleGeneratePdf({ id: result.id } as Certificate);
+        return;
+      }
+      toast.success(`${t("cert_issued_success")}: ${certNumber}`);
       setIssueType(null);
       refetch();
     } catch (err: any) {
@@ -269,24 +295,7 @@ export function Certificates() {
     } finally {
       setProcessing(false);
     }
-  }, [issueType, selectedRow, issuedTo, refetch, t]);
-
-  const handleGeneratePdf = async (cert: Certificate) => {
-    setPdfLoadingId(cert.id);
-    try {
-      const result = await window.mms.certificates.generatePdf(cert.id);
-      if (result.success) {
-        toast.success(t("cert_pdf_success"));
-      } else if (!result.cancelled) {
-        toast.error(result.error || t("cert_pdf_failed"));
-      }
-    } catch (err: any) {
-      toast.error(err.message || t("cert_pdf_failed"));
-    } finally {
-      setPdfLoadingId(null);
-    }
-  };
-
+  }, [issueType, selectedRow, issuedTo, refetch, t, lang]);
 
   const issueButtons = [
     { type: "membership" as IssueType, label: t("cert_membership"), icon: FileText, tint: "t-blue" },
@@ -463,30 +472,37 @@ export function Certificates() {
         {verifyResult && !verifyResult.valid && (
           <div className="text-sm text-rose-700 font-medium">✗ {lang === "ml" ? "ഈ കോഡുമായി പൊരുത്തപ്പെടുന്ന രേഖയില്ല — വ്യാജമാകാം" : "No matching record — possibly forged"}</div>
         )}
-        {/* QR payload check — scan the printed QR with any phone and paste its text */}
+        {/* QR payload check — scan the printed QR with any phone and paste the
+            text it shows (the verify message with the security code, or the
+            legacy MMS|… machine payload — both are accepted). */}
         <div className="flex items-center gap-2 flex-wrap">
           <ScanLine size={16} className="text-primary flex-shrink-0" />
-          <span className="text-xs text-muted">{lang === "ml" ? "QR വായിച്ചത് ഇവിടെ ഒട്ടിക്കുക (MMS|CERT|… അല്ലെങ്കിൽ MMS|RCP|…)" : "Paste a scanned QR payload to verify (MMS|CERT|… or MMS|RCP|…)"}</span>
+          <span className="text-xs text-muted">{lang === "ml" ? "QR സ്കാൻ ചെയ്തത് ഇവിടെ ഒട്ടിക്കുക (സുരക്ഷാ കോഡ് സന്ദേശം അല്ലെങ്കിൽ MMS|… പേലോഡ്)" : "Paste the QR scan result to verify (security-code message or MMS|… payload)"}</span>
           <Input
             className="w-64"
             value={qrPayloadInput}
             onChange={(e) => { setQrPayloadInput(e.target.value); setQrCheckResult(null); }}
             onKeyDown={(e) => e.key === "Enter" && runQrCheck()}
-            placeholder={lang === "ml" ? "MMS|CERT|... / MMS|RCP|..." : "MMS|CERT|... / MMS|RCP|..."}
+            placeholder={lang === "ml" ? "QR വായിച്ച ടെക്സ്റ്റ് / MMS|..." : "Scanned QR text / MMS|..."}
           />
           <Button variant="secondary" onClick={runQrCheck} disabled={qrCheckBusy}>
             {qrCheckBusy ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
             {lang === "ml" ? "QR പരിശോധിക്കുക" : "Check QR"}
           </Button>
           {qrCheckResult && qrCheckResult.valid && (
-            <span className={`text-sm font-medium ${qrCheckResult.issuedOnThisDevice ? "text-emerald-700" : "text-amber-700"}`}>
-              {qrCheckResult.issuedOnThisDevice
-                ? (lang === "ml" ? "✓ ഈ കമ്പ്യൂട്ടറിൽ തന്നെ ഇഷ്യൂ ചെയ്തത് — ആധികാരികം" : "✓ Issued on this computer — authentic")
-                : (lang === "ml" ? "⚠ മറ്റൊരു കമ്പ്യൂട്ടറിൽ ഇഷ്യൂ ചെയ്തത് — പരിശോധിക്കുക" : "⚠ Issued on a different computer — verify carefully")}
+            <span className={`text-sm font-medium ${qrCheckResult.source === "message" ? "text-emerald-700" : qrCheckResult.issuedOnThisDevice ? "text-emerald-700" : "text-amber-700"}`}>
+              {qrCheckResult.source === "message"
+                ? (lang === "ml" ? "✓ സുരക്ഷാ കോഡ് പരിശോധിച്ചു — രേഖ കണ്ടെത്തി" : "✓ Verified by security code — record found")
+                : qrCheckResult.issuedOnThisDevice
+                  ? (lang === "ml" ? "✓ ഈ കമ്പ്യൂട്ടറിൽ തന്നെ ഇഷ്യൂ ചെയ്തത് — ആധികാരികം" : "✓ Issued on this computer — authentic")
+                  : (lang === "ml" ? "⚠ മറ്റൊരു കമ്പ്യൂട്ടറിൽ ഇഷ്യൂ ചെയ്തത് — പരിശോധിക്കുക" : "⚠ Issued on a different computer — verify carefully")}
               {" "}· {qrCheckResult.kind === "RECEIPT"
                 ? `${lang === "ml" ? "രസീറ്റ്" : "receipt"} ${qrCheckResult.receipt?.receipt_number}`
                 : qrCheckResult.certificate?.certificate_number}
-              {qrCheckResult.qr?.signed === false ? ` · ${lang === "ml" ? "ഒപ്പിടാത്ത (പഴയ) അച്ചടി" : "unsigned legacy print"}` : ""}
+              {qrCheckResult.certificateMatchesRegister === false || qrCheckResult.receiptMatchesRegister === false
+                ? ` · ${lang === "ml" ? "⚠ സ്കാൻ ടെക്സ്റ്റിലെ നമ്പർ രേഖയുമായി യോജിക്കുന്നില്ല" : "⚠ scanned number does not match the register"}`
+                : ""}
+              {qrCheckResult.qr?.signed === false && qrCheckResult.source !== "message" ? ` · ${lang === "ml" ? "ഒപ്പിടാത്ത (പഴയ) അച്ചടി" : "unsigned legacy print"}` : ""}
             </span>
           )}
           {qrCheckResult && !qrCheckResult.valid && (

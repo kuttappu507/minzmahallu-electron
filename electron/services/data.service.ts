@@ -7,8 +7,8 @@ import { randomInt } from "node:crypto";
 import { hashPasswordForStorage } from "./auth.service.js";
 import { computeEntryHash, verifyAuditChain } from "./audit-chain.js";
 import { makeVerificationCode } from "./codes.js";
-import { parseQrPayload, QR_KIND_CERT, QR_KIND_RECEIPT, verifyQrSignature, isSignedPayload } from "./qr-code.js";
-import { getQrPrintContext, signedCertQrPayload, signedReceiptQrPayload } from "./qr-signing.js";
+import { parseQrPayload, QR_KIND_CERT, QR_KIND_RECEIPT, verifyQrSignature, isSignedPayload, extractScannedQrText } from "./qr-code.js";
+import { getQrPrintContext, certificateQrVerifyMessage, receiptQrVerifyMessage } from "./qr-signing.js";
 import { nextReceiptNumber, nextCertificateNumber } from "./doc-number.service.js";
 
 // ================= HELPERS =================
@@ -1336,39 +1336,86 @@ export const certificates = {
     }
     return { rows: all<any>(sql, params), total: 0 };
   },
+  /** Lazy backfill of a certificate's verification code — certificates issued
+   *  by builds before the anti-forgery feature have no code, and without a code
+   *  the print shows NO verify box / NO QR at all. The code is minted the
+   *  moment the certificate is next touched (print / preview / verify), and
+   *  issued codes never change. Mutates + returns the passed row's code. */
+  ensureVerificationCode: (cert: { id: number; verification_code?: string | null }): string => {
+    const current = String((cert as any).verification_code || "").trim();
+    if (current) return current;
+    const code = makeVerificationCode();
+    run("UPDATE certificates SET verification_code = ? WHERE id = ?", [code, cert.id]);
+    (cert as any).verification_code = code;
+    return code;
+  },
+  /** Duplicate guard: an ACTIVE (Issued) certificate of this type already
+   *  exists for the same linked record → return it with alreadyIssued so the
+   *  UI can open the existing PDF instead of minting a second certificate. */
+  findActiveDuplicate: (type: string, where: string, params: any[]): { id: number; certificate_number: string } | null => {
+    const row = one<any>(
+      `SELECT id, certificate_number FROM certificates WHERE type = ? AND status = 'Issued' AND ${where} ORDER BY id DESC LIMIT 1`,
+      [type, ...params]
+    );
+    return row ? { id: Number(row.id), certificate_number: String(row.certificate_number) } : null;
+  },
+  /** Normalize the issue-result shape (older handlers returned mixed key
+   *  casing — both are kept so every caller keeps working). */
+  issueResult: (id: number, certificateNumber: string, alreadyIssued = false) => ({
+    id,
+    certificateNumber,
+    certificate_number: certificateNumber,
+    alreadyIssued,
+  }),
   issueMembership: (memberCode: string, userId: number) => {
     const m = one<any>("SELECT * FROM members WHERE member_code = ?", [memberCode]);
     if (!m) throw new Error("Member not found");
+    const existing = certificates.findActiveDuplicate("Membership", "member_id = ?", [m.id]);
+    if (existing) return certificates.issueResult(existing.id, existing.certificate_number, true);
     const certNum = nextCertificateNumber("Membership", nowDate());
     const { id } = run(
       "INSERT INTO certificates (certificate_number, type, member_id, family_id, issued_to, issued_date, issued_by, status, verification_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [certNum, "Membership", m.id, m.family_id, m.name, nowDate(), userId, "Issued", makeVerificationCode()]
     );
-    return { id, certificateNumber: certNum };
+    return certificates.issueResult(id, certNum);
   },
   issueResidence: (familyNumber: string, issuedTo: string, userId: number) => {
     const f = one<any>("SELECT * FROM families WHERE family_number = ?", [familyNumber]);
     if (!f) throw new Error("Family not found");
+    const person = (issuedTo || "").trim() || f.house_name;
+    const existing = certificates.findActiveDuplicate("Residence", "family_id = ? AND issued_to = ?", [f.id, person]);
+    if (existing) return certificates.issueResult(existing.id, existing.certificate_number, true);
     const certNum = nextCertificateNumber("Residence", nowDate());
     const { id } = run(
       "INSERT INTO certificates (certificate_number, type, member_id, family_id, issued_to, issued_date, issued_by, status, verification_code) VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?)",
-      [certNum, "Residence", f.id, issuedTo || f.house_name, nowDate(), userId, "Issued", makeVerificationCode()]
+      [certNum, "Residence", f.id, person, nowDate(), userId, "Issued", makeVerificationCode()]
     );
-    return { id, certificateNumber: certNum };
+    return certificates.issueResult(id, certNum);
   },
   issueMarriage: (marriageNumber: string, userId: number) => {
     const m = one<any>("SELECT * FROM marriages WHERE marriage_number = ?", [marriageNumber]);
     if (!m) throw new Error("Marriage record not found");
+    const couple = m.bride_name + " & " + m.groom_name;
+    // marriage_id is linked on new issues; legacy rows (NULL link) fall back to
+    // matching the couple line so they still block duplicates.
+    const existing = certificates.findActiveDuplicate(
+      "Marriage",
+      "(marriage_id = ? OR (marriage_id IS NULL AND issued_to = ?))",
+      [m.id, couple]
+    );
+    if (existing) return certificates.issueResult(existing.id, existing.certificate_number, true);
     const certNum = nextCertificateNumber("Marriage", nowDate());
     const { id } = run(
-      "INSERT INTO certificates (certificate_number, type, member_id, family_id, issued_to, issued_date, issued_by, status, verification_code) VALUES (?, ?, NULL, NULL, ?, ?, ?, ?, ?)",
-      [certNum, "Marriage", m.bride_name + " & " + m.groom_name, nowDate(), userId, "Issued", makeVerificationCode()]
+      "INSERT INTO certificates (certificate_number, type, member_id, family_id, marriage_id, issued_to, issued_date, issued_by, status, verification_code) VALUES (?, ?, NULL, NULL, ?, ?, ?, ?, 'Issued', ?)",
+      [certNum, "Marriage", m.id, couple, nowDate(), userId, makeVerificationCode()]
     );
-    return { id, certificateNumber: certNum };
+    return certificates.issueResult(id, certNum);
   },
   issueMarriageNoc: (marriageNum: string, userId: number) => {
     const marriage = one<any>("SELECT * FROM marriages WHERE marriage_number = ?", [marriageNum]);
     if (!marriage) throw new Error("Marriage record not found");
+    const existing = certificates.findActiveDuplicate("NOC", "marriage_id = ?", [marriage.id]);
+    if (existing) return certificates.issueResult(existing.id, existing.certificate_number, true);
     const certificateNumber = nextCertificateNumber("NOC", nowDate());
     const issuedTo = [marriage.bride_name, marriage.groom_name].filter(Boolean).join(" & ");
     const result = run(
@@ -1376,17 +1423,19 @@ export const certificates = {
        VALUES (?, 'NOC', ?, ?, ?, ?, ?, ?)`,
       [certificateNumber, marriage.id, issuedTo, todayIST(), userId, `No Objection Certificate for marriage ${marriage.marriage_number}`, makeVerificationCode()]
     );
-    return { id: result.id, certificate_number: certificateNumber };
+    return certificates.issueResult(result.id, certificateNumber);
   },
   issueDeath: (deathNumber: string, userId: number) => {
     const d = one<any>("SELECT * FROM deaths WHERE death_number = ?", [deathNumber]);
     if (!d) throw new Error("Death record not found");
+    const existing = certificates.findActiveDuplicate("Death", "death_id = ?", [d.id]);
+    if (existing) return certificates.issueResult(existing.id, existing.certificate_number, true);
     const certNum = nextCertificateNumber("Death", nowDate());
     const { id } = run(
       "INSERT INTO certificates (certificate_number, type, member_id, family_id, marriage_id, death_id, issued_to, issued_date, issued_by, status, verification_code) VALUES (?, 'Death', NULL, ?, NULL, ?, ?, ?, ?, 'Issued', ?)",
       [certNum, d.family_id ?? null, d.id, d.deceased_name, nowDate(), userId, makeVerificationCode()]
     );
-    return { id, certificateNumber: certNum };
+    return certificates.issueResult(id, certNum);
   },
   /** Anti-forgery lookup: any printed code or number can be checked against
    *  the register — certificates (by code or number) AND money receipts
@@ -1408,7 +1457,9 @@ export const certificates = {
         kind: "RECEIPT",
         certificate: null,
         receipt: receipt.receipt,
-        qrPayload: signedReceiptQrPayload({
+        // The QR payload printed on this receipt — the human-readable message
+        // format (what a phone shows when the QR is scanned).
+        qrPayload: receiptQrVerifyMessage({
           receiptNumber: String(receipt.receipt.receipt_number || ""),
           verificationCode: String(receipt.receipt.verification_code || ""),
           date: String(receipt.receipt.date || "").slice(0, 10),
@@ -1417,6 +1468,9 @@ export const certificates = {
       };
     }
     const { fingerprint } = getQrPrintContext();
+    // Legacy certificates (issued before the anti-forgery feature) get their
+    // code minted NOW — without it the print shows no QR / verify box at all.
+    certificates.ensureVerificationCode(cert);
     return {
       valid: true,
       kind: "CERTIFICATE",
@@ -1429,28 +1483,77 @@ export const certificates = {
         reprint_count: cert.reprint_count || 0,
       },
       receipt: null,
-      // QR anti-forgery: the payload that is printed on this certificate
-      // (signed with the app's key — the tag never leaves the DB).
-      qrPayload: signedCertQrPayload(cert),
+      // The QR text printed on this certificate — the human-readable message
+      // format (scanning it shows the verify-via-app instructions + code).
+      qrPayload: certificateQrVerifyMessage(cert),
       deviceFingerprint: fingerprint,
     };
   },
   /**
-   * QR anti-forgery: verify a scanned QR payload.
-   *   MMS|CERT|num|code|fp|date[|sig]  — certificates
-   *   MMS|RCP |num|code|fp|date[|sig]  — receipts (donations/subscription payments)
+   * QR anti-forgery: verify a scanned QR — accepts BOTH print formats.
    *
-   * Checks, in order: payload shape → HMAC signature (signed payloads only —
-   * a field altered after printing no longer matches the tag) → register
-   * lookup by verification code → number-vs-register match → issuing-device
-   * fingerprint comparison (a print from another computer, or a photocopy,
-   * fails the fingerprint check). Six-field payloads are legacy prints from
-   * earlier builds: no tag to check, but still verified against the register.
+   *   1. The human-readable message (v2 prints): any phone scan shows
+   *      "…can be verified using the Minz Mahallu app. Give the following
+   *      security code for verification: XXXX-…" — the code is extracted and
+   *      looked up in the register (certificates, then receipts). The claimed
+   *      document number is cross-checked against the register record so a
+   *      doctored scan text is flagged.
+   *   2. The machine payload (v1 prints / manual entry):
+   *      MMS|CERT|num|code|fp|date[|sig] and MMS|RCP|num|code|fp|date[|sig].
+   *      Signed payloads are HMAC-checked first (a field altered after
+   *      printing no longer matches the tag), then register-looked-up, then
+   *      checked against this device's fingerprint. Six-field payloads are
+   *      legacy prints: no tag to check, but still register-verified.
    */
   verifyQr: (payload: string) => {
-    const parsed = parseQrPayload(payload);
-    if (!parsed) return { valid: false, reason: "malformed", kind: null, certificate: null, receipt: null };
+    const raw = String(payload || "").trim();
+    const parsed = parseQrPayload(raw);
 
+    // ---- v2: human-readable scanned text → security-code lookup ----
+    if (!parsed) {
+      const scanned = extractScannedQrText(raw);
+      if (!scanned) return { valid: false, reason: "malformed", kind: null, certificate: null, receipt: null };
+      const cert = one<any>(
+        `SELECT id, certificate_number, type, issued_to, issued_date, issued_by, status, reprint_count, verification_code
+         FROM certificates WHERE verification_code = ?`,
+        [scanned.verificationCode]
+      );
+      if (cert) {
+        return {
+          valid: true,
+          kind: "CERTIFICATE",
+          certificate: {
+            certificate_number: cert.certificate_number,
+            type: cert.type,
+            issued_to: cert.issued_to,
+            issued_date: cert.issued_date,
+            status: cert.status,
+            reprint_count: cert.reprint_count || 0,
+          },
+          receipt: null,
+          source: "message",
+          qr: { verificationCode: scanned.verificationCode, claimedNumber: scanned.number, signed: false },
+          // A scan text whose claimed number disagrees with the register record
+          // was doctored after printing — flag it instead of passing silently.
+          certificateMatchesRegister: !scanned.number || scanned.number === cert.certificate_number,
+        };
+      }
+      const receipt = findReceiptByCode(scanned.verificationCode);
+      if (receipt) {
+        return {
+          valid: true,
+          kind: "RECEIPT",
+          certificate: null,
+          receipt: receipt.receipt,
+          source: "message",
+          qr: { verificationCode: scanned.verificationCode, claimedNumber: scanned.number, signed: false },
+          receiptMatchesRegister: !scanned.number || scanned.number === receipt.receipt.receipt_number,
+        };
+      }
+      return { valid: false, reason: "not-found", kind: scanned.kind === "CERT" ? "CERTIFICATE" : scanned.kind === "RCP" ? "RECEIPT" : null, certificate: null, receipt: null };
+    }
+
+    // ---- v1: machine payload → HMAC + register + device fingerprint ----
     // Signed payload → the tag must match the mahallu's key. An outsider can
     // clone a whole QR but cannot alter any field or mint a new one.
     if (isSignedPayload(parsed)) {

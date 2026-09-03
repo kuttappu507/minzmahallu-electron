@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from "react";
 import {
   Ticket, CheckCircle2, RefreshCw, FileText, Printer, Loader2,
   Plus, Users, AlertTriangle, Check, Ban, RotateCcw, Trash2,
@@ -104,6 +104,9 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
   const [collectionSheetLoading, setCollectionSheetLoading] = useState(false);
   const [actionDialog, setActionDialog] = useState<{ type: "cancel" | "replace" | "delete" | "deleteEvent" | null; token: TokenRow | null }>({ type: null, token: null });
   const [actionReason, setActionReason] = useState("");
+  // One-shot flag for the ?event= deep link (see loadEvents) so the URL param
+  // is honoured exactly once and never fights a manual dropdown pick.
+  const requestedEventHandled = useRef(false);
 
   const selectedEvent = events.find(e => e.id === selectedEventId);
   const canDeleteTokens = !!selectedEvent?.event_date && selectedEvent.event_date < todayIST();
@@ -112,7 +115,23 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
     try {
       const result = await window.mms.tokens.listEvents();
       setEvents(result || []);
-      const requestedEventId=Number(new URLSearchParams(window.location.search).get("event")||0); const requested=result?.find((e:any)=>e.id===requestedEventId); if(requested)setSelectedEventId(requested.id); else if(result?.length&&!selectedEventId)setSelectedEventId(result[0].id);
+      // Deep-link from the Token Events page: “Manage” navigates to
+      // /tokens/manage?event=<id>. The app runs on a HashRouter, so the query
+      // string lives INSIDE the hash (#/tokens/manage?event=5) —
+      // window.location.search is always empty here. Parse it from the hash.
+      // Applied only on the FIRST successful load so a later manual pick in the
+      // dropdown is never overridden by the URL param again.
+      if (!requestedEventHandled.current) {
+        requestedEventHandled.current = true;
+        const hash = window.location.hash || "";
+        const hashQuery = hash.includes("?") ? hash.slice(hash.indexOf("?") + 1) : "";
+        const requestedEventId = Number(new URLSearchParams(hashQuery).get("event") || 0);
+        const requested = (result || []).find((e: any) => e.id === requestedEventId);
+        if (requested) setSelectedEventId(requested.id);
+        else if (result?.length && !selectedEventId) setSelectedEventId(result[0].id);
+      } else if (result?.length && !selectedEventId) {
+        setSelectedEventId(result[0].id);
+      }
     } catch (e: any) { toast.error(e.message || "Failed to load events"); }
   }, [selectedEventId]);
 

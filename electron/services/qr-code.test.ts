@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   buildCertQrPayload,
   buildReceiptQrPayload,
+  buildReceiptQrMessage,
+  buildCertificateQrMessage,
+  extractScannedQrText,
   parseQrPayload,
   qrSvgDataUrl,
   signQrPayload,
@@ -116,5 +119,59 @@ describe("signed QR payloads (certificates + receipts)", () => {
     expect(svg.startsWith("data:image/svg+xml;base64,")).toBe(true);
     const decoded = Buffer.from(svg.slice(svg.indexOf(",") + 1), "base64").toString("utf8");
     expect(decoded).toContain("<svg");
+  });
+});
+
+describe("human-readable verify message (v2 print QR)", () => {
+  const args = {
+    mahalluName: "Minz Mahallu Jamath",
+    documentNumber: "MMJM/26/08/012",
+    verificationCode: "A8UU-8GV2-3NYR",
+    documentDate: "2026-08-19",
+  };
+
+  it("builds the receipt message a phone shows on scanning", () => {
+    const msg = buildReceiptQrMessage(args);
+    expect(msg).toContain("Minz Mahallu Jamath — Official Receipt");
+    expect(msg).toContain("Receipt No: MMJM/26/08/012");
+    expect(msg).toContain("Date: 19-08-2026");
+    expect(msg).toContain("This receipt can be verified using the Minz Mahallu app.");
+    expect(msg).toContain("Give the following security code for verification:");
+    expect(msg).toContain("A8UU-8GV2-3NYR");
+  });
+
+  it("builds the certificate message with the certificate number", () => {
+    const msg = buildCertificateQrMessage({ ...args, documentNumber: "MMJM/DT/26/09/001", verificationCode: "WK4M-8Q7Z-T3HD" });
+    expect(msg).toContain("Minz Mahallu Jamath — Official Certificate");
+    expect(msg).toContain("Certificate No: MMJM/DT/26/09/001");
+    expect(msg).toContain("This certificate can be verified using the Minz Mahallu app.");
+    expect(msg).toContain("WK4M-8Q7Z-T3HD");
+  });
+
+  it("extracts code, number and kind from a scanned message", () => {
+    const scanned = extractScannedQrText(buildReceiptQrMessage(args));
+    expect(scanned).toEqual({ verificationCode: "A8UU-8GV2-3NYR", number: "MMJM/26/08/012", kind: "RCP" });
+    const scannedCert = extractScannedQrText(buildCertificateQrMessage({ ...args, documentNumber: "MMJM/DT/26/09/001", verificationCode: "WK4M-8Q7Z-T3HD" }));
+    expect(scannedCert?.kind).toBe("CERT");
+    expect(scannedCert?.number).toBe("MMJM/DT/26/09/001");
+    expect(scannedCert?.verificationCode).toBe("WK4M-8Q7Z-T3HD");
+  });
+
+  it("accepts a bare security code as scanned text", () => {
+    const scanned = extractScannedQrText("A8UU-8GV2-3NYR");
+    expect(scanned?.verificationCode).toBe("A8UU-8GV2-3NYR");
+    expect(scanned?.number).toBeNull();
+    expect(scanned?.kind).toBeNull();
+  });
+
+  it("rejects machine payloads, garbage and code-less text", () => {
+    expect(extractScannedQrText("MMS|RCP|A|B|C|D|E")).toBeNull(); // machine payloads use parseQrPayload
+    expect(extractScannedQrText("random text with no code")).toBeNull();
+    expect(extractScannedQrText("")).toBeNull();
+  });
+
+  it("does not mistake ambiguous characters for code characters", () => {
+    // 0/O/1/I/L are excluded from the code alphabet — a look-alike string is rejected.
+    expect(extractScannedQrText("code: ABCD-O123-WXYZ")).toBeNull();
   });
 });

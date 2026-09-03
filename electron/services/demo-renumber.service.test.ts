@@ -2,10 +2,11 @@
  * Demo-data renumbering — legacy demo numbers (DON-/RCP-/CERT-…, plus the
  * interim four-digit-year scheme) are re-issued in the unified
  * MAHALLU/yy/MM/NNN scheme, only on demo profiles, idempotently.
+ * Also covers the startup certificate-code provisioning (ALL profiles).
  */
 import { describe, it, expect } from "vitest";
 import Database from "better-sqlite3";
-import { renumberDemoDocuments } from "./demo-renumber.service.js";
+import { renumberDemoDocuments, provisionCertificateVerificationCodes } from "./demo-renumber.service.js";
 
 function makeDb(demo: number, name = "Minz Mahallu Juma Masjid"): Database.Database {
   const db = new Database(":memory:");
@@ -14,7 +15,7 @@ function makeDb(demo: number, name = "Minz Mahallu Juma Masjid"): Database.Datab
     CREATE TABLE donations (id INTEGER PRIMARY KEY AUTOINCREMENT, receipt_number TEXT, donation_date TEXT);
     CREATE TABLE subscription_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, receipt_number TEXT, payment_date TEXT);
     CREATE TABLE subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, receipt_number TEXT, payment_date TEXT);
-    CREATE TABLE certificates (id INTEGER PRIMARY KEY AUTOINCREMENT, certificate_number TEXT, type TEXT, issued_date TEXT);
+    CREATE TABLE certificates (id INTEGER PRIMARY KEY AUTOINCREMENT, certificate_number TEXT, type TEXT, issued_date TEXT, verification_code TEXT);
   `);
   db.prepare("INSERT INTO settings (id, receipt_prefix, mahallu_name, demo_data) VALUES (1, 'RCP', ?, ?)").run(name, demo);
   return db;
@@ -101,6 +102,34 @@ describe("renumberDemoDocuments", () => {
     const out = renumberDemoDocuments(db as any);
     expect(out.receipts).toBe(0);
     expect((db.prepare("SELECT receipt_number FROM donations").get() as { receipt_number: string }).receipt_number).toBe("DON-2026-0001");
+    db.close();
+  });
+});
+
+describe("provisionCertificateVerificationCodes (startup, ALL profiles)", () => {
+  it("mints codes for legacy certificates without one — including non-demo profiles", () => {
+    const db = makeDb(0); // REAL mahallu profile
+    const ins = db.prepare("INSERT INTO certificates (certificate_number, type, issued_date, verification_code) VALUES (?, ?, ?, ?)");
+    ins.run("OLD-0001", "Membership", "2024-01-01", null);
+    ins.run("OLD-0002", "Residence", "2024-02-01", "");
+    ins.run("OLD-0003", "Death", "2026-09-01", "WK4M-8Q7Z-T3HD"); // already coded
+
+    const assigned = provisionCertificateVerificationCodes(db as any);
+    expect(assigned).toBe(2);
+    const rows = db.prepare("SELECT certificate_number, verification_code FROM certificates ORDER BY id").all() as Array<{ certificate_number: string; verification_code: string }>;
+    expect(rows[0].verification_code).toMatch(/^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+    expect(rows[1].verification_code).toMatch(/^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+    expect(rows[0].verification_code).not.toBe(rows[1].verification_code);
+    // Already-coded rows keep their code (issued codes never change).
+    expect(rows[2].verification_code).toBe("WK4M-8Q7Z-T3HD");
+    db.close();
+  });
+
+  it("is idempotent — a second run assigns nothing", () => {
+    const db = makeDb(1);
+    db.prepare("INSERT INTO certificates (certificate_number, type, issued_date) VALUES ('CERT-2025-0001', 'Membership', '2025-08-15')").run();
+    expect(provisionCertificateVerificationCodes(db as any)).toBe(1);
+    expect(provisionCertificateVerificationCodes(db as any)).toBe(0);
     db.close();
   });
 });

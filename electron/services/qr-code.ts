@@ -91,8 +91,97 @@ export function verifyQrSignature(parsed: QrPayload | null, key: string): boolea
   return signQrPayload(base, key) === parsed.signature.toUpperCase();
 }
 
-/** SVG data-URL of the QR for a payload (for embedding in print HTML / UI). */
+/** SVG data-URL of the QR for a payload (for embedding in print HTML / UI).
+ *  Error correction L: the verify message is ~200 bytes — at L the code stays
+ *  in a lower version (larger modules) so small prints (22mm A6 footer) scan
+ *  reliably; prints are high-contrast vector output so M's redundancy is not
+ *  needed. */
 export async function qrSvgDataUrl(payload: string): Promise<string> {
-  const svg = await QRCode.toString(payload, { type: "svg", margin: 1, width: 180, color: { dark: "#0e7c5b", light: "#ffffff" } });
+  const svg = await QRCode.toString(payload, { type: "svg", margin: 1, width: 180, errorCorrectionLevel: "L", color: { dark: "#0e7c5b", light: "#ffffff" } });
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+}
+
+// ---------------------------------------------------------------------------
+// Human-readable verification QR (v2 print format).
+//
+// Scanning a printed QR with any phone camera now shows a friendly message
+// that tells the verifier HOW to check the document ("verification can be
+// done using the Minz Mahallu app") and carries the printed security code,
+// instead of the raw MMS|CERT|… machine line. The app's QR check box accepts
+// BOTH forms: the new message (the security code inside is looked up in the
+// register) and the legacy MMS|… payload (still HMAC-verified).
+// ---------------------------------------------------------------------------
+
+export type QrVerifyMessageArgs = {
+  /** Full mahallu name from settings (e.g. "Minz Mahallu Jamath"). */
+  mahalluName: string;
+  /** Certificate number or receipt number as printed. */
+  documentNumber: string;
+  /** Register security code printed beside the QR. */
+  verificationCode: string;
+  /** yyyy-mm-dd (only the date part is used). */
+  documentDate: string;
+};
+
+const QR_APP_NAME = "Minz Mahallu app";
+
+/** Receipt QR message — what a phone shows when the receipt QR is scanned. */
+export function buildReceiptQrMessage(args: QrVerifyMessageArgs): string {
+  const name = args.mahalluName || "Mahallu";
+  return [
+    `${name} — Official Receipt`,
+    `Receipt No: ${args.documentNumber}`,
+    `Date: ${fmtMessageDate(args.documentDate)}`,
+    ``,
+    `This receipt can be verified using the ${QR_APP_NAME}.`,
+    `Give the following security code for verification:`,
+    `${args.verificationCode}`,
+  ].join("\n");
+}
+
+/** Certificate QR message — what a phone shows when the certificate QR is scanned. */
+export function buildCertificateQrMessage(args: QrVerifyMessageArgs): string {
+  const name = args.mahalluName || "Mahallu";
+  return [
+    `${name} — Official Certificate`,
+    `Certificate No: ${args.documentNumber}`,
+    `Date: ${fmtMessageDate(args.documentDate)}`,
+    ``,
+    `This certificate can be verified using the ${QR_APP_NAME}.`,
+    `Give the following security code for verification:`,
+    `${args.verificationCode}`,
+  ].join("\n");
+}
+
+function fmtMessageDate(date: string): string {
+  const iso = String(date || "").slice(0, 10);
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : iso;
+}
+
+export type ScannedQrText = {
+  /** Security code extracted from the message (always present on success). */
+  verificationCode: string;
+  /** Document number claimed by the scanned text, when present. */
+  number: string | null;
+  /** "CERT" / "RCP" when the message names its document kind. */
+  kind: string | null;
+};
+
+/** Extract the security code (and claimed number/kind) from text scanned off
+ *  a printed QR — the human-readable message format. Also accepts a bare
+ *  security code. Returns null when no recognizable code is present. */
+export function extractScannedQrText(text: string): ScannedQrText | null {
+  const raw = String(text || "").trim();
+  if (!raw || raw.startsWith("MMS|")) return null; // machine payloads use parseQrPayload
+  const codeMatch = /(?:security code[^A-Z0-9\n]*|code\s*[:\-])\s*\n?\s*([A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4})/i.exec(raw)
+    || /\b([A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4})\b/.exec(raw);
+  if (!codeMatch) return null;
+  const numberMatch = /(?:receipt|certificate)\s*(?:no|number)\s*[:\u00b7-]\s*([^\n·]+)/i.exec(raw);
+  const kindMatch = /\breceipt\b/i.test(raw) ? "RCP" : /\bcertificate\b/i.test(raw) ? "CERT" : null;
+  return {
+    verificationCode: codeMatch[1].toUpperCase(),
+    number: numberMatch ? numberMatch[1].trim() : null,
+    kind: kindMatch,
+  };
 }

@@ -225,11 +225,14 @@ try {
     check("certificate numbering smoke", false, e?.message || String(e));
   }
 
-  // 6e) anti-forgery receipt QR — verify by receipt number AND by printed
-  //     code, round-trip the SIGNED payload, and confirm a tampered payload
-  //     is rejected (the forgery defence: an outsider can clone a QR but not
-  //     alter or mint one). Verification codes are backfilled the moment a
-  //     receipt leaves the app, so the PDF is generated first.
+  // 6e) anti-forgery receipt QR — the printed QR is now the HUMAN-READABLE
+  //     verify message (scanning it with any phone shows "…can be verified
+  //     using the Minz Mahallu app. Give the following security code for
+  //     verification: XXXX-…"). Verify by receipt number AND by the printed
+  //     code, round-trip the scanned MESSAGE through verifyQr, confirm a
+  //     doctored message is flagged, and confirm the legacy MMS| machine
+  //     payload path still HMAC-rejects tampering. Codes are backfilled the
+  //     moment a receipt leaves the app, so the PDF is generated first.
   try {
     const row = withPhone || (donations?.rows || [])[0];
     if (row?.id) {
@@ -238,35 +241,58 @@ try {
       const receiptNo = String(genParsed?.receiptNumber || "");
       const byNumber = await evaluate(conn, `window.mms.certificates.verify(${JSON.stringify(receiptNo)}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
       const parsed = (() => { try { return JSON.parse(String(byNumber)); } catch { return null; } })();
-      const payloadOk = typeof parsed?.qrPayload === "string" && /^MMS\|RCP\|/.test(parsed.qrPayload) && parsed.qrPayload.split("|").length === 7 && !!parsed.qrPayload.split("|")[3];
-      check("receipt verifies by NUMBER with a SIGNED RCP payload", parsed?.valid === true && parsed?.kind === "RECEIPT" && payloadOk, `receipt=${parsed?.receipt?.receipt_number} payer=${parsed?.receipt?.payer}`);
-      if (payloadOk) {
-        const genuine = parsed.qrPayload;
+      const payload = String(parsed?.qrPayload || "");
+      const codeInMessage = (payload.match(/[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}/) || [""])[0];
+      const messageOk = payload.includes("can be verified using the Minz Mahallu app")
+        && payload.includes("security code for verification")
+        && payload.includes(receiptNo)
+        && !!codeInMessage;
+      check("receipt verifies by NUMBER with the human-readable QR message", parsed?.valid === true && parsed?.kind === "RECEIPT" && messageOk, `receipt=${parsed?.receipt?.receipt_number} code=${codeInMessage}`);
+      if (messageOk) {
         // The office workflow: type the CODE printed beside the QR.
-        const printedCode = genuine.split("|")[3];
-        const byCode = await evaluate(conn, `window.mms.certificates.verify(${JSON.stringify(printedCode)}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
+        const byCode = await evaluate(conn, `window.mms.certificates.verify(${JSON.stringify(codeInMessage)}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
         const byCodeRes = (() => { try { return JSON.parse(String(byCode)); } catch { return null; } })();
-        check("receipt verifies by its printed CODE", byCodeRes?.valid === true && byCodeRes?.kind === "RECEIPT" && byCodeRes?.receipt?.receipt_number === receiptNo, `code=${printedCode}`);
-        const checked = await evaluate(conn, `window.mms.certificates.verifyQr(${JSON.stringify(genuine)}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
+        check("receipt verifies by its printed CODE", byCodeRes?.valid === true && byCodeRes?.kind === "RECEIPT" && byCodeRes?.receipt?.receipt_number === receiptNo, `code=${codeInMessage}`);
+        // The verifier workflow: paste the whole scanned message.
+        const checked = await evaluate(conn, `window.mms.certificates.verifyQr(${JSON.stringify(payload)}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
         const qrRes = (() => { try { return JSON.parse(String(checked)); } catch { return null; } })();
-        check("genuine receipt QR round-trips (register + device match)", qrRes?.valid === true && qrRes?.receiptMatchesRegister === true && qrRes?.issuedOnThisDevice === true, `kind=${qrRes?.kind}`);
-        // Forger alters the receipt number but keeps the printed tag → rejected.
-        const parts = genuine.split("|");
-        parts[2] = parts[2].slice(0, -1) + (parts[2].endsWith("9") ? "8" : "9");
-        const forged = await evaluate(conn, `window.mms.certificates.verifyQr(${JSON.stringify(parts.join("|"))}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
-        const forgedRes = (() => { try { return JSON.parse(String(forged)); } catch { return null; } })();
-        check("TAMPERED receipt QR is rejected (bad-signature)", forgedRes?.valid === false && forgedRes?.reason === "bad-signature", `reason=${forgedRes?.reason}`);
+        check("scanned QR MESSAGE round-trips (register lookup)", qrRes?.valid === true && qrRes?.source === "message" && qrRes?.receiptMatchesRegister === true && qrRes?.receipt?.receipt_number === receiptNo, `kind=${qrRes?.kind}`);
+        // Forger rewrites the message's receipt number, keeping the code → flagged.
+        const doctored = payload.replace(receiptNo, receiptNo.slice(0, -1) + (receiptNo.endsWith("9") ? "8" : "9"));
+        const doctoredRes = JSON.parse(String(await evaluate(conn, `window.mms.certificates.verifyQr(${JSON.stringify(doctored)}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`)));
+        check("DOCTORED scan message is flagged (number mismatch)", doctoredRes?.valid === true && doctoredRes?.receiptMatchesRegister === false, `claimed=${receiptNo.slice(0, -1)}…`);
+        // The legacy MMS| machine payload path still HMAC-verifies — and
+        // rejects a tampered field with bad-signature.
+        const legacy = JSON.parse(String(await evaluate(conn, `window.mms.certificates.verifyQr(${JSON.stringify(`MMS|RCP|${receiptNo}|${codeInMessage}|0000000000000000|2026-08-19`)}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`)));
+        check("legacy machine payload still verifies (register)", legacy?.valid === true && legacy?.kind === "RECEIPT", `reason=${legacy?.reason}`);
+        const legacyTampered = `MMS|RCP|${receiptNo.slice(0, -1) + (receiptNo.endsWith("9") ? "8" : "9")}|${codeInMessage}|0000000000000000|2026-08-19|0000000000000000`;
+        const tamperedRes = JSON.parse(String(await evaluate(conn, `window.mms.certificates.verifyQr(${JSON.stringify(legacyTampered)}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`)));
+        check("TAMPERED legacy payload is rejected (bad-signature)", tamperedRes?.valid === false && tamperedRes?.reason === "bad-signature", `reason=${tamperedRes?.reason}`);
       }
     } else {
       console.log("  WARN  no donation row to exercise receipt QR verification");
     }
-    // Certificate QRs are signed too.
+    // Certificate QRs carry the same human-readable message + code.
     const certs = await evaluate(conn, `window.mms.certificates.list({page:1,pageSize:1}).then(r => (r.rows||[]).map(x => x.certificate_number).filter(Boolean))`);
     const certNo = (Array.isArray(certs) ? certs : [])[0];
     if (certNo) {
       const certRes = await evaluate(conn, `window.mms.certificates.verify(${JSON.stringify(certNo)}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
       const cp = (() => { try { return JSON.parse(String(certRes)); } catch { return null; } })();
-      check("certificate verify returns a SIGNED CERT payload", cp?.valid === true && cp?.kind === "CERTIFICATE" && typeof cp?.qrPayload === "string" && cp.qrPayload.split("|").length === 7, `cert=${certNo}`);
+      const certPayload = String(cp?.qrPayload || "");
+      const certMsgOk = cp?.valid === true && cp?.kind === "CERTIFICATE" && certPayload.includes("can be verified using the Minz Mahallu app") && certPayload.includes(certNo);
+      check("certificate verify returns the human-readable QR message", certMsgOk, `cert=${certNo}`);
+      if (certMsgOk) {
+        const certChecked = JSON.parse(String(await evaluate(conn, `window.mms.certificates.verifyQr(${JSON.stringify(certPayload)}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`)));
+        check("certificate QR message round-trips through verifyQr", certChecked?.valid === true && certChecked?.kind === "CERTIFICATE" && certChecked?.source === "message", `cert=${certNo}`);
+      }
+    }
+    // Duplicate-issue guard: re-issuing the same member's membership
+    // certificate must return the EXISTING record, never a second one.
+    const memberRow = (await evaluate(conn, `window.mms.members.list({page:1,pageSize:1})`))?.rows?.[0];
+    if (memberRow?.member_code) {
+      const issue1 = JSON.parse(String(await evaluate(conn, `window.mms.certificates.issueMembership(${JSON.stringify(memberRow.member_code)}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`)));
+      const issue2 = JSON.parse(String(await evaluate(conn, `window.mms.certificates.issueMembership(${JSON.stringify(memberRow.member_code)}).then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`)));
+      check("re-issuing an existing certificate returns it (alreadyIssued, no duplicate)", issue2?.alreadyIssued === true && issue2?.id === issue1?.id, `first=${issue1?.certificate_number} second=${issue2?.certificate_number}`);
     }
   } catch (e) {
     check("receipt QR verification smoke", false, e?.message || String(e));

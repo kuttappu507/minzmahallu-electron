@@ -163,6 +163,11 @@ function enrichCertificate(cert: any): CertData {
     marriage_id: cert?.marriage_id || null,
     death_id: cert?.death_id || null,
     notes: cert?.notes || '',
+    // Anti-forgery fields MUST survive enrichment — dropping verification_code
+    // here silently removed the whole verify box (QR + code) from every
+    // certificate print, even though the QR SVG was passed in.
+    verification_code: cert?.verification_code || '',
+    reprint_count: cert?.reprint_count || 0,
     mahallu_name: settings.mahalluName,
     mahallu_address: settings.mahalluAddress,
     mahallu_phone: settings.mahalluPhone,
@@ -697,11 +702,11 @@ export function buildCertificateHtml(cert: any, lang: 'en' | 'ml' = 'en', reprin
   const reprints = Math.max(0, reprintCount || c.reprint_count || 0);
   const verifyBox = c.verification_code ? `
   <div class="verify-box">
-    ${qrSvg ? `<img class="verify-qr" src="${qrSvg}" alt="QR" width="78" height="78"/>` : ''}
+    ${qrSvg ? `<img class="verify-qr" src="${qrSvg}" alt="QR" width="88" height="88"/>` : ''}
     <div class="verify-copy">
       <span class="verify-label">${ml ? 'പരിശോധനാ കോഡ്' : 'VERIFICATION CODE'}</span>
       <span class="verify-code">${esc(c.verification_code)}</span>
-      <span class="verify-hint">${ml ? 'ഈ QR / കോഡ് മഹല്ല് ഓഫീസിൽ പരിശോധിച്ച് ആധികാരികത ഉറപ്പാക്കാം' : 'Scan the QR or verify this code at the Mahallu office to confirm authenticity'}</span>
+      <span class="verify-hint">${ml ? 'QR സ്കാൻ ചെയ്ത് പരിശോധനാ നിർദ്ദേശം വായിക്കുക — അല്ലെങ്കിൽ ഈ സുരക്ഷാ കോഡ് Minz Mahallu ആപ്പ് ഉപയോഗിച്ച് പരിശോധിക്കുക' : 'Scan the QR for verification instructions, or verify this security code using the Minz Mahallu app'}</span>
     </div>
   </div>` : '';
   body = body.replace('</main>', `${verifyBox}</main>`);

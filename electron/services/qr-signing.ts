@@ -14,7 +14,7 @@
  * touches the database (safe for the connection.ts import cycle).
  */
 import { getDB } from "../db/connection.js";
-import { buildCertQrPayload, buildReceiptQrPayload } from "./qr-code.js";
+import { buildCertQrPayload, buildReceiptQrPayload, buildCertificateQrMessage, buildReceiptQrMessage } from "./qr-code.js";
 
 /** The machine fingerprint + signing key used for every printed QR. */
 export function getQrPrintContext(): { fingerprint: string; signingKey: string } {
@@ -66,4 +66,50 @@ export function signedReceiptQrPayload(receipt: {
     },
     signingKey || undefined
   );
+}
+
+// ---------------------------------------------------------------------------
+// Human-readable QR (v2 print format) — what a phone shows when the printed
+// QR is scanned. Replaces the raw MMS|… machine line on prints so a verifier
+// with ANY scanner sees "verification can be done using the Minz Mahallu app"
+// plus the printed security code, instead of cryptic fields.
+// ---------------------------------------------------------------------------
+
+/** Full mahallu display name from settings ("Minz Mahallu Jamath" etc.). */
+export function mahalluNameFromSettings(): string {
+  try {
+    const row = getDB().prepare("SELECT mahallu_name FROM settings WHERE id = 1").get() as { mahallu_name?: string } | undefined;
+    return String(row?.mahallu_name || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+/** Message-format QR text for a certificate print (code must be backfilled first). */
+export function certificateQrVerifyMessage(cert: {
+  certificate_number?: string | number | null;
+  verification_code?: string | null;
+  issued_date?: string | null;
+}): string {
+  return buildCertificateQrMessage({
+    mahalluName: mahalluNameFromSettings(),
+    documentNumber: String(cert.certificate_number ?? ""),
+    verificationCode: String(cert.verification_code || ""),
+    documentDate: String(cert.issued_date || ""),
+  });
+}
+
+/** Message-format QR text for a receipt print. */
+export function receiptQrVerifyMessage(receipt: {
+  receiptNumber: string;
+  verificationCode: string;
+  /** yyyy-mm-dd (only the date part is used). */
+  date: string;
+}): string {
+  return buildReceiptQrMessage({
+    mahalluName: mahalluNameFromSettings(),
+    documentNumber: String(receipt.receiptNumber || ""),
+    verificationCode: String(receipt.verificationCode || ""),
+    documentDate: String(receipt.date || ""),
+  });
 }

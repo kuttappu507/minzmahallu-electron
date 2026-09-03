@@ -1,22 +1,32 @@
 /*
- * Receipt verification (anti-forgery) — DB-backed integration.
+ * Receipt/certificate verification (anti-forgery) — DB-backed integration.
  *
- * Covers the full receipt trust chain:
+ * Covers the full document trust chain:
  *   · the QR signing key + device fingerprint are provisioned on this DB,
  *   · demo receipts arrive with verification codes (startup provisioning),
  *   · verify() finds receipts by code AND by receipt number,
- *   · verifyQr() accepts a genuine signed payload, rejects a tampered one
- *     (bad-signature) and reports an unknown code as not-found,
+ *   · the printed QR is now the HUMAN-READABLE verify message — scanning it
+ *     shows "…can be verified using the Minz Mahallu app. Give the following
+ *     security code for verification: XXXX-…"; verifyQr() accepts that
+ *     scanned text (code lookup), a bare code, and the legacy MMS| machine
+ *     payload (still HMAC-verified; tampering → bad-signature),
+ *   · legacy certificates with no verification code get one minted lazily
+ *     (they used to print with NO QR box at all),
+ *   · issuing a certificate for a record that already has one returns the
+ *     existing certificate (alreadyIssued) instead of minting a duplicate,
  *   · a new donation gets a code the moment its receipt is assembled
- *     (same lazy backfill as receipt numbers),
- *   · certificate verification keeps working and now returns SIGNED payloads.
+ *     (same lazy backfill as receipt numbers).
  */
 import { describe, it, expect, beforeAll } from "vitest";
 import { getDB } from "../db/connection.js";
 import { donations, certificates as certs } from "./data.service.js";
 import { ensureDonationVerificationCode } from "./receipt.service.js";
-import { parseQrPayload, verifyQrSignature, signQrPayload } from "./qr-code.js";
-import { getQrPrintContext } from "./qr-signing.js";
+import { parseQrPayload, verifyQrSignature, signQrPayload, extractScannedQrText, buildReceiptQrPayload } from "./qr-code.js";
+import { getQrPrintContext, signedReceiptQrPayload } from "./qr-signing.js";
+
+function firstReceiptRow() {
+  return getDB().prepare("SELECT verification_code, receipt_number FROM donations WHERE verification_code != '' LIMIT 1").get() as any;
+}
 
 describe("QR trust chain provisioning", () => {
   beforeAll(() => { getDB(); /* schema + migrations + demo provisioning */ });
@@ -73,21 +83,53 @@ describe("receipt verification (verify + verifyQr)", () => {
     expect(res.kind).toBeNull();
   });
 
-  it("round-trips a genuine SIGNED QR payload through verifyQr", () => {
-    const byNumber: any = (() => {
-      const db = getDB();
-      const row = db.prepare("SELECT verification_code, receipt_number FROM donations WHERE verification_code != '' LIMIT 1").get() as any;
-      return certs.verify(row.receipt_number);
-    })();
-    expect(byNumber.qrPayload).toMatch(/^MMS\|RCP\|/);
-    expect(String(byNumber.qrPayload).split("|")).toHaveLength(7); // signed
+  it("returns the HUMAN-READABLE verify message as the printed QR text", () => {
+    const row = firstReceiptRow();
+    const res: any = certs.verify(row.receipt_number);
+    // What a phone shows when the printed QR is scanned.
+    expect(String(res.qrPayload)).toContain("can be verified using the Minz Mahallu app");
+    expect(String(res.qrPayload)).toContain("security code for verification");
+    expect(String(res.qrPayload)).toContain(row.receipt_number);
+    expect(String(res.qrPayload)).toContain(row.verification_code);
+    // The message parses back into its code + number.
+    const scanned = extractScannedQrText(String(res.qrPayload));
+    expect(scanned?.verificationCode).toBe(row.verification_code);
+    expect(scanned?.number).toBe(row.receipt_number);
+  });
 
-    const parsed = parseQrPayload(String(byNumber.qrPayload));
+  it("round-trips a scanned MESSAGE through verifyQr (register lookup)", () => {
+    const row = firstReceiptRow();
+    const byNumber: any = certs.verify(row.receipt_number);
+    const checked: any = certs.verifyQr(String(byNumber.qrPayload));
+    expect(checked.valid).toBe(true);
+    expect(checked.kind).toBe("RECEIPT");
+    expect(checked.source).toBe("message");
+    expect(checked.receiptMatchesRegister).toBe(true);
+    expect(checked.receipt.receipt_number).toBe(row.receipt_number);
+  });
+
+  it("accepts a BARE security code in the QR check box", () => {
+    const row = firstReceiptRow();
+    const checked: any = certs.verifyQr(row.verification_code);
+    expect(checked.valid).toBe(true);
+    expect(checked.kind).toBe("RECEIPT");
+    expect(checked.source).toBe("message");
+    expect(checked.receipt.receipt_number).toBe(row.receipt_number);
+  });
+
+  it("still round-trips the LEGACY machine payload (signed, device-bound)", () => {
+    const row = firstReceiptRow();
+    const genuine = signedReceiptQrPayload({
+      receiptNumber: row.receipt_number,
+      verificationCode: row.verification_code,
+      date: "2026-08-19",
+    });
+    const parsed = parseQrPayload(genuine);
     expect(parsed?.kind).toBe("RCP");
     const { signingKey } = getQrPrintContext();
     expect(verifyQrSignature(parsed, signingKey)).toBe(true);
 
-    const checked: any = certs.verifyQr(String(byNumber.qrPayload));
+    const checked: any = certs.verifyQr(genuine);
     expect(checked.valid).toBe(true);
     expect(checked.kind).toBe("RECEIPT");
     expect(checked.receiptMatchesRegister).toBe(true);
@@ -95,10 +137,13 @@ describe("receipt verification (verify + verifyQr)", () => {
     expect(checked.qr.signed).toBe(true);
   });
 
-  it("rejects a TAMPERED payload — bad-signature (forged QR)", () => {
-    const db = getDB();
-    const row = db.prepare("SELECT receipt_number FROM donations WHERE verification_code != '' LIMIT 1").get() as any;
-    const genuine = certs.verify(row.receipt_number).qrPayload as string;
+  it("rejects a TAMPERED legacy payload — bad-signature (forged QR)", () => {
+    const row = firstReceiptRow();
+    const genuine = signedReceiptQrPayload({
+      receiptNumber: row.receipt_number,
+      verificationCode: row.verification_code,
+      date: "2026-08-19",
+    });
     // Forger alters the receipt number by one digit, keeping the tag.
     const parts = genuine.split("|");
     parts[2] = parts[2].slice(0, -1) + (parts[2].endsWith("9") ? "8" : "9");
@@ -106,21 +151,32 @@ describe("receipt verification (verify + verifyQr)", () => {
     // The structure still parses…
     expect(parseQrPayload(forged)).not.toBeNull();
     // …but the signature check fails, so verification reports it.
-    const res = certs.verifyQr(forged);
+    const res: any = certs.verifyQr(forged);
     expect(res.valid).toBe(false);
     expect(res.reason).toBe("bad-signature");
   });
 
   it("reports a well-formed signed payload with an unknown code as not-found", () => {
-    const db = getDB();
-    const row = db.prepare("SELECT receipt_number FROM donations WHERE verification_code != '' LIMIT 1").get() as any;
-    const genuine = String((certs.verify(row.receipt_number) as any).qrPayload);
-    const parts = genuine.split("|");
+    const row = firstReceiptRow();
+    const parts = buildReceiptQrPayload(
+      { number: row.receipt_number, verificationCode: "ZZZZ-ZZZZ-ZZZZ", fingerprint: getQrPrintContext().fingerprint, issuedDate: "2026-08-19" },
+      getQrPrintContext().signingKey
+    ).split("|");
     parts[3] = "ZZZZ-ZZZZ-ZZZZ"; // unknown code — recompute the tag so only the lookup fails
     parts[6] = signQrPayload(parts.slice(0, 6).join("|"), getQrPrintContext().signingKey);
     const res: any = certs.verifyQr(parts.join("|"));
     expect(res.valid).toBe(false);
     expect(res.reason).toBe("not-found");
+  });
+
+  it("flags a DOCTORED scan message whose number disagrees with the register", () => {
+    const row = firstReceiptRow();
+    // A forger re-writes the QR text to claim a different receipt number.
+    const doctored = certs.verifyQr(
+      `Minz Mahallu Jamath — Official Receipt\nReceipt No: MMJM/99/99/999\n\nThis receipt can be verified using the Minz Mahallu app.\nGive the following security code for verification:\n${row.verification_code}`
+    ) as any;
+    expect(doctored.valid).toBe(true); // the code is real…
+    expect(doctored.receiptMatchesRegister).toBe(false); // …but the claimed number is not.
   });
 
   it("gives a new donation a verification code the moment its receipt is assembled", () => {
@@ -143,24 +199,116 @@ describe("receipt verification (verify + verifyQr)", () => {
       donations.remove(id);
     }
   });
+});
 
-  it("certificate verification still works and now returns SIGNED payloads", () => {
+describe("certificate verification + duplicate-issue guard", () => {
+  beforeAll(() => { getDB(); });
+
+  it("returns the human-readable verify message for a certificate", () => {
     const db = getDB();
-    const cert = db.prepare("SELECT certificate_number, verification_code, issued_to FROM certificates WHERE verification_code != '' ORDER BY id LIMIT 1").get() as any;
+    const cert = db.prepare("SELECT id, certificate_number, verification_code, issued_to FROM certificates WHERE verification_code != '' ORDER BY id LIMIT 1").get() as any;
     expect(cert).toBeTruthy();
     const res: any = certs.verify(cert.certificate_number);
     expect(res.valid).toBe(true);
     expect(res.kind).toBe("CERTIFICATE");
     expect(res.certificate.issued_to).toBe(cert.issued_to);
-    expect(String(res.qrPayload).split("|")).toHaveLength(7);
+    expect(String(res.qrPayload)).toContain("can be verified using the Minz Mahallu app");
+    expect(String(res.qrPayload)).toContain(cert.certificate_number);
+    expect(String(res.qrPayload)).toContain(cert.verification_code);
+    // The message QR round-trips through verifyQr as a certificate record.
     const checked: any = certs.verifyQr(String(res.qrPayload));
     expect(checked.valid).toBe(true);
+    expect(checked.kind).toBe("CERTIFICATE");
+    expect(checked.source).toBe("message");
     expect(checked.certificateMatchesRegister).toBe(true);
-    // A tampered certificate payload is likewise rejected.
-    const parts = String(res.qrPayload).split("|");
-    parts[5] = "2020-01-01";
-    const tampered: any = certs.verifyQr(parts.join("|"));
-    expect(tampered.valid).toBe(false);
-    expect(tampered.reason).toBe("bad-signature");
+    expect(checked.certificate.certificate_number).toBe(cert.certificate_number);
+  });
+
+  it("mints a code for a LEGACY certificate with no code (lazy backfill)", () => {
+    const db = getDB();
+    // Simulate a certificate issued before the anti-forgery feature.
+    const legacyNumber = `TEST-LEGACY-${Date.now()}`;
+    const runRes = db.prepare(
+      "INSERT INTO certificates (certificate_number, type, member_id, family_id, issued_to, issued_date, issued_by, status, verification_code) VALUES (?, 'Membership', NULL, NULL, 'Legacy Member', '2024-01-01', 1, 'Issued', NULL)"
+    ).run(legacyNumber);
+    const id = Number(runRes.lastInsertRowid);
+    try {
+      const row = db.prepare("SELECT verification_code FROM certificates WHERE id = ?").get(id) as { verification_code?: string };
+      expect(String(row.verification_code || "")).toBe(""); // legacy: no code
+      // Touching it (verify by number) mints a code — and it sticks.
+      const res: any = certs.verify(legacyNumber);
+      expect(res.valid).toBe(true);
+      expect(res.qrPayload).toContain("security code for verification");
+      const after = db.prepare("SELECT verification_code FROM certificates WHERE id = ?").get(id) as { verification_code?: string };
+      expect(String(after.verification_code || "")).toMatch(/^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+      expect(String(res.qrPayload)).toContain(String(after.verification_code));
+      // ensureVerificationCode is stable — the minted code never changes.
+      const certRow = db.prepare("SELECT id, verification_code FROM certificates WHERE id = ?").get(id) as any;
+      expect(certs.ensureVerificationCode(certRow)).toBe(after.verification_code);
+    } finally {
+      // No DELETE cleanup — certificates are protected by an anti-delete
+      // trigger, and the test DB is a fresh per-run (PID-scoped) database.
+      db.prepare("UPDATE certificates SET status = 'Void', certificate_number = certificate_number || '-VOID' WHERE id = ?").run(id);
+    }
+  });
+
+  it("re-issuing an existing certificate returns the SAME record (alreadyIssued)", () => {
+    const db = getDB();
+    const member = db.prepare("SELECT member_code, id FROM members ORDER BY id LIMIT 1").get() as any;
+    const first: any = certs.issueMembership(member.member_code, 1);
+    const second: any = certs.issueMembership(member.member_code, 1);
+    // The first call may issue (fresh DB) or return a pre-existing demo
+    // certificate — either way the SECOND call must never mint a duplicate.
+    expect(second.alreadyIssued).toBe(true);
+    expect(second.id).toBe(first.id);
+    expect(second.certificate_number).toBe(first.certificate_number);
+    expect(second.certificateNumber).toBe(first.certificate_number); // normalized shape
+    // Exactly ONE active Membership certificate for this member.
+    const count = db.prepare("SELECT COUNT(*) AS c FROM certificates WHERE type = 'Membership' AND member_id = ? AND status = 'Issued'").get(member.id) as { c: number };
+    expect(count.c).toBe(1);
+  });
+
+  it("re-issuing a death certificate for the same death also deduplicates", () => {
+    const db = getDB();
+    const death = db.prepare("SELECT death_number, id FROM deaths ORDER BY id LIMIT 1").get() as any;
+    const first: any = certs.issueDeath(death.death_number, 1);
+    const second: any = certs.issueDeath(death.death_number, 1);
+    expect(second.alreadyIssued).toBe(true);
+    expect(second.id).toBe(first.id);
+  });
+
+  it("re-issuing residence for a DIFFERENT person is allowed (not a duplicate)", () => {
+    const db = getDB();
+    const family = db.prepare("SELECT family_number, id FROM families ORDER BY id LIMIT 1").get() as any;
+    const stamp = Date.now();
+    const a: any = certs.issueResidence(family.family_number, `First Person ${stamp}`, 1);
+    const b: any = certs.issueResidence(family.family_number, `Second Person ${stamp}`, 1);
+    expect(a.alreadyIssued).toBeFalsy();
+    expect(b.alreadyIssued).toBeFalsy(); // different issued_to → new certificate
+    expect(b.id).not.toBe(a.id);
+    // But the same person again is a duplicate.
+    const c: any = certs.issueResidence(family.family_number, `Second Person ${stamp}`, 1);
+    expect(c.alreadyIssued).toBe(true);
+    expect(c.id).toBe(b.id);
+    // No DELETE cleanup — certificates are protected by an anti-delete
+    // trigger, and the test DB is a fresh per-run (PID-scoped) database; the
+    // unique per-run person names keep later runs from matching these rows.
+  });
+
+  it("marriage certificates link marriage_id and deduplicate on it", () => {
+    const db = getDB();
+    const marriage = db.prepare("SELECT marriage_number, id FROM marriages ORDER BY id LIMIT 1").get() as any;
+    const first: any = certs.issueMarriage(marriage.marriage_number, 1);
+    const row = db.prepare("SELECT marriage_id FROM certificates WHERE id = ?").get(first.id) as { marriage_id?: number };
+    expect(Number(row.marriage_id)).toBe(Number(marriage.id)); // linked now
+    const second: any = certs.issueMarriage(marriage.marriage_number, 1);
+    expect(second.alreadyIssued).toBe(true);
+    expect(second.id).toBe(first.id);
+  });
+
+  it("verifyQr still rejects garbage input", () => {
+    const res: any = certs.verifyQr("not a qr anything");
+    expect(res.valid).toBe(false);
+    expect(res.reason).toBe("malformed");
   });
 });
