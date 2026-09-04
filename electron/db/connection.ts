@@ -76,6 +76,35 @@ function ensureRuntimeSchema(database: DB) {
     ["donations","verification_code","TEXT"],
     ["subscription_payments","verification_code","TEXT"],
     ["subscriptions","verification_code","TEXT"],
+    // Multi-month dues & advance (V036): unpaid balances from closed months
+    // accumulate on the subscription account (arrears); overpayments become
+    // credit (advance) that nets against future dues. Each ledger payment
+    // remembers how much cash cleared arrears / became advance so a re-record
+    // or cancel can roll the account state back exactly.
+    ["subscriptions","arrears","REAL NOT NULL DEFAULT 0"],
+    ["subscriptions","advance","REAL NOT NULL DEFAULT 0"],
+    ["subscription_payments","arrears_cleared","REAL NOT NULL DEFAULT 0"],
+    ["subscription_payments","advance_added","REAL NOT NULL DEFAULT 0"],
+    // WhatsApp receipt privacy lock (V037): one send per receipt (+ one
+    // admin-authorized re-send). receipt_sent_at marks the ACCEPTED send,
+    // whatsapp_msg_id maps late delivery receipts back to the row, and
+    // receipt_delivered_at is set ONLY when the phone actually got it — the
+    // lock rule. Rows on `subscriptions` would go stale at month roll-over,
+    // so the live state lives on the money tables (donations and the
+    // subscription_payments ledger) and the list joins the current month's
+    // ledger row.
+    ["donations","receipt_pdf","BLOB"],
+    ["donations","receipt_generated_at","TEXT"],
+    ["donations","receipt_sent_at","TEXT"],
+    ["donations","receipt_delivered_at","TEXT"],
+    ["donations","receipt_resends","INTEGER NOT NULL DEFAULT 0"],
+    ["donations","whatsapp_msg_id","TEXT"],
+    ["subscription_payments","receipt_pdf","BLOB"],
+    ["subscription_payments","receipt_generated_at","TEXT"],
+    ["subscription_payments","receipt_sent_at","TEXT"],
+    ["subscription_payments","receipt_delivered_at","TEXT"],
+    ["subscription_payments","receipt_resends","INTEGER NOT NULL DEFAULT 0"],
+    ["subscription_payments","whatsapp_msg_id","TEXT"],
   ];
   for (const [table,name,definition] of fields) if (tables.has(table)) addColumn(database, table, name, definition);
   if (tables.has("welfare_requests")) database.exec("UPDATE welfare_requests SET request_date = COALESCE(request_date, created_at) WHERE request_date IS NULL");

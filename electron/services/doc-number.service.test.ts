@@ -67,6 +67,7 @@ describe("doc-number pure helpers", () => {
       "MMH/26/03/001", // different month
       "MMH/25/02/999", // different year
       "MMH/2026/02/001", // old four-digit-year scheme — never matches
+      "MMH/DT/26/02/005", // certificate series — never matches receipts
       "DON-003",
       "RCP-0001",
       "",
@@ -80,7 +81,8 @@ describe("doc-number pure helpers", () => {
 
   it("never lets receipt numbers inflate a certificate series (or vice versa)", () => {
     // Receipts are PREFIX/yy/MM/NNN; certificates are PREFIX/CODE/yy/MM/NNN —
-    // the heads cannot cross-match, so the two series stay independent.
+    // the heads cannot cross-match, so the series stay independent even
+    // though donations and subscription receipts SHARE one counter.
     expect(maxSeriesUsed(["MM/26/09/001", "MM/26/09/007"], "MM/DT", "26", "09")).toBe(0);
     expect(maxSeriesUsed(["MM/DT/26/09/004"], "MM", "26", "09")).toBe(0);
     // Old-scheme certificate numbers (four-digit year, no mahallu prefix)
@@ -141,14 +143,14 @@ describe("doc-number allocation (real CRUD layer)", () => {
     }
   });
 
-  it("numbers subscription payments in the shared receipt series and never renumbers an issued receipt", () => {
+  it("numbers subscription payments in the SAME shared series as donations (one money book) and never renumbers an issued receipt", () => {
     const pending = getDB()
       .prepare("SELECT id, period_start, amount FROM subscriptions WHERE status = 'Pending' AND amount > 0 AND period_start = '2026-08-01' ORDER BY id LIMIT 1")
       .get() as { id: number; period_start: string; amount: number } | undefined;
     expect(pending).toBeTruthy();
 
     const paid = subscriptions.applyPayment(pending!.id, { amountPaid: 100, paymentDate: "2026-08-20", paymentMethod: "Cash" });
-    expect(paid.receiptNumber).toMatch(NUM);
+    expect(paid.receiptNumber).toMatch(/^MMJM\/26\/08\/\d{3}$/);
 
     // Re-recording the SAME month (member tops up the payment) must keep the
     // receipt number that may already be printed / sent on WhatsApp.

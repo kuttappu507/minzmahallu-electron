@@ -65,7 +65,7 @@ function fmtMoney(n: number, sym: string): string {
 const SOURCE_LABELS: Record<string, { en: string; ml: string }> = {
   transactions: { en: 'Manual Entry', ml: 'മാനുവൽ' },
   donations: { en: 'Donation', ml: 'സംഭാവന' },
-  subscriptions: { en: 'Subscription', ml: 'സബ്സ്ക്രിപ്ഷൻ' },
+  subscriptions: { en: 'Subscription', ml: 'വരിസംഖ്യ' },
   welfare: { en: 'Welfare', ml: 'ക്ഷേമം' },
   salary: { en: 'Salary', ml: 'ശമ്പലം' },
 };
@@ -108,7 +108,7 @@ export function buildAccountStatementHtml(rows: LedgerRow[], summary: Summary, f
     balance: 'ബാലൻസ്',
     breakdown: 'ഉറവിട വിവരണം',
     incomeDonations: 'സംഭാവനകളിൽ നിന്ന്',
-    incomeSubscriptions: 'സബ്സ്ക്രിപ്ഷനുകളിൽ നിന്ന്',
+    incomeSubscriptions: 'വരിസംഖ്യകളിൽ നിന്ന്',
     incomeManual: 'മാനുവൽ വരുമാനം',
     expenseWelfare: 'ക്ഷേമ വിതരണം',
     expenseSalary: 'ശമ്പളം നൽകിയത്',

@@ -23,6 +23,7 @@ import {
   fetchLatestWaWebVersion,
   DisconnectReason,
   Browsers,
+  proto,
 } from "@whiskeysockets/baileys";
 import type { WASocket, ConnectionState } from "@whiskeysockets/baileys";
 
@@ -57,6 +58,62 @@ let startPromise: Promise<void> | null = null;
 let reconnectTimer: NodeJS.Timeout | null = null;
 let reconnectAttempts = 0;
 let lastAutoAttempt = 0;
+
+// ---------------------------------------------------------------------------
+// Delivery tracking — the privacy lock needs to know the moment a message
+// ACTUALLY reached the recipient's phone. WhatsApp reports this as a receipt
+// status on the message (DELIVERY_ACK = 3, READ = 4, PLAYED = 5); Baileys
+// surfaces them as `messages.update` events. We keep the best status seen
+// per message id so a send can wait for it (fast path) and LATE receipts
+// (recipient's phone was offline for hours) still land via the listener.
+// ---------------------------------------------------------------------------
+export type DeliveryEvent = (msgId: string) => void;
+const DELIVERED = proto.WebMessageInfo.Status.DELIVERY_ACK;
+const deliveryStatus = new Map<string, number>();
+const deliveryListeners = new Set<DeliveryEvent>();
+
+function noteMessageStatus(msgId: string, status: number): void {
+  if (!msgId || !Number.isFinite(status) || status <= 0) return;
+  const prev = deliveryStatus.get(msgId) || 0;
+  if (status <= prev) return;
+  deliveryStatus.set(msgId, status);
+  if (status >= DELIVERED) {
+    for (const cb of deliveryListeners) {
+      try { cb(msgId); } catch { /* listener errors never break the socket */ }
+    }
+  }
+}
+
+/** Subscribe to delivery confirmations (fires once per message id). */
+export function onDelivery(cb: DeliveryEvent): () => void {
+  deliveryListeners.add(cb);
+  return () => { deliveryListeners.delete(cb); };
+}
+
+/** True when the recipient's phone has confirmed receiving `msgId`. */
+export function isDelivered(msgId: string): boolean {
+  return !!msgId && (deliveryStatus.get(msgId) || 0) >= DELIVERED;
+}
+
+/** Resolve once `msgId` is confirmed delivered — or `false` after the
+ *  timeout. The status map survives across sockets, so a re-connecting
+ *  session can still confirm a send that happened minutes ago. */
+export function waitForDelivery(msgId: string, timeoutMs: number): Promise<boolean> {
+  if (!msgId) return Promise.resolve(false);
+  if (isDelivered(msgId)) return Promise.resolve(true);
+  return new Promise<boolean>((resolve) => {
+    let settled = false;
+    const finish = (v: boolean) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      off();
+      resolve(v);
+    };
+    const off = onDelivery((id) => { if (id === msgId) finish(true); });
+    const timer = setTimeout(() => finish(isDelivered(msgId)), Math.max(0, timeoutMs));
+  });
+}
 
 function userDataDir(): string | null {
   try { return electron().app.getPath("userData"); } catch { return null; }
@@ -141,6 +198,17 @@ async function connectInternal(): Promise<void> {
   });
   sock.ev.on("creds.update", saveCreds);
   sock.ev.on("connection.update", (update) => void onConnectionUpdate(update));
+  // Delivery / read receipts for messages WE sent (privacy lock source).
+  // `messages.update` carries { key: { id }, update: { status } } — statuses
+  // below DELIVERY_ACK (PENDING/SERVER_ACK) are ignored: "the server took
+  // it" is NOT "the recipient got it".
+  sock.ev.on("messages.update", (updates: any[]) => {
+    for (const u of updates || []) {
+      const id = String(u?.key?.id || "");
+      const st = Number(u?.update?.status ?? 0);
+      if (id && st > 0 && u?.key?.fromMe !== false) noteMessageStatus(id, st);
+    }
+  });
   if (state !== "QR_REQUIRED" && state !== "CONNECTED") setState("CONNECTING");
 }
 

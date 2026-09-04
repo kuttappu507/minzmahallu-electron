@@ -16,8 +16,11 @@ import { toast } from "@/lib/toast";
 export interface SecureActionDialogProps {
   open: boolean;
   onClose: () => void;
-  /** Async action executed after the password verifies. */
-  onConfirm: (ctx: { reason: string; date?: string }) => Promise<void> | void;
+  /** Async action executed after the password verifies. The password is
+   *  included so actions that must RE-VERIFY in the main process (e.g. the
+   *  WhatsApp receipt re-send) can — the renderer-side check here is only
+   *  a first gate, never proof. */
+  onConfirm: (ctx: { reason: string; date?: string; password: string }) => Promise<void> | void;
   title?: string;
   description?: string;
   /** Label for the optional date input (omit to hide the field). */
@@ -66,7 +69,7 @@ export function SecureActionDialog({
       // 1) Re-authenticate the administrator in the MAIN process.
       await window.mms.auth.verifyAdminPassword(password, title || "secure action", reason.trim());
       // 2) Execute the gated action.
-      await onConfirm({ reason: reason.trim(), date: dateLabel ? date : undefined });
+      await onConfirm({ reason: reason.trim(), date: dateLabel ? date : undefined, password });
       reset();
       onClose();
     } catch (err: any) {

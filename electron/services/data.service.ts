@@ -22,6 +22,25 @@ function nowDate(): string {
   return todayIST();
 }
 
+/** Money-safe 2-decimal rounding — paise dust never accumulates on the
+ *  arrears/advance ledger through repeated re-records. */
+function round2(n: number): number {
+  return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+}
+
+/** One account's TRUE dues: old arrears + the uncovered part of this month
+ *  − any advance credit, clamped at 0 (a prepaid family is never “negative
+ *  pending”). Shared by the donations prefill, member pages and totals. */
+function familyDue(db: ReturnType<typeof getDB>, familyId: number): number {
+  const row = db
+    .prepare(
+      `SELECT COALESCE(SUM(MAX(0, MAX(0, amount - amount_paid) + COALESCE(arrears, 0) - COALESCE(advance, 0))), 0) AS v
+       FROM subscriptions WHERE family_id = ? AND status IN ('Pending','Partial','Overdue')`
+    )
+    .get(familyId) as { v: number } | undefined;
+  return round2(Number(row?.v || 0));
+}
+
 /**
  * Next register number for official registers (marriages / deaths / welfare).
  *
@@ -306,7 +325,7 @@ function ensureCurrentMonth() {
     for (const f of families) {
       const head = familyHeadMemberId(f.id);
       const existing = one<any>(
-        "SELECT id, member_id, period_start, amount, amount_paid FROM subscriptions WHERE family_id = ? LIMIT 1",
+        "SELECT id, member_id, period_start, amount, amount_paid, arrears, advance FROM subscriptions WHERE family_id = ? LIMIT 1",
         [f.id]
       );
       if (!existing) {
@@ -328,9 +347,26 @@ function ensureCurrentMonth() {
         continue;
       }
       // New month → roll the SAME row over (never insert a second row).
+      // The closing month's unpaid balance becomes ARREARS (it accumulates
+      // month after month — “3 months due” = 3 × rate); a legacy overpaid
+      // amount becomes ADVANCE credit that nets against future dues.
+      const closingPaid = Number(existing.amount_paid || 0);
+      const closingRate = Number(existing.amount || 0);
+      let carriedArrears = Number(existing.arrears || 0);
+      let carriedAdvance = Number(existing.advance || 0);
+      if (closingPaid < closingRate) {
+        carriedArrears += closingRate - closingPaid;
+        // Standing advance first nets against the fresh arrears (a family
+        // that prepaid ₹50 and then missed a ₹50 month owes nothing).
+        const offset = Math.min(carriedArrears, carriedAdvance);
+        carriedArrears -= offset;
+        carriedAdvance -= offset;
+      } else if (closingPaid > closingRate) {
+        carriedAdvance += closingPaid - closingRate;
+      }
       // Safety net: if the closing month was paid through a path that bypassed
       // applyPayment, snapshot it into the payment ledger first.
-      if (Number(existing.amount_paid || 0) > 0) {
+      if (closingPaid > 0) {
         const paid = one<any>(
           "SELECT id FROM subscription_payments WHERE subscription_id = ? AND period_start = ? LIMIT 1",
           [existing.id, existing.period_start]
@@ -344,8 +380,8 @@ function ensureCurrentMonth() {
         }
       }
       db.prepare(
-        `UPDATE subscriptions SET plan_id = ?, period_start = ?, period_end = ?, amount = ?, amount_paid = 0, payment_date = NULL, receipt_number = NULL, status = 'Pending', updated_at = datetime('now') WHERE id = ?`
-      ).run(plan.id, periodStart, periodEnd, configured, existing.id);
+        `UPDATE subscriptions SET plan_id = ?, period_start = ?, period_end = ?, amount = ?, amount_paid = 0, payment_date = NULL, receipt_number = NULL, status = 'Pending', arrears = ?, advance = ?, updated_at = datetime('now') WHERE id = ?`
+      ).run(plan.id, periodStart, periodEnd, configured, carriedArrears, carriedAdvance, existing.id);
       rolledOver++;
     }
   });
@@ -355,7 +391,14 @@ function ensureCurrentMonth() {
 
 function memberSubscriptionBalance(familyId: number) {
   if (!familyId) return 0;
-  return scalar<number>("SELECT COALESCE(SUM(amount - amount_paid),0) FROM subscriptions WHERE family_id = ? AND amount > amount_paid AND status IN ('Pending','Partial','Overdue')", [familyId]) || 0;
+  // TRUE balance = old arrears + the uncovered part of this month − advance
+  // credit (the "due 150, paid 200" family shows ₹0 here — their ₹50 is a
+  // PREPAYMENT, not a negative due). One row per family, summed defensively.
+  return scalar<number>(
+    `SELECT COALESCE(SUM(MAX(0, MAX(0, amount - amount_paid) + COALESCE(arrears,0) - COALESCE(advance,0))), 0)
+     FROM subscriptions WHERE family_id = ? AND status IN ('Pending','Partial','Overdue')`,
+    [familyId]
+  ) || 0;
 }
 
 export const subscriptions = {
@@ -374,7 +417,13 @@ export const subscriptions = {
       params.push(filter.status);
     }
     const sql = `SELECT s.*, f.family_number, f.house_name,
-      (SELECT m.name FROM members m WHERE m.id = s.member_id) AS member_name
+      (SELECT m.name FROM members m WHERE m.id = s.member_id) AS member_name,
+      (SELECT sp.receipt_sent_at FROM subscription_payments sp WHERE sp.subscription_id = s.id AND sp.period_start = s.period_start AND sp.status = 'Active' LIMIT 1) AS wa_sent_at,
+      (SELECT sp.receipt_delivered_at FROM subscription_payments sp WHERE sp.subscription_id = s.id AND sp.period_start = s.period_start AND sp.status = 'Active' LIMIT 1) AS wa_delivered_at,
+      (SELECT sp.receipt_resends FROM subscription_payments sp WHERE sp.subscription_id = s.id AND sp.period_start = s.period_start AND sp.status = 'Active' LIMIT 1) AS wa_resends,
+      (SELECT sp.amount FROM subscription_payments sp WHERE sp.subscription_id = s.id AND sp.period_start = s.period_start AND sp.status = 'Active' LIMIT 1) AS month_cash,
+      (SELECT sp.arrears_cleared FROM subscription_payments sp WHERE sp.subscription_id = s.id AND sp.period_start = s.period_start AND sp.status = 'Active' LIMIT 1) AS month_arrears_cleared,
+      (SELECT sp.advance_added FROM subscription_payments sp WHERE sp.subscription_id = s.id AND sp.period_start = s.period_start AND sp.status = 'Active' LIMIT 1) AS month_advance_added
       FROM subscriptions s LEFT JOIN families f ON f.id = s.family_id
       WHERE ${where.join(" AND ")}
       ORDER BY s.payment_date DESC NULLS LAST, s.id DESC`;
@@ -402,24 +451,38 @@ export const subscriptions = {
     }
     const { periodStart, periodEnd } = currentMonthPeriod();
     const configured = scalar<number>("SELECT COALESCE(subscription_monthly_amount, 0) FROM settings WHERE id = 1") || 0;
+    const firstPayment = Math.max(0, Number(data.amountPaid ?? 0));
     const { id } = run(
       `INSERT INTO subscriptions
         (family_id, member_id, plan_id, period_start, period_end, amount, amount_paid,
          payment_date, receipt_number, payment_method, transaction_ref, status, collected_by, remarks)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, 0, NULL, NULL, ?, ?, 'Pending', ?, ?)`,
       [
         data.familyId, data.memberId ?? familyHeadMemberId(data.familyId), data.planId ?? 1,
         data.periodStart || periodStart, data.periodEnd || periodEnd,
-        data.amount ?? configured, data.amountPaid ?? 0,
+        data.amount ?? configured,
         data.paymentMethod ?? "Cash", data.transactionRef ?? "",
-        data.status ?? "Pending", data.collectedBy ?? 1, data.remarks ?? ""
+        data.collectedBy ?? 1, data.remarks ?? ""
       ]
     );
+    // A first payment runs through the SAME oldest-first allocation as any
+    // other payment (a fresh account has no arrears, so cash above the rate
+    // becomes advance credit for coming months — never a paid-ahead month).
+    if (firstPayment > 0) {
+      return { ...(subscriptions as any).applyPayment(id, data), id };
+    }
     return { id, receiptNumber: "" };
   },
   /** Restricted payment edit: ONLY how much was given (plus date/method/ref/
    *  remarks) may change. Family, member, period and the monthly rate are
-   *  locked because the subscription is a recurring account. */
+   *  locked because the subscription is a recurring account.
+   *
+   *  Cash is applied OLDEST-FIRST: old arrears → this month's rate → any
+   *  extra becomes ADVANCE credit for coming months. Re-recording the month
+   *  rolls the previous allocation back first (each ledger row remembers how
+   *  much of its cash cleared arrears / became advance), so the account is
+   *  always exactly "month-start state + this month's cash". Status is Paid
+   *  only when the month is covered AND no arrears remain. */
   applyPayment: (id: number, data: any) => {
     const db = getDB();
     const s = one<any>("SELECT * FROM subscriptions WHERE id = ?", [id]);
@@ -431,42 +494,65 @@ export const subscriptions = {
     if (data.periodStart && data.periodStart !== s.period_start) {
       throw new Error("The billing period is fixed by the recurring subscription. Payment edits only change how much was given.");
     }
-    const amountPaid = Math.max(0, Number(data.amountPaid ?? s.amount_paid ?? 0));
-    const amount = Number(s.amount || 0);
-    const status = amountPaid <= 0 ? "Pending" : amountPaid >= amount ? "Paid" : "Partial";
+    const cash = Math.max(0, Number(data.amountPaid ?? s.amount_paid ?? 0));
+    const rate = Number(s.amount || 0);
+    let arrears = Number(s.arrears || 0);
+    let advance = Number(s.advance || 0);
     const paymentDate = data.paymentDate || nowDate();
     let txReceipt = "";
+    let txStatus = "Pending";
+    let txState = { monthTake: 0, arrears, advance, cash };
     const tx = db.transaction(() => {
       // One payment record per subscription per month (upsert).
       const paid = one<any>(
-        "SELECT id, receipt_number FROM subscription_payments WHERE subscription_id = ? AND period_start = ? LIMIT 1",
+        "SELECT id, receipt_number, amount, arrears_cleared, advance_added FROM subscription_payments WHERE subscription_id = ? AND period_start = ? LIMIT 1",
         [s.id, s.period_start]
       );
+      // Roll THIS month's previous allocation back to the month-start state
+      // before applying the new cash (re-record / top-up path).
+      if (paid) {
+        arrears += Number(paid.arrears_cleared || 0);
+        advance = Math.max(0, advance - Number(paid.advance_added || 0));
+      }
       // A receipt number already issued for this month (printed / sent on
       // WhatsApp) is NEVER renumbered. A fresh month gets a fresh number in
-      // the mahallu's shared receipt series — the legacy behaviour of
-      // reusing the subscription row's number from a previous month is a
-      // duplicate-receipt bug and is gone.
+      // the mahallu's shared receipt series (donations + subscriptions use
+      // ONE counter) — the legacy behaviour of reusing the subscription row's
+      // number from a previous month is a duplicate-receipt bug and is gone.
       const receipt = String(paid?.receipt_number || "").trim() || nextReceiptNumber(paymentDate);
+      // ---- Oldest-first allocation of the cash given this month ----
+      const arrearsTake = Math.min(arrears, cash);            // 1) old dues
+      arrears = round2(arrears - arrearsTake);
+      const afterArrears = round2(cash - arrearsTake);
+      const monthTake = Math.min(rate, afterArrears);        // 2) this month
+      const advanceAdded = round2(afterArrears - monthTake); // 3) credit
+      advance = round2(advance + advanceAdded);
+      const status = cash <= 0 ? "Pending" : arrears <= 0.004 && monthTake >= rate ? "Paid" : "Partial";
       if (paid) {
         db.prepare(
-          `UPDATE subscription_payments SET member_id = ?, amount = ?, receipt_number = ?, payment_date = ?, payment_method = ?, transaction_ref = ?, remarks = ?, status = 'Active', updated_at = datetime('now') WHERE id = ?`
-        ).run(s.member_id, amountPaid, receipt, paymentDate, data.paymentMethod || "Cash", data.transactionRef ?? "", data.remarks ?? "", paid.id);
+          `UPDATE subscription_payments SET member_id = ?, amount = ?, arrears_cleared = ?, advance_added = ?, receipt_number = ?, payment_date = ?, payment_method = ?, transaction_ref = ?, remarks = ?, status = 'Active', updated_at = datetime('now') WHERE id = ?`
+        ).run(s.member_id, cash, arrearsTake, advanceAdded, receipt, paymentDate, data.paymentMethod || "Cash", data.transactionRef ?? "", data.remarks ?? "", paid.id);
       } else {
         db.prepare(
-          `INSERT INTO subscription_payments (subscription_id, family_id, member_id, period_start, period_end, amount, receipt_number, payment_date, payment_method, transaction_ref, collected_by, remarks, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active')`
-        ).run(s.id, s.family_id, s.member_id, s.period_start, s.period_end, amountPaid, receipt, paymentDate, data.paymentMethod || "Cash", data.transactionRef ?? "", data.collectedBy ?? 1, data.remarks ?? "");
+          `INSERT INTO subscription_payments (subscription_id, family_id, member_id, period_start, period_end, amount, arrears_cleared, advance_added, receipt_number, payment_date, payment_method, transaction_ref, collected_by, remarks, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active')`
+        ).run(s.id, s.family_id, s.member_id, s.period_start, s.period_end, cash, arrearsTake, advanceAdded, receipt, paymentDate, data.paymentMethod || "Cash", data.transactionRef ?? "", data.collectedBy ?? 1, data.remarks ?? "");
       }
       // The subscription row mirrors the LATEST month's receipt number for
-      // list display and search.
+      // list display and search. amount_paid holds the THIS-MONTH portion of
+      // the cash (never above the rate); arrears/advance carry the rest.
       db.prepare(
-        `UPDATE subscriptions SET amount_paid = ?, payment_date = ?, receipt_number = ?, payment_method = ?, transaction_ref = ?, status = ?, remarks = ?, updated_at = datetime('now') WHERE id = ?`
-      ).run(amountPaid, amountPaid > 0 ? paymentDate : null, amountPaid > 0 ? receipt : null, data.paymentMethod || "Cash", data.transactionRef ?? "", status, data.remarks ?? "", id);
+        `UPDATE subscriptions SET amount_paid = ?, arrears = ?, advance = ?, payment_date = ?, receipt_number = ?, payment_method = ?, transaction_ref = ?, status = ?, remarks = ?, updated_at = datetime('now') WHERE id = ?`
+      ).run(cash > 0 ? monthTake : 0, arrears, advance, cash > 0 ? paymentDate : null, cash > 0 ? receipt : null, data.paymentMethod || "Cash", data.transactionRef ?? "", status, data.remarks ?? "", id);
       txReceipt = receipt;
+      txStatus = status;
+      txState = { monthTake, arrears, advance, cash };
     });
     tx();
-    return { id, receiptNumber: amountPaid > 0 ? txReceipt : "", status };
+    // The account's dues after this payment — never negative (an overpaid
+    // family is "paid ahead", not "minus pending").
+    const dueTotal = Math.max(0, round2(txState.arrears + Math.max(0, rate - txState.monthTake) - txState.advance));
+    return { id, receiptNumber: cash > 0 ? txReceipt : "", status: txStatus, amountPaid: cash, monthPaid: txState.monthTake, arrears: round2(txState.arrears), advance: round2(txState.advance), dueTotal };
   },
   /** Cancel the current month's payment (secure action: reason + admin
    *  password are enforced at the IPC layer). Resets the month to unpaid and
@@ -476,12 +562,23 @@ export const subscriptions = {
     const s = one<any>("SELECT * FROM subscriptions WHERE id = ?", [id]);
     if (!s) throw new Error("Subscription not found");
     const tx = db.transaction(() => {
+      // The month's ACTIVE payment (if any) — its allocation must be rolled
+      // back exactly: whatever cash it cleared from old arrears goes back to
+      // arrears, whatever it parked as advance credit is withdrawn.
+      const paid = one<any>(
+        "SELECT id, arrears_cleared, advance_added FROM subscription_payments WHERE subscription_id = ? AND period_start = ? AND status = 'Active' LIMIT 1",
+        [id, s.period_start]
+      );
+      const backArrears = Number(paid?.arrears_cleared || 0);
+      const backAdvance = Number(paid?.advance_added || 0);
+      if (paid) {
+        db.prepare(
+          "UPDATE subscription_payments SET status = 'Cancelled', updated_at = datetime('now') WHERE id = ?"
+        ).run(paid.id);
+      }
       db.prepare(
-        "UPDATE subscription_payments SET status = 'Cancelled', updated_at = datetime('now') WHERE subscription_id = ? AND period_start = ? AND status = 'Active'"
-      ).run(id, s.period_start);
-      db.prepare(
-        `UPDATE subscriptions SET amount_paid = 0, payment_date = NULL, receipt_number = NULL, status = 'Pending', updated_at = datetime('now') WHERE id = ?`
-      ).run(id);
+        `UPDATE subscriptions SET amount_paid = 0, arrears = MAX(0, COALESCE(arrears,0) + ?), advance = MAX(0, COALESCE(advance,0) - ?), payment_date = NULL, receipt_number = NULL, status = 'Pending', updated_at = datetime('now') WHERE id = ?`
+      ).run(backArrears, backAdvance, id);
     });
     tx();
     return { id };
@@ -510,7 +607,10 @@ export const subscriptions = {
     ).changes;
   },
   totalCollected: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM subscription_payments WHERE status = 'Active'"),
-  totalPending: () => scalar<number>("SELECT COALESCE(SUM(amount-amount_paid),0) AS v FROM subscriptions WHERE amount > amount_paid"),
+  // TRUE pending across every account: old arrears + this month's uncovered
+  // rate − that family's own advance (per-family clamp at 0, so one family's
+  // prepayment never erases another family's dues).
+  totalPending: () => scalar<number>(`SELECT COALESCE(SUM(MAX(0, MAX(0, amount - amount_paid) + COALESCE(arrears,0) - COALESCE(advance,0))), 0) AS v FROM subscriptions WHERE status IN ('Pending','Partial','Overdue')`),
   plans: () => all<any>("SELECT * FROM subscription_plans WHERE is_active = 1 ORDER BY name"),
 };
 

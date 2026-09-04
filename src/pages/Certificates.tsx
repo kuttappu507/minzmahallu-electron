@@ -446,7 +446,7 @@ export function Certificates() {
             {qrDataUrl && <img src={qrDataUrl} alt="QR" className="w-20 h-20 rounded-md border border-border bg-white" />}
             <div className="text-sm min-w-0 flex-1">
               <div className="text-emerald-700 font-medium">
-                ✓ {lang === "ml" ? "രസീറ്റ്" : "Receipt"} {verifyResult.receipt?.receipt_number} · {verifyResult.receipt?.kind === "SUBSCRIPTION" ? (lang === "ml" ? "സബ്സ്ക്രിപ്ഷൻ" : "subscription") : (lang === "ml" ? "സംഭാവന" : "donation")} · {lang === "ml" ? "ഇവരിൽ നിന്ന്" : "from"} {verifyResult.receipt?.payer} · {formatDate(verifyResult.receipt?.date)} · ₹{Number(verifyResult.receipt?.amount || 0).toLocaleString("en-IN")}
+                ✓ {lang === "ml" ? "രസീറ്റ്" : "Receipt"} {verifyResult.receipt?.receipt_number} · {verifyResult.receipt?.kind === "SUBSCRIPTION" ? (lang === "ml" ? "വരിസംഖ്യ" : "subscription") : (lang === "ml" ? "സംഭാവന" : "donation")} · {lang === "ml" ? "ഇവരിൽ നിന്ന്" : "from"} {verifyResult.receipt?.payer} · {formatDate(verifyResult.receipt?.date)} · ₹{Number(verifyResult.receipt?.amount || 0).toLocaleString("en-IN")}
               </div>
               <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted flex-wrap">
                 <MonitorCheck size={13} className="text-primary" />

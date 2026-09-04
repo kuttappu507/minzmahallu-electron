@@ -53,8 +53,12 @@ export function registerWhatsAppIpc(getActor: () => Actor | null) {
   register("whatsapp:setFamily", (familyId: number, phone: string, enabled: boolean) => { requireAuth(); return whatsapp.setFamilyWhatsApp(familyId, phone, enabled); });
   register("whatsapp:getFamily", (familyId: number) => { requireAuth(); return whatsapp.familyWhatsApp(familyId); });
   register("whatsapp:sendMessage", (input: any) => { requireAuth(); return whatsapp.sendMessage(input); });
-  register("whatsapp:sendDonationReceipt", (donationId: number) => { requireAuth(); return whatsapp.sendDonationReceipt(donationId); });
-  register("whatsapp:sendSubscriptionReceipt", (subscriptionId: number) => { requireAuth(); return whatsapp.sendSubscriptionReceipt(subscriptionId); });
+  // Receipt sends carry the PRIVACY LOCK: a delivered receipt is locked; the
+  // one admin-authorized re-send needs the administrator's password, which is
+  // verified in the MAIN process (whatsapp.service.gateReceiptSend) — the
+  // renderer's promise alone is never enough.
+  register("whatsapp:sendDonationReceipt", (donationId: number, adminPassword?: string) => { requireAuth(); return whatsapp.sendDonationReceipt(donationId, { adminPassword }); });
+  register("whatsapp:sendSubscriptionReceipt", (subscriptionId: number, adminPassword?: string) => { requireAuth(); return whatsapp.sendSubscriptionReceipt(subscriptionId, { adminPassword }); });
   register("whatsapp:recipientStats", (type: "ANNOUNCEMENT" | "SUBSCRIPTION_REMINDER") => { requireAuth(); return recipientStats(type); });
   register("whatsapp:createSubscriptionCampaign", () => { requireAuth(); return whatsapp.createSubscriptionCampaign(); });
   register("whatsapp:createAnnouncementCampaign", (text: string) => { requireAuth(); return whatsapp.createAnnouncementCampaign(text); });

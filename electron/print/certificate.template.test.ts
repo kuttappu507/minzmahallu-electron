@@ -93,3 +93,39 @@ describe("certificate verify box (QR + code) renders on every certificate", () =
     expect(html).toContain("03-09-2026 12:00");
   });
 });
+
+describe("every certificate fits ONE A4 page (no spill onto a second sheet)", () => {
+  // The mahallu's death certificate ran past a single A4 landscape sheet.
+  // The guard: html/body and .cert use a FIXED height (not min-height) with
+  // overflow:hidden and a @page size that matches — Chromium then paginates
+  // into exactly one sheet, clipping instead of spilling. The 0.3mm shave
+  // absorbs Chromium's 96dpi page-height rounding (the blank-trailing-page
+  // trap).
+  const base = {
+    member_id: null, family_id: null, marriage_id: null, death_id: null,
+    issued_to: "One Page Person", issued_date: "2026-09-03", issued_by: 1,
+    status: "Issued", notes: "", verification_code: "AB2C-3D4E-F6GH", reprint_count: 0,
+  };
+
+  for (const type of ["Membership", "Residence", "Marriage", "NOC", "Death"] as const) {
+    it(`${type}: fixed-height page box with overflow clipping`, () => {
+      const html = buildCertificateHtml(
+        { ...base, id: 1, certificate_number: `MMJM/XX/26/09/001`, type },
+        "en", 0, undefined, QR_SVG
+      );
+      // Landscape exactly for the death certificate, portrait otherwise.
+      const expectedSize = type === "Death" ? "A4 landscape" : "A4 portrait";
+      expect(html).toContain(`@page{size:${expectedSize};margin:0}`);
+      // FIXED height (never min-height — that grows and spills).
+      expect(html).not.toContain("min-height:");
+      // Overflow is clipped, not paginated.
+      expect(html).toMatch(/html,body\{[^}]*overflow:hidden/);
+      expect(html).toMatch(/\.cert\{[^}]*overflow:hidden/);
+      // The box height is a hair UNDER the sheet (209.7mm landscape /
+      // 296.7mm portrait) to absorb Chromium's rounding.
+      expect(html).toContain(type === "Death" ? "height:209.7mm" : "height:296.7mm");
+      // Long-field safety: the certificate body also clips.
+      expect(html).toMatch(/\.cert\{[^}]*height:(209\.7|296\.7)mm/);
+    });
+  }
+});

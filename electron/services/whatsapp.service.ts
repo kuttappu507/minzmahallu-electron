@@ -3,9 +3,15 @@ import { getDB } from "../db/connection.js";
 import {
   startEngine, maybeStartEngine, stopEngine, currentQr, engineState,
   requireConnectedSocket, resolveJid, engineSendText, engineSendDocument,
-  clearLegacyWahaData,
+  clearLegacyWahaData, onDelivery, isDelivered, waitForDelivery,
 } from "./whatsapp-engine.service.js";
-import { generateDonationReceiptPdf, generateSubscriptionReceiptPdf, markReceiptSent } from "./receipt.service.js";
+import {
+  generateDonationReceiptPdf, generateSubscriptionReceiptPdf,
+  receiptSendState, markReceiptAccepted, markReceiptDelivered,
+  markReceiptDeliveredByMsgId, consumeAdminResend,
+} from "./receipt.service.js";
+import { verifyCurrentActorPassword } from "./auth.service.js";
+import { audit } from "./data.service.js";
 import { fmtDdMmYyyy, monthLabel } from "./ist-date.js";
 import { fileNameSafe } from "./doc-number.service.js";
 
@@ -149,23 +155,91 @@ async function sendTextInternal(phone: string, text: string): Promise<{ id?: str
   return engineSendText(jid, text);
 }
 
-/** Send a PDF (receipt) with a text caption and log it in the message
- * history. Returns the provider message id. */
+/** Send a PDF with a text caption and log it in the message history.
+ *  Returns the provider message id. Receipt LOCK tracking is handled by
+ *  sendReceiptWithLock() — this plain variant is for non-receipt documents. */
 async function sendDocumentInternal(input: {
   phone: string; text: string; pdf: Buffer; fileName: string;
   type: string; name?: string; familyId?: number | null; donationId?: number | null;
-  markReceipt?: { kind: "donation" | "subscription"; id: number };
 }): Promise<{ id: string }> {
   requirePairedSession();
   const jid = await resolveJid(input.phone);
   const result = await engineSendDocument(jid, input.pdf, input.fileName, input.text);
   saveMessage({ type: input.type, name: input.name, phone: input.phone, text: input.text, status: "SENT", familyId: input.familyId, donationId: input.donationId, providerId: result.id });
-  if (input.markReceipt) markReceiptSent(input.markReceipt.kind, input.markReceipt.id);
   return result;
 }
 
 function monthKey(date = new Date()) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`; }
 function dayKey(date = new Date()) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }
+
+// How long a send waits for the recipient's delivery receipt before
+// reporting "sent — delivery not confirmed yet". Delivery usually lands in
+// a couple of seconds; the receipt stays sendable until it does, so a slow
+// confirmation never locks the family out of their receipt.
+const DELIVERY_WAIT_MS = 15_000;
+
+// One shared send+track routine for receipt PDFs (the privacy lock lives
+// here): gate → send → record acceptance → wait for the delivery receipt →
+// flip the lock only on real delivery.
+async function sendReceiptWithLock(input: {
+  kind: "donation" | "subscription";
+  rowId: number;              // donation id · subscription LEDGER payment id
+  phone: string; text: string; pdf: Buffer; fileName: string;
+  messageType: string; name?: string; familyId?: number | null; donationId?: number;
+}): Promise<{ msgId: string; delivered: boolean }> {
+  requirePairedSession();
+  const jid = await resolveJid(input.phone);
+  const result = await engineSendDocument(jid, input.pdf, input.fileName, input.text);
+  const msgId = String(result.id || "");
+  saveMessage({
+    type: input.messageType, name: input.name, phone: input.phone, text: input.text,
+    status: "SENT", familyId: input.familyId, donationId: input.donationId, providerId: msgId,
+  });
+  markReceiptAccepted(input.kind, input.rowId, msgId);
+  const delivered = await waitForDelivery(msgId, DELIVERY_WAIT_MS);
+  if (delivered) markReceiptDelivered(input.kind, input.rowId);
+  return { msgId, delivered };
+}
+
+/** Privacy gate — decides whether this receipt may leave the app at all.
+ *  Returns why not (for the toast / soft status); `adminPassword` unlocks the
+ *  ONE re-send a delivered receipt ever gets, verified + audited here in the
+ *  main process (the renderer's word is never enough). */
+function gateReceiptSend(
+  kind: "donation" | "subscription",
+  rowId: number,
+  adminPassword?: string
+): { ok: true; isResend: boolean } | { ok: false; reason: "delivered" | "resend-used"; message: string } {
+  const state = receiptSendState(kind, rowId);
+  if (!state.delivered) return { ok: true, isResend: false };
+  if (!adminPassword) {
+    return {
+      ok: false,
+      reason: "delivered",
+      message: "This receipt was already sent and delivered to the recipient. It is locked to protect their privacy — an administrator can re-send it once with the admin password.",
+    };
+  }
+  // Administrator re-send: verify the password (throws on wrong password,
+  // non-admin actor etc.) and spend the single re-send credit.
+  const verified = verifyCurrentActorPassword(String(adminPassword));
+  if (state.resends >= 1) {
+    return {
+      ok: false,
+      reason: "resend-used",
+      message: "The one administrator re-send for this receipt was already used. The receipt stays with the recipient.",
+    };
+  }
+  consumeAdminResend(kind, rowId);
+  // Tamper-evident audit trail: WHO unlocked the re-send, for which receipt.
+  try {
+    audit.log(
+      verified.id, verified.username, "ADMIN_RESEND", "whatsapp", rowId,
+      `Administrator re-send authorized for a delivered ${kind === "donation" ? "donation" : "subscription"} receipt (row #${rowId})`,
+      ""
+    );
+  } catch { /* audit is best-effort; the resend counter is authoritative */ }
+  return { ok: true, isResend: true };
+}
 
 function withTransaction(fn: () => void) {
   const db = getDB();
@@ -216,7 +290,15 @@ async function runQueue(campaignId: number, delayMs = 3000) {
 const FAMILY_PHONE_SQL = `COALESCE(NULLIF(TRIM(f.whatsapp_phone), ''), NULLIF(TRIM(f.phone), ''))`;
 
 export const whatsapp = {
-  init: () => { ensureSchema(); clearLegacyWahaData(); },
+  init: () => {
+    ensureSchema();
+    clearLegacyWahaData();
+    // LATE DELIVERY: WhatsApp confirms delivery whenever the recipient's
+    // phone comes online — minutes or hours after we sent. Every
+    // confirmation is mapped back to its receipt row and flips the send-lock
+    // at that moment (the "only when actually delivered" privacy rule).
+    onDelivery((msgId) => markReceiptDeliveredByMsgId(msgId));
+  },
   status: async () => {
     ensureSchema();
     const internet = await checkInternet();
@@ -325,13 +407,18 @@ export const whatsapp = {
     saveMessage({ type: input.type || "MESSAGE", name: input.name, phone, text: input.text, status: "SENT", familyId: input.familyId, donationId: input.donationId, subscriptionId: input.subscriptionId, providerId: result.id });
     return { success: true, providerMessageId: result.id || "" };
   },
-  sendDonationReceipt: async (donationId: number) => {
+  sendDonationReceipt: async (donationId: number, opts: { adminPassword?: string } = {}) => {
     ensureSchema();
     const d = getDB().prepare(`SELECT d.*, c.name AS category_name FROM donations d LEFT JOIN donation_categories c ON c.id=d.category_id WHERE d.id=?`).get(donationId) as any;
     if (!d) {
       console.error(`[whatsapp] donation receipt requested for id=${donationId} but the record does not exist`);
       throw new Error("Donation record not found. Refresh the donations page and try again.");
     }
+    // PRIVACY GATE first: a receipt already DELIVERED to the donor is locked
+    // (one admin-authorized re-send ever). Send attempts that never delivered
+    // (offline / unpaired / not sent at entry time) stay open — send any time.
+    const gate = gateReceiptSend("donation", donationId, opts.adminPassword);
+    if (!gate.ok) throw new Error(gate.message);
     const phone = normalizePhone(String(d.donor_phone || ""));
     // 1. Generate and SAVE the A6 receipt in the app first — this works even
     //    when WhatsApp is not set up yet, so the record always has its PDF.
@@ -343,14 +430,20 @@ export const whatsapp = {
     const settingsRow = getDB().prepare("SELECT mahallu_name, currency_symbol FROM settings WHERE id=1").get() as any;
     const currency = settingsRow?.currency_symbol || "₹";
     const text = `Assalamu Alaikum ${d.donor_name},\n\nYour donation receipt is attached.\n\nReceipt: ${d.receipt_number}\nAmount: ${currency}${Number(d.amount || 0).toLocaleString("en-IN")}\nCategory: ${d.category_name || "Donation"}\nDate: ${fmtDdMmYyyy(String(d.donation_date || ""))}\n${settingsRow?.mahallu_name ? `\n${settingsRow.mahallu_name}` : ""}\n\nJazakallahu Khairan.`;
-    const result = await sendDocumentInternal({
+    const result = await sendReceiptWithLock({
+      kind: "donation", rowId: donationId,
       phone, text, pdf: receipt.buffer, fileName: `receipt-${fileNameSafe(receipt.receiptNumber || donationId)}.pdf`,
-      type: "DONATION_RECEIPT", name: d.donor_name, donationId,
-      markReceipt: { kind: "donation", id: donationId },
+      messageType: "DONATION_RECEIPT", name: d.donor_name, donationId,
     });
-    return { success: true, providerMessageId: result.id || "", receiptSaved: true, receiptNumber: receipt.receiptNumber };
+    return {
+      success: true, receiptSaved: true, receiptNumber: receipt.receiptNumber,
+      providerMessageId: result.msgId, delivered: result.delivered,
+      deliveredNote: result.delivered
+        ? "Delivered to the recipient — the receipt is now locked (one admin re-send remains available)."
+        : "Sent, but delivery is not confirmed yet (the phone may be offline). The receipt is NOT locked and can be sent again once you confirm it did not arrive.",
+    };
   },
-  sendSubscriptionReceipt: async (subscriptionId: number, opts: { soft?: boolean } = {}) => {
+  sendSubscriptionReceipt: async (subscriptionId: number, opts: { soft?: boolean; adminPassword?: string } = {}) => {
     ensureSchema();
     const soft = !!opts.soft;
     const s = getDB().prepare(
@@ -367,11 +460,27 @@ export const whatsapp = {
       if (soft) return { status: "skipped", error: "No payment recorded yet" };
       throw new Error("No payment recorded for this subscription yet. Record the payment first, then send the receipt.");
     }
+    // PRIVACY GATE: delivered receipts are locked; the ledger payment row
+    // owns the lock (the legacy subscription-mirror path has no lock — rows
+    // from before the ledger era are treated as always sendable).
+    const paymentId = (() => {
+      const r = getDB()
+        .prepare("SELECT id FROM subscription_payments WHERE subscription_id = ? AND period_start = ? AND status = 'Active' LIMIT 1")
+        .get(subscriptionId, s.period_start) as { id: number } | undefined;
+      return r ? Number(r.id) : null;
+    })();
+    if (paymentId) {
+      const gate = gateReceiptSend("subscription", paymentId, opts.adminPassword);
+      if (!gate.ok) {
+        if (soft) return { status: "already-delivered", error: gate.message, receiptSaved: true };
+        throw new Error(gate.message);
+      }
+    }
     // Always generate + store the A6 receipt (works without WhatsApp).
     let receipt: { buffer: Buffer; receiptNumber: string; paymentId: number | null };
     try {
       const r = await generateSubscriptionReceiptPdf(subscriptionId);
-      receipt = { buffer: r.buffer, receiptNumber: r.receiptNumber, paymentId: r.paymentId };
+      receipt = { buffer: r.buffer, receiptNumber: r.receiptNumber, paymentId: r.paymentId ?? paymentId };
     } catch (err: any) {
       if (soft) return { status: "failed", error: String(err?.message || err) };
       throw err;
@@ -379,10 +488,27 @@ export const whatsapp = {
     const phone = normalizePhone(String(s.family_phone || ""));
     const settingsRow = getDB().prepare("SELECT mahallu_name, currency_symbol FROM settings WHERE id=1").get() as any;
     const currency = settingsRow?.currency_symbol || "₹";
-    const paid = Number(s.amount_paid || 0);
-    const due = Math.max(0, Number(s.amount || 0) - paid);
+    // ---- The caption tells the money story: cash in, where it went
+    // (old arrears → this month → advance), and what is still due after it.
+    const ledger = receipt.paymentId
+      ? (getDB().prepare("SELECT amount, arrears_cleared, advance_added FROM subscription_payments WHERE id = ?").get(receipt.paymentId) as any)
+      : null;
+    const cash = Number(ledger?.amount ?? s.amount_paid ?? 0);
+    const arrearsCleared = Number(ledger?.arrears_cleared || 0);
+    const advanceAdded = Number(ledger?.advance_added || 0);
+    const monthPart = Math.max(0, Math.min(cash - arrearsCleared, Number(s.amount || 0)));
+    const allocLines: string[] = [];
+    if (arrearsCleared > 0) allocLines.push(`- ${currency}${arrearsCleared.toLocaleString("en-IN")} cleared previous months' balance`);
+    if (monthPart > 0) allocLines.push(`- ${currency}${monthPart.toLocaleString("en-IN")} for this month`);
+    if (advanceAdded > 0) allocLines.push(`- ${currency}${advanceAdded.toLocaleString("en-IN")} kept as advance for coming months`);
+    const balance = Math.max(0, Number(s.arrears || 0) + Math.max(0, Number(s.amount || 0) - Number(s.amount_paid || 0)) - Number(s.advance || 0));
+    const balanceLine = balance > 0
+      ? `Balance due: ${currency}${balance.toLocaleString("en-IN")}${Number(s.arrears || 0) > 0 ? ` (incl. ${currency}${Number(s.arrears).toLocaleString("en-IN")} from previous months)` : ""}`
+      : Number(s.advance || 0) > 0
+        ? `Fully paid — ${currency}${Number(s.advance).toLocaleString("en-IN")} advance will reduce next month's due.`
+        : "Fully paid.";
     const who = s.house_name || s.family_number || "Family";
-    const text = `Assalamu Alaikum,\n\nPayment received — thank you.\n\nReceipt: ${s.receipt_number || receipt.receiptNumber}\nFamily: ${who}${s.family_number ? ` (${s.family_number})` : ""}\nMonth: ${monthLabel(String(s.period_start || ""))}\nAmount: ${currency}${paid.toLocaleString("en-IN")}${due > 0 ? `\nBalance this month: ${currency}${due.toLocaleString("en-IN")}` : "\nThis month is fully paid."}\nDate: ${fmtDdMmYyyy(String(s.payment_date || s.period_start || ""))}\n\nThe receipt (PDF) is attached.\n${settingsRow?.mahallu_name ? `\n${settingsRow.mahallu_name}` : ""}\n\nJazakallahu Khairan.`;
+    const text = `Assalamu Alaikum,\n\nPayment received — thank you.\n\nReceipt: ${s.receipt_number || receipt.receiptNumber}\nFamily: ${who}${s.family_number ? ` (${s.family_number})` : ""}\nMonth: ${monthLabel(String(s.period_start || ""))}\nAmount received: ${currency}${cash.toLocaleString("en-IN")}${allocLines.length ? `\n${allocLines.join("\n")}` : ""}\n${balanceLine}\nDate: ${fmtDdMmYyyy(String(s.payment_date || s.period_start || ""))}\n\nThe receipt (PDF) is attached.\n${settingsRow?.mahallu_name ? `\n${settingsRow.mahallu_name}` : ""}\n\nJazakallahu Khairan.`;
     // Soft mode (auto-send after a payment is recorded): report instead of
     // throwing — the payment itself must never fail because of messaging.
     if (soft) {
@@ -390,32 +516,44 @@ export const whatsapp = {
       const snap = engineState();
       if (!snap.connected) return { status: "not-connected", error: "WhatsApp is not connected", receiptSaved: true, receiptNumber: receipt.receiptNumber };
       try {
-        const result = await sendDocumentInternal({
+        const result = await sendReceiptWithLock({
+          kind: "subscription", rowId: receipt.paymentId || 0,
           phone, text, pdf: receipt.buffer, fileName: `receipt-${fileNameSafe(receipt.receiptNumber || subscriptionId)}.pdf`,
-          type: "SUBSCRIPTION_RECEIPT", name: s.member_name || who, familyId: s.family_id,
-          markReceipt: receipt.paymentId ? { kind: "subscription", id: receipt.paymentId } : undefined,
+          messageType: "SUBSCRIPTION_RECEIPT", name: s.member_name || who, familyId: s.family_id,
         });
-        return { status: "sent", providerMessageId: result.id || "", receiptSaved: true, receiptNumber: receipt.receiptNumber };
+        return { status: result.delivered ? "delivered" : "sent", providerMessageId: result.msgId, receiptSaved: true, receiptNumber: receipt.receiptNumber };
       } catch (err: any) {
         return { status: "failed", error: String(err?.message || err), receiptSaved: true, receiptNumber: receipt.receiptNumber };
       }
     }
     if (!phone) throw new Error("No WhatsApp number saved for this family. Add the family's phone or WhatsApp number first.");
     await requireInternet();
-    const result = await sendDocumentInternal({
+    const result = await sendReceiptWithLock({
+      kind: "subscription", rowId: receipt.paymentId || 0,
       phone, text, pdf: receipt.buffer, fileName: `receipt-${fileNameSafe(receipt.receiptNumber || subscriptionId)}.pdf`,
-      type: "SUBSCRIPTION_RECEIPT", name: s.member_name || who, familyId: s.family_id,
-      markReceipt: receipt.paymentId ? { kind: "subscription", id: receipt.paymentId } : undefined,
+      messageType: "SUBSCRIPTION_RECEIPT", name: s.member_name || who, familyId: s.family_id,
     });
-    return { success: true, providerMessageId: result.id || "", receiptSaved: true, receiptNumber: receipt.receiptNumber };
+    return {
+      success: true, receiptSaved: true, receiptNumber: receipt.receiptNumber,
+      providerMessageId: result.msgId, delivered: result.delivered,
+      deliveredNote: result.delivered
+        ? "Delivered to the recipient — the receipt is now locked (one admin re-send remains available)."
+        : "Sent, but delivery is not confirmed yet (the phone may be offline). The receipt is NOT locked and can be sent again once you confirm it did not arrive.",
+    };
   },
   createSubscriptionCampaign: async () => {
     ensureSchema();
     const key = monthKey();
     const existing = getDB().prepare("SELECT id,status FROM whatsapp_campaigns WHERE campaign_type='SUBSCRIPTION_REMINDER' AND period_key=? AND status IN ('PENDING','RUNNING','COMPLETED','PAUSED') LIMIT 1").get(key) as any;
     if (existing) throw new Error("The bulk subscription reminder has already been started for this month.");
-    const rows = getDB().prepare(`SELECT f.id AS family_id, f.house_name, f.family_number, ${FAMILY_PHONE_SQL} AS whatsapp_phone, f.whatsapp_enabled, s.amount, s.amount_paid, s.period_start, s.period_end, s.status AS subscription_status FROM families f JOIN subscriptions s ON s.family_id=f.id WHERE f.status='Active' AND COALESCE(f.whatsapp_enabled,0)=1 AND ${FAMILY_PHONE_SQL} <> '' AND s.amount > s.amount_paid AND s.status IN ('Pending','Partial','Overdue') ORDER BY f.family_number`).all() as any[];
-    const eligible = rows.filter(r => normalizePhone(r.whatsapp_phone));
+    const rows = getDB().prepare(`SELECT f.id AS family_id, f.house_name, f.family_number, ${FAMILY_PHONE_SQL} AS whatsapp_phone, f.whatsapp_enabled, s.amount, s.amount_paid, s.arrears, s.advance, s.period_start, s.period_end, s.status AS subscription_status FROM families f JOIN subscriptions s ON s.family_id=f.id WHERE f.status='Active' AND COALESCE(f.whatsapp_enabled,0)=1 AND ${FAMILY_PHONE_SQL} <> '' AND s.status IN ('Pending','Partial','Overdue') ORDER BY f.family_number`).all() as any[];
+    // TRUE dues (arrears + uncovered month − advance, per family, clamped
+    // at 0) decide eligibility — a family that prepaid is NOT reminded.
+    const eligible = rows.filter(r => {
+      if (!normalizePhone(r.whatsapp_phone)) return false;
+      const due = Math.max(0, Number(r.arrears || 0) + Math.max(0, Number(r.amount || 0) - Number(r.amount_paid || 0)) - Number(r.advance || 0));
+      return due > 0;
+    });
     if (!eligible.length) throw new Error("No eligible family heads with contact numbers were found.");
     const db = getDB();
     const campaign = db.prepare("INSERT INTO whatsapp_campaigns (campaign_type,period_key,message_text,total_recipients) VALUES ('SUBSCRIPTION_REMINDER',?,?,?)").run(key, "", eligible.length);
@@ -425,8 +563,17 @@ export const whatsapp = {
     const mahallu = (db.prepare("SELECT mahallu_name FROM settings WHERE id=1").get() as any)?.mahallu_name || "";
     withTransaction(() => {
       for (const r of eligible) {
-        const due = Math.max(0, Number(r.amount || 0) - Number(r.amount_paid || 0));
-        const text = `Assalamu Alaikum,\n\n${r.house_name || r.family_number || "Family"} — your subscription for ${monthLabel(String(r.period_start || key))} is pending.\nAmount due: ${currency}${due.toLocaleString("en-IN")}\n\nPlease pay at your convenience.${mahallu ? `\n\n${mahallu}` : ""}`;
+        const rate = Number(r.amount || 0);
+        const arrears = Number(r.arrears || 0);
+        const advance = Number(r.advance || 0);
+        const monthOpen = Math.max(0, rate - Number(r.amount_paid || 0));
+        const due = Math.max(0, arrears + monthOpen - advance);
+        // The reminder states the TRUE dues and where they come from — a
+        // family missing several months sees the total and the old balance.
+        const dueNote = arrears > 0
+          ? `Amount due: ${currency}${due.toLocaleString("en-IN")} (${currency}${arrears.toLocaleString("en-IN")} from previous months + ${currency}${Math.max(0, due - arrears).toLocaleString("en-IN")} this month${advance > 0 ? `, less ${currency}${advance.toLocaleString("en-IN")} advance` : ""})`
+          : `Amount due: ${currency}${due.toLocaleString("en-IN")}`;
+        const text = `Assalamu Alaikum,\n\n${r.house_name || r.family_number || "Family"} — your subscription for ${monthLabel(String(r.period_start || key))} is pending.\n${dueNote}\n\nPlease pay at your convenience.${mahallu ? `\n\n${mahallu}` : ""}`;
         insert.run(campaignId, r.family_id, r.house_name || r.family_number || "Family Head", normalizePhone(r.whatsapp_phone), text);
       }
     });

@@ -36,7 +36,6 @@ const LEGACY_CERT = /^CERT-\d{4}-\d+$/;
  *  four-digit year in segment 2 (receipt) or 3 (certificate). */
 const INTERIM_RECEIPT = /^[A-Z]{1,5}\/\d{4}\/\d{2}\/\d{3,}$/;
 const INTERIM_CERT = /^[A-Z]{1,5}\/[A-Z]{1,3}\/\d{4}\/\d{2}\/\d{3,}$/;
-
 const isLegacyReceipt = (n: string) => LEGACY_RECEIPT.test(n) || INTERIM_RECEIPT.test(n);
 const isLegacyCert = (n: string) => LEGACY_CERT.test(n) || INTERIM_CERT.test(n);
 

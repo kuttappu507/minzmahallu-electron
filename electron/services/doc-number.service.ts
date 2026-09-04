@@ -17,7 +17,8 @@
  *   CODE    certificate type only: DT (death), MB (membership), RS
  *     (residence), MR (marriage), NOC (no-objection) — keeps certificate
  *     kinds in separate series. Receipts share ONE series (donations +
- *     subscription payments — the same money book), so they carry no code.
+ *     subscription payments — the same money book, per the mahallu's rule),
+ *     so they carry no code.
  *   yy/MM   the document's OWN date in IST — a backdated receipt is numbered
  *     inside its own month. The year prints as TWO digits (26 = 2026) to
  *     keep the number short; the month and the zero-padded sequence keep
@@ -152,8 +153,9 @@ function mahalluPrefix(): string {
 
 /** Next receipt number for a document dated `dateStr`. ONE series is shared
  *  by donations and subscription payments — both are money receipts from the
- *  same book — and the scan covers the legacy subscriptions mirror so the
- *  series can never produce a duplicate. */
+ *  same book (the mahallu's rule: "receipt number for donation and
+ *  subscription is same series") — and the scan covers the legacy
+ *  subscriptions mirror so the series can never produce a duplicate. */
 export function nextReceiptNumber(dateStr?: string | null): string {
   const { y, m } = yearMonthOf(dateStr);
   const prefix = mahalluPrefix();

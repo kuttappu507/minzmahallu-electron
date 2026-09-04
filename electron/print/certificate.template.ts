@@ -317,12 +317,19 @@ function enrichCertificate(cert: any): CertData {
 // ===== Shared CSS (Kerala mahallu certificate styling) =====
 function sharedCss(ml: boolean, landscape = false): string {
   const anekCss = getAnekMalayalamCss();
+  const pageW = landscape ? '297mm' : '210mm';
+  const pageH = landscape ? '210mm' : '297mm';
+  // Fixed height (not min-height) so a certificate can NEVER spill onto a
+  // second A4 page: overflow is clipped instead of paginated. The 0.3mm
+  // shave absorbs Chromium's page-height rounding (1122.5px vs 1123px at
+  // 96dpi) which otherwise emits a blank trailing page.
+  const boxH = landscape ? '209.7mm' : '296.7mm';
   return `${anekCss}
 @page{size:A4 ${landscape ? 'landscape' : 'portrait'};margin:0}
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{width:${landscape ? '297mm' : '210mm'};min-height:${landscape ? '210mm' : '297mm'};background:#fff}
+html,body{width:${pageW};height:${boxH};overflow:hidden;background:#fff}
 body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayalam Variable","Segoe UI",Arial,sans-serif;color:#1a2b22;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.cert{width:${landscape ? '297mm' : '210mm'};min-height:${landscape ? '210mm' : '297mm'};position:relative;padding:${landscape ? '10mm 14mm' : '14mm 16mm'};overflow:hidden}
+.cert{width:${pageW};height:${boxH};position:relative;padding:${landscape ? '9mm 13mm' : '13mm 15mm'};overflow:hidden}
 /* Double border frame */
 .frame-outer{position:absolute;inset:6mm;border:1.2mm solid #0e7c5b;border-radius:3mm;pointer-events:none}
 .frame-inner{position:absolute;inset:9mm;border:.25mm solid #9fcfbc;border-radius:2mm;pointer-events:none}
@@ -333,13 +340,15 @@ body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayala
 .corner.tr{right:7mm;top:7mm;transform:scaleX(-1)}
 .corner.bl{left:7mm;bottom:7mm;transform:scaleY(-1)}
 .corner.br{right:7mm;bottom:7mm;transform:scale(-1,-1)}
-/* Anti-forgery: verification code + QR box; reprints carry a bottom-left note */
-.verify-box{margin:6mm 2mm 0;padding:2.5mm 4mm;border:.35mm solid #9fcfbc;border-radius:1.5mm;background:#f2faf6;display:flex;align-items:center;gap:4mm;flex-wrap:wrap}
-.verify-qr{flex:none;border:.2mm solid #c9e0d4;border-radius:1.5mm;background:#fff;padding:1mm}
+/* Anti-forgery: verification code + QR box; reprints carry a bottom-left note.
+   Compact height — the box must share the single page with the fields above
+   it, especially on the LANDSCAPE death certificate where every mm counts. */
+.verify-box{margin:3.5mm 2mm 0;padding:2mm 3.5mm;border:.35mm solid #9fcfbc;border-radius:1.5mm;background:#f2faf6;display:flex;align-items:center;gap:3.5mm;flex-wrap:wrap}
+.verify-qr{flex:none;border:.2mm solid #c9e0d4;border-radius:1.5mm;background:#fff;padding:.8mm}
 .verify-copy{flex:1;min-width:0}
-.verify-label{font-size:7.5pt;letter-spacing:.8px;color:#5f7268;text-transform:uppercase}
-.verify-code{font-family:'Courier New',monospace;font-weight:700;font-size:10.5pt;letter-spacing:2px;color:#0e7c5b}
-.verify-hint{font-size:6.5pt;color:#8ba096;flex-basis:100%}
+.verify-label{font-size:7pt;letter-spacing:.8px;color:#5f7268;text-transform:uppercase}
+.verify-code{font-family:'Courier New',monospace;font-weight:700;font-size:9.5pt;letter-spacing:2px;color:#0e7c5b}
+.verify-hint{font-size:6pt;color:#8ba096;flex-basis:100%;line-height:1.3}
 .reprint-note{position:fixed;left:14mm;bottom:8mm;font-size:7.5pt;color:#7d8f86;letter-spacing:.4px;pointer-events:none;z-index:50}
 .reprint-note b{color:#a33a3a;font-weight:700}
 /* Header: 3-column grid (spacer | centered name block | reg-no stack).
@@ -350,10 +359,10 @@ body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayala
 .hdr-main{grid-column:2;text-align:center;min-width:0}
 .mahallu-name{font-size:16pt;font-weight:700;color:#0e7c5b;letter-spacing:.3px;line-height:1.25}
 .mahallu-addr{font-size:8.5pt;color:#5f7268;margin-top:1mm;line-height:1.3}
-.cert-title{font-size:18pt;font-weight:700;color:#1a2b22;letter-spacing:1px;text-transform:uppercase;text-align:center;margin:5mm 0 1mm;padding:2mm 0;border-top:.4mm solid #0e7c5b;border-bottom:.4mm solid #0e7c5b}
-.cert-subtitle{font-size:9pt;color:#5f7268;font-style:italic;text-align:center;margin-bottom:4mm}
+.cert-title{font-size:17pt;font-weight:700;color:#1a2b22;letter-spacing:1px;text-transform:uppercase;text-align:center;margin:4mm 0 1mm;padding:1.6mm 0;border-top:.4mm solid #0e7c5b;border-bottom:.4mm solid #0e7c5b}
+.cert-subtitle{font-size:8.5pt;color:#5f7268;font-style:italic;text-align:center;margin-bottom:3mm}
 /* Meta box (cert no, date) */
-.meta-row{display:flex;justify-content:space-between;margin-bottom:4mm;padding:2mm 4mm;background:#f0f7f3;border-radius:2mm;border:.2mm solid #c9e0d4}
+.meta-row{display:flex;justify-content:space-between;margin-bottom:3mm;padding:1.6mm 4mm;background:#f0f7f3;border-radius:2mm;border:.2mm solid #c9e0d4}
 .meta-row .item{font-size:9pt;color:#5f7268}
 .meta-row .item b{color:#1a2b22;font-weight:600}
 /* Detail fields */
@@ -385,9 +394,11 @@ body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayala
 .reg-stack{grid-column:3;justify-self:end;align-self:start;display:flex;flex-direction:column;gap:1.2mm;align-items:flex-end;text-align:left}
 .reg-box{border:.25mm solid #9fcfbc;border-radius:1mm;padding:.7mm 2.2mm;font-size:7.5pt;color:#5f7268;background:#f6faf8;max-width:40mm;line-height:1.35}
 .reg-box b{color:#1a2b22;font-weight:600}
-/* ===== Death certificate — our design, official SMF register texts/format ===== */
-.dc-recog{margin-top:1.8mm;font-size:8.5pt;line-height:1.55;font-style:italic;color:#5f7268}
-.dc-statement{font-size:10.5pt;line-height:1.7;margin:3mm 1mm 1mm;color:#2d3d35;text-align:justify}
+/* ===== Death certificate — our design, official SMF register texts/format.
+   Tightened vertical rhythm: the SMF field set + the verify box must ALWAYS
+   fit ONE A4 landscape sheet (209.7mm usable). ===== */
+.dc-recog{margin-top:1.4mm;font-size:8pt;line-height:1.4;font-style:italic;color:#5f7268}
+.dc-statement{font-size:10pt;line-height:1.55;margin:2mm 1mm 0;color:#2d3d35;text-align:justify}
 .dc-statement b{color:#0e7c5b}
 .dc-cols{display:grid;gap:0 9mm}
 .dc-cols.c3{grid-template-columns:1.1fr 1.1fr 1fr}
@@ -395,12 +406,15 @@ body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayala
 /* Gridded cells stack the label ABOVE the value so long labels
    (e.g. Corporation / Municipality / Panchayat) wrap without
    pushing the value out of alignment with sibling columns. */
-.dc-cols .field-row{flex-direction:column;align-items:flex-start;gap:.3mm;padding:1.3mm 0}
-.dc-cols .field-label{width:100%;flex:none;font-size:8pt;line-height:1.35;color:#8ba096}
+.dc-cols .field-row{flex-direction:column;align-items:flex-start;gap:.3mm;padding:1mm 0}
+.dc-cols .field-label{width:100%;flex:none;font-size:7.5pt;line-height:1.3;color:#8ba096}
 .dc-cols .field-value{width:100%}
 .dc .field-label{width:auto;flex:none}
-.dc .field-row{padding:1.6mm 0}
-.dc-sign{position:absolute;right:20mm;bottom:26mm;width:80mm;text-align:center}`;
+.dc .field-row{padding:1.2mm 0}
+.dc .field-value{font-size:9.5pt}
+.dc-sign{position:absolute;right:20mm;bottom:20mm;width:80mm;text-align:center}
+.dc-sign .sig-line{border-top:.3mm solid #5f7268;margin:10mm 6mm 1mm}
+.dc .fields{margin:1mm 0}`;
 }
 
 // Corner SVG ornament
@@ -702,7 +716,7 @@ export function buildCertificateHtml(cert: any, lang: 'en' | 'ml' = 'en', reprin
   const reprints = Math.max(0, reprintCount || c.reprint_count || 0);
   const verifyBox = c.verification_code ? `
   <div class="verify-box">
-    ${qrSvg ? `<img class="verify-qr" src="${qrSvg}" alt="QR" width="88" height="88"/>` : ''}
+    ${qrSvg ? `<img class="verify-qr" src="${qrSvg}" alt="QR" width="70" height="70"/>` : ''}
     <div class="verify-copy">
       <span class="verify-label">${ml ? 'പരിശോധനാ കോഡ്' : 'VERIFICATION CODE'}</span>
       <span class="verify-code">${esc(c.verification_code)}</span>

@@ -135,10 +135,10 @@ export function WhatsApp() {
     try {
       const c = await window.mms.whatsapp.createSubscriptionCampaign();
       const r = await window.mms.whatsapp.runCampaign(c.campaignId);
-      toast.success(tx(`Subscription reminder complete: ${r.sent} sent`, `സബ്സ്ക്രിപ്ഷൻ റിമൈൻഡർ പൂർത്തിയായി: ${r.sent} അയച്ചു`));
+      toast.success(tx(`Subscription reminder complete: ${r.sent} sent`, `വരിസംഖ്യ റിമൈൻഡർ പൂർത്തിയായി: ${r.sent} അയച്ചു`));
       await refreshLists();
     } catch (e: any) {
-      toast.error(e?.message || tx("Could not send subscription reminders", "സബ്സ്ക്രിപ്ഷൻ റിമൈൻഡറുകൾ അയയ്ക്കാനായില്ല"));
+      toast.error(e?.message || tx("Could not send subscription reminders", "വരിസംഖ്യ റിമൈൻഡറുകൾ അയയ്ക്കാനായില്ല"));
     } finally { busy.current = false; setLoading(false); }
   };
 
@@ -229,7 +229,7 @@ export function WhatsApp() {
           </div>
           <ul className="wa-checks">
             <li>✓ <span>{tx("Bulk messages go to the family head only", "ബൾക്ക് സന്ദേശങ്ങൾ കുടുംബനാഥന് മാത്രം")}</span></li>
-            <li>✓ <span>{tx("Subscription reminder: once per family per month", "സബ്സ്ക്രിപ്ഷൻ റിമൈൻഡർ: കുടുംബത്തിന് മാസത്തിൽ ഒരിക്കൽ")}</span></li>
+            <li>✓ <span>{tx("Subscription reminder: once per family per month", "വരിസംഖ്യ റിമൈൻഡർ: കുടുംബത്തിന് മാസത്തിൽ ഒരിക്കൽ")}</span></li>
             <li>✓ <span>{tx("Announcement: one campaign per day", "അറിയിപ്പ്: ദിവസത്തിൽ ഒരു ക്യാമ്പയിൻ")}</span></li>
             <li>✓ <span>{tx("5 messages per batch with a pause between batches", "5 സന്ദേശങ്ങൾ വീതം, ബാച്ചുകൾക്കിടയിൽ ഇടവേള")}</span></li>
             <li>✓ <span>{tx("Missing or invalid numbers are skipped and reported", "നമ്പർ ഇല്ലാത്തത് / തെറ്റായത് അയയ്ക്കില്ല")}</span></li>
@@ -242,7 +242,7 @@ export function WhatsApp() {
         <div className="card card-pad-4">
           <div className="ch-head">
             <div>
-              <div className="ch-title"><Clock3 size={15} className="wa-tit-ic" />{tx("Subscription reminder", "സബ്സ്ക്രിപ്ഷൻ റിമൈൻഡർ")}</div>
+              <div className="ch-title"><Clock3 size={15} className="wa-tit-ic" />{tx("Subscription reminder", "വരിസംഖ്യ റിമൈൻഡർ")}</div>
               <div className="ch-sub">{tx("Sends the pending amount to eligible family heads. Uses the family's WhatsApp number, or the family phone when no WhatsApp number is set. Limited to once per family each calendar month.", "യോഗ്യരായ കുടുംബനാഥന്മാർക്ക് ബാക്കി തുക അയയ്ക്കും. കുടുംബത്തിന്റെ വാട്ട്സ്ആപ്പ് നമ്പർ ഉപയോഗിക്കും; ഇല്ലെങ്കിൽ കുടുംബ ഫോൺ നമ്പർ. ഒരു കലണ്ടർ മാസത്തിൽ കുടുംബത്തിന് ഒരിക്കൽ മാത്രം.")}</div>
             </div>
           </div>
@@ -254,7 +254,7 @@ export function WhatsApp() {
             </div>
           )}
           <div className="wa-actions">
-            <Button onClick={sendSubscription} disabled={!canSend || loading}><Send className="h-4 w-4" />{tx("Send subscription reminders", "സബ്സ്ക്രിപ്ഷൻ റിമൈൻഡറുകൾ അയയ്ക്കുക")}</Button>
+            <Button onClick={sendSubscription} disabled={!canSend || loading}><Send className="h-4 w-4" />{tx("Send subscription reminders", "വരിസംഖ്യ റിമൈൻഡറുകൾ അയയ്ക്കുക")}</Button>
           </div>
         </div>
 
@@ -283,14 +283,14 @@ export function WhatsApp() {
           <div className="ch-head">
             <div>
               <div className="ch-title"><ReceiptText size={15} className="wa-tit-ic" />{tx("Campaign history", "ക്യാമ്പയിൻ ചരിത്രം")}</div>
-              <div className="ch-sub">{tx("Subscription reminders and announcements", "സബ്സ്ക്രിപ്ഷൻ റിമൈൻഡറുകളും അറിയിപ്പുകളും")}</div>
+              <div className="ch-sub">{tx("Subscription reminders and announcements", "വരിസംഖ്യ റിമൈൻഡറുകളും അറിയിപ്പുകളും")}</div>
             </div>
           </div>
           <div className="wa-list">
             {campaigns.length ? campaigns.map((c: any) => (
               <div key={c.id} className="wa-row">
                 <div className="wa-row-main">
-                  <b>{c.campaign_type === "SUBSCRIPTION_REMINDER" ? tx("Subscription reminder", "സബ്സ്ക്രിപ്ഷൻ റിമൈൻഡർ") : tx("Announcement", "അറിയിപ്പ്")}</b>
+                  <b>{c.campaign_type === "SUBSCRIPTION_REMINDER" ? tx("Subscription reminder", "വരിസംഖ്യ റിമൈൻഡർ") : tx("Announcement", "അറിയിപ്പ്")}</b>
                   <small>{formatDateTime(c.created_at)} · {c.total_recipients} {tx("recipients", "സ്വീകർത്താക്കൾ")} · {c.sent_count} {tx("sent", "അയച്ചു")}{c.failed_count ? ` · ${c.failed_count} ${tx("failed", "പരാജയം")}` : ""}</small>
                 </div>
                 <div className="wa-row-side">

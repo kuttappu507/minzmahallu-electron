@@ -72,7 +72,7 @@ export function buildAuditPackHtml(pack: PackData, lang: 'en' | 'ml' = 'en'): st
     opening: ml ? 'ആരംഭ ബാലൻസ്' : 'Opening Balance',
     closing: ml ? 'അവസാന ബാലൻസ്' : 'Closing Balance',
     donations: ml ? 'സംഭാവനകൾ' : 'Donations',
-    subscriptions: ml ? 'സബ്സ്ക്രിപ്ഷൻ' : 'Subscriptions',
+    subscriptions: ml ? 'വരിസംഖ്യ' : 'Subscriptions',
     manualIncome: ml ? 'മറ്റ് വരുമാനം' : 'Other Income',
     welfare: ml ? 'ക്ഷേമ വിതരണം' : 'Welfare Disbursed',
     salary: ml ? 'ശമ്പളം' : 'Salaries',

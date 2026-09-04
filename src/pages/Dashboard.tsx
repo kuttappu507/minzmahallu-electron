@@ -155,7 +155,7 @@ export function Dashboard() {
               <AlertCircle size={14} />
               <span>
                 {a.type === "committee_ending" && ml(`${a.count} committee ${a.count === 1 ? "term" : "terms"} ending soon`, `${a.count} കമ്മിറ്റി കാലാവധി അടുത്തു`)}
-                {a.type === "subscriptions_overdue" && ml(`${a.count} overdue subscription${a.count === 1 ? "" : "s"}`, `${a.count} കുടിശ്ശിക സബ്സ്ക്രിപ്ഷൻ`)}
+                {a.type === "subscriptions_overdue" && ml(`${a.count} overdue subscription${a.count === 1 ? "" : "s"}`, `${a.count} കുടിശ്ശിക വരിസംഖ്യ`)}
                 {a.type === "welfare_pending" && ml(`${a.count} welfare request${a.count === 1 ? "" : "s"} pending`, `${a.count} ക്ഷേമ അപേക്ഷ തീർപ്പാക്കാനുണ്ട്`)}
                 {a.type === "receipt_gaps" && ml(`${a.count} missing receipt number${a.count === 1 ? "" : "s"} — check Receipts`, `രസീത് ശ്രേണിയിൽ ${a.count} വിടവ് — പരിശോധിക്കുക`)}
               </span>

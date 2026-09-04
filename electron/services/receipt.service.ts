@@ -29,6 +29,11 @@ function electron(): typeof import("electron") {
 
 const FAMILY_PHONE_SQL = `COALESCE(NULLIF(TRIM(f.whatsapp_phone), ''), NULLIF(TRIM(f.phone), ''))`;
 
+/** Money-safe 2-decimal rounding (mirrors data.service's helper). */
+function round2(n: number): number {
+  return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+}
+
 let schemaReady = false;
 
 /** Idempotent receipt columns on both money tables. */
@@ -44,6 +49,13 @@ export function ensureReceiptSchema(): void {
     add(table, "receipt_generated_at", "TEXT");
     add(table, "receipt_sent_at", "TEXT");
     add(table, "verification_code", "TEXT");
+    // V037 send-lock columns (privacy): delivery timestamp, the one admin
+    // re-send counter, and the message-id for late delivery receipts. The
+    // `subscriptions` mirror gets the inert columns only — its live state is
+    // the current month's ledger row (see the list JOIN).
+    add(table, "receipt_delivered_at", "TEXT");
+    add(table, "receipt_resends", "INTEGER NOT NULL DEFAULT 0");
+    add(table, "whatsapp_msg_id", "TEXT");
   }
   schemaReady = true;
 }
@@ -170,9 +182,19 @@ async function subscriptionReceiptData(subscriptionId: number): Promise<ReceiptD
   if (!resolved) return null;
   const r = resolved.row;
   const ml = langPref() === "ml";
-  const amount = Number(r.amount || 0);
-  const paid = Number(r.amount_paid ?? amount ?? 0);
-  const balance = Math.max(0, Number(r.amount || 0) - paid);
+  // Account-level truth (rate + post-allocation arrears/advance) — the
+  // receipt states where the cash went and what is still due AFTER it.
+  const sub = getDB()
+    .prepare("SELECT amount, amount_paid, arrears, advance FROM subscriptions WHERE id = ?")
+    .get(subscriptionId) as { amount?: number; amount_paid?: number; arrears?: number; advance?: number } | undefined;
+  const rate = Number(sub?.amount ?? r.amount ?? 0);
+  const cash = resolved.source === "ledger" ? Number(r.amount || 0) : Number(r.amount_paid ?? 0);
+  const arrearsCleared = Number(r.arrears_cleared || 0);
+  const advanceAdded = Number(r.advance_added || 0);
+  const monthPart = Math.max(0, Math.min(round2(cash - arrearsCleared), rate));
+  const arrearsAfter = Number(sub?.arrears || 0);
+  const advanceAfter = Number(sub?.advance || 0);
+  const dueAfter = Math.max(0, round2(arrearsAfter + Math.max(0, rate - Number(sub?.amount_paid ?? 0)) - advanceAfter));
   // Blank legacy numbers are backfilled on first generation (never renumbered).
   const receiptNumber = ensureSubscriptionReceiptNumber(
     { table: resolved.source === "ledger" ? "subscription_payments" : "subscriptions", id: Number(r.id), receiptNumber: r.receipt_number },
@@ -183,6 +205,25 @@ async function subscriptionReceiptData(subscriptionId: number): Promise<ReceiptD
     r.verification_code
   );
   const dateStr = String(r.payment_date || r.period_start || "");
+  // ---- Receipt footnote: the money story on one line (or two short ones) ----
+  const inr = (n: number) => `\u20B9${n.toLocaleString("en-IN")}`;
+  const appliedBits: string[] = [];
+  if (arrearsCleared > 0) appliedBits.push(ml ? `${inr(arrearsCleared)} പഴയ മാസങ്ങൾ` : `${inr(arrearsCleared)} previous months`);
+  if (monthPart > 0) appliedBits.push(ml ? `${inr(monthPart)} ഈ മാസം` : `${inr(monthPart)} this month`);
+  if (advanceAdded > 0) appliedBits.push(ml ? `${inr(advanceAdded)} അഡ്വാൻസ്` : `${inr(advanceAdded)} advance`);
+  const appliedNote = appliedBits.length
+    ? (ml ? "തുക വിഭജനം: " : "Amount applied: ") + appliedBits.join(" · ")
+    : "";
+  const balanceNote = dueAfter > 0
+    ? (ml
+        ? `ബാക്കി: ${inr(dueAfter)}${arrearsAfter > 0 ? " (പഴയ മാസങ്ങൾ ഉൾപ്പെടെ)" : ""}`
+        : `Balance due: ${inr(dueAfter)}${arrearsAfter > 0 ? " (incl. previous months)" : ""}`)
+    : advanceAfter > 0
+      ? (ml
+          ? `പൂർണമായി അടച്ചു — ${inr(advanceAfter)} അഡ്വാൻസ് അടുത്ത മാസം കുറയ്ക്കും`
+          : `Fully paid — ${inr(advanceAfter)} advance reduces next month's due`)
+      : (ml ? "ഈ മാസത്തെ വരിസംഖ്യ പൂർണമായി അടയ്ക്കപ്പെട്ടു" : "This month's subscription is fully paid");
+  const footNote = appliedNote ? `${appliedNote}. ${balanceNote}` : balanceNote;
   return {
     kind: "SUBSCRIPTION",
     receiptNumber,
@@ -191,18 +232,16 @@ async function subscriptionReceiptData(subscriptionId: number): Promise<ReceiptD
     payerDetail: String(r.family_number ? `${r.house_name ? r.house_name + " · " : ""}${r.family_number}` : ""),
     line1Label: ml ? "മാസം" : "Month",
     line1Value: monthLabel(String(r.period_start || "")),
-    line2Label: ml ? "പ്രതിമാസ നിരക്ക്" : "Monthly due",
-    line2Value: `\u20B9${Number(r.amount || 0).toLocaleString("en-IN")}`,
-    amount: paid,
+    line2Label: ml ? "പ്രതിമാസ വരിസംഖ്യ" : "Monthly due",
+    line2Value: inr(rate),
+    amount: cash,
     paymentMethod: String(r.payment_method || ""),
     transactionRef: String(r.transaction_ref || ""),
     notes: String(r.remarks || ""),
     mahalluName: mahalluName(),
     verificationCode,
     qrSvg: await receiptQrSvg(receiptNumber, verificationCode, dateStr),
-    footNote: balance > 0
-      ? (ml ? `ഈ മാസത്തെ ബാക്കി: \u20B9${balance.toLocaleString("en-IN")}` : `Balance this month: \u20B9${balance.toLocaleString("en-IN")}`)
-      : (ml ? "ഈ മാസത്തെ സബ്സ്ക്രിപ്ഷൻ പൂർണമായി അടയ്ക്കപ്പെട്ടു" : "This month's subscription is fully paid"),
+    footNote,
   };
 }
 
@@ -253,14 +292,106 @@ export async function generateSubscriptionReceiptPdf(subscriptionId: number): Pr
   };
 }
 
-/** Record that the WhatsApp copy went out. */
-export function markReceiptSent(kind: "donation" | "subscription", id: number): void {
+// ---------------------------------------------------------------------------
+// WhatsApp send-lock (privacy, V037) — a receipt may leave the app ONCE.
+//
+//   · receipt_sent_at      the WhatsApp server ACCEPTED the message (a send
+//                          attempt that failed offline never sets this).
+//   · receipt_delivered_at the recipient's phone CONFIRMED receiving it
+//                          (WhatsApp delivery receipt). ONLY this locks the
+//                          button — "server took it" is not "they got it".
+//   · receipt_resends      how many of the ONE admin-authorized re-sends was
+//                          used (0 → available, 1 → exhausted, forever).
+//   · whatsapp_msg_id      maps a LATE delivery receipt back to this row.
+//
+// Rules (enforced in whatsapp.service.ts before any send):
+//   1. Not delivered yet → the send button stays open (a receipt the family
+//      never received can be sent at ANY time — one message per click).
+//   2. Delivered → locked, the UI says "Already sent to recipient".
+//   3. Delivered + administrator password → exactly ONE re-send, ever.
+// ---------------------------------------------------------------------------
+export interface ReceiptSendState {
+  sent: boolean;
+  sentAt: string | null;
+  delivered: boolean;
+  deliveredAt: string | null;
+  resends: number;
+  msgId: string | null;
+}
+
+function receiptRow(kind: "donation" | "subscription", id: number): any | null {
+  const table = kind === "donation" ? "donations" : "subscription_payments";
+  try {
+    return getDB()
+      .prepare(`SELECT receipt_sent_at, receipt_delivered_at, receipt_resends, whatsapp_msg_id FROM ${table} WHERE id = ?`)
+      .get(id) as any;
+  } catch {
+    return null;
+  }
+}
+
+/** Send-lock state of one receipt. `id` is the donation id, or the
+ *  subscription LEDGER payment id (the row that owns this month's receipt). */
+export function receiptSendState(kind: "donation" | "subscription", id: number): ReceiptSendState {
+  ensureReceiptSchema();
+  const r = receiptRow(kind, id);
+  return {
+    sent: !!r?.receipt_sent_at,
+    sentAt: r?.receipt_sent_at || null,
+    delivered: !!r?.receipt_delivered_at,
+    deliveredAt: r?.receipt_delivered_at || null,
+    resends: Number(r?.receipt_resends || 0),
+    msgId: r?.whatsapp_msg_id || null,
+  };
+}
+
+/** The WhatsApp server accepted the outgoing copy (message id kept for the
+ *  late delivery receipt). Delivery is NOT implied — markReceiptDelivered*()
+ *  alone flips the lock. */
+export function markReceiptAccepted(kind: "donation" | "subscription", id: number, msgId: string): void {
   ensureReceiptSchema();
   const table = kind === "donation" ? "donations" : "subscription_payments";
   try {
-    getDB().prepare(`UPDATE ${table} SET receipt_sent_at = datetime('now') WHERE id = ?`).run(id);
+    getDB().prepare(`UPDATE ${table} SET receipt_sent_at = datetime('now'), whatsapp_msg_id = ? WHERE id = ?`).run(msgId, id);
   } catch { /* best effort */ }
 }
+
+/** The recipient's phone confirmed the message — the lock moment. */
+export function markReceiptDelivered(kind: "donation" | "subscription", id: number): void {
+  ensureReceiptSchema();
+  const table = kind === "donation" ? "donations" : "subscription_payments";
+  try {
+    getDB().prepare(`UPDATE ${table} SET receipt_delivered_at = datetime('now') WHERE id = ?`).run(id);
+  } catch { /* best effort */ }
+}
+
+/** Late delivery (phone came online hours later): map the stored message id
+ *  back to whichever receipt row it belongs to. Called from the engine's
+ *  delivery listener — must never throw. */
+export function markReceiptDeliveredByMsgId(msgId: string): void {
+  if (!msgId) return;
+  ensureReceiptSchema();
+  for (const table of ["donations", "subscription_payments"]) {
+    try {
+      getDB()
+        .prepare(`UPDATE ${table} SET receipt_delivered_at = datetime('now') WHERE whatsapp_msg_id = ? AND receipt_delivered_at IS NULL`)
+        .run(msgId);
+    } catch { /* best effort */ }
+  }
+}
+
+/** Spend the ONE admin-authorized re-send. Returns the new count (1). */
+export function consumeAdminResend(kind: "donation" | "subscription", id: number): number {
+  ensureReceiptSchema();
+  const table = kind === "donation" ? "donations" : "subscription_payments";
+  const r = receiptRow(kind, id);
+  if (Number(r?.receipt_resends || 0) >= 1) {
+    throw new Error("The one administrator re-send for this receipt was already used. The receipt stays with the recipient.");
+  }
+  getDB().prepare(`UPDATE ${table} SET receipt_resends = 1 WHERE id = ?`).run(id);
+  return 1;
+}
+
 
 // ---------------------------------------------------------------------------
 // IPC-shaped helpers (no dialogs — safe for automated checks)
