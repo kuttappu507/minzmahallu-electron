@@ -505,7 +505,7 @@
   .stat::before { content: ""; position: absolute; left: 17px; right: 17px; top: 0; height: 3px; border-radius: 0 0 5px 5px; background: linear-gradient(90deg, var(--sc, var(--em)), transparent); opacity: 0.9; }
   .stat:hover { transform: translateY(-3px); border-color: var(--sl); box-shadow: var(--sh); }
   .stat .slab { font: 600 10px Poppins; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fnt); margin-bottom: 6px; position: relative; z-index: 1; }
-  .stat .val { font: 700 31px/1.06 Poppins; letter-spacing: -0.02em; color: color-mix(in srgb, var(--st, var(--tx)) 84%, var(--tx)); font-variant-numeric: tabular-nums; margin-bottom: auto; padding-top: 4px; position: relative; z-index: 1; }
+  .stat .val { font: 700 clamp(34px, 1.4vw + 25px, 40px)/1.02 Poppins; letter-spacing: -0.02em; color: color-mix(in srgb, var(--st, var(--tx)) 84%, var(--tx)); font-variant-numeric: tabular-nums; text-align: center; margin: auto 0; position: relative; z-index: 1; }
   .stat .srow { display: flex; justify-content: space-between; align-items: center; margin-top: 9px; position: relative; z-index: 1; }
   .stat .sic { width: 34px; height: 34px; border-radius: 10px; background: var(--sb); color: var(--st); border: 1.5px solid var(--sl); display: grid; place-items: center; transition: 0.16s; }
   .stat:hover .sic { background: var(--sc); color: #fff; transform: scale(1.08) rotate(-5deg); }
