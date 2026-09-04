@@ -10,6 +10,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { getDB } from "../db/connection.js";
 import { buildCertificateHtml } from "../print/certificate.template.js";
+import { getPreviewScreenCss } from "../print/utils.js";
 
 const QR_SVG = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==';
 
@@ -128,4 +129,33 @@ describe("every certificate fits ONE A4 page (no spill onto a second sheet)", ()
       expect(html).toMatch(/\.cert\{[^}]*height:(209\.7|296\.7)mm/);
     });
   }
+});
+
+describe("preview popup styles come from the separate stylesheet (no inline <style> in components)", () => {
+  const base = {
+    certificate_number: "MMJM/MB/26/09/009", type: "Membership",
+    issued_to: "Preview Test", issued_date: "2026-09-04", issued_by: 1,
+    status: "Issued", notes: "", verification_code: "AB2C-3D4E-F6GH", reprint_count: 0,
+  };
+
+  it("getPreviewScreenCss() resolves the resources/templates stylesheet", () => {
+    const css = getPreviewScreenCss();
+    expect(css.length).toBeGreaterThan(100);
+    // The on-screen rules the preview popup depends on.
+    expect(css).toContain("zoom: 1.35");
+    expect(css).toContain("@media print");
+  });
+
+  it("embeds the preview stylesheet when extraHeadCss is passed (preview popup)", () => {
+    const html = buildCertificateHtml(base, "ml", 0, undefined, QR_SVG, getPreviewScreenCss());
+    expect(html).toContain('<style data-src="templates/preview-screen.css">');
+    expect(html).toContain("zoom: 1.35");
+    expect(html).toContain("@media print");
+  });
+
+  it("PDF path (no extraHeadCss) stays free of preview styling", () => {
+    const html = buildCertificateHtml(base, "en", 0, undefined, QR_SVG);
+    expect(html).not.toContain("templates/preview-screen.css");
+    expect(html).not.toContain("zoom: 1.35");
+  });
 });

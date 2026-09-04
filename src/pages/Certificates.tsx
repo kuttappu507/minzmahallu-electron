@@ -362,16 +362,11 @@ export function Certificates() {
                 if (res?.success && res.html) {
                   const w = window.open();
                   if (w) {
+                    // The on-screen preview styling (zoom, page backdrop, print
+                    // reset) ships INSIDE this HTML from the separate stylesheet
+                    // resources/templates/preview-screen.css — no inline <style>
+                    // is injected here.
                     w.document.write(res.html);
-                    // Preview-only styling: enlarge the on-screen text (the A4
-                    // template's print-sized pt values look tiny in a browser
-                    // window) without touching the PDF output. Printing from
-                    // the preview window still uses the exact 1:1 page size.
-                    w.document.write(`<style>
-                      html,body{background:#e7ebe8 !important;width:auto !important;margin:0 !important;padding:14px 0 !important;display:flex;justify-content:center}
-                      body>.cert{zoom:1.35;box-shadow:0 10px 34px rgba(15,40,30,.22);background:#fff}
-                      @media print{html,body{background:#fff !important;padding:0 !important;display:block}body>.cert{zoom:1 !important;box-shadow:none !important}}
-                    </style>`);
                     w.document.close();
                   }
                 }

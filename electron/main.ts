@@ -14,6 +14,7 @@ import { createBackup, verifyBackup, extractVerifiedBackup, listBackups } from "
 import { buildTokenSheetHtml } from "./print/token.template.js";
 import { buildCollectionSheetHtml } from "./print/collection-sheet.template.js";
 import { buildCertificateHtml } from "./print/certificate.template.js";
+import { getPreviewScreenCss } from "./print/utils.js";
 import { qrSvgDataUrl } from "./services/qr-code.js";
 import { certificateQrVerifyMessage } from "./services/qr-signing.js";
 import { buildAccountStatementHtml } from "./print/account-statement.template.js";
@@ -231,7 +232,9 @@ app.whenReady().then(() => {
       if (!cert) return { success: false, error: "Certificate not found" };
       const lang = await mainWindow!.webContents.executeJavaScript("document.documentElement.classList.contains('lang-ml') ? 'ml' : 'en'");
       const qrSvg = await qrSvgDataUrl(buildQrPayloadFor(cert));
-      const html = buildCertificateHtml(cert, lang, 0, undefined, qrSvg);
+      // On-screen preview styles come from the separate stylesheet
+      // (resources/templates/preview-screen.css) — no inline <style> in the UI.
+      const html = buildCertificateHtml(cert, lang, 0, undefined, qrSvg, getPreviewScreenCss());
       return { success: true, html };
     } catch (err: any) { return { success: false, error: err.message }; }
   });

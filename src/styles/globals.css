@@ -52,6 +52,21 @@
 /* Anek Malayalam (variable) — bundled locally. Three unicode-range subsets
    (Malayalam glyphs + Latin), variable weight 100–800, so Malayalam text in
    lang-ml mode renders in Anek Malayalam while Latin stays Poppins. */
+/* Poppins gains a Malayalam-subset face backed by the Anek file: elements
+   styled with bare `font: … Poppins` shorthands (dialogs, detail grids,
+   preview panes, tiles — 130+ rules) previously fell back to the OS Malayalam
+   font (Nirmala UI on Windows) for Malayalam glyphs. With this composite face
+   those glyphs render in Anek Malayalam everywhere, while Latin/digits keep
+   the real Poppins faces. Elements that already list "Anek Malayalam
+   Variable" as a fallback are unaffected (same glyph source either way). */
+@font-face {
+  font-family: Poppins;
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url("../assets/fonts/anek-malayalam-malayalam-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0307, U+0323, U+0951-0952, U+0964-0965, U+0D00-0D7F, U+1CDA, U+1CF2, U+200C-200D, U+20B9, U+25CC, U+A830-A832;
+}
 @font-face {
   font-family: "Anek Malayalam Variable";
   font-style: normal;
@@ -244,6 +259,13 @@
   .modal::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 2px; border: none; }
   .modal::-webkit-scrollbar-track { background: transparent; }
 
+  /* Sidebar nav scrollbar — 1/3 the standard thickness (3px vs 8px), in BOTH
+     the expanded and collapsed states (per the mahallu's request). */
+  .navscroll::-webkit-scrollbar { width: 3px; height: 3px; }
+  .navscroll::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 3px; border: none; }
+  .navscroll::-webkit-scrollbar-thumb:hover { background: var(--fnt); }
+  .navscroll::-webkit-scrollbar-track { background: transparent; }
+
   ::selection { background: var(--selbg); color: var(--tx); }
 
   *:focus-visible {
@@ -280,7 +302,7 @@
   }
   .sidebar.min { width: 80px; }
 
-  .navscroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 10px 12px 10px; scrollbar-width: thin; scrollbar-color: var(--line2) transparent; }
+  .navscroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 10px 12px 10px; /* scrollbar-width deliberately NOT set: the standard property makes Chromium ignore the 3px ::-webkit-scrollbar rules below */ }
   .navsec { font: 700 9.5px Poppins; letter-spacing: 0.2em; text-transform: uppercase; color: var(--fnt); padding: 18px 14px 8px; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
   .navsec::after { content: ""; flex: 1; height: 1px; background: var(--line); }
   .sidebar.min .navsec { padding: 12px 0 5px; color: transparent; }

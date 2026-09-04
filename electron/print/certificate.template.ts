@@ -694,7 +694,7 @@ function buildNocCert(c: CertData, ml: boolean): string {
 </main>`;
 }
 
-export function buildCertificateHtml(cert: any, lang: 'en' | 'ml' = 'en', reprintCount = 0, reprintedAt?: string, qrSvg?: string): string {
+export function buildCertificateHtml(cert: any, lang: 'en' | 'ml' = 'en', reprintCount = 0, reprintedAt?: string, qrSvg?: string, extraHeadCss?: string): string {
   const ml = lang === 'ml';
   const c = enrichCertificate(cert);
   // The official SMF death certificate is A4 LANDSCAPE; all other
@@ -727,5 +727,8 @@ export function buildCertificateHtml(cert: any, lang: 'en' | 'ml' = 'en', reprin
   const reprintNote = reprints > 0
     ? `<div class="reprint-note">${ml ? 'പുനഃമുദ്രണം' : 'Reprinted on'} <b>${esc(reprintedAt || istDateTimeDm(new Date()))}</b></div>`
     : '';
-  return `<!doctype html><html lang="${ml ? 'ml' : 'en'}"><head><meta charset="utf-8"><title>${esc(c.type)} Certificate</title><style>${css}</style></head><body>${body}${reprintNote}</body></html>`;
+  const previewCss = (extraHeadCss || '').trim()
+    ? `<style data-src="templates/preview-screen.css">${extraHeadCss}</style>`
+    : '';
+  return `<!doctype html><html lang="${ml ? 'ml' : 'en'}"><head><meta charset="utf-8"><title>${esc(c.type)} Certificate</title><style>${css}</style>${previewCss}</head><body>${body}${reprintNote}</body></html>`;
 }
