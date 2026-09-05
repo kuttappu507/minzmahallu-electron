@@ -70,6 +70,8 @@ function ensureRuntimeSchema(database: DB) {
     // QR anti-forgery — device fingerprint + HMAC signing key bound into QR payloads
     ["settings","device_fingerprint","TEXT"],
     ["settings","qr_signing_key","TEXT"],
+    // Backup mirror — second copy of every .mmbak (USB / other disk / Drive folder)
+    ["settings","backup_mirror_dir","TEXT"],
     // Receipt anti-forgery — verification codes on money receipts (V035).
     // subscriptions is the legacy mirror that can still back a receipt when
     // an account's payment predates the ledger, so it carries codes too.

@@ -1853,7 +1853,7 @@ export const settings = {
         financial_year_start = ?, currency_symbol = ?, subscription_monthly_amount = ?, theme = ?, language = ?,
         auto_backup = ?, backup_interval_hours = ?, receipt_prefix = ?,
         affiliation_number = ?, committee_term_start = ?, committee_term_end = ?,
-        wakf_reg_no = ?, society_reg_no = ?,
+        wakf_reg_no = ?, society_reg_no = ?, backup_mirror_dir = ?,
         village = ?, panchayath = ?, taluk = ?, district = ?, pincode = ?, state = ?,
         updated_at = datetime('now')
        WHERE id = 1`,
@@ -1867,6 +1867,7 @@ export const settings = {
         merged.affiliationNumber ?? merged.affiliation_number ?? "", merged.committeeTermStart ?? merged.committee_term_start ?? "",
         merged.committeeTermEnd ?? merged.committee_term_end ?? "",
         merged.wakfRegNo ?? merged.wakf_reg_no ?? "", merged.societyRegNo ?? merged.society_reg_no ?? "",
+        String(merged.backupMirrorDir ?? merged.backup_mirror_dir ?? ""),
         merged.village ?? "", merged.panchayath ?? "", merged.taluk ?? "", merged.district ?? "",
         merged.pincode ?? "", merged.state ?? ""
       ]

@@ -10,7 +10,7 @@ import * as data from "./services/data.service.js";
 import { todayIST } from "./services/data.service.js";
 import { istDateTimeDm } from "./services/ist-date.js";
 import { closeDB, getDB } from "./db/connection.js";
-import { createBackup, verifyBackup, extractVerifiedBackup, listBackups } from "./services/backup.service.js";
+import { createBackup, verifyBackup, extractVerifiedBackup, listBackups, mirrorBackup } from "./services/backup.service.js";
 import { buildTokenSheetHtml } from "./print/token.template.js";
 import { buildCollectionSheetHtml } from "./print/collection-sheet.template.js";
 import { buildCertificateHtml } from "./print/certificate.template.js";
@@ -29,6 +29,30 @@ import XLSX from "xlsx";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let mainWindow: BrowserWindow | null = null;
 const session = { user: null as null | { id: number; username: string; fullName: string; role: string } };
+
+// ---------------------------------------------------------------------------
+// Data folder: short "mms" directory inside the OS app-data area (hidden from
+// casual browsing on Windows). Must run BEFORE anything touches
+// app.getPath("userData") — DB, WhatsApp session, backups and settings all
+// resolve through it. Existing test installs are migrated by folder rename,
+// so their database, backups and WhatsApp pairing survive the change.
+// ---------------------------------------------------------------------------
+const DATA_DIR_NAME = "mms";
+try {
+  const base = app.getPath("appData");
+  const desired = path.join(base, DATA_DIR_NAME);
+  const legacyNames = ["Minz Mahallu Management System", "minz-mahallu-management"];
+  for (const legacyName of legacyNames) {
+    const legacy = path.join(base, legacyName);
+    if (!fs.existsSync(desired) && fs.existsSync(legacy)) {
+      fs.renameSync(legacy, desired);
+      console.log(`[paths] Migrated data folder: "${legacyName}" -> "${DATA_DIR_NAME}"`);
+    }
+  }
+  app.setPath("userData", desired);
+} catch (e: any) {
+  console.warn("[paths] Could not set short data folder (staying on default):", e?.message || e);
+}
 
 process.on("uncaughtException", (err) => {
   console.error("[FATAL] Uncaught exception:", err);
@@ -423,7 +447,31 @@ app.whenReady().then(() => {
       });
       if (result.canceled || !result.filePath) return { success: false, error: "cancelled" };
       const meta = await createBackup(result.filePath);
+      // Mirror to the configured second location (best-effort — a missing USB
+      // drive or unreachable folder must never fail the backup itself).
+      try {
+        const s: any = data.settings.load();
+        const mirrorDir = String(s?.backup_mirror_dir || "").trim();
+        if (mirrorDir) {
+          const r = mirrorBackup(result.filePath, mirrorDir);
+          if (r.ok) console.log(`[backup] Mirrored to: ${r.path}`);
+          else console.warn("[backup] Mirror failed:", r.error);
+        }
+      } catch (mirrorErr: any) { console.warn("[backup] Mirror failed:", mirrorErr?.message || mirrorErr); }
       return { success: true, path: result.filePath, size: meta.size, sha256: meta.sha256 };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+  ipcMain.handle("backup:chooseMirrorDir", async () => {
+    if (!session.user) return { success: false, error: "Authentication required" };
+    try {
+      const result = await dialog.showOpenDialog(mainWindow!, {
+        title: "Choose Backup Mirror Folder",
+        properties: ["openDirectory"],
+      });
+      if (result.canceled || !result.filePaths?.length) return { success: false, cancelled: true };
+      return { success: true, path: result.filePaths[0] };
     } catch (err: any) {
       return { success: false, error: err.message };
     }
@@ -544,6 +592,13 @@ app.whenReady().then(() => {
       const filePath = path.join(userData, name);
       await createBackup(filePath);
       console.log(`[auto-backup] Created: ${name}`);
+      // Mirror the auto-backup to the configured second location (best-effort).
+      const mirrorDir = String((settings as any)?.backup_mirror_dir || "").trim();
+      if (mirrorDir) {
+        const r = mirrorBackup(filePath, mirrorDir);
+        if (r.ok) console.log(`[auto-backup] Mirrored to: ${r.path}`);
+        else console.warn("[auto-backup] Mirror failed:", r.error);
+      }
     } catch (e) {
       console.warn("[auto-backup] Failed:", e);
     }

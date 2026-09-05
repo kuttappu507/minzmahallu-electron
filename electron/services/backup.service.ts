@@ -83,3 +83,42 @@ export function listBackups(userData: string) {
     return { name: file, path: full, size: stat.size, time: stat.mtime.toISOString(), valid };
   }).sort((a,b)=>b.time.localeCompare(a.time));
 }
+
+/**
+ * Copy a finished .mmbak to a SECOND location (mirror folder) so data survives
+ * even if the app-data folder/profile is wiped. Best-effort and non-throwing:
+ * a missing USB drive must never break the backup flow itself. The copy is
+ * byte-verified, and only the newest `keep` backups are retained in the mirror
+ * (pruning keeps the folder from growing forever).
+ */
+export function mirrorBackup(sourcePath: string, mirrorDir: string, keep = 10): { ok: boolean; path?: string; error?: string } {
+  try {
+    if (!mirrorDir || !mirrorDir.trim()) return { ok: false, error: "no mirror folder configured" };
+    if (!fs.existsSync(sourcePath)) return { ok: false, error: "source backup missing" };
+    fs.mkdirSync(mirrorDir, { recursive: true });
+    const dest = path.join(mirrorDir, path.basename(sourcePath));
+    fs.copyFileSync(sourcePath, dest);
+    if (sha256(dest) !== sha256(sourcePath)) {
+      try { fs.rmSync(dest, { force: true }); } catch {}
+      return { ok: false, error: "mirror copy failed verification" };
+    }
+    // Prune: keep the newest `keep` backups. Ordering prefers the ISO
+    // timestamp embedded in the filename (all MMS backups carry one); files
+    // without a stamp fall back to mtime. Sorting by mtime alone is unstable
+    // when several backups are mirrored within the same second.
+    const stamp = (name: string): string | null => {
+      const m = /(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})/.exec(name);
+      return m ? m[1] : null;
+    };
+    const files = fs.readdirSync(mirrorDir).filter(f => f.endsWith(".mmbak")).map(name => {
+      const full = path.join(mirrorDir, name);
+      const key = stamp(name) ?? new Date(fs.statSync(full).mtimeMs).toISOString().slice(0, 19).replace("T", "-").replace(/:/g, "-");
+      return { full, key };
+    });
+    files.sort((a, b) => b.key.localeCompare(a.key));
+    for (const oldFile of files.slice(keep)) { try { fs.rmSync(oldFile.full, { force: true }); } catch {} }
+    return { ok: true, path: dest };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || String(e) };
+  }
+}
