@@ -2031,11 +2031,59 @@ export const tokens = {
     );
     return { id };
   },
-  updateEvent: (id: number, data: any) =>
-    run(
+  updateEvent: (id: number, data: any) => {
+    const existing = one<any>("SELECT event_date FROM token_events WHERE id = ?", [id]);
+    if (!existing) throw new Error("Token event not found");
+    const today = todayIST();
+    // A past event is a historical record, so its date can never be moved
+    // into the "today or future" (deletable) zone — that would be an escape
+    // route around removeEvent's date lock. Past-to-past corrections stay
+    // allowed, and future events can be edited or postponed freely. The DB
+    // trigger trg_token_events_block_date_escape enforces the same rule.
+    if ((existing.event_date || "") < today && String(data.eventDate || "") >= today) {
+      throw new Error(
+        existing.event_date
+          ? "This event's date has already passed, so its date can no longer be moved to today or a future date"
+          : "This event has no valid date set; enter a past date to correct the record"
+      );
+    }
+    return run(
       `UPDATE token_events SET event_name = ?, event_type = ?, event_date = ?, event_time = ?, venue = ?, description = ? WHERE id = ?`,
       [data.eventName, data.eventType || "general", data.eventDate, data.eventTime || "", data.venue || "", data.description || "", id]
-    ),
+    );
+  },
+  // ===== Delete event — ONLY while its date has not yet passed =====
+  // Once the event date is over the event and its tokens are history: this
+  // method refuses, the security-ipc layer refuses first with the same
+  // message, and the DB triggers (see token-guard.ts) block even an
+  // external editor. Deletion is a secure action: reason required, audit
+  // row written in the SAME transaction as the cascade delete.
+  removeEvent: (id: number, reason: string, actor: { id: number; username: string }) => {
+    const db = getDB();
+    const ev = one<any>("SELECT id, event_name, event_date FROM token_events WHERE id = ?", [id]);
+    if (!ev) throw new Error("Token event not found");
+    const today = todayIST();
+    if (!ev.event_date || ev.event_date < today) {
+      throw new Error("This event's date has already passed — its records are locked and cannot be deleted");
+    }
+    if (!String(reason || "").trim()) throw new Error("A deletion reason is required");
+    const tokenCount = scalar<number>("SELECT COUNT(*) AS v FROM token_assignments WHERE event_id = ?", [id]);
+    db.transaction(() => {
+      // Delete the tokens explicitly BEFORE the event row: the FK ON DELETE
+      // CASCADE would also do it (foreign_keys is re-asserted ON by getDB),
+      // but an explicit delete keeps this audited flow correct under any
+      // pragma state. The event's date is today-or-future, so the
+      // past-event triggers allow both deletes through.
+      db.prepare("DELETE FROM token_assignments WHERE event_id = ?").run(id);
+      db.prepare("DELETE FROM token_events WHERE id = ?").run(id);
+      audit.log(
+        actor.id, actor.username, "DELETE", "token_events", id,
+        `Token event '${ev.event_name}' deleted (with ${tokenCount} token${tokenCount === 1 ? "" : "s"}): ${String(reason).trim()}`,
+        String(reason).trim()
+      );
+    })();
+    return { success: true, deletedTokens: tokenCount };
+  },
 
   // ===== Token listing =====
   list: (filter: { eventId?: number; search?: string; status?: string } = {}) => {

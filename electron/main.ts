@@ -632,13 +632,12 @@ app.whenReady().then(() => {
   ipcMain.handle("tokens:getEvent", (_e, id) => data.tokens.getEvent(id));
   ipcMain.handle("tokens:createEvent", (_e, d) => data.tokens.createEvent(d));
   ipcMain.handle("tokens:updateEvent", (_e, id, d) => data.tokens.updateEvent(id, d));
-  ipcMain.handle("tokens:removeEvent", (_e, id: number) => { getDB().prepare("DELETE FROM token_events WHERE id = ?").run(id); return { success: true }; });
-  // NOTE: security-ipc.ts overrides tokens:removeEvent with a guard that throws
-  // "Token events cannot be permanently deleted after creation." Because
-  // registerSecurityIpc() runs AFTER this registration and uses ipcMain.removeHandler()
-  // first, the security version wins and the hard DELETE above is intentionally
-  // unreachable. We keep the registration here so that if security-ipc is ever
-  // disabled, the operation fails closed (no silent hard delete).
+  ipcMain.handle("tokens:removeEvent", () => { throw new Error("Token events can only be deleted through the secured IPC layer"); });
+  // Fail-closed fallback: registerSecurityIpc() runs AFTER this registration
+  // and re-registers the channel with the real date-guarded flow
+  // (Administrator + reason + data.tokens.removeEvent, backed by the DB
+  // triggers in token-guard.ts). If the security layer were ever disabled,
+  // this handler refuses instead of performing an unguarded hard delete.
   ipcMain.handle("tokens:list", (_e, filter) => data.tokens.list(filter || {}));
   ipcMain.handle("tokens:checkExisting", (_e, eventId) => Array.from(data.tokens.checkExisting(eventId)));
   ipcMain.handle("tokens:generate", (_e, eventId, familyIds) => data.tokens.generate(eventId, familyIds, session.user?.id ?? 1));

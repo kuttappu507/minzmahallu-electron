@@ -6,6 +6,7 @@ import crypto from "node:crypto";
 import { app, dialog } from "electron";
 import { fileURLToPath } from "node:url";
 import { computeDeviceFingerprint } from "../services/device-fingerprint.js";
+import { installTokenDateGuard } from "./token-guard.js";
 import { renumberDemoDocuments, provisionDemoReceiptVerificationCodes, provisionCertificateVerificationCodes } from "../services/demo-renumber.service.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -172,6 +173,10 @@ function ensureRuntimeSchema(database: DB) {
     addColumn(database, "token_assignments", "replacement_for", "INTEGER");
     addColumn(database, "token_assignments", "created_at", "TEXT NOT NULL DEFAULT (datetime('now'))");
   }
+  // Date-based deletion protection: once an event's date has passed, the
+  // event and its tokens are history and cannot be deleted (DB triggers
+  // enforce it even against external editors — see token-guard.ts).
+  installTokenDateGuard(database);
 
   database.exec(`
     CREATE TABLE IF NOT EXISTS record_history (id INTEGER PRIMARY KEY AUTOINCREMENT, entity_type TEXT NOT NULL, entity_id INTEGER NOT NULL, action TEXT NOT NULL, user_id INTEGER, username TEXT, changed_at TEXT NOT NULL DEFAULT (datetime('now')), summary TEXT NOT NULL, changes_json TEXT, reason TEXT, FOREIGN KEY(user_id) REFERENCES users(id));
@@ -325,13 +330,21 @@ export function getDB(): DB {
   if (db) return db;
   const p = dbPath();
   try {
-    db = new Database(p); db.pragma("journal_mode = WAL"); db.pragma("foreign_keys = ON"); initializeSchema(db); db = recoverEmptyDatabase(db); return db!;
+    db = new Database(p); db.pragma("journal_mode = WAL"); db.pragma("foreign_keys = ON"); initializeSchema(db);
+    // schema.sql / seed.sql and several migrations toggle PRAGMA foreign_keys
+    // for their own DDL purposes and the LAST one to run (seed.sql on fresh
+    // databases, V024/V025 on older ones) leaves it OFF. Referential integrity
+    // — including the token_events → token_assignments ON DELETE CASCADE —
+    // must hold for the live connection, so re-assert it AFTER every SQL file
+    // has run. (No transaction is open here, so the pragma applies.)
+    db.pragma("foreign_keys = ON");
+    db = recoverEmptyDatabase(db); return db!;
   } catch (err) {
     console.error("[db] Initialization failed:", err); if (db) { try { db.close(); } catch {} db = null; }
     const choice = dialog.showMessageBoxSync({type:"error",title:"MMS — Database Error",message:"The existing database could not be opened safely.",detail:`${err instanceof Error ? err.message : String(err)}\n\nThe existing database will be preserved.`,buttons:["Yes — Preserve & Create Fresh","No — Exit"],defaultId:1,cancelId:1});
     if (choice !== 0) throw new Error("Database initialization failed; existing data was preserved");
     const backup = backupDb();
-    try { db = new Database(p); db.pragma("journal_mode = WAL"); db.pragma("foreign_keys = ON"); initializeSchema(db); console.warn(`[db] Fresh database created; previous database preserved at ${backup ?? "(none)"}`); return db; }
+    try { db = new Database(p); db.pragma("journal_mode = WAL"); db.pragma("foreign_keys = ON"); initializeSchema(db); db.pragma("foreign_keys = ON"); console.warn(`[db] Fresh database created; previous database preserved at ${backup ?? "(none)"}`); return db; }
     catch (retryErr) { if (db) { try { db.close(); } catch {} db = null; } throw new Error(`Could not create a fresh database: ${retryErr instanceof Error ? retryErr.message : String(retryErr)}`); }
   }
 }
