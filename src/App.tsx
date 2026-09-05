@@ -7,9 +7,11 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { ToastContainer } from "@/components/ToastContainer";
 import { Splash } from "@/components/Splash";
+import { CloseConfirmDialog } from "@/components/CloseConfirmDialog";
 import "@fontsource-variable/anek-malayalam/wght.css";
 import "@/styles/globals.css";
 import { LoginPage } from "@/pages/LoginPage";
+import { UninstallConfirm } from "@/pages/UninstallConfirm";
 
 // Lazy-load all page components so the initial bundle is smaller.
 // Each page loads on-demand when first navigated to.
@@ -83,7 +85,17 @@ function LanguagePersistence() {
 export default function App() {
   const { apply } = useTheme(); const { user } = useAuth(); const [splashDone, setSplashDone] = useState(false);
   useEffect(() => { apply(); }, [apply]); useEffect(() => { if (splashDone) document.body.classList.add("app-loaded"); }, [splashDone]);
+  /* Uninstaller mode (?uninstall=1): the NSIS gate launched us with
+     --verify-uninstall — render ONLY the admin-password verify page.
+     No splash, no login, nothing else boots. The body gets "app-loaded"
+     directly because the splash never runs here (globals.css hides
+     #root's children until then). */
+  const isUninstallMode = new URLSearchParams(window.location.search).get("uninstall") === "1";
+  useEffect(() => { if (isUninstallMode) document.body.classList.add("app-loaded"); }, [isUninstallMode]);
+  if (isUninstallMode) {
+    return <UninstallConfirm />;
+  }
   /* The app mounts beneath the splash overlay so the splash can cross-fade
      into it — the transparent frameless window never shows the desktop. */
-  return <><LanguagePersistence /><OfflineMalayalamLayer /><Routes><Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} /><Route path="/*" element={user ? <ProtectedLayout /> : <Navigate to="/login" />} /></Routes><ToastContainer />{!splashDone && <Splash onDone={() => setSplashDone(true)} />}</>;
+  return <><LanguagePersistence /><OfflineMalayalamLayer /><Routes><Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} /><Route path="/*" element={user ? <ProtectedLayout /> : <Navigate to="/login" />} /></Routes><ToastContainer />{!splashDone && <Splash onDone={() => setSplashDone(true)} />}<CloseConfirmDialog /></>;
 }

@@ -104,6 +104,16 @@ export function installPreviewMock() {
     minimize: () => ({}),
     maximize: () => ({}),
     close: () => ({}),
+    confirmClose: () => ({}),
+    onAskClose: (_cb: () => void) => () => ({}),
+  };
+
+  // Uninstall-gate window only exists when launched by the NSIS uninstaller;
+  // stubbed so the page still renders in a dev browser preview.
+  const uninstall = {
+    dbStatus: () => ({ hasDb: true }),
+    verify: (p: string) => (p === "Admin@2026" ? { ok: true, username: "admin" } : { ok: false, reason: "wrong-password" }),
+    finish: (_ok: boolean) => ({}),
   };
 
   // ===== Certificates — anti-forgery (verification code + QR fingerprint) =====
@@ -312,7 +322,7 @@ export function installPreviewMock() {
     saveSubscriptionBatchPdf: () => Promise.resolve({ success: true, cancelled: false, count: 0, skipped: [] }),
   };
 
-  const base: Record<string, unknown> = { dashboard, settings, auth, win, accounting, certificates: mockCertificates, whatsapp, receipts };
+  const base: Record<string, unknown> = { dashboard, settings, auth, win, uninstall, accounting, certificates: mockCertificates, whatsapp, receipts };
   const handler: ProxyHandler<Record<string, unknown>> = {
     get(target, prop) {
       if (prop === "then") return undefined; // avoid thenable detection

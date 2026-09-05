@@ -24,11 +24,32 @@ import { getAnekMalayalamCss } from "./print/utils.js";
 import { registerSecurityIpc } from "./security-ipc.js";
 import { registerWhatsAppIpc } from "./whatsapp-ipc.js";
 import { registerReceiptIpc } from "./receipt-ipc.js";
+import { verifyUninstallPassword, UNINSTALL_ADMIN_SQL } from "./services/uninstall-guard.js";
 import XLSX from "xlsx";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let mainWindow: BrowserWindow | null = null;
 const session = { user: null as null | { id: number; username: string; fullName: string; role: string } };
+
+// ---------------------------------------------------------------------------
+// Close confirmation: the window's close event is intercepted until the user
+// answers an in-app "Close MMS?" dialog. Only a renderer "confirm" (or a
+// programmatic before-quit) sets closeConfirmed, so Alt+F4, the custom ✕
+// button and the taskbar "Close window" all show the same styled dialog.
+// ---------------------------------------------------------------------------
+let closeConfirmed = false;
+
+// ---------------------------------------------------------------------------
+// Uninstall verification mode. The Windows uninstaller (NSIS customUnInit in
+// build/installer.nsh) runs the installed exe with --verify-uninstall BEFORE
+// removing any file. The app then shows ONLY a small password window:
+//   exit code 0 -> verified, uninstaller proceeds
+//   exit code 1 -> declined (wrong password / cancel) -> uninstaller aborts
+// A crashed/unlaunchable app fails open (any code other than 1 proceeds) so a
+// broken install can always still be removed. Silent uninstalls (updates,
+// reinstall-over) skip the gate in NSIS itself.
+// ---------------------------------------------------------------------------
+const isUninstallVerify = process.argv.includes("--verify-uninstall");
 
 // ---------------------------------------------------------------------------
 // Data folder: short "mms" directory inside the OS app-data area (hidden from
@@ -71,14 +92,44 @@ function createWindow() {
     webPreferences: { preload: path.join(__dirname, "preload.mjs"), contextIsolation: true, nodeIntegration: false, sandbox: false, zoomFactor: 1.0 },
   });
   mainWindow.once("ready-to-show", () => mainWindow?.show());
+  // Close gate: ask the renderer to confirm before the window goes away.
+  mainWindow.on("close", (e) => {
+    if (closeConfirmed || !mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.webContents.isCrashed() || !mainWindow.webContents || mainWindow.webContents.isDestroyed()) return; // crashed renderer: let it close
+    e.preventDefault();
+    try { mainWindow.webContents.send("win:ask-close-confirm"); } catch {}
+  });
   if (process.env.NODE_ENV === "development" || process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL || "http://localhost:5174");
     mainWindow.webContents.openDevTools({ mode: "detach" });
   } else mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
   mainWindow.on("closed", () => { mainWindow = null; });
-  ipcMain.handle("win:minimize", () => mainWindow?.minimize());
-  ipcMain.handle("win:maximize", () => { if (mainWindow?.isMaximized()) mainWindow.unmaximize(); else mainWindow?.maximize(); });
-  ipcMain.handle("win:close", () => mainWindow?.close());
+}
+
+// Window-control IPC. Registered ONCE here (not inside createWindow) so a
+// second createWindow() call — the macOS "activate" re-open path — cannot
+// crash with "Attempted to register a second handler".
+ipcMain.handle("win:minimize", () => mainWindow?.minimize());
+ipcMain.handle("win:maximize", () => { if (mainWindow?.isMaximized()) mainWindow.unmaximize(); else mainWindow?.maximize(); });
+ipcMain.handle("win:close", () => mainWindow?.close());
+// Called by the close-confirm dialog after the user picks "Close app".
+ipcMain.handle("win:confirm-close", () => { closeConfirmed = true; try { mainWindow?.close(); } catch {} });
+
+// Small frameless window for the uninstaller's admin-password gate.
+// Sits top-most so it is visible above the uninstaller wizard.
+function createUninstallVerifyWindow() {
+  const win = new BrowserWindow({
+    width: 470, height: 540, show: false, resizable: false, minimizable: false,
+    maximizable: false, fullscreenable: false, autoHideMenuBar: true, frame: false,
+    backgroundColor: "#0d9488", title: "MMS — Uninstall protection", hasShadow: true,
+    webPreferences: { preload: path.join(__dirname, "preload.mjs"), contextIsolation: true, nodeIntegration: false, sandbox: false, zoomFactor: 1.0 },
+  });
+  win.setAlwaysOnTop(true, "screen-saver");
+  win.once("ready-to-show", () => { win.show(); win.focus(); });
+  // The ?uninstall=1 query makes App.tsx render ONLY the UninstallConfirm page.
+  win.loadFile(path.join(__dirname, "..", "dist", "index.html"), { query: { uninstall: "1" } });
+  win.on("closed", () => { /* window-all-closed decides the exit code */ });
+  return win;
 }
 function esc(s: any): string { return String(s ?? "").replace(/[&<>\"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] || c)); }
 async function renderHtmlToPdf(html: string): Promise<Buffer> {
@@ -122,6 +173,59 @@ async function renderHtmlToPdf(html: string): Promise<Buffer> {
 }
 
 app.whenReady().then(() => {
+  // ===== Uninstall verification mode (launched by the NSIS uninstaller) =====
+  // Only the tiny verify window + its IPC run. No main window, no WhatsApp
+  // engine, no auto-backup timer, and — crucially — no DB creation: an
+  // install that was never run has no database, and the gate must not seed
+  // one just to ask for its password.
+  if (isUninstallVerify) {
+    const exitWith = (code: number) => { try { closeDB(); } catch {} app.exit(code); };
+    ipcMain.handle("uninstall:dbStatus", () => {
+      try { return { hasDb: fs.existsSync(path.join(app.getPath("userData"), "mms.db")) }; }
+      catch { return { hasDb: false }; }
+    });
+    ipcMain.handle("uninstall:verify", (_e, password: string) => {
+      try {
+        const dbFile = path.join(app.getPath("userData"), "mms.db");
+        if (!fs.existsSync(dbFile)) return { ok: false, reason: "no-database" };
+        const rows = getDB().prepare(UNINSTALL_ADMIN_SQL).all() as Array<{ id: number; username: string; password_hash: string }>;
+        return verifyUninstallPassword(rows, String(password ?? ""));
+      } catch (err: any) {
+        console.warn("[uninstall-verify] failed:", err?.message || err);
+        return { ok: false, reason: "wrong-password" };
+      }
+    });
+    ipcMain.handle("uninstall:finish", (_e, verified: boolean) => exitWith(verified ? 0 : 1));
+    createUninstallVerifyWindow();
+    return;
+  }
+
+  // Normal boot: bilingual "do not delete" note inside the data folder, so
+  // nobody tidies AppData and wipes the mahallu database + backups.
+  try {
+    const notePath = path.join(app.getPath("userData"), "KEEP-THIS-FOLDER.txt");
+    if (!fs.existsSync(notePath)) {
+      fs.writeFileSync(notePath, [
+        "MMS — Minz Mahallu Management System",
+        "======================================",
+        "",
+        "This folder holds the mahallu's database (mms.db) and .mmbak backups.",
+        "",
+        "DO NOT DELETE this folder.",
+        "Deleting it erases every family, member, subscription and payment record.",
+        "",
+        "To keep an extra copy on a USB drive or in the cloud:",
+        "Settings -> Backup -> Backup mirror folder.",
+        "",
+        "— — — മലയാളം — — —",
+        "ഈ ഫോൾഡറിൽ മഹല്ലുവിന്റെ ഡാറ്റാബേസും (mms.db) ബാക്കപ്പ് ഫയലുകളും സൂക്ഷിച്ചിട്ടുണ്ട്.",
+        "ദയവായി ഈ ഫോൾഡർ ഇല്ലാതാക്കരുത് — ഇത് നഷ്ടപ്പെട്ടാൽ എല്ലാ രേഖകളും നഷ്ടപ്പെടും.",
+        "അധിക പകർപ്പിനായി: Settings -> Backup -> Backup mirror folder.",
+        "",
+      ].join("\n"), "utf8");
+    }
+  } catch {}
+
   try { data.subscriptions.ensureCurrentMonth(); } catch (err) { console.warn("[subscriptions] monthly generation deferred:", err); }
   ipcMain.handle("auth:login", (_e, username: string, password: string) => { try { const user = login(username, password); session.user = { id: user.id, username: user.username, fullName: user.fullName, role: user.role }; try { data.audit.log(user.id, user.username, "LOGIN", "auth", user.id, "User logged in", ""); } catch {} return { success: true, user }; } catch (err: any) { return { success: false, error: err.message }; } });
   ipcMain.handle("auth:logout", () => { if (session.user) { try { data.audit.log(session.user.id, session.user.username, "LOGOUT", "auth", session.user.id, "User logged out", ""); } catch {} } session.user = null; return { success: true }; });
@@ -607,5 +711,9 @@ app.whenReady().then(() => {
   // Also run once 30 seconds after startup (to let DB init finish).
   setTimeout(runAutoBackup, 30000);
 });
-app.on("window-all-closed", () => { closeDB(); if (process.platform !== "darwin") app.quit(); });
-app.on("before-quit", () => { closeDB(); });
+app.on("window-all-closed", () => {
+  // Uninstall gate: window closed without a decision means "declined".
+  if (isUninstallVerify) { try { closeDB(); } catch {} app.exit(1); return; }
+  closeDB(); if (process.platform !== "darwin") app.quit();
+});
+app.on("before-quit", () => { closeConfirmed = true; closeDB(); });

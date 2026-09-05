@@ -1407,3 +1407,25 @@ html.lang-ml .btn { line-height: 20px !important; }
 }
 .modal.modal-sm .m-b { flex: none; padding: 18px 20px; background: var(--panel); }
 .modal.modal-sm .m-f { border-radius: 0 0 16px 16px; }
+
+/* ===== Uninstall protection window (launched by the NSIS uninstaller) ===== */
+/* Fills the small frameless 470x540 verify window. Brand green, one card. */
+.uc-root { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; background: linear-gradient(160deg, #12a396 0%, #0d9488 55%, #0a5f5a 100%); }
+.uc-glow { position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none; }
+.uc-glow-a { width: 420px; height: 420px; top: -200px; left: 50%; transform: translateX(-60%); background: radial-gradient(circle, rgba(45, 212, 191, 0.35), transparent 65%); }
+.uc-glow-b { width: 360px; height: 360px; bottom: -180px; right: -120px; background: radial-gradient(circle, rgba(125, 227, 200, 0.22), transparent 65%); }
+.uc-card { position: relative; z-index: 1; width: 374px; max-height: calc(100vh - 48px); background: var(--panel, #fff); border-radius: 18px; border: 1px solid var(--line, rgba(0,0,0,0.08)); box-shadow: 0 32px 80px -20px rgba(4, 30, 27, 0.55); padding: 30px 28px 22px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.uc-logo { width: 58px; height: 58px; margin-bottom: 14px; display: grid; place-items: center; }
+.uc-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.uc-ic { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; background: color-mix(in srgb, var(--em, #0d9488) 12%, transparent); color: var(--em, #0d9488); margin-bottom: 10px; }
+.uc-ic.ok { background: color-mix(in srgb, #16a34a 14%, transparent); color: #16a34a; }
+.uc-title { margin: 0 0 6px; font: 700 19px Poppins, sans-serif; color: var(--tx, #16232b); letter-spacing: -0.01em; }
+.uc-msg { margin: 0 0 16px; font: 500 13px/1.55 Poppins, "Anek Malayalam Variable", sans-serif; color: var(--mut, #5b6b74); }
+.uc-msg.ok { color: #16a34a; font-weight: 600; }
+.uc-form { width: 100%; display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.uc-error { display: flex; align-items: center; gap: 6px; margin-top: 4px; font: 500 12px/1.4 Poppins, "Anek Malayalam Variable", sans-serif; color: #e11d48; }
+.uc-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; width: 100%; }
+.uc-verified-bar { display: flex; align-items: center; gap: 8px; margin-top: 10px; font: 500 12px Poppins, "Anek Malayalam Variable", sans-serif; color: var(--mut, #5b6b74); }
+.uc-boot { padding: 24px 0; }
+.uc-note { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--line, rgba(0,0,0,0.12)); width: 100%; display: flex; align-items: flex-start; gap: 7px; font: 500 11px/1.5 Poppins, "Anek Malayalam Variable", sans-serif; color: var(--fnt, #6b7a83); text-align: left; }
+.uc-note svg { flex: none; margin-top: 1px; color: var(--em, #0d9488); }

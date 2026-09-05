@@ -10,6 +10,10 @@ globals.__mmsGetActor=()=>currentActor; globals.__mmsGetUser=()=>currentUser; gl
 const SEEDED_ADMIN_HASH="pbkdf2_sha256$200000$c2FsdC1mb3ItbW1zLWFkbWluLXVzZXI=$dJvtGdhlhx7H/9KuwAZs4U/j/DjiiDA88txKk9SnqTU=";
 function parseStoredHash(stored:string){const p=stored.split("$");if(p.length!==4||p[0]!=="pbkdf2_sha256")return null;const iter=parseInt(p[1],10),salt=Buffer.from(p[2],"base64"),hash=Buffer.from(p[3],"base64");return Number.isFinite(iter)&&iter>0&&salt.length&&hash.length?{iter,salt,hash}:null;}
 function verifyPassword(plain:string,stored:string){const p=parseStoredHash(stored);if(!p)return false;try{const d=crypto.pbkdf2Sync(plain,p.salt,p.iter,p.hash.length,"sha256");return d.length===p.hash.length&&crypto.timingSafeEqual(d,p.hash);}catch{return false;}}
+/** Verify a plaintext password against a stored pbkdf2 hash. Exported for the
+ *  uninstall guard, which must verify an admin password WITHOUT a logged-in
+ *  session (the app runs headless-ish with just a verify window). */
+export function verifyStoredPassword(plain:string,stored:string){return verifyPassword(plain,stored);}
 function makeInitials(name:string){if(!name)return"?";const p=name.trim().split(/\s+/);return p.length===1?p[0].substring(0,1).toUpperCase():(p[0][0]+p[p.length-1][0]).toUpperCase();}
 function seededAdmin(): UserRow|undefined { return one<UserRow>("SELECT id,username,full_name,password_hash,password_salt,role,is_active,is_locked,failed_attempts,locked_until,must_change_pwd FROM users WHERE id=1 AND username='admin' AND password_hash=?",[SEEDED_ADMIN_HASH]); }
 export function validatePassword(password:string){if(!password||password.length<8)throw new Error("Password must be at least 8 characters");if(!/[A-Z]/.test(password)||!/[a-z]/.test(password)||!/\d/.test(password)||!/[^A-Za-z0-9]/.test(password))throw new Error("Password must include uppercase, lowercase, digit, and special character");}
