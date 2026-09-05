@@ -24,7 +24,6 @@ import { getAnekMalayalamCss } from "./print/utils.js";
 import { registerSecurityIpc } from "./security-ipc.js";
 import { registerWhatsAppIpc } from "./whatsapp-ipc.js";
 import { registerReceiptIpc } from "./receipt-ipc.js";
-import { registerGDriveIpc, gdriveUploadAfterBackup } from "./gdrive-ipc.js";
 import XLSX from "xlsx";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -459,13 +458,6 @@ app.whenReady().then(() => {
           else console.warn("[backup] Mirror failed:", r.error);
         }
       } catch (mirrorErr: any) { console.warn("[backup] Mirror failed:", mirrorErr?.message || mirrorErr); }
-      // Direct Google Drive upload (best-effort — offline or a revoked token
-      // must never fail the backup itself).
-      try {
-        const up = await gdriveUploadAfterBackup(result.filePath);
-        if (up?.ok) console.log(`[backup] Uploaded to Google Drive: ${up.name}`);
-        else if (up) console.warn("[backup] Google Drive upload failed:", up.error);
-      } catch (gErr: any) { console.warn("[backup] Google Drive upload failed:", gErr?.message || gErr); }
       return { success: true, path: result.filePath, size: meta.size, sha256: meta.sha256 };
     } catch (err: any) {
       return { success: false, error: err.message };
@@ -572,7 +564,6 @@ app.whenReady().then(() => {
   registerSecurityIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null);
   registerWhatsAppIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null);
   registerReceiptIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow);
-  registerGDriveIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null);
   createWindow();
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
@@ -608,12 +599,6 @@ app.whenReady().then(() => {
         if (r.ok) console.log(`[auto-backup] Mirrored to: ${r.path}`);
         else console.warn("[auto-backup] Mirror failed:", r.error);
       }
-      // Direct Google Drive upload (best-effort, same as the manual flow).
-      try {
-        const up = await gdriveUploadAfterBackup(filePath);
-        if (up?.ok) console.log(`[auto-backup] Uploaded to Google Drive: ${up.name}`);
-        else if (up) console.warn("[auto-backup] Google Drive upload failed:", up.error);
-      } catch (gErr: any) { console.warn("[auto-backup] Google Drive upload failed:", gErr?.message || gErr); }
     } catch (e) {
       console.warn("[auto-backup] Failed:", e);
     }

@@ -72,12 +72,6 @@ function ensureRuntimeSchema(database: DB) {
     ["settings","qr_signing_key","TEXT"],
     // Backup mirror — second copy of every .mmbak (USB / other disk / Drive folder)
     ["settings","backup_mirror_dir","TEXT"],
-    // Direct Google Drive upload (no Drive desktop app): OAuth app credentials.
-    // The refresh TOKEN itself is never stored in the DB — it lives in
-    // gdrive-token.bin encrypted with the OS keychain (see gdrive-ipc.ts).
-    ["settings","gdrive_client_id","TEXT"],
-    ["settings","gdrive_client_secret","TEXT"],
-    ["settings","gdrive_folder_name","TEXT"],
     // Receipt anti-forgery — verification codes on money receipts (V035).
     // subscriptions is the legacy mirror that can still back a receipt when
     // an account's payment predates the ledger, so it carries codes too.

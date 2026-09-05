@@ -1854,7 +1854,6 @@ export const settings = {
         auto_backup = ?, backup_interval_hours = ?, receipt_prefix = ?,
         affiliation_number = ?, committee_term_start = ?, committee_term_end = ?,
         wakf_reg_no = ?, society_reg_no = ?, backup_mirror_dir = ?,
-        gdrive_client_id = ?, gdrive_client_secret = ?, gdrive_folder_name = ?,
         village = ?, panchayath = ?, taluk = ?, district = ?, pincode = ?, state = ?,
         updated_at = datetime('now')
        WHERE id = 1`,
@@ -1869,9 +1868,6 @@ export const settings = {
         merged.committeeTermEnd ?? merged.committee_term_end ?? "",
         merged.wakfRegNo ?? merged.wakf_reg_no ?? "", merged.societyRegNo ?? merged.society_reg_no ?? "",
         String(merged.backupMirrorDir ?? merged.backup_mirror_dir ?? ""),
-        String(merged.gdriveClientId ?? merged.gdrive_client_id ?? ""),
-        String(merged.gdriveClientSecret ?? merged.gdrive_client_secret ?? ""),
-        String(merged.gdriveFolderName ?? merged.gdrive_folder_name ?? "MMS-Backups"),
         merged.village ?? "", merged.panchayath ?? "", merged.taluk ?? "", merged.district ?? "",
         merged.pincode ?? "", merged.state ?? ""
       ]
