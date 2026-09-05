@@ -672,7 +672,7 @@ const translations: Record<string, { en: string; ml: string }> = {
   staff_email: { en: "Email", ml: "ഇമെയിൽ" },
   staff_address: { en: "Address", ml: "വിലാസം" },
   staff_joined_date: { en: "Joined Date", ml: "ചേർന്ന തീയതി" },
-  staff_salary: { en: "Salary", ml: "ശമ്പലം" },
+  staff_salary: { en: "Salary", ml: "ശമ്പളം" },
   staff_payment_frequency: { en: "Payment Frequency", ml: "അടവ് ആവൃത്തി" },
   staff_status: { en: "Status", ml: "അവസ്ഥ" },
   staff_notes: { en: "Notes", ml: "കുറിപ്പുകൾ" },
@@ -726,7 +726,7 @@ const translations: Record<string, { en: string; ml: string }> = {
   acc_source_donations: { en: "Donations", ml: "സംഭാവനകൾ" },
   acc_source_subscriptions: { en: "Subscriptions", ml: "വരിസംഖ്യകൾ" },
   acc_source_welfare: { en: "Welfare", ml: "ക്ഷേമം" },
-  acc_source_salary: { en: "Salary", ml: "ശമ്പലം" },
+  acc_source_salary: { en: "Salary", ml: "ശമ്പളം" },
   acc_unified_title: { en: "Unified Ledger", ml: "ഏകീകൃത ലെഡ്ജർ" },
   acc_unified_subtitle: { en: "Auto-aggregated from all financial modules", ml: "എല്ലാ സാമ്പത്തിക മൊഡ്യൂളുകളിൽ നിന്നും സ്വയമേവ സംയോജിപ്പിച്ചത്" },
   acc_breakdown: { en: "Source Breakdown", ml: "ഉറവിട വിവരണം" },
@@ -734,7 +734,7 @@ const translations: Record<string, { en: string; ml: string }> = {
   acc_income_subscriptions: { en: "Income from Subscriptions", ml: "വരിസംഖ്യകളിൽ നിന്നുള്ള വരുമാനം" },
   acc_income_manual: { en: "Manual Income", ml: "മാനുവൽ വരുമാനം" },
   acc_expense_welfare: { en: "Welfare Disbursed", ml: "ക്ഷേമ വിതരണം" },
-  acc_expense_salary: { en: "Salary Paid", ml: "നൽകിയ ശമ്പലം" },
+  acc_expense_salary: { en: "Salary Paid", ml: "നൽകിയ ശമ്പളം" },
   acc_expense_manual: { en: "Manual Expense", ml: "മാനുവൽ ചെലവ്" },
 
   // ===== Committee module =====

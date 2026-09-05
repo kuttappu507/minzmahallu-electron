@@ -29,36 +29,86 @@
    ========================================================================== */
 
 /* ===== Fonts (bundled locally via Vite asset pipeline) ===== */
+/* The four static Poppins faces are pinned to the Latin subset range. Without
+   this, a face with no unicode-range claims EVERY character, so any weight in
+   400/500/600/700 matches a static face first and Malayalam glyphs fall
+   straight through to the OS fallback font (Nirmala UI / FreeSans) — visibly
+   NOT Anek. With the ranges below, Malayalam code points skip the static
+   faces and match the Anek-backed composite "Poppins" face declared after
+   them, while Latin/digits keep the real Poppins. */
 @font-face {
   font-family: Poppins;
   src: url("../assets/fonts/Poppins-Regular.ttf") format("truetype");
   font-weight: 400; font-style: normal; font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
   font-family: Poppins;
   src: url("../assets/fonts/Poppins-Medium.ttf") format("truetype");
   font-weight: 500; font-style: normal; font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
   font-family: Poppins;
   src: url("../assets/fonts/Poppins-SemiBold.ttf") format("truetype");
   font-weight: 600; font-style: normal; font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
   font-family: Poppins;
   src: url("../assets/fonts/Poppins-Bold.ttf") format("truetype");
   font-weight: 700; font-style: normal; font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 /* Anek Malayalam (variable) — bundled locally. Three unicode-range subsets
    (Malayalam glyphs + Latin), variable weight 100–800, so Malayalam text in
    lang-ml mode renders in Anek Malayalam while Latin stays Poppins. */
-/* Poppins gains a Malayalam-subset face backed by the Anek file: elements
+/* Poppins gains Malayalam-subset faces backed by the Anek file: elements
    styled with bare `font: … Poppins` shorthands (dialogs, detail grids,
    preview panes, tiles — 130+ rules) previously fell back to the OS Malayalam
    font (Nirmala UI on Windows) for Malayalam glyphs. With this composite face
    those glyphs render in Anek Malayalam everywhere, while Latin/digits keep
    the real Poppins faces. Elements that already list "Anek Malayalam
-   Variable" as a fallback are unaffected (same glyph source either way). */
+   Variable" as a fallback are unaffected (same glyph source either way).
+   ⚠ The composite faces are declared at the SAME exact weights (400/500/600/
+   700) as the static Poppins faces: Chromium's per-character font matching
+   prefers an exact weight match over a range-declared face, so a single
+   100–800 face loses the weight contest to the static faces and never loads
+   (verified live — load('600 Poppins','ക') returned []). Exact weights make
+   the Malayalam code points resolve to these faces via unicode-range. The
+   trailing 100–800 face stays as a catch-all for any other weight. */
+@font-face {
+  font-family: Poppins;
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url("../assets/fonts/anek-malayalam-malayalam-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0307, U+0323, U+0951-0952, U+0964-0965, U+0D00-0D7F, U+1CDA, U+1CF2, U+200C-200D, U+20B9, U+25CC, U+A830-A832;
+}
+@font-face {
+  font-family: Poppins;
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url("../assets/fonts/anek-malayalam-malayalam-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0307, U+0323, U+0951-0952, U+0964-0965, U+0D00-0D7F, U+1CDA, U+1CF2, U+200C-200D, U+20B9, U+25CC, U+A830-A832;
+}
+@font-face {
+  font-family: Poppins;
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url("../assets/fonts/anek-malayalam-malayalam-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0307, U+0323, U+0951-0952, U+0964-0965, U+0D00-0D7F, U+1CDA, U+1CF2, U+200C-200D, U+20B9, U+25CC, U+A830-A832;
+}
+@font-face {
+  font-family: Poppins;
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url("../assets/fonts/anek-malayalam-malayalam-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0307, U+0323, U+0951-0952, U+0964-0965, U+0D00-0D7F, U+1CDA, U+1CF2, U+200C-200D, U+20B9, U+25CC, U+A830-A832;
+}
 @font-face {
   font-family: Poppins;
   font-style: normal;
@@ -302,7 +352,12 @@
   }
   .sidebar.min { width: 80px; }
 
-  .navscroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 10px 12px 10px; /* scrollbar-width deliberately NOT set: the standard property makes Chromium ignore the 3px ::-webkit-scrollbar rules below */ }
+  /* A transparent top border SHORTENS the scrollbar track: Blink draws the
+     ::-webkit-scrollbar inside the border edge, so an 18px border-top (same as
+     the sidebar's border-radius) makes the track start exactly where the top
+     corner curve ends instead of poking through the curve. Padding-top is
+     reduced to 0 so the nav content keeps roughly its old offset. */
+  .navscroll { flex: 1; overflow-y: auto; overflow-x: hidden; border-top: 18px solid transparent; padding: 0 12px 10px; /* scrollbar-width deliberately NOT set: the standard property makes Chromium ignore the 3px ::-webkit-scrollbar rules below */ }
   .navsec { font: 700 9.5px Poppins; letter-spacing: 0.2em; text-transform: uppercase; color: var(--fnt); padding: 18px 14px 8px; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
   .navsec::after { content: ""; flex: 1; height: 1px; background: var(--line); }
   .sidebar.min .navsec { padding: 12px 0 5px; color: transparent; }

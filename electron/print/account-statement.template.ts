@@ -67,7 +67,7 @@ const SOURCE_LABELS: Record<string, { en: string; ml: string }> = {
   donations: { en: 'Donation', ml: 'സംഭാവന' },
   subscriptions: { en: 'Subscription', ml: 'വരിസംഖ്യ' },
   welfare: { en: 'Welfare', ml: 'ക്ഷേമം' },
-  salary: { en: 'Salary', ml: 'ശമ്പലം' },
+  salary: { en: 'Salary', ml: 'ശമ്പളം' },
 };
 
 const PERIOD_LABELS: Record<string, { en: string; ml: string }> = {
