@@ -447,12 +447,11 @@
   .topbar .langseg, .topbar .win-controls { -webkit-app-region: no-drag; }
   .tb-brand { display: flex; align-items: center; gap: 10px; flex: none; }
   .tb-brand-tile {
-    width: 36px; height: 36px; flex: none; border-radius: 11px; overflow: hidden;
+    /* No tile behind the mark: the logo itself is big and in theme green. */
+    width: 36px; height: 36px; flex: none;
     display: grid; place-items: center; border: 0;
-    background: linear-gradient(135deg, var(--em) 0%, var(--emdd) 100%);
-    box-shadow: 0 3px 10px -4px color-mix(in srgb, var(--em) 60%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.18);
   }
-  .tb-brand-tile img { width: 21px; height: 21px; object-fit: contain; display: block; filter: brightness(0) invert(1); }
+  .tb-brand-tile img { width: 36px; height: 36px; object-fit: contain; display: block; }
   .tb-brand-nm { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
   .tb-brand-nm b { font: 700 14.5px Poppins; color: var(--tx); letter-spacing: -0.01em; }
   .tb-brand-nm small { font: 500 8.5px Poppins; color: var(--fnt); letter-spacing: 0.12em; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
@@ -1169,14 +1168,14 @@ html.lang-ml .global-search input { font-size: 14px; }
 .splash { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; overflow: hidden; background: transparent; animation: splashIn 0.45s ease-out; }
 .splash.out { animation: splashOut 0.46s ease-in forwards; }
 body:not(.app-loaded) #root > *:not(.splash) { visibility: hidden; }
-.splash-card { position: relative; z-index: 1; width: min(620px, calc(100vw - 56px)); display: flex; flex-direction: column; align-items: center; padding: 58px 64px 34px; border-radius: 24px; background: linear-gradient(165deg, #0f2b34 0%, #0a1a20 58%, #08161b 100%); border: 1px solid rgba(45, 212, 191, 0.22); box-shadow: 0 48px 110px -24px rgba(4, 12, 16, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.06); overflow: hidden; color: #eaf7f3; animation: splashRise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.splash-card { position: relative; z-index: 1; width: min(620px, calc(100vw - 56px)); display: flex; flex-direction: column; align-items: center; padding: 58px 64px 34px; border-radius: 24px; background: linear-gradient(165deg, #12a396 0%, #0d9488 52%, #0a5f5a 100%); border: 1px solid rgba(45, 212, 191, 0.3); box-shadow: 0 48px 110px -24px rgba(4, 12, 16, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.06); overflow: hidden; color: #eaf7f3; animation: splashRise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .splash.out .splash-card { animation: splashCardOut 0.46s ease-in forwards; }
 .splash-bg { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
 .splash-glow { position: absolute; border-radius: 50%; filter: blur(90px); pointer-events: none; }
 .splash-glow-a { width: 620px; height: 620px; top: -300px; left: 50%; transform: translateX(-58%); background: radial-gradient(circle, rgba(13, 148, 136, 0.4), transparent 65%); }
 .splash-glow-b { width: 520px; height: 520px; bottom: -260px; right: -180px; background: radial-gradient(circle, rgba(45, 212, 191, 0.26), transparent 65%); animation: splashDrift 9s ease-in-out infinite alternate; }
 .splash-pattern { position: absolute; inset: -40px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='1'%3E%3Cpath d='M36 6 L42 30 L66 36 L42 42 L36 66 L30 42 L6 36 L30 30 Z'/%3E%3Ccircle cx='36' cy='36' r='6'/%3E%3C/g%3E%3C/svg%3E"); background-size: 72px 72px; opacity: 0.05; }
-.splash-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 0%, rgba(4, 12, 16, 0.55) 100%); }
+.splash-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 0%, rgba(4, 30, 27, 0.5) 100%); }
 .splash-logo { position: relative; width: 96px; height: 96px; margin-bottom: 28px; display: grid; place-items: center; }
 .splash-logo img { width: 100%; height: 100%; object-fit: contain; display: block; filter: brightness(0) invert(1); }
 .splash-logo::before { content: ""; position: absolute; inset: -34px; border-radius: 50%; background: radial-gradient(circle, rgba(45, 212, 191, 0.32), transparent 70%); animation: splashHalo 3.4s ease-in-out infinite; }
