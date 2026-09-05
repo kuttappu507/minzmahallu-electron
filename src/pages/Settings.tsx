@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { Building2, Wallet, Palette, Database, Save, Tags, Plus, Pencil, Trash2, Power, Award, MapPin, FolderOpen } from "lucide-react";
+import { Building2, Wallet, Palette, Database, Save, Tags, Plus, Pencil, Trash2, Power, Award, MapPin, FolderOpen, Cloud, RefreshCw, Upload } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useTheme } from "@/lib/theme";
-import { Card, CardContent, Button, Input, Label, Select, Textarea, Switch, SectionLabel } from "@/components/ui";
+import { Card, CardContent, Button, Input, Label, Select, Textarea, Switch, SectionLabel, Dialog } from "@/components/ui";
 import { MalayalamInput } from "@/components/MalayalamInput";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { toast } from "@/lib/toast";
@@ -10,7 +10,7 @@ import { toast } from "@/lib/toast";
 interface Settings {
   mahallu_name:string; phone:string; email:string; address:string; financial_year_start:string;
   currency_symbol:string; receipt_prefix:string; language:string; theme:string; auto_backup:boolean;
-  backup_interval_hours:number; backup_mirror_dir:string; subscription_monthly_amount:number; subscription_frequency:"Monthly"|"Quarterly";
+  backup_interval_hours:number; backup_mirror_dir:string; gdrive_client_id:string; gdrive_client_secret:string; subscription_monthly_amount:number; subscription_frequency:"Monthly"|"Quarterly";
   affiliation_number:string; committee_term_start:string; committee_term_end:string;
   wakf_reg_no:string; society_reg_no:string;
   village:string; panchayath:string; taluk:string; district:string; pincode:string; state:string;
@@ -18,7 +18,7 @@ interface Settings {
 interface Category { id:number; name:string; description?:string; is_active:number; donation_count:number; }
 const emptySettings: Settings = {
   mahallu_name:"", phone:"", email:"", address:"", financial_year_start:"04-01", currency_symbol:"₹",
-  receipt_prefix:"RCP", language:"en", theme:"light", auto_backup:false, backup_interval_hours:24, backup_mirror_dir:"",
+  receipt_prefix:"RCP", language:"en", theme:"light", auto_backup:false, backup_interval_hours:24, backup_mirror_dir:"", gdrive_client_id:"", gdrive_client_secret:"",
   subscription_monthly_amount:100, subscription_frequency:"Monthly",
   affiliation_number:"", committee_term_start:"", committee_term_end:"",
   wakf_reg_no:"", society_reg_no:"", village:"", panchayath:"", taluk:"", district:"", pincode:"", state:"",
@@ -36,6 +36,13 @@ export function Settings(){
   const [saving,setSaving]=useState(false);
   const [pendingCat,setPendingCat]=useState<Category|null>(null);
   const [catConfirmOpen,setCatConfirmOpen]=useState(false);
+  // Google Drive backup state (connection lives in the main process; this is
+  // just a status mirror + busy flags for the buttons).
+  const [gdriveStatus,setGdriveStatus]=useState<any>(null);
+  const [gdriveBusy,setGdriveBusy]=useState<string|null>(null);
+  const [gdriveHelpOpen,setGdriveHelpOpen]=useState(false);
+  const refreshGdrive=async()=>{try{setGdriveStatus(await window.mms.gdrive.status());}catch{setGdriveStatus(null);}};
+  useEffect(()=>{refreshGdrive();},[]);
 
   const confirmDeleteCategory=async()=>{
     if(!pendingCat)return;
@@ -57,6 +64,40 @@ export function Settings(){
       if(r?.success&&r.path)setSettings(s=>({...s,backup_mirror_dir:r.path}));
     }catch(err:any){toast.error(err.message||t("ui_failed_save"));}
   };
+  const connectGdrive=async()=>{
+    setGdriveBusy("connect");
+    try{
+      const r=await window.mms.gdrive.connect();
+      if(r?.success){toast.success(t("gdrive_connect_success")+(r.email?` — ${r.email}`:""));await refreshGdrive();}
+      else toast.error(r?.error?`${t("gdrive_connect_failed")}: ${r.error}`:t("gdrive_connect_failed"));
+    }catch(err:any){toast.error(err.message||t("gdrive_connect_failed"));}
+    finally{setGdriveBusy(null);}
+  };
+  const disconnectGdrive=async()=>{
+    setGdriveBusy("disconnect");
+    try{await window.mms.gdrive.disconnect();toast.success(t("gdrive_disconnected"));await refreshGdrive();}
+    catch(err:any){toast.error(err.message);}
+    finally{setGdriveBusy(null);}
+  };
+  const testGdrive=async()=>{
+    setGdriveBusy("test");
+    try{
+      const r=await window.mms.gdrive.test();
+      if(r?.success)toast.success(t("gdrive_test_success"));
+      else toast.error(r?.error?`${t("gdrive_test_failed")}: ${r.error}`:t("gdrive_test_failed"));
+    }catch(err:any){toast.error(err.message);}
+    finally{setGdriveBusy(null);}
+  };
+  const uploadNowGdrive=async()=>{
+    setGdriveBusy("upload");
+    try{
+      const r=await window.mms.gdrive.uploadNow();
+      if(r?.ok)toast.success(`${t("gdrive_upload_success")} — ${r.name}`);
+      else toast.error(r?.error?`${t("gdrive_upload_failed")}: ${r.error}`:t("gdrive_upload_failed"));
+      await refreshGdrive();
+    }catch(err:any){toast.error(err.message);}
+    finally{setGdriveBusy(null);}
+  };
   const handleSave=async()=>{
     setSaving(true);
     try{
@@ -66,6 +107,7 @@ export function Settings(){
         subscriptionMonthlyAmount:Number(settings.subscription_monthly_amount||0),subscriptionFrequency:settings.subscription_frequency,
         theme:settings.theme,language:settings.language,autoBackup:settings.auto_backup,backupIntervalHours:settings.backup_interval_hours,
         backupMirrorDir:settings.backup_mirror_dir||"",
+        gdriveClientId:settings.gdrive_client_id||"", gdriveClientSecret:settings.gdrive_client_secret||"",
         receiptPrefix:settings.receipt_prefix,
         affiliationNumber:settings.affiliation_number, committeeTermStart:settings.committee_term_start, committeeTermEnd:settings.committee_term_end,
         wakfRegNo:settings.wakf_reg_no, societyRegNo:settings.society_reg_no,
@@ -106,8 +148,42 @@ export function Settings(){
 
     <Card><CardContent className="p-6 space-y-4"><div className="flex items-center gap-2"><Palette className="h-5 w-5 text-primary"/><SectionLabel className="mb-0">{t("set_appearance_section")}</SectionLabel></div><div className="grid grid-cols-2 gap-4"><div><Label>{t("set_theme")}</Label><Select value={settings.theme} onChange={e=>handleThemeChange(e.target.value)}><option value="light">{t("set_theme_light")}</option><option value="dark">{t("set_theme_dark")}</option></Select></div><div><Label>{t("set_language")}</Label><Select value={lang} onChange={e=>handleLangChange(e.target.value)}><option value="en">{t("set_lang_english")}</option><option value="ml">{t("set_lang_malayalam")}</option></Select></div></div></CardContent></Card>
 
-    <Card><CardContent className="p-6 space-y-4"><div className="flex items-center gap-2"><Database className="h-5 w-5 text-primary"/><SectionLabel className="mb-0">{t("set_backup_section")}</SectionLabel></div><div className="space-y-4"><div className="flex items-center justify-between"><div><Label className="mb-0">{t("set_auto_backup")}</Label><p className="text-xs text-text-tertiary mt-1">{t("ui_auto_backup_desc")}</p></div><Switch checked={settings.auto_backup} onCheckedChange={v=>setSettings({...settings,auto_backup:v})}/></div><div className="w-48"><Label>{t("set_backup_interval")}</Label><Input type="number" value={settings.backup_interval_hours} onChange={e=>setSettings({...settings,backup_interval_hours:Number(e.target.value)})}/></div><div><Label className="mb-0">{t("set_backup_mirror")}</Label><p className="text-xs text-text-tertiary mt-1">{t("set_backup_mirror_desc")}</p><div className="flex gap-2 mt-2"><Input className="flex-1" value={settings.backup_mirror_dir||""} placeholder={t("set_backup_mirror_none")} onChange={e=>setSettings({...settings,backup_mirror_dir:e.target.value})}/><Button variant="secondary" onClick={pickMirrorDir}><FolderOpen className="h-4 w-4"/>{t("set_backup_mirror_pick")}</Button>{settings.backup_mirror_dir&&<Button variant="secondary" onClick={()=>setSettings({...settings,backup_mirror_dir:""})}>{t("set_backup_mirror_clear")}</Button>}</div></div></div></CardContent></Card>
+    <Card><CardContent className="p-6 space-y-4"><div className="flex items-center gap-2"><Database className="h-5 w-5 text-primary"/><SectionLabel className="mb-0">{t("set_backup_section")}</SectionLabel></div><div className="space-y-4"><div className="flex items-center justify-between"><div><Label className="mb-0">{t("set_auto_backup")}</Label><p className="text-xs text-text-tertiary mt-1">{t("ui_auto_backup_desc")}</p></div><Switch checked={settings.auto_backup} onCheckedChange={v=>setSettings({...settings,auto_backup:v})}/></div><div className="w-48"><Label>{t("set_backup_interval")}</Label><Input type="number" value={settings.backup_interval_hours} onChange={e=>setSettings({...settings,backup_interval_hours:Number(e.target.value)})}/></div><div><Label className="mb-0">{t("set_backup_mirror")}</Label><p className="text-xs text-text-tertiary mt-1">{t("set_backup_mirror_desc")}</p><div className="flex gap-2 mt-2"><Input className="flex-1" value={settings.backup_mirror_dir||""} placeholder={t("set_backup_mirror_none")} onChange={e=>setSettings({...settings,backup_mirror_dir:e.target.value})}/><Button variant="secondary" onClick={pickMirrorDir}><FolderOpen className="h-4 w-4"/>{t("set_backup_mirror_pick")}</Button>{settings.backup_mirror_dir&&<Button variant="secondary" onClick={()=>setSettings({...settings,backup_mirror_dir:""})}>{t("set_backup_mirror_clear")}</Button>}</div></div>
+<div className="pt-2 border-t border-border">
+  <div className="flex items-start justify-between gap-4">
+    <div><Label className="mb-0">{t("set_gdrive")}</Label><p className="text-xs text-text-tertiary mt-1">{t("set_gdrive_desc")}</p></div>
+    <button type="button" className="text-xs text-primary underline shrink-0" onClick={()=>setGdriveHelpOpen(true)}>{t("set_gdrive_help_link")}</button>
+  </div>
+  <div className="grid grid-cols-2 gap-3 mt-3">
+    <div><Label>{t("set_gdrive_client_id")}</Label><Input value={settings.gdrive_client_id||""} onChange={e=>setSettings({...settings,gdrive_client_id:e.target.value})} placeholder="1234567890-abc123.apps.googleusercontent.com"/></div>
+    <div><Label>{t("set_gdrive_client_secret")}</Label><Input type="password" value={settings.gdrive_client_secret||""} onChange={e=>setSettings({...settings,gdrive_client_secret:e.target.value})} placeholder="GOCSPX-…"/></div>
+  </div>
+  {gdriveStatus?.connected?
+    <div className="flex flex-wrap items-center gap-2 mt-3">
+      <span className="inline-flex items-center gap-1.5 text-sm text-success"><span className="h-2 w-2 rounded-full bg-success"/>{t("set_gdrive_connected")}: {gdriveStatus.email}</span>
+      <span className="text-xs text-text-tertiary">{gdriveStatus.lastUploadAt?`${t("set_gdrive_last_upload")}: ${gdriveStatus.lastUploadName} (${new Date(gdriveStatus.lastUploadAt).toLocaleString()})`:t("set_gdrive_no_upload_yet")}</span>
+      <div className="flex gap-2 ml-auto">
+        <Button variant="secondary" disabled={!!gdriveBusy} onClick={testGdrive}><RefreshCw className="h-4 w-4"/>{t("set_gdrive_test")}</Button>
+        <Button variant="secondary" disabled={!!gdriveBusy} onClick={uploadNowGdrive}><Upload className="h-4 w-4"/>{t("set_gdrive_upload_now")}</Button>
+        <Button variant="secondary" disabled={!!gdriveBusy} onClick={disconnectGdrive}><Trash2 className="h-4 w-4"/>{t("set_gdrive_disconnect")}</Button>
+      </div>
+    </div>
+  :
+    <div className="flex flex-wrap items-center gap-3 mt-3">
+      <Button disabled={!!gdriveBusy||!settings.gdrive_client_id?.trim()} onClick={connectGdrive}><Cloud className="h-4 w-4"/>{gdriveBusy==="connect"?t("set_gdrive_connecting"):t("set_gdrive_connect")}</Button>
+      <span className="text-xs text-text-tertiary">{t("set_gdrive_connect_hint")}</span>
+    </div>
+  }
+  {gdriveStatus?.lastError&&<p className="text-xs mt-1" style={{color:"var(--danger, #dc2626)"}}>{t("set_gdrive_last_error")}: {gdriveStatus.lastError}</p>}
+</div>
+</div></CardContent></Card>
     <div className="flex justify-end"><Button onClick={handleSave} disabled={saving}><Save className="h-4 w-4"/>{saving?t("ui_saving"):t("ui_save_changes")}</Button></div>
+    <Dialog open={gdriveHelpOpen} onClose={()=>setGdriveHelpOpen(false)} title={t("set_gdrive_help_title")} className="modal-sm">
+      <div className="p-6 space-y-3">
+        <ol className="list-decimal pl-5 space-y-2 text-sm">{["set_gdrive_help_1","set_gdrive_help_2","set_gdrive_help_3","set_gdrive_help_4","set_gdrive_help_5","set_gdrive_help_6"].map(k=><li key={k}>{t(k)}</li>)}</ol>
+        <div className="flex justify-end pt-2"><Button onClick={()=>setGdriveHelpOpen(false)}>{t("ui_close")}</Button></div>
+      </div>
+    </Dialog>
     <ConfirmDialog
       open={catConfirmOpen}
       onClose={()=>{setCatConfirmOpen(false);setPendingCat(null);}}

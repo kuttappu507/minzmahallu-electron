@@ -306,6 +306,19 @@ try {
   const campaign = await evaluate(conn, `window.mms.whatsapp.createAnnouncementCampaign("Smoke test announcement").then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
   check("announcement campaign accepts text and creates", /"campaignId"\s*:/.test(String(campaign)), String(campaign).slice(0, 120));
 
+  // 7b) Google Drive backup bridge — offline checks only (the OAuth consent
+  //     needs a real browser + account). Status must reflect an unconfigured
+  //     install, the client id must round-trip through settings into the
+  //     main-process status, and every drive call must be best-effort.
+  const gbridge = await evaluate(conn, `!!(window.mms.gdrive && window.mms.gdrive.status && window.mms.gdrive.connect && window.mms.gdrive.uploadNow)`);
+  check("gdrive bridge exposed via preload", gbridge === true);
+  const gstatus = await evaluate(conn, `window.mms.gdrive.status()`);
+  check("gdrive status is unconfigured on a fresh install", gstatus?.configured === false && gstatus?.connected === false, JSON.stringify(gstatus));
+  const gsaved = await evaluate(conn, `window.mms.settings.save({gdriveClientId:"smoke-client-id", gdriveClientSecret:""}).then(() => window.mms.gdrive.status()).catch(e => "ERR:" + e.message)`);
+  check("gdrive client id persists via settings and flips status to configured", gsaved?.configured === true && gsaved?.connected === false, JSON.stringify(gsaved));
+  const gup = await evaluate(conn, `window.mms.gdrive.uploadNow().then(r => JSON.stringify(r)).catch(e => "ERR:" + e.message)`);
+  check("gdrive uploadNow is best-effort when not connected (no throw)", /"ok":false/.test(String(gup)) && /not connected/i.test(String(gup)), String(gup).slice(0, 100));
+
   // 8) PAUSE (not logout): the engine stops but any stored pairing survives
   //    — the old Disconnect unlinked the device, which read as "logged out".
   log("pausing engine (fresh temp profile — nothing was paired)…");
