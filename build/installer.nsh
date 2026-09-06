@@ -85,16 +85,16 @@ ManifestDPIAware true
     IntCmp $1 97 mms_side125 mms_header mms_side125
     Goto mms_header
   mms_side200:
-    File "/oname=$PLUGINSDIR\modern-wizard.bmp" "${BUILD_RESOURCES_DIR}/hidpi/installerSidebar-200.bmp"
+    File "/oname=$PLUGINSDIR\modern-wizard.bmp" "${BUILD_RESOURCES_DIR}\hidpi\installerSidebar-200.bmp"
     Goto mms_header
   mms_side175:
-    File "/oname=$PLUGINSDIR\modern-wizard.bmp" "${BUILD_RESOURCES_DIR}/hidpi/installerSidebar-175.bmp"
+    File "/oname=$PLUGINSDIR\modern-wizard.bmp" "${BUILD_RESOURCES_DIR}\hidpi\installerSidebar-175.bmp"
     Goto mms_header
   mms_side150:
-    File "/oname=$PLUGINSDIR\modern-wizard.bmp" "${BUILD_RESOURCES_DIR}/hidpi/installerSidebar-150.bmp"
+    File "/oname=$PLUGINSDIR\modern-wizard.bmp" "${BUILD_RESOURCES_DIR}\hidpi\installerSidebar-150.bmp"
     Goto mms_header
   mms_side125:
-    File "/oname=$PLUGINSDIR\modern-wizard.bmp" "${BUILD_RESOURCES_DIR}/hidpi/installerSidebar-125.bmp"
+    File "/oname=$PLUGINSDIR\modern-wizard.bmp" "${BUILD_RESOURCES_DIR}\hidpi\installerSidebar-125.bmp"
 
   mms_header:
     ; ---- header bitmap (already displayed by MUI at 100% size) ----
@@ -108,16 +108,16 @@ ManifestDPIAware true
                                        ; (a ~1.1x upscale is invisible at
                                        ; that strip's small size)
   mms_head200:
-    File "/oname=$PLUGINSDIR\mms-header.bmp" "${BUILD_RESOURCES_DIR}/hidpi/installerHeader-200.bmp"
+    File "/oname=$PLUGINSDIR\mms-header.bmp" "${BUILD_RESOURCES_DIR}\hidpi\installerHeader-200.bmp"
     Goto mms_head_load
   mms_head175:
-    File "/oname=$PLUGINSDIR\mms-header.bmp" "${BUILD_RESOURCES_DIR}/hidpi/installerHeader-175.bmp"
+    File "/oname=$PLUGINSDIR\mms-header.bmp" "${BUILD_RESOURCES_DIR}\hidpi\installerHeader-175.bmp"
     Goto mms_head_load
   mms_head150:
-    File "/oname=$PLUGINSDIR\mms-header.bmp" "${BUILD_RESOURCES_DIR}/hidpi/installerHeader-150.bmp"
+    File "/oname=$PLUGINSDIR\mms-header.bmp" "${BUILD_RESOURCES_DIR}\hidpi\installerHeader-150.bmp"
     Goto mms_head_load
   mms_head125:
-    File "/oname=$PLUGINSDIR\mms-header.bmp" "${BUILD_RESOURCES_DIR}/hidpi/installerHeader-125.bmp"
+    File "/oname=$PLUGINSDIR\mms-header.bmp" "${BUILD_RESOURCES_DIR}\hidpi\installerHeader-125.bmp"
   mms_head_load:
     ; Load at exactly the control's pixel size and swap it in.
     ; 0x0172 = STM_SETIMAGE, 0 = IMAGE_BITMAP, 0x10 = LR_LOADFROMFILE.
