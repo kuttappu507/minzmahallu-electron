@@ -89,10 +89,11 @@ export function TokenEvents() {
     } finally { setSaving(false); }
   };
 
-  // An event can only be deleted while its date has NOT yet passed — after
-  // the date is over the event and its tokens are locked as history (the
-  // service layer and DB triggers enforce the same rule server-side).
-  const eventIsPast = (ev: any) => !ev?.event_date || String(ev.event_date) < todayIST();
+  // An event can be deleted only after its date is over — a completed
+  // event is a spent record (no need to keep), while an upcoming one is
+  // protected (the service layer and DB triggers enforce the same rule
+  // server-side).
+  const eventIsOver = (ev: any) => !!ev?.event_date && String(ev.event_date) < todayIST();
 
   const askDeleteEvent = (event: any) => {
     setDelReason("");
@@ -101,8 +102,8 @@ export function TokenEvents() {
 
   const confirmDeleteEvent = async () => {
     if (!delEvent || delBusy) return;
-    if (eventIsPast(delEvent)) {
-      toast.error(ml ? "ഇവന്റിന്റെ തീയതി കഴിഞ്ഞതിനാൽ ഇത് ഇല്ലാതാക്കാനാകില്ല" : "This event's date has passed — its records are locked and cannot be deleted");
+    if (!eventIsOver(delEvent)) {
+      toast.error(ml ? "ഇവന്റിന്റെ തീയതി ഇതുവരെ കഴിഞ്ഞിട്ടില്ല — ഇവന്റ് കഴിഞ്ഞ ശേഷം മാത്രമേ ഇത് ഇല്ലാതാക്കാനാകൂ" : "This event's date has not yet passed — it can be deleted only after the event is over");
       setDelEvent(null);
       return;
     }
@@ -134,7 +135,7 @@ export function TokenEvents() {
     </div>
 
     <div className="card" style={{ overflow: "hidden" }}><div className="tbl"><table><thead><tr><th>{ml ? "ഇവന്റ്" : "Event"}</th><th>{ml ? "തീയതി" : "Date"}</th><th>{ml ? "തരം" : "Type"}</th><th>{ml ? "സ്ഥലം" : "Venue"}</th><th>{ml ? "ടോക്കണുകൾ" : "Tokens"}</th><th>{ml ? "സ്ഥിതി" : "Status"}</th><th>{ml ? "പ്രവർത്തനങ്ങൾ" : "Actions"}</th></tr></thead><tbody>
-      {loading ? <tr><td colSpan={7} className="tempty">{t("ui_loading")}</td></tr> : !events.length ? <tr><td colSpan={7} className="tempty">{ml ? "ഇവന്റുകളൊന്നുമില്ല" : "No token events yet."}</td></tr> : events.map((event: any) => <tr key={event.id}><td><b>{event.event_name}</b></td><td>{formatDate(event.event_date)}</td><td><Badge variant="muted">{event.event_type}</Badge></td><td>{event.venue || "—"}</td><td><span className="token-code">{counts[event.id] || 0}</span></td><td>{event.status || "ACTIVE"}</td><td><div className="flex gap-2"><Button variant="secondary" onClick={() => navigate(`/tokens/manage?event=${event.id}`)}><Ticket size={14} />{ml ? "ടോക്കണുകൾ" : "Manage"}<ArrowRight size={14} /></Button><Button variant="secondary" onClick={() => openEdit(event)} title={ml ? "തിരുത്തുക" : "Edit"}><Pencil size={14} /></Button><Button variant={eventIsPast(event) ? "secondary" : "danger"} onClick={() => askDeleteEvent(event)} disabled={eventIsPast(event)} title={eventIsPast(event) ? (ml ? "തീയതി കഴിഞ്ഞതിനാൽ ഇത് ഇല്ലാതാക്കാനാകില്ല" : "This event's date has passed — it is locked as history") : (ml ? "ഇല്ലാതാക്കുക" : "Delete")}><Trash2 size={14} /></Button></div></td></tr>)}
+      {loading ? <tr><td colSpan={7} className="tempty">{t("ui_loading")}</td></tr> : !events.length ? <tr><td colSpan={7} className="tempty">{ml ? "ഇവന്റുകളൊന്നുമില്ല" : "No token events yet."}</td></tr> : events.map((event: any) => <tr key={event.id}><td><b>{event.event_name}</b></td><td>{formatDate(event.event_date)}</td><td><Badge variant="muted">{event.event_type}</Badge></td><td>{event.venue || "—"}</td><td><span className="token-code">{counts[event.id] || 0}</span></td><td>{event.status || "ACTIVE"}</td><td><div className="flex gap-2"><Button variant="secondary" onClick={() => navigate(`/tokens/manage?event=${event.id}`)}><Ticket size={14} />{ml ? "ടോക്കണുകൾ" : "Manage"}<ArrowRight size={14} /></Button><Button variant="secondary" onClick={() => openEdit(event)} title={ml ? "തിരുത്തുക" : "Edit"}><Pencil size={14} /></Button><Button variant={eventIsOver(event) ? "danger" : "secondary"} onClick={() => askDeleteEvent(event)} disabled={!eventIsOver(event)} title={eventIsOver(event) ? (ml ? "ഇല്ലാതാക്കുക" : "Delete") : (ml ? "ഇവന്റിന്റെ തീയതി ഇതുവരെ കഴിഞ്ഞിട്ടില്ല — ഇവന്റ് കഴിഞ്ഞ ശേഷം മാത്രമേ ഇത് ഇല്ലാതാക്കാനാകൂ" : "This event's date has not yet passed — it can be deleted only after the event is over")}><Trash2 size={14} /></Button></div></td></tr>)}
     </tbody></table></div></div>
 
     <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editingId ? (ml ? "ഇവന്റ് തിരുത്തുക" : "Edit Event") : (ml ? "പുതിയ ഇവന്റ്" : "New Event")}>
@@ -151,7 +152,7 @@ export function TokenEvents() {
     <Dialog open={!!delEvent} onClose={() => { if (!delBusy) { setDelEvent(null); setDelReason(""); } }} title={ml ? "ഇവന്റ് ഇല്ലാതാക്കുക" : "Delete Event"} className="modal-sm">
       <div className="dlg-pad space-y-4">
         <div className="token-action-summary"><div><b>{delEvent?.event_name}</b> · {delEvent ? formatDate(delEvent.event_date) : ""}</div><div>{ml ? `ടോക്കണുകൾ: ${counts[delEvent?.id] || 0}` : `Tokens: ${counts[delEvent?.id] || 0}`}</div></div>
-        <p className="token-help">{ml ? "ഇവന്റിന്റെ തീയതി ഇതുവരെ കഴിഞ്ഞിട്ടില്ലാത്തതിനാൽ മാത്രമാണ് ഇല്ലാതാക്കാനാകുന്നത്. ഈ ഇവന്റും അതിലെ എല്ലാ ടോക്കണുകളും ഇല്ലാതാക്കപ്പെടും; തീയതി കഴിഞ്ഞ ഇവന്റുകൾ റെക്കാഡായി സൂക്ഷിക്കപ്പെടും. ഇത് തിരിച്ചെടുക്കാനാകില്ല." : "This event can be deleted only because its date has not yet passed. The event and all its tokens will be permanently deleted; events whose date is over are kept as history. This cannot be undone."}</p>
+        <p className="token-help">{ml ? "ഇവന്റിന്റെ തീയതി കഴിഞ്ഞതിനാലാണ് ഇത് ഇല്ലാതാക്കാനാകുന്നത്. ഈ ഇവന്റും അതിലെ എല്ലാ ടോക്കണുകളും എന്നേക്കുമായി ഇല്ലാതാക്കപ്പെടും. ഇത് തിരിച്ചെടുക്കാനാകില്ല." : "This event can be deleted because its date is over — there is no need to keep it. The event and all its tokens will be permanently deleted. This cannot be undone."}</p>
         <div><Label>{ml ? "കാരണം" : "Reason"}</Label><Input value={delReason} onChange={e => setDelReason(e.target.value)} placeholder={ml ? "തെറ്റായി സൃഷ്ടിച്ച ഇവന്റ്" : "Created by mistake"} autoFocus /></div>
         <div className="dlg-actions"><Button variant="secondary" onClick={() => { setDelEvent(null); setDelReason(""); }} disabled={delBusy}>{t("action_cancel")}</Button><Button variant="danger" onClick={confirmDeleteEvent} disabled={delBusy}>{delBusy ? (ml ? "ഇല്ലാതാക്കുന്നു…" : "Deleting…") : (ml ? "ഇല്ലാതാക്കുക" : "Delete")}</Button></div>
       </div>

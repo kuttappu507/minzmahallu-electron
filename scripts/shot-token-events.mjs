@@ -124,12 +124,13 @@ try {
   fs.writeFileSync(OUT1, Buffer.from(shot1.data, "base64"));
   console.log("[shot] saved:", OUT1, fs.statSync(OUT1).size, "bytes");
 
-  // Open the delete dialog on the FUTURE event and capture it.
+  // Open the delete dialog on the PAST event (the deletable one under the
+  // "date must be over" policy) and capture it.
   const openDlg = await conn.send("Runtime.evaluate", {
     awaitPromise: true, returnByValue: true,
     expression: `(() => {
       const rows = Array.from(document.querySelectorAll("tbody tr"));
-      const row = rows.find((r) => r.textContent.includes("Future Eid Kit Event"));
+      const row = rows.find((r) => r.textContent.includes("Past Eid Kit Event"));
       const btn = Array.from(row.querySelectorAll("button")).find((b) => (b.title || "").toLowerCase() === "delete");
       btn.click();
       return "CLICKED";

@@ -173,8 +173,8 @@ function ensureRuntimeSchema(database: DB) {
     addColumn(database, "token_assignments", "replacement_for", "INTEGER");
     addColumn(database, "token_assignments", "created_at", "TEXT NOT NULL DEFAULT (datetime('now'))");
   }
-  // Date-based deletion protection: once an event's date has passed, the
-  // event and its tokens are history and cannot be deleted (DB triggers
+  // Date-based deletion protection: a token event can be deleted only
+  // after its date is over — upcoming events are protected (DB triggers
   // enforce it even against external editors — see token-guard.ts).
   installTokenDateGuard(database);
 

@@ -3,7 +3,6 @@ import * as data from "./services/data.service.js";
 import { changePassword, createInitialAdministrator, needsInitialSetup, verifyCurrentActorPassword } from "./services/auth.service.js";
 import { security, type Actor } from "./services/security.service.js";
 import { getDB } from "./db/connection.js";
-import { TOKEN_DELETE_GUARD_KEY } from "./db/token-guard.js";
 import { todayIST } from "./services/data.service.js";
 import { whatsapp } from "./services/whatsapp.service.js";
 
@@ -313,21 +312,22 @@ export function registerSecurityIpc(getActor: ActorProvider) {
     }
     if (!reason?.trim()) throw new Error("A deletion reason is required");
     db.transaction(() => {
-      // One-shot authorization row: the DB trigger blocks deletes of
-      // past-event tokens, and this row exists ONLY inside this
-      // transaction — it is removed before the commit and rolled back on
-      // any error, so the audited app path is the only way through.
-      db.prepare("INSERT OR REPLACE INTO token_delete_guard (key) VALUES (?)").run(TOKEN_DELETE_GUARD_KEY);
+      // The event date is over (checked above), so the DB guard trigger
+      // (token-guard.ts) allows this delete through — it only blocks
+      // tokens of events that have not happened yet. The audit row is
+      // written in the SAME transaction as the deletion so a missing
+      // audit can never be silently ignored (V009 intent).
       db.prepare("DELETE FROM token_assignments WHERE id = ?").run(tokenId);
-      db.prepare("DELETE FROM token_delete_guard WHERE key = ?").run(TOKEN_DELETE_GUARD_KEY);
       data.audit.log(a.id, a.username, "DELETE", "tokens", tokenId, `Token deleted: ${reason.trim()}`, "");
     })();
     return { success: true };
   });
   // Delete a whole token event — Administrator only, with a reason, and
-  // ONLY while the event date has not yet passed. A past event is history:
-  // data.tokens.removeEvent refuses, and the DB triggers (token-guard.ts)
-  // block the delete even for a tampered renderer or an external editor.
+  // ONLY after the event date is over: a completed event is a spent
+  // record (no need to keep), while an upcoming one is protected.
+  // data.tokens.removeEvent enforces the date rule, and the DB triggers
+  // (token-guard.ts) block the delete even for a tampered renderer or an
+  // external editor.
   register("tokens:removeEvent", (id: number, reason: string) => {
     const a = admin();
     return data.tokens.removeEvent(id, reason, { id: a.id, username: a.username });
