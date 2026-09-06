@@ -110,7 +110,7 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "perMachine": false,
+      "perMachine": true,
       "include": "build/installer.nsh",
       "deleteAppDataOnUninstall": false
     },
