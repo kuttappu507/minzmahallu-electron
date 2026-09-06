@@ -1,11 +1,10 @@
 ﻿; MMS installer/uninstaller customization — admin-password gate, data safety,
 ; and crisp high-DPI wizard art.
 ;
-; Wired in via package.json -> build.nsis.include. electron-builder prepends
-; this file to the generated installer script; its macros are invoked from
-; the template at these points:
-;   customHeader    -> after MUI2 is included, before pages (installer AND
-;                      uninstaller compile passes)
+; Wired in via package.json -> build.nsis.include. electron-builder PREPENDS
+; this file (the "shared header") to the generated installer script, so
+; everything below is processed BEFORE the template body. Its macros are
+; invoked from the template at these points:
 ;   customUnInit    -> inside un.onInit, BEFORE any file is removed
 ;   customUnInstall -> end of the uninstall section, AFTER files are removed
 ;
@@ -16,26 +15,37 @@
 ; scaled above 100% the MUI2 controls grow with the DPI (dialog units track
 ; the font). MUI2 then loads the wizard/header bitmaps SCALED TO THE
 ; CONTROL ("FitControl": NSD_SetStretchedImage / SetBrandingImage
-; /RESIZETOFIT both end in GDI LoadImage with explicit cx/cy) — our 100%
-; art (164x314 / 150x57) was resampled to e.g. 205x393 at 125%, and GDI's
-; resampling is nearest-neighbor-grade: blocky, "pixelated" edges.
+; /RESIZETOFIT all end in GDI LoadImage with explicit cx/cy) — the 100%
+; art (164x314 / 150x57) got resampled by GDI, which is
+; nearest-neighbor-grade: blocky, "pixelated" edges.
 ;
 ; Fix: scripts/gen-nsis-assets.py renders the same design at every Windows
 ; scale preset (100/125/150/175/200% -> build/installerSidebar.bmp,
 ; build/installerHeader.bmp + build/hidpi/*.bmp). The mms.HiDpiArt hook
-; below (runs from .onGUIInit / un.onGUIInit — AFTER MUI has extracted its
-; 100% art, BEFORE any page displays it — exactly where MUI2 chains the
-; MUI_CUSTOMFUNCTION_GUIINIT / MUI_CUSTOMFUNCTION_UNGUIINIT callbacks)
+; below runs from .onGUIInit / un.onGUIInit — AFTER MUI has extracted its
+; 100% art, BEFORE any page displays it (exactly where MUI2 chains the
+; MUI_CUSTOMFUNCTION_GUIINIT / MUI_CUSTOMFUNCTION_UNGUIINIT callbacks) —
 ; measures the real screen DPI and:
 ;   - wizard/sidebar: overwrites $PLUGINSDIR\modern-wizard.bmp with the
 ;     matching variant, so the later page load maps pixels 1:1;
-;   - header: MUI already loaded the 100% bitmap before the hook runs, so
-;     the hook re-loads the matching variant itself at the measured
-;     control size (GetDlgItem 1046 -> GetClientRect -> LoadImage ->
-;     STM_SETIMAGE) and frees the old bitmap.
+;   - header: MUI already displayed the 100% bitmap by then, so the hook
+;     re-loads the matching variant itself at the measured control size
+;     (GetDlgItem 1046 -> GetClientRect -> LoadImage -> STM_SETIMAGE) and
+;     frees the old bitmap.
 ; At 100% scaling nothing is swapped — the art is already pixel-perfect.
-; Intermediate/custom DPIs pick the next-larger variant; the residual
+; Intermediate/custom DPIs pick the next preset up; the residual
 ; sub-pixel resample (a few px) is invisible.
+;
+; WHY THE HOOK IS WIRED AT FILE SCOPE (not via the template's
+; customHeader hook): MUI2 generates .onGUIInit / un.onGUIInit when the
+; FIRST language file is included (macro MUI_INSERT in MUI2.nsh), which
+; in the generated script happens at "!insertmacro addLangs" — BEFORE the
+; template reaches the customHeader insertion point. The
+; MUI_CUSTOMFUNCTION_* defines must therefore already exist when this
+; file is read. Defining them from customHeader would be too late: the
+; callbacks would never be called (and the un. function would trip NSIS
+; warning 6010 "uninstall function not referenced", which electron-builder
+; turns into an error with makensis -WX).
 ;
 ; ---------------------------------------------------------------------------
 ; Uninstall gate design (main process + renderer implement the app side):
@@ -58,6 +68,14 @@
 ManifestDPIAware true
 
 ; =========================== high-DPI art =================================
+; Callback wiring — must be defined here (file scope) because the template
+; inserts languages (and with them MUI's .onGUIInit chain) before any of its
+; custom macros. BUILD_UNINSTALLER marks the uninstaller compile pass; only
+; there do uninstaller pages exist, so only there is the un. hook emitted
+; (an unreferenced un. function is a makensis warning, and warnings are
+; errors under electron-builder).
+
+!define MUI_CUSTOMFUNCTION_GUIINIT mms.HiDpiArt
 
 !macro MMS_HIDPI_ART FUNC
   ; Shared body for the installer and uninstaller hooks. Plain NSIS
@@ -136,20 +154,17 @@ ManifestDPIAware true
   FunctionEnd
 !macroend
 
-!macro customHeader
-  ; Installer hook: MUI2 calls MUI_CUSTOMFUNCTION_GUIINIT at the END of
-  ; .onGUIInit — after modern-header.bmp AND modern-wizard.bmp were
-  ; extracted, before any page displays them.
-  !define MUI_CUSTOMFUNCTION_GUIINIT mms.HiDpiArt
-  !insertmacro MMS_HIDPI_ART mms.HiDpiArt
-  ; Uninstaller hook: un.* code only compiles in the BUILD_UNINSTALLER
-  ; pass (electron-builder includes uninstaller.nsh / the un pages only
-  ; there), so guard the emission the same way.
-  !ifdef BUILD_UNINSTALLER
-    !define MUI_CUSTOMFUNCTION_UNGUIINIT un.mms.HiDpiArt
-    !insertmacro MMS_HIDPI_ART un.mms.HiDpiArt
-  !endif
-!macroend
+; Installer-side hook: emitted in every pass (MUI generates .onGUIInit
+; unconditionally at the first language include; in the BUILD_UNINSTALLER
+; pass the script quits before the GUI is ever created, which is harmless).
+!insertmacro MMS_HIDPI_ART mms.HiDpiArt
+
+!ifdef BUILD_UNINSTALLER
+  ; Uninstaller-side hook: only in the uninstaller compile pass, where the
+  ; uninstaller pages (and therefore un.onGUIInit) exist.
+  !define MUI_CUSTOMFUNCTION_UNGUIINIT un.mms.HiDpiArt
+  !insertmacro MMS_HIDPI_ART un.mms.HiDpiArt
+!endif
 
 ; ======================= uninstall password gate ==========================
 
