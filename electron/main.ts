@@ -90,6 +90,26 @@ process.on("unhandledRejection", (reason) => {
   try { dialog.showErrorBox("MMS — Unexpected Error", `An async operation failed:\n\n${String(reason)}`); } catch {}
 });
 
+// Verified export writer used by all save-dialog exports: guarantees the file
+// extension, writes, then stat-verifies the output so a silent Windows failure
+// (antivirus quarantine, Controlled Folder Access, OneDrive sync) can never
+// masquerade as success. Error results carry the OS error code for diagnosis.
+type ExportWriteResult = { status: "cancelled" } | { status: "written"; path: string; size: number } | { status: "failed"; error: string };
+async function saveExportFile(opts: { title: string; defaultName: string; ext: string; filterName: string }, produce: () => Promise<Buffer> | Buffer): Promise<ExportWriteResult> {
+  try {
+    const saveResult = await dialog.showSaveDialog(mainWindow!, { title: opts.title, defaultPath: opts.defaultName, filters: [{ name: opts.filterName, extensions: [opts.ext] }] });
+    if (saveResult.canceled || !saveResult.filePath) return { status: "cancelled" };
+    const filePath = /\.[A-Za-z0-9]+$/.test(saveResult.filePath) ? saveResult.filePath : `${saveResult.filePath}.${opts.ext}`;
+    const buffer = await produce();
+    fs.writeFileSync(filePath, buffer);
+    const size = fs.statSync(filePath).size;
+    if (!size) throw new Error("Output file is empty - the location may be blocked by antivirus or folder protection");
+    return { status: "written", path: filePath, size };
+  } catch (err: any) {
+    return { status: "failed", error: (err?.code ? `${err.code}: ` : "") + String(err?.message ?? err) };
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1600, height: 900, minWidth: 1024, minHeight: 640, show: false,
@@ -98,6 +118,16 @@ function createWindow() {
     webPreferences: { preload: path.join(__dirname, "preload.mjs"), contextIsolation: true, nodeIntegration: false, sandbox: false, zoomFactor: 1.0 },
   });
   mainWindow.once("ready-to-show", () => mainWindow?.show());
+  // Surface silent download failures (Reports page CSV/Excel/PDF blob downloads
+  // go through Chromium's download pipeline). Success needs no extra handling;
+  // a failed/interrupted download is reported so the UI can warn the user.
+  mainWindow.webContents.session.on("will-download", (_event, item) => {
+    item.once("done", (_it, state) => {
+      if (state !== "completed") {
+        try { mainWindow?.webContents.send("download:failed", item.getFilename()); } catch {}
+      }
+    });
+  });
   // Close gate: ask the renderer to confirm before the window goes away.
   mainWindow.on("close", (e) => {
     if (closeConfirmed || !mainWindow || mainWindow.isDestroyed()) return;
@@ -386,12 +416,11 @@ app.whenReady().then(() => {
       const html = buildAccountStatementHtml(listRes.rows || [], summary, allFilter);
       const periodLabel = filter?.period || "all";
       const defaultName = `account-statement-${periodLabel}-${todayIST()}.pdf`;
-      const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Account Statement PDF", defaultPath: defaultName, filters: [{ name: "PDF Document", extensions: ["pdf"] }] });
-      if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true };
-      const pdfBuffer = await renderHtmlToPdf(html);
-      fs.writeFileSync(saveResult.filePath, pdfBuffer);
-      return { success: true, path: saveResult.filePath, count: listRes.rows?.length || 0 };
-    } catch (err: any) { return { success: false, error: err.message }; }
+      const written = await saveExportFile({ title: "Save Account Statement PDF", defaultName, ext: "pdf", filterName: "PDF Document" }, async () => await renderHtmlToPdf(html));
+      if (written.status === "cancelled") return { success: false, cancelled: true };
+      if (written.status === "failed") return { success: false, error: written.error };
+      return { success: true, path: written.path, size: written.size, count: listRes.rows?.length || 0 };
+    } catch (err: any) { return { success: false, error: (err?.code ? `${err.code}: ` : "") + err.message }; }
   });
 
   ipcMain.handle("accounting:exportExcel", async (_e, filter: any) => {
@@ -463,13 +492,11 @@ app.whenReady().then(() => {
       ws2.views = [{ state: "frozen", ySplit: 1 }];
 
       const defaultName = `account-statement-${periodLabel}-${todayIST()}.xlsx`;
-      const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Account Statement Excel", defaultPath: defaultName, filters: [{ name: "Excel Spreadsheet", extensions: ["xlsx"] }] });
-      if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true };
-
-      const buffer = Buffer.from(await wb.xlsx.writeBuffer());
-      fs.writeFileSync(saveResult.filePath, buffer);
-      return { success: true, path: saveResult.filePath, count: rows.length };
-    } catch (err: any) { return { success: false, error: err.message }; }
+      const written = await saveExportFile({ title: "Save Account Statement Excel", defaultName, ext: "xlsx", filterName: "Excel Spreadsheet" }, async () => Buffer.from(await wb.xlsx.writeBuffer()));
+      if (written.status === "cancelled") return { success: false, cancelled: true };
+      if (written.status === "failed") return { success: false, error: written.error };
+      return { success: true, path: written.path, size: written.size, count: rows.length };
+    } catch (err: any) { return { success: false, error: (err?.code ? `${err.code}: ` : "") + err.message }; }
   });
 
   // ===== Annual audit pack (Waqf Board / society auditor format) =====
@@ -480,12 +507,11 @@ app.whenReady().then(() => {
       const lang = await mainWindow!.webContents.executeJavaScript("document.documentElement.classList.contains('lang-ml') ? 'ml' : 'en'");
       const html = buildAuditPackHtml(pack, lang);
       const defaultName = `audit-pack-${fyYear}-${(fyYear + 1).toString().slice(2)}.pdf`;
-      const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Annual Audit Pack", defaultPath: defaultName, filters: [{ name: "PDF Document", extensions: ["pdf"] }] });
-      if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true };
-      const pdfBuffer = await renderHtmlToPdf(html);
-      fs.writeFileSync(saveResult.filePath, pdfBuffer);
-      return { success: true, path: saveResult.filePath, receipts: pack.totalReceipts, payments: pack.totalPayments, count: pack.transactions.length };
-    } catch (err: any) { return { success: false, error: err.message }; }
+      const written = await saveExportFile({ title: "Save Annual Audit Pack", defaultName, ext: "pdf", filterName: "PDF Document" }, async () => await renderHtmlToPdf(html));
+      if (written.status === "cancelled") return { success: false, cancelled: true };
+      if (written.status === "failed") return { success: false, error: written.error };
+      return { success: true, path: written.path, size: written.size, receipts: pack.totalReceipts, payments: pack.totalPayments, count: pack.transactions.length };
+    } catch (err: any) { return { success: false, error: (err?.code ? `${err.code}: ` : "") + err.message }; }
   });
 
   // ===== Register-book printing (marriage / death) =====

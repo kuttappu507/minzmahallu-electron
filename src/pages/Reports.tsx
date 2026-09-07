@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Download, FileSpreadsheet, FileText, Home, Users, Wallet, Gift, Gem, Flower, ScrollText, ShieldCheck, BarChart3, Loader2, CalendarRange } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { Select, Input, Button } from "@/components/ui";
@@ -65,6 +65,8 @@ function buildXlsx(rows:any[],c:string[]){
 
 export function Reports(){
  const {t,lang}=useI18n(); const ml=lang==="ml";
+ // Warn when a Chromium download (CSV/Excel/PDF from this page) fails or is interrupted.
+ useEffect(()=>{ const off=window.mms.events.onDownloadFailed((name)=>toast.error(name?`${name} — download failed or was interrupted`:"Download failed or was interrupted")); return ()=>off?.(); },[]);
  const [range,setRange]=useState<"all"|"thisMonth"|"lastMonth"|"custom">("all"); const [from,setFrom]=useState(""); const [to,setTo]=useState(""); const [busy,setBusy]=useState<string|null>(null); const [busyFmt,setBusyFmt]=useState<string|null>(null);
  // Annual audit pack (financial year Apr 1 → Mar 31).
  const fyStartYear = new Date().getMonth() >= 3 ? new Date().getFullYear() : new Date().getFullYear() - 1;

@@ -260,7 +260,7 @@ export function Accounting() {
     setExportingPdf(true);
     try {
       const result = await window.mms.accounting.exportPdf(buildExportFilter());
-      if (result?.success) toast.success(tx(`PDF exported (${result.count} entries)`, `${result.count} രേഖകളുടെ PDF തയ്യാറാക്കി`));
+      if (result?.success) toast.success(tx(`PDF exported (${result.count} entries) — saved to ${result.path ?? ""}`, `${result.count} രേഖകളുടെ PDF തയ്യാറാക്കി — ${result.path ?? ""}`));
       else if (!result?.cancelled) toast.error(result?.error || tx("Failed to export PDF", "PDF തയ്യാറാക്കാൻ കഴിഞ്ഞില്ല"));
     } catch (e: any) { toast.error(e.message); }
     finally { setExportingPdf(false); }
@@ -270,7 +270,7 @@ export function Accounting() {
     setExportingExcel(true);
     try {
       const result = await window.mms.accounting.exportExcel(buildExportFilter());
-      if (result?.success) toast.success(tx(`Excel exported (${result.count} entries)`, `${result.count} രേഖകളുടെ എക്സൽ തയ്യാറാക്കി`));
+      if (result?.success) toast.success(tx(`Excel exported (${result.count} entries) — saved to ${result.path ?? ""}`, `${result.count} രേഖകളുടെ എക്സൽ തയ്യാറാക്കി — ${result.path ?? ""}`));
       else if (!result?.cancelled) toast.error(result?.error || tx("Failed to export Excel", "എക്സൽ തയ്യാറാക്കാൻ കഴിഞ്ഞില്ല"));
     } catch (e: any) { toast.error(e.message); }
     finally { setExportingExcel(false); }

@@ -49,7 +49,8 @@ const api = {
     archive: (id: number, reason: string) => ipcRenderer.invoke("committee:archive", id, reason),
     restore: (id: number) => ipcRenderer.invoke("committee:restore", id),
     history: (id: number) => ipcRenderer.invoke("committee:history", id)
-  }
+  },
+  events: { onDownloadFailed: (cb: (name: string) => void) => { const h = (_e: unknown, name: string) => cb(String(name)); ipcRenderer.on("download:failed", h); return () => { ipcRenderer.removeListener("download:failed", h); }; } }
 };
 
 contextBridge.exposeInMainWorld("mms", api);
