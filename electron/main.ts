@@ -447,10 +447,14 @@ app.whenReady().then(() => {
       const ws1 = wb.addWorksheet("Ledger");
       ws1.columns = LEDGER_HEADERS.map((h) => ({ header: h, key: h, width: fitWidth(ledgerData, h) }));
       ws1.addRows(ledgerData);
+      ws1.getRow(1).font = { bold: true };
+      ws1.views = [{ state: "frozen", ySplit: 1 }];
 
       const ws2 = wb.addWorksheet("Summary");
       ws2.columns = ["Metric", "Value"].map((h) => ({ header: h, key: h, width: fitWidth(summaryData, h) }));
       ws2.addRows(summaryData);
+      ws2.getRow(1).font = { bold: true };
+      ws2.views = [{ state: "frozen", ySplit: 1 }];
 
       const defaultName = `account-statement-${periodLabel}-${todayIST()}.xlsx`;
       const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Account Statement Excel", defaultPath: defaultName, filters: [{ name: "Excel Spreadsheet", extensions: ["xlsx"] }] });
