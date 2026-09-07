@@ -109,10 +109,20 @@ npm run package:win
 └──────────────────────────────────────────────┘
 ```
 
-## Default Login
+## First-Run Setup (No Default Password)
 
-- **Username**: `admin`
-- **Password**: `admin123`
+There is **no default password**. On first launch the app detects the seeded
+placeholder administrator and shows a one-time **Initial Setup** screen where
+you create the real administrator account in place:
+
+- **Username**: 3–32 characters — letters, numbers, dot, underscore or hyphen
+- **Full name**: shown across the app and recorded in the audit log
+- **Password**: at least 8 characters with uppercase, lowercase, digit and
+  special character (enforced at creation and on every password change)
+
+The placeholder administrator is replaced on the same user id, so the audit
+trail stays intact. Subsequent launches show the normal login screen. As a
+brute-force safeguard, 5 failed attempts lock the account for 15 minutes.
 
 ## Database
 

@@ -25,7 +25,7 @@ import { registerSecurityIpc } from "./security-ipc.js";
 import { registerWhatsAppIpc } from "./whatsapp-ipc.js";
 import { registerReceiptIpc } from "./receipt-ipc.js";
 import { verifyUninstallPassword, UNINSTALL_ADMIN_SQL } from "./services/uninstall-guard.js";
-import XLSX from "xlsx";
+import { Workbook } from "exceljs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let mainWindow: BrowserWindow | null = null;
@@ -432,31 +432,31 @@ app.whenReady().then(() => {
         { "Metric": "Expense — Manual", "Value": summary.expenseManual },
       ];
 
-      const wb = XLSX.utils.book_new();
+      const wb = new Workbook();
       const LEDGER_HEADERS = ["Date", "Source", "Type", "Description", "Receipt No", "Voucher No", "Bill No", "Payee", "Payment Method", "Transaction Ref", "Status", "Void Reason", "Amount"];
-      const ws1 = XLSX.utils.json_to_sheet(ledgerData, { header: LEDGER_HEADERS });
       // Column widths sized from the actual content so no value is truncated.
-      const fitCols = (data: any[], header: string[]) =>
-        header.map((k) => {
-          let max = String(k ?? "").length;
-          for (let i = 0; i < data.length && i < 400; i++) {
-            const len = String(data[i]?.[k] ?? "").length;
-            if (len > max) max = len;
-          }
-          return { wch: Math.min(60, Math.max(11, Math.ceil(max * 1.15) + 3)) };
-        });
-      ws1["!cols"] = fitCols(ledgerData, LEDGER_HEADERS);
-      XLSX.utils.book_append_sheet(wb, ws1, "Ledger");
+      const fitWidth = (data: any[], k: string) => {
+        let max = String(k ?? "").length;
+        for (let i = 0; i < data.length && i < 400; i++) {
+          const len = String(data[i]?.[k] ?? "").length;
+          if (len > max) max = len;
+        }
+        return Math.min(60, Math.max(11, Math.ceil(max * 1.15) + 3));
+      };
 
-      const ws2 = XLSX.utils.json_to_sheet(summaryData, { header: ["Metric", "Value"] });
-      ws2["!cols"] = fitCols(summaryData, ["Metric", "Value"]);
-      XLSX.utils.book_append_sheet(wb, ws2, "Summary");
+      const ws1 = wb.addWorksheet("Ledger");
+      ws1.columns = LEDGER_HEADERS.map((h) => ({ header: h, key: h, width: fitWidth(ledgerData, h) }));
+      ws1.addRows(ledgerData);
+
+      const ws2 = wb.addWorksheet("Summary");
+      ws2.columns = ["Metric", "Value"].map((h) => ({ header: h, key: h, width: fitWidth(summaryData, h) }));
+      ws2.addRows(summaryData);
 
       const defaultName = `account-statement-${periodLabel}-${todayIST()}.xlsx`;
       const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Account Statement Excel", defaultPath: defaultName, filters: [{ name: "Excel Spreadsheet", extensions: ["xlsx"] }] });
       if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true };
 
-      const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+      const buffer = Buffer.from(await wb.xlsx.writeBuffer());
       fs.writeFileSync(saveResult.filePath, buffer);
       return { success: true, path: saveResult.filePath, count: rows.length };
     } catch (err: any) { return { success: false, error: err.message }; }
