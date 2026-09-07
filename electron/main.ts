@@ -440,6 +440,7 @@ app.whenReady().then(() => {
         "Source": r.source || "",
         "Type": r.type || "",
         "Description": r.description || "",
+        "Category": r.category || "",
         "Receipt No": r.receipt_number || "",
         "Voucher No": r.voucher_no || "",
         "Bill No": r.bill_no || "",
@@ -468,7 +469,7 @@ app.whenReady().then(() => {
       ];
 
       const wb = new Workbook();
-      const LEDGER_HEADERS = ["Date", "Source", "Type", "Description", "Receipt No", "Voucher No", "Bill No", "Payee", "Payment Method", "Transaction Ref", "Status", "Void Reason", "Amount"];
+      const LEDGER_HEADERS = ["Date", "Source", "Type", "Description", "Category", "Receipt No", "Voucher No", "Bill No", "Payee", "Payment Method", "Transaction Ref", "Status", "Void Reason", "Amount"];
       // Column widths sized from the actual content so no value is truncated.
       const fitWidth = (data: any[], k: string) => {
         let max = String(k ?? "").length;

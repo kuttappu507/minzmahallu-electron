@@ -62,6 +62,8 @@ function ensureRuntimeSchema(database: DB) {
     ["transactions","voucher_no","TEXT"],["transactions","bill_no","TEXT"],["transactions","payee","TEXT"],
     // V031 — receipt VOID workflow + certificate anti-forgery
     ["transactions","status","TEXT NOT NULL DEFAULT 'Posted'"],["transactions","voided_at","TEXT"],["transactions","voided_by","INTEGER"],["transactions","void_reason","TEXT"],
+    // V036 — ledger categories on manual transactions (shop rent, goods rent, hall rent etc.)
+    ["transactions","category","TEXT"],
     ["certificates","verification_code","TEXT"],["certificates","reprint_count","INTEGER NOT NULL DEFAULT 0"],
     // V030 — member family-tree links (father/mother/spouse as member references)
     ["members","father_id","INTEGER"],["members","mother_id","INTEGER"],["members","spouse_id","INTEGER"],

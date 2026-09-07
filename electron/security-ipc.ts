@@ -139,17 +139,40 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("subscriptions:remove", () => { admin(); throw new Error("A recurring subscription cannot be deleted. Cancel the payment instead — the account stays with the family."); });
   register("subscriptions:markOverdue", () => { actor(); return data.subscriptions.markOverdue(); });
   register("donations:create", (d: any) => { const a = actor(); return data.donations.create({ ...d, receivedBy: a.id }); });
-  register("donations:update", (id: number, d: any) => { actor(); return data.donations.update(id, d); });
+  register("donations:update", (id: number, d: any, adminPassword: string, reason: string) => {
+    const a = admin();
+    // Editing an issued donation receipt is a sensitive financial action:
+    // Administrator role + own-password re-authentication + a reason, all audited.
+    if (!reason || !String(reason).trim()) throw new Error("A reason is required to edit a donation");
+    verifyCurrentActorPassword(String(adminPassword ?? ""));
+    try { data.audit.log(a.id, a.username, "UPDATE", "donations", id, `Donation edited after administrator re-authentication: ${String(reason).trim()}`, ""); } catch {}
+    return data.donations.update(id, d);
+  });
   register("donations:remove", () => { admin(); throw new Error("Financial records cannot be permanently deleted. Use a correction/reversal instead."); });
   register("accounting:create", (d: any) => { const a = actor(); return data.accounting.create({ ...d, createdBy: a.id }); });
-  register("accounting:update", (id: number, d: any) => { actor(); return data.accounting.update(id, d); });
+  register("accounting:update", (id: number, d: any, adminPassword: string, reason: string) => {
+    const a = admin();
+    // Editing an income/expense ledger entry changes recorded money: it requires
+    // the Administrator role, re-entry of the administrator's OWN password
+    // (verified against the PBKDF2 hash in this process), and a reason. All
+    // three are recorded in the tamper-evident audit log.
+    if (!reason || !String(reason).trim()) throw new Error("A reason is required to edit a ledger entry");
+    verifyCurrentActorPassword(String(adminPassword ?? ""));
+    try { data.audit.log(a.id, a.username, "UPDATE", "accounting", id, `Ledger entry edited after administrator re-authentication: ${String(reason).trim()}`, ""); } catch {}
+    return data.accounting.update(id, d);
+  });
   register("accounting:remove", () => { admin(); throw new Error("Financial records cannot be deleted. VOID the entry instead — the record stays for audit."); });
   // VOID instead of delete: keeps the receipt number and the entry, adds
   // who/when/why. Administrator-only because it reverses a financial record.
-  register("accounting:void", (id: number, reason: string) => {
+  register("accounting:void", (id: number, reason: string, adminPassword: string) => {
     const a = admin();
+    if (!reason || !String(reason).trim()) throw new Error("A void reason is required");
+    // Voiding reverses a financial record: administrator password re-authentication
+    // is required on top of the role check, so a walked-away workstation cannot
+    // be used to void entries.
+    verifyCurrentActorPassword(String(adminPassword ?? ""));
     const r = data.accounting.void(id, reason, a.id);
-    try { data.audit.log(a.id, a.username, "VOID", "accounting", id, `Entry voided: ${reason} (receipt ${r.receiptNumber || ""})`, ""); } catch {}
+    try { data.audit.log(a.id, a.username, "VOID", "accounting", id, `Entry voided after administrator re-authentication: ${reason} (receipt ${r.receiptNumber || ""})`, ""); } catch {}
     return r;
   });
   register("accounting:receiptSequence", () => { actor(); return data.accounting.receiptSequence(); });

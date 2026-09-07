@@ -4,6 +4,7 @@ import { useI18n } from "@/i18n";
 import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
+import { SecureActionDialog } from "@/components/SecureActionDialog";
 import { formatCurrency, formatDate, todayIST } from "@/lib/utils";
 
 interface Transaction {
@@ -19,6 +20,7 @@ interface Transaction {
   voucher_no: string;
   bill_no: string;
   payee: string;
+  category?: string;
   linked_module: string;
   linked_id: number;
   created_by_name?: string;
@@ -37,6 +39,7 @@ interface UnifiedRow {
   voucher_no?: string | null;
   bill_no?: string | null;
   payee?: string | null;
+  category?: string | null;
   account_id: number | null;
   linked_module: string | null;
   linked_id: number | null;
@@ -63,7 +66,7 @@ interface UnifiedSummary {
 
 const emptyForm: Partial<Transaction> = {
   receipt_number: "", txn_date: "", type: "Income", amount: 0, payment_method: "Cash",
-  description: "", account_id: 1, transaction_ref: "", voucher_no: "", bill_no: "", payee: "",
+  description: "", account_id: 1, transaction_ref: "", voucher_no: "", bill_no: "", payee: "", category: "",
   linked_module: "", linked_id: 0,
 };
 
@@ -120,9 +123,13 @@ export function Accounting() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<Partial<Transaction>>(emptyForm);
   // VOID workflow: entries are never deleted — they are voided with a reason.
-  const [voidOpen, setVoidOpen] = useState(false);
+  // Both EDIT and VOID of ledger entries are gated by the SecureActionDialog
+  // (reason + administrator password, re-verified in the main process).
+  const [voidGateOpen, setVoidGateOpen] = useState(false);
   const [pendingVoidId, setPendingVoidId] = useState<number | null>(null);
-  const [voidReason, setVoidReason] = useState("");
+  const [editGateOpen, setEditGateOpen] = useState(false);
+  const [pendingEditId, setPendingEditId] = useState<number | null>(null);
+  const [editAuth, setEditAuth] = useState<{ password: string; reason: string } | null>(null);
   // Receipt sequence continuity check.
   const [receiptsOpen, setReceiptsOpen] = useState(false);
   const [receiptsData, setReceiptsData] = useState<any>(null);
@@ -159,6 +166,7 @@ export function Accounting() {
   const openAdd = (type: "Income" | "Expense") => {
     setForm({ ...emptyForm, type, txn_date: todayIST() });
     setEditingId(null);
+    setEditAuth(null);
     setDialogOpen(true);
   };
 
@@ -182,10 +190,12 @@ export function Accounting() {
         voucherNo: form.voucher_no || "",
         billNo: form.bill_no || "",
         payee: form.payee || "",
+        category: form.category || "",
         createdBy: 1,
       };
       if (editingId) {
-        await window.mms.accounting.update(editingId, payload);
+        // Backend re-verifies the administrator password and requires the reason.
+        await window.mms.accounting.update(editingId, payload, editAuth?.password || "", editAuth?.reason || "");
         toast.success(t("ui_save_changes"));
       } else {
         const res = await window.mms.accounting.create(payload);
@@ -202,42 +212,44 @@ export function Accounting() {
       setDialogOpen(false);
       setForm(emptyForm);
       setEditingId(null);
+      setEditAuth(null);
       fetchUnified();
     } catch (err: any) {
       toast.error(err.message || t("ui_failed_save"));
     }
   };
 
-  const handleEdit = async (id: number) => {
+  // Editing a ledger entry is gated: SecureActionDialog collects a reason and
+  // the administrator password (re-verified in the main process) BEFORE the
+  // edit form opens, and both travel with the save request.
+  const handleEdit = (id: number) => {
+    setPendingEditId(id);
+    setEditGateOpen(true);
+  };
+
+  const performEdit = async ({ password, reason }: { password: string; reason: string }) => {
+    if (pendingEditId == null) return;
     // Only 'transactions' source rows are editable from this UI.
-    const txn = await window.mms.accounting.get(id);
+    const txn = await window.mms.accounting.get(pendingEditId);
     setForm(txn || emptyForm);
-    setEditingId(id);
+    setEditingId(pendingEditId);
+    setEditAuth({ password, reason });
     setDialogOpen(true);
   };
 
   const openVoid = (id: number) => {
     setPendingVoidId(id);
-    setVoidReason("");
-    setVoidOpen(true);
+    setVoidGateOpen(true);
   };
 
-  const confirmVoid = async () => {
+  const confirmVoid = async ({ reason, password }: { reason: string; password: string }) => {
     if (pendingVoidId == null) return;
-    if (!voidReason.trim()) {
-      toast.error(tx("A void reason is required", "റദ്ദാക്കാനുള്ള കാരണം നൽകണം"));
-      return;
-    }
-    try {
-      await window.mms.accounting.void(pendingVoidId, voidReason.trim());
-      toast.success(tx("Entry voided — kept for audit", "എൻട്രി റദ്ദാക്കി — ഓഡിറ്റിനായി സൂക്ഷിച്ചു"));
-      fetchUnified();
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setVoidOpen(false);
-      setPendingVoidId(null);
-    }
+    // Backend re-verifies the administrator password; errors propagate to the
+    // SecureActionDialog which shows them.
+    await window.mms.accounting.void(pendingVoidId, reason, password);
+    toast.success(tx("Entry voided — kept for audit", "എൻട്രി റദ്ദാക്കി — ഓഡിറ്റിനായി സൂക്ഷിച്ചു"));
+    setPendingVoidId(null);
+    fetchUnified();
   };
 
   const fetchReceipts = async () => {
@@ -296,6 +308,11 @@ export function Accounting() {
         )}
       </div>
     ) },
+    {
+      header: tx("Category", "വിഭാഗം"),
+      accessor: r => r.category ? <span className="text-xs px-2 py-0.5 rounded-full bg-surface-hover whitespace-nowrap">{r.category}</span> : <span className="text-muted">—</span>,
+      width: "130px"
+    },
     {
       header: tx("Receipt", "രസീത്"),
       accessor: r => r.receipt_number ? <span className="code-text-sm text-primary">{r.receipt_number}</span> : "—",
@@ -499,6 +516,16 @@ export function Accounting() {
               </Select>
             </div>
             <div>
+              <Label>{tx("Category", "വിഭാഗം")}</Label>
+              <Input list="txn-category-options" value={form.category || ""} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder={form.type === "Income" ? tx("e.g. Shop Rent, Goods Rent", "ഉദാ: കട വാടാക്കാസ്, സാധന വാടാക്കാസ്") : tx("e.g. Electricity, Maintenance", "ഉദാ: കറണ്ട്, അറ്റകുറ്റപ്പണി")} />
+              <datalist id="txn-category-options">
+                {(form.type === "Income"
+                  ? ["Shop Rent", "Goods Rent", "Hall Rent", "Parking", "Other Income"]
+                  : ["Electricity", "Water", "Fuel", "Maintenance", "Stationery", "Conveyance", "Refreshments", "Other Expense"]
+                ).map((c) => <option key={c} value={c} />)}
+              </datalist>
+            </div>
+            <div>
               <Label>{t("ui_transaction_ref")}</Label>
               <Input value={form.transaction_ref || ""} onChange={(e) => setForm({ ...form, transaction_ref: e.target.value })} />
             </div>
@@ -551,20 +578,28 @@ export function Accounting() {
         </div>
       </Dialog>
 
-      {/* VOID dialog — the entry is kept for audit, never deleted */}
-      <Dialog open={voidOpen} onClose={() => setVoidOpen(false)} title={tx("Void entry", "എൻട്രി റദ്ദാക്കുക")} className="modal-sm">
-        <div className="p-6 space-y-4">
-          <p className="text-sm text-muted">{tx("The entry will NOT be deleted. The receipt number stays occupied and the record remains visible (marked VOID) for the auditor, with the reason below.", "എൻട്രി ഇല്ലാതാക്കില്ല. രസീത് നമ്പർ നിലനിർത്തും, രേഖ ഓഡിറ്ററിനായി (VOID അടയാളത്തോടെ) ദൃശ്യമായിരിക്കും — കാരണം ചുവടെ നൽകുക.")}</p>
-          <div>
-            <Label>{tx("Reason", "കാരണം")} *</Label>
-            <Textarea rows={3} value={voidReason} onChange={(e) => setVoidReason(e.target.value)} placeholder={tx("Why is this entry being voided?", "എന്തുകൊണ്ടാണ് ഈ എൻട്രി റദ്ദാക്കുന്നത്?")} />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setVoidOpen(false)}>{t("action_cancel")}</Button>
-            <Button variant="danger" onClick={confirmVoid}><Ban size={14} />{tx("Void entry", "എൻട്രി റദ്ദാക്കുക")}</Button>
-          </div>
-        </div>
-      </Dialog>
+      {/* VOID gate — reason + administrator password, re-verified in main process */}
+      <SecureActionDialog
+        open={voidGateOpen}
+        onClose={() => setVoidGateOpen(false)}
+        onConfirm={confirmVoid}
+        title={tx("Void ledger entry", "ലെഡ്ജർ എൻട്രി റദ്ദാക്കുക")}
+        description={tx("The entry is kept for audit (marked VOID). Voiding reverses a financial record — your password and reason are written to the audit log.", "എൻട്രി ഓഡിറ്റിനായി സൂക്ഷിക്കും (VOID അടയാളം). സാമ്പത്തിക രേഖ റദ്ദാക്കുന്നതിനാൽ നിങ്ങളുടെ പാസ്‌വേഡും കാരണവും ഓഡിറ്റ് ലോഗിൽ രേഖപ്പെടുത്തും.")}
+        reasonPlaceholder={tx("Why is this entry being voided?", "എന്തുകൊണ്ടാണ് ഈ എൻട്രി റദ്ദാക്കുന്നത്?")}
+        confirmLabel={tx("Void entry", "എൻട്രി റദ്ദാക്കുക")}
+      />
+
+      {/* EDIT gate — reason + administrator password before the edit form opens */}
+      <SecureActionDialog
+        open={editGateOpen}
+        onClose={() => setEditGateOpen(false)}
+        onConfirm={performEdit}
+        danger={false}
+        title={tx("Edit ledger entry", "ലെഡ്ജർ എൻട്രി തിരുത്തുക")}
+        description={tx("Editing recorded income/expense is restricted to administrators. Your password and reason are written to the audit log.", "രേഖപ്പെടുത്തിയ വരവ്/ചെലവ് തിരുത്ത് അഡ്മിനിസ്ട്രേറ്റർമാർക്ക് മാത്രമാണ്. നിങ്ങളുടെ പാസ്‌വേഡും കാരണവും ഓഡിറ്റ് ലോഗിൽ രേഖപ്പെടുത്തും.")}
+        reasonPlaceholder={tx("Why is this entry being edited?", "എന്തുകൊണ്ടാണ് ഈ എൻട്രി തിരുത്തുന്നത്?")}
+        confirmLabel={tx("Continue to edit", "തിരുത്താൻ തുടരുക")}
+      />
 
       {/* Receipt sequence continuity */}
       <Dialog open={receiptsOpen} onClose={() => setReceiptsOpen(false)} title={tx("Receipt sequence", "രസീത് ശ്രേണി")} className="max-w-2xl">

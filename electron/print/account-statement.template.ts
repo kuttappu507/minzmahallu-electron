@@ -9,6 +9,7 @@ interface LedgerRow {
   type: string;
   amount: number;
   description: string;
+  category?: string | null;
   payment_method: string;
   transaction_ref: string;
   receipt_number: string;
@@ -123,6 +124,7 @@ export function buildAccountStatementHtml(rows: LedgerRow[], summary: Summary, f
     source: 'Source',
     type: 'Type',
     description: 'Description',
+    category: 'Category',
     receipt: 'Receipt',
     method: 'Method',
     status: 'Status',
@@ -154,6 +156,7 @@ export function buildAccountStatementHtml(rows: LedgerRow[], summary: Summary, f
       <td style="padding:7px 8px;text-align:center">${esc(srcLabel)}</td>
       <td style="padding:7px 8px;text-align:center;font-weight:600;color:${isIn ? '#0eab7f' : '#e8556e'}">${esc(r.type)}</td>
       <td style="padding:7px 8px">${esc(r.description || '—')}</td>
+      <td style="padding:7px 8px;text-align:center">${esc(r.category || '—')}</td>
       <td style="padding:7px 8px;text-align:center;font-family:monospace;font-size:9pt">${esc(r.receipt_number || '—')}</td>
       <td style="padding:7px 8px;text-align:center">${esc(r.payment_method || '—')}</td>
       <td style="padding:7px 8px;text-align:center">${r.status === 'Void'
@@ -244,6 +247,7 @@ tbody td{border-top:1px solid #e6ede7;font-size:9.5px}
     <th class="center">${esc(L.source)}</th>
     <th class="center">${esc(L.type)}</th>
     <th>${esc(L.description)}</th>
+    <th class="center">${esc(L.category)}</th>
     <th class="center">${esc(L.receipt)}</th>
     <th class="center">${esc(L.method)}</th>
     <th class="center">${esc(L.status)}</th>
