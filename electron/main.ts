@@ -25,7 +25,13 @@ import { registerSecurityIpc } from "./security-ipc.js";
 import { registerWhatsAppIpc } from "./whatsapp-ipc.js";
 import { registerReceiptIpc } from "./receipt-ipc.js";
 import { verifyUninstallPassword, UNINSTALL_ADMIN_SQL } from "./services/uninstall-guard.js";
-import { Workbook } from "exceljs";
+// exceljs ships CommonJS only. Under the packaged ESM main process a named
+// import ({ Workbook }) crashes at startup because Node's cjs-module-lexer
+// cannot see through exceljs's bundled dist. Default-import and destructure
+// instead (Node's recommended interop pattern); types stay intact via
+// esModuleInterop.
+import ExcelJS from "exceljs";
+const { Workbook } = ExcelJS;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let mainWindow: BrowserWindow | null = null;
