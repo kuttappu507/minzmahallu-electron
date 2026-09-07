@@ -5,8 +5,20 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Currency symbol store — Settings → Currency Symbol drives EVERY amount in
+// the UI. The symbol is set once at app start (from settings.load) and again
+// whenever Settings are saved, so formatCurrency() everywhere follows the
+// configured value instead of a hardcoded "₹".
+let CURRENCY_SYMBOL = "₹";
+export function setCurrencySymbol(symbol: string | null | undefined): void {
+  const v = String(symbol ?? "").trim();
+  if (v) CURRENCY_SYMBOL = v;
+}
+export function getCurrencySymbol(): string {
+  return CURRENCY_SYMBOL;
+}
 export function formatCurrency(amount: number): string {
-  return "₹" + Number(amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+  return CURRENCY_SYMBOL + Number(amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 }
 
 export function formatDate(date: string | null | undefined): string {

@@ -50,19 +50,16 @@ function fmtDate(d: string): string {
   } catch { return String(d); }
 }
 
-function money(n: number): string {
-  return `₹${Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function row(label: string, amount: number): string {
-  return `<tr><td class="lbl">${esc(label)}</td><td class="amt">${money(amount)}</td></tr>`;
-}
-
-function totalRow(label: string, amount: number): string {
-  return `<tr class="total"><td class="lbl">${esc(label)}</td><td class="amt">${money(amount)}</td></tr>`;
-}
-
-export function buildAuditPackHtml(pack: PackData, lang: 'en' | 'ml' = 'en'): string {
+export function buildAuditPackHtml(pack: PackData, lang: 'en' | 'ml' = 'en', currencySymbol: string = '\u20B9'): string {
+  // Symbol-aware money formatters live inside the render function so the
+  // module stays pure — Settings' currency symbol flows into every amount
+  // of the printed audit pack (defaults to ₹).
+  const money = (n: number): string =>
+    `${String(currencySymbol || '\u20B9')}${Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const row = (label: string, amount: number): string =>
+    `<tr><td class="lbl">${esc(label)}</td><td class="amt">${money(amount)}</td></tr>`;
+  const totalRow = (label: string, amount: number): string =>
+    `<tr class="total"><td class="lbl">${esc(label)}</td><td class="amt">${money(amount)}</td></tr>`;
   const ml = lang === 'ml';
   const L = {
     title: ml ? 'വാർഷിക ഓഡിറ്റ് പായ്ക്ക്' : 'ANNUAL AUDIT PACK',

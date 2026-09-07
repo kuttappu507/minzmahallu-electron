@@ -37,6 +37,7 @@ const AuditLog = lazy(() => import("@/pages/AuditLog").then(m => ({ default: m.A
 const Backup = lazy(() => import("@/pages/Backup").then(m => ({ default: m.Backup })));
 import { useEffect, useState } from "react";
 import { transliterateMalayalam } from "@/lib/malayalamTransliteration";
+import { setCurrencySymbol } from "@/lib/utils";
 
 function OfflineMalayalamLayer() {
   const { lang } = useI18n();
@@ -78,7 +79,7 @@ function ProtectedLayout() {
 
 function LanguagePersistence() {
   const { lang } = useI18n();
-  useEffect(() => { let cancelled = false; (async () => { try { const current = await window.mms.settings.load(); if (!cancelled && current && current.language !== lang) await window.mms.settings.save({ mahalluName: current.mahallu_name, address: current.address, phone: current.phone, email: current.email, financialYearStart: current.financial_year_start, currencySymbol: current.currency_symbol, theme: current.theme, language: lang, autoBackup: !!current.auto_backup, backupIntervalHours: current.backup_interval_hours, receiptPrefix: current.receipt_prefix }); } catch (err) { console.warn("Could not persist active language:", err); } })(); return () => { cancelled = true; }; }, [lang]);
+  useEffect(() => { let cancelled = false; (async () => { try { const current = await window.mms.settings.load(); if (!cancelled && current) { setCurrencySymbol(current.currency_symbol); if (current.language !== lang) await window.mms.settings.save({ mahalluName: current.mahallu_name, address: current.address, phone: current.phone, email: current.email, financialYearStart: current.financial_year_start, currencySymbol: current.currency_symbol, theme: current.theme, language: lang, autoBackup: !!current.auto_backup, backupIntervalHours: current.backup_interval_hours, receiptPrefix: current.receipt_prefix }); } } catch (err) { console.warn("Could not persist active language:", err); } })(); return () => { cancelled = true; }; }, [lang]);
   return null;
 }
 

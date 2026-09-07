@@ -35,6 +35,8 @@ function ensureRuntimeSchema(database: DB) {
     ["settings","subscription_monthly_amount","REAL NOT NULL DEFAULT 100"],
     ["settings","subscription_frequency","TEXT NOT NULL DEFAULT 'Monthly'"],
     ["settings","subscription_quarterly_amount","REAL NOT NULL DEFAULT 300"],
+    // Auto-backup retention — how many automatic .mmbak files to keep on disk
+    ["settings","backup_keep_count","INTEGER NOT NULL DEFAULT 30"],
     ["settings","affiliation_number","TEXT"],
     ["settings","committee_term_start","TEXT"],
     ["settings","committee_term_end","TEXT"],
@@ -286,6 +288,11 @@ function ensureRuntimeSchema(database: DB) {
     CREATE INDEX IF NOT EXISTS idx_committee_type ON committee_members(committee_type);
     CREATE INDEX IF NOT EXISTS idx_committee_term_end ON committee_members(term_end);
   `);
+  // Per-entity lookups for the ledger double-click preview and the "Edited"
+  // badge — audit rows for one transaction/donation are fetched by (module, id).
+  if (allTables.has("audit_log")) {
+    database.exec(`CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(module, entity_id);`);
+  }
   if (allTables.has("committee_members")) {
     addColumn(database, "committee_members", "member_id", "INTEGER");
     addColumn(database, "committee_members", "position", "TEXT NOT NULL DEFAULT 'Committee Member'");

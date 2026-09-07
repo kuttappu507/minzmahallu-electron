@@ -158,8 +158,22 @@ export function registerSecurityIpc(getActor: ActorProvider) {
     // three are recorded in the tamper-evident audit log.
     if (!reason || !String(reason).trim()) throw new Error("A reason is required to edit a ledger entry");
     verifyCurrentActorPassword(String(adminPassword ?? ""));
-    try { data.audit.log(a.id, a.username, "UPDATE", "accounting", id, `Ledger entry edited after administrator re-authentication: ${String(reason).trim()}`, ""); } catch {}
-    return data.accounting.update(id, d);
+    // Capture the BEFORE state so the change history can show exactly which
+    // fields the edit moved (amount, date, category …) — surfaced in the
+    // ledger row's double-click preview.
+    const before = data.accounting.get(id);
+    const result = data.accounting.update(id, d);
+    try {
+      const after = data.accounting.get(id);
+      const fields = ["txn_date", "type", "amount", "payment_method", "description", "category", "payee", "voucher_no", "bill_no", "transaction_ref", "receipt_number", "account_id"];
+      const changes: Record<string, { old: unknown; new: unknown }> = {};
+      for (const f of fields) if ((before as any)?.[f] !== (after as any)?.[f]) changes[f] = { old: (before as any)?.[f] ?? null, new: (after as any)?.[f] ?? null };
+      data.audit.log(a.id, a.username, "UPDATE", "accounting", id, `Ledger entry edited after administrator re-authentication: ${String(reason).trim()}`, JSON.stringify(changes));
+      if (Object.keys(changes).length) {
+        security.logChange(a, "transaction", id, "EDIT", "Ledger entry edited", changes, String(reason).trim());
+      }
+    } catch (historyErr) { console.warn("[accounting:update] change history failed:", historyErr); }
+    return result;
   });
   register("accounting:remove", () => { admin(); throw new Error("Financial records cannot be deleted. VOID the entry instead — the record stays for audit."); });
   // VOID instead of delete: keeps the receipt number and the entry, adds
@@ -265,6 +279,11 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   // this_year/last_year/custom) and source filter.
   register("accounting:unifiedList", (filter: any) => { actor(); return data.accounting.unifiedList(filter || {}); });
   register("accounting:unifiedSummary", (filter: any) => { actor(); return data.accounting.unifiedSummary(filter || {}); });
+  // Double-click preview: the full underlying record (whichever module the
+  // ledger row came from) plus its change history (record_history diffs) and
+  // the audit trail rows — everything needed to show "what was edited, by
+  // whom, when and why" in one dialog.
+  register("accounting:detail", (source: string, id: number) => { actor(); return data.accounting.unifiedDetail(String(source || ""), Number(id)); });
   register("marriages:list", (filter: any) => { actor(); return data.marriages.list(filter || {}); });
   register("marriages:get", (id: number) => { actor(); return data.marriages.get(id); });
   register("deaths:list", (filter: any) => { actor(); return data.deaths.list(filter || {}); });

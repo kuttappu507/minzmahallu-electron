@@ -1,16 +1,17 @@
 import { useState, useEffect } from "react";
-import { Building2, Wallet, Palette, Database, Save, Tags, Plus, Pencil, Trash2, Power, Award, MapPin, FolderOpen } from "lucide-react";
+import { Building2, Wallet, Palette, Database, Save, Tags, Plus, Pencil, Trash2, Power, Award, MapPin, FolderOpen, Info } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useTheme } from "@/lib/theme";
 import { Card, CardContent, Button, Input, Label, Select, Textarea, Switch, SectionLabel } from "@/components/ui";
 import { MalayalamInput } from "@/components/MalayalamInput";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { toast } from "@/lib/toast";
+import { setCurrencySymbol } from "@/lib/utils";
 
 interface Settings {
   mahallu_name:string; phone:string; email:string; address:string; financial_year_start:string;
   currency_symbol:string; receipt_prefix:string; language:string; theme:string; auto_backup:boolean;
-  backup_interval_hours:number; backup_mirror_dir:string; subscription_monthly_amount:number; subscription_frequency:"Monthly"|"Quarterly";
+  backup_interval_hours:number; backup_mirror_dir:string; backup_keep_count:number; subscription_monthly_amount:number; subscription_frequency:"Monthly"|"Quarterly";
   affiliation_number:string; committee_term_start:string; committee_term_end:string;
   wakf_reg_no:string; society_reg_no:string;
   village:string; panchayath:string; taluk:string; district:string; pincode:string; state:string;
@@ -18,7 +19,7 @@ interface Settings {
 interface Category { id:number; name:string; description?:string; is_active:number; donation_count:number; }
 const emptySettings: Settings = {
   mahallu_name:"", phone:"", email:"", address:"", financial_year_start:"04-01", currency_symbol:"₹",
-  receipt_prefix:"RCP", language:"en", theme:"light", auto_backup:false, backup_interval_hours:24, backup_mirror_dir:"",
+  receipt_prefix:"RCP", language:"en", theme:"light", auto_backup:false, backup_interval_hours:24, backup_mirror_dir:"", backup_keep_count:30,
   subscription_monthly_amount:100, subscription_frequency:"Monthly",
   affiliation_number:"", committee_term_start:"", committee_term_end:"",
   wakf_reg_no:"", society_reg_no:"", village:"", panchayath:"", taluk:"", district:"", pincode:"", state:"",
@@ -36,6 +37,7 @@ export function Settings(){
   const [saving,setSaving]=useState(false);
   const [pendingCat,setPendingCat]=useState<Category|null>(null);
   const [catConfirmOpen,setCatConfirmOpen]=useState(false);
+  const [appInfo,setAppInfo]=useState<{ version:string; electron:string; platform:string; dataDir:string }|null>(null);
 
   const confirmDeleteCategory=async()=>{
     if(!pendingCat)return;
@@ -47,9 +49,10 @@ export function Settings(){
   const loadCategories=async()=>{try{setCategories(await window.mms.donations.categoriesAll()||[]);}catch{setCategories([]);}};
   useEffect(()=>{
     Promise.all([window.mms.settings.load(),window.mms.donations.categoriesAll()]).then(([s,c])=>{
-      if(s)setSettings({...emptySettings,...s,language:s.language||lang,theme:s.theme||theme,subscription_monthly_amount:Number(s.subscription_monthly_amount??100),subscription_frequency:(s.subscription_frequency==="Quarterly"?"Quarterly":"Monthly")});
+      if(s){setSettings({...emptySettings,...s,language:s.language||lang,theme:s.theme||theme,subscription_monthly_amount:Number(s.subscription_monthly_amount??100),subscription_frequency:(s.subscription_frequency==="Quarterly"?"Quarterly":"Monthly"),backup_keep_count:Number(s.backup_keep_count??30)});setCurrencySymbol(s.currency_symbol);}
       setCategories(c||[]);
     }).catch(()=>{}).finally(()=>setLoading(false));
+    window.mms.app?.info?.().then(setAppInfo).catch(()=>setAppInfo(null));
   },[]);
   const pickMirrorDir=async()=>{
     try{
@@ -65,13 +68,15 @@ export function Settings(){
         financialYearStart:settings.financial_year_start,currencySymbol:settings.currency_symbol,
         subscriptionMonthlyAmount:Number(settings.subscription_monthly_amount||0),subscriptionFrequency:settings.subscription_frequency,
         theme:settings.theme,language:settings.language,autoBackup:settings.auto_backup,backupIntervalHours:settings.backup_interval_hours,
-        backupMirrorDir:settings.backup_mirror_dir||"",
+        backupMirrorDir:settings.backup_mirror_dir||"",backupKeepCount:Number(settings.backup_keep_count||30),
         receiptPrefix:settings.receipt_prefix,
         affiliationNumber:settings.affiliation_number, committeeTermStart:settings.committee_term_start, committeeTermEnd:settings.committee_term_end,
         wakfRegNo:settings.wakf_reg_no, societyRegNo:settings.society_reg_no,
         village:settings.village, panchayath:settings.panchayath, taluk:settings.taluk,
         district:settings.district, pincode:settings.pincode, state:settings.state
       });
+      // Currency symbol takes effect across every screen immediately.
+      setCurrencySymbol(settings.currency_symbol);
       toast.success(t("ui_save_changes"));
     }catch(err:any){toast.error(err.message||t("ui_failed_save"));}
     finally{setSaving(false);}
@@ -106,7 +111,8 @@ export function Settings(){
 
     <Card><CardContent className="p-6 space-y-4"><div className="flex items-center gap-2"><Palette className="h-5 w-5 text-primary"/><SectionLabel className="mb-0">{t("set_appearance_section")}</SectionLabel></div><div className="grid grid-cols-2 gap-4"><div><Label>{t("set_theme")}</Label><Select value={settings.theme} onChange={e=>handleThemeChange(e.target.value)}><option value="light">{t("set_theme_light")}</option><option value="dark">{t("set_theme_dark")}</option></Select></div><div><Label>{t("set_language")}</Label><Select value={lang} onChange={e=>handleLangChange(e.target.value)}><option value="en">{t("set_lang_english")}</option><option value="ml">{t("set_lang_malayalam")}</option></Select></div></div></CardContent></Card>
 
-    <Card><CardContent className="p-6 space-y-4"><div className="flex items-center gap-2"><Database className="h-5 w-5 text-primary"/><SectionLabel className="mb-0">{t("set_backup_section")}</SectionLabel></div><div className="space-y-4"><div className="flex items-center justify-between"><div><Label className="mb-0">{t("set_auto_backup")}</Label><p className="text-xs text-text-tertiary mt-1">{t("ui_auto_backup_desc")}</p></div><Switch checked={settings.auto_backup} onCheckedChange={v=>setSettings({...settings,auto_backup:v})}/></div><div className="w-48"><Label>{t("set_backup_interval")}</Label><Input type="number" value={settings.backup_interval_hours} onChange={e=>setSettings({...settings,backup_interval_hours:Number(e.target.value)})}/></div><div><Label className="mb-0">{t("set_backup_mirror")}</Label><p className="text-xs text-text-tertiary mt-1">{t("set_backup_mirror_desc")}</p><div className="flex gap-2 mt-2"><Input className="flex-1" value={settings.backup_mirror_dir||""} placeholder={t("set_backup_mirror_none")} onChange={e=>setSettings({...settings,backup_mirror_dir:e.target.value})}/><Button variant="secondary" onClick={pickMirrorDir}><FolderOpen className="h-4 w-4"/>{t("set_backup_mirror_pick")}</Button>{settings.backup_mirror_dir&&<Button variant="secondary" onClick={()=>setSettings({...settings,backup_mirror_dir:""})}>{t("set_backup_mirror_clear")}</Button>}</div></div></div></CardContent></Card>
+    <Card><CardContent className="p-6 space-y-4"><div className="flex items-center gap-2"><Database className="h-5 w-5 text-primary"/><SectionLabel className="mb-0">{t("set_backup_section")}</SectionLabel></div><div className="space-y-4"><div className="flex items-center justify-between"><div><Label className="mb-0">{t("set_auto_backup")}</Label><p className="text-xs text-text-tertiary mt-1">{t("ui_auto_backup_desc")}</p></div><Switch checked={settings.auto_backup} onCheckedChange={v=>setSettings({...settings,auto_backup:v})}/></div><div className="grid grid-cols-2 gap-4"><div><Label>{t("set_backup_interval")}</Label><Input type="number" min="1" value={settings.backup_interval_hours} onChange={e=>setSettings({...settings,backup_interval_hours:Number(e.target.value)})}/></div><div><Label>{t("set_backup_keep")}</Label><Input type="number" min="3" max="200" value={settings.backup_keep_count} onChange={e=>setSettings({...settings,backup_keep_count:Number(e.target.value)})}/><p className="text-xs text-text-tertiary mt-1">{t("set_backup_keep_hint")}</p></div></div><div><Label className="mb-0">{t("set_backup_mirror")}</Label><p className="text-xs text-text-tertiary mt-1">{t("set_backup_mirror_desc")}</p><div className="flex gap-2 mt-2"><Input className="flex-1" value={settings.backup_mirror_dir||""} placeholder={t("set_backup_mirror_none")} onChange={e=>setSettings({...settings,backup_mirror_dir:e.target.value})}/><Button variant="secondary" onClick={pickMirrorDir}><FolderOpen className="h-4 w-4"/>{t("set_backup_mirror_pick")}</Button>{settings.backup_mirror_dir&&<Button variant="secondary" onClick={()=>setSettings({...settings,backup_mirror_dir:""})}>{t("set_backup_mirror_clear")}</Button>}</div></div></div></CardContent></Card>
+    <Card><CardContent className="p-6 space-y-3"><div className="flex items-center gap-2"><Info className="h-5 w-5 text-primary"/><SectionLabel className="mb-0">{t("set_about_section")}</SectionLabel></div><div className="grid grid-cols-2 gap-4 text-sm"><div><span className="text-text-tertiary">{t("set_app_version")}</span><div className="font-medium">{appInfo?.version || "—"}{appInfo?.electron ? <span className="text-xs text-text-tertiary ml-2">Electron {appInfo.electron}</span> : null}</div></div><div><span className="text-text-tertiary">{t("set_data_folder")}</span><div className="font-medium break-all text-xs mt-0.5">{appInfo?.dataDir || "—"}</div></div></div></CardContent></Card>
     <div className="flex justify-end"><Button onClick={handleSave} disabled={saving}><Save className="h-4 w-4"/>{saving?t("ui_saving"):t("ui_save_changes")}</Button></div>
     <ConfirmDialog
       open={catConfirmOpen}

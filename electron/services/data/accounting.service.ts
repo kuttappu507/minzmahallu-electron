@@ -210,7 +210,11 @@ export const accounting = {
       if (range) { w.push("t.txn_date >= ?"); w.push("t.txn_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All") { w.push("t.type = ?"); params.push(filter.type); }
       if (filter.search) { w.push("(t.description LIKE ? OR t.receipt_number LIKE ? OR t.transaction_ref LIKE ? OR t.voucher_no LIKE ? OR t.bill_no LIKE ? OR t.category LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t, t, t, t, t); }
-      parts.push(`SELECT t.id AS source_id, 'transactions' AS source, t.txn_date AS ledger_date, t.type, t.amount, t.description, t.payment_method, t.transaction_ref, t.receipt_number, t.account_id, t.linked_module, t.linked_id, t.voucher_no, t.bill_no, t.payee, t.category, t.status, t.void_reason, t.voided_at FROM transactions t WHERE ${w.join(" AND ")}`);
+      parts.push(`SELECT t.id AS source_id, 'transactions' AS source, t.txn_date AS ledger_date, t.type, t.amount, t.description, t.payment_method, t.transaction_ref, t.receipt_number, t.account_id, t.linked_module, t.linked_id, t.voucher_no, t.bill_no, t.payee, t.category, t.status, t.void_reason, t.voided_at,
+        CASE WHEN EXISTS(SELECT 1 FROM audit_log al WHERE al.module='accounting' AND al.entity_id=t.id AND al.action IN ('UPDATE','EDIT'))
+               OR EXISTS(SELECT 1 FROM record_history rh WHERE rh.entity_type='transaction' AND rh.entity_id=t.id AND rh.action='EDIT')
+             THEN 1 ELSE 0 END AS has_history
+        FROM transactions t WHERE ${w.join(" AND ")}`);
     }
     // 2. Donations (always Income)
     {
@@ -218,7 +222,9 @@ export const accounting = {
       if (range) { w.push("d.donation_date >= ?"); w.push("d.donation_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All" && filter.type !== "Income") { w.push("1=0"); } // donations are income only
       if (filter.search) { w.push("(d.donor_name LIKE ? OR d.receipt_number LIKE ? OR d.purpose LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t, t); }
-      parts.push(`SELECT d.id AS source_id, 'donations' AS source, d.donation_date AS ledger_date, 'Income' AS type, d.amount, (d.donor_name || COALESCE(' — ' || d.purpose, '')) AS description, d.payment_method, '' AS transaction_ref, d.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, NULL AS category, NULL AS status, NULL AS void_reason, NULL AS voided_at FROM donations d WHERE ${w.join(" AND ")}`);
+      parts.push(`SELECT d.id AS source_id, 'donations' AS source, d.donation_date AS ledger_date, 'Income' AS type, d.amount, (d.donor_name || COALESCE(' — ' || d.purpose, '')) AS description, d.payment_method, '' AS transaction_ref, d.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, NULL AS category, NULL AS status, NULL AS void_reason, NULL AS voided_at,
+        CASE WHEN EXISTS(SELECT 1 FROM audit_log al WHERE al.module='donations' AND al.entity_id=d.id AND al.action IN ('UPDATE','EDIT')) THEN 1 ELSE 0 END AS has_history
+        FROM donations d WHERE ${w.join(" AND ")}`);
     }
     // 3. Subscription payments from the immutable ledger (Income)
     {
@@ -226,7 +232,7 @@ export const accounting = {
       if (range) { w.push("sp.payment_date >= ?"); w.push("sp.payment_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All" && filter.type !== "Income") { w.push("1=0"); }
       if (filter.search) { w.push("(sp.receipt_number LIKE ? OR sp.remarks LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t); }
-      parts.push(`SELECT sp.id AS source_id, 'subscriptions' AS source, COALESCE(sp.payment_date, sp.period_start) AS ledger_date, 'Income' AS type, sp.amount, ('Subscription — ' || COALESCE(sp.receipt_number, '')) AS description, sp.payment_method, sp.transaction_ref, sp.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, NULL AS category, NULL AS status, NULL AS void_reason, NULL AS voided_at FROM subscription_payments sp WHERE ${w.join(" AND ")}`);
+      parts.push(`SELECT sp.id AS source_id, 'subscriptions' AS source, COALESCE(sp.payment_date, sp.period_start) AS ledger_date, 'Income' AS type, sp.amount, ('Subscription — ' || COALESCE(sp.receipt_number, '')) AS description, sp.payment_method, sp.transaction_ref, sp.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, NULL AS category, NULL AS status, NULL AS void_reason, NULL AS voided_at, 0 AS has_history FROM subscription_payments sp WHERE ${w.join(" AND ")}`);
     }
     // 4. Welfare disbursements (Expense)
     {
@@ -234,7 +240,7 @@ export const accounting = {
       if (range) { w.push("w.disbursed_date >= ?"); w.push("w.disbursed_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All" && filter.type !== "Expense") { w.push("1=0"); }
       if (filter.search) { w.push("(w.applicant_name LIKE ? OR w.request_number LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t); }
-      parts.push(`SELECT w.id AS source_id, 'welfare' AS source, COALESCE(w.disbursed_date, w.created_at) AS ledger_date, 'Expense' AS type, w.amount_approved AS amount, ('Welfare — ' || w.applicant_name) AS description, '' AS payment_method, '' AS transaction_ref, w.request_number AS receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, NULL AS category, NULL AS status, NULL AS void_reason, NULL AS voided_at FROM welfare_requests w WHERE ${w.join(" AND ")}`);
+      parts.push(`SELECT w.id AS source_id, 'welfare' AS source, COALESCE(w.disbursed_date, w.created_at) AS ledger_date, 'Expense' AS type, w.amount_approved AS amount, ('Welfare — ' || w.applicant_name) AS description, '' AS payment_method, '' AS transaction_ref, w.request_number AS receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, NULL AS category, NULL AS status, NULL AS void_reason, NULL AS voided_at, 0 AS has_history FROM welfare_requests w WHERE ${w.join(" AND ")}`);
     }
     // 5. Staff salary payments (Expense, status='Paid')
     {
@@ -242,7 +248,7 @@ export const accounting = {
       if (range) { w.push("sp.payment_date >= ?"); w.push("sp.payment_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All" && filter.type !== "Expense") { w.push("1=0"); }
       if (filter.search) { w.push("(s.name LIKE ? OR s.staff_code LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t); }
-      parts.push(`SELECT sp.id AS source_id, 'salary' AS source, sp.payment_date AS ledger_date, 'Expense' AS type, sp.amount, ('Salary — ' || s.name || ' (' || printf('%02d', sp.period_month) || '/' || sp.period_year || ')') AS description, sp.payment_method, sp.transaction_ref, '' AS receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, NULL AS category, NULL AS status, NULL AS void_reason, NULL AS voided_at FROM staff_payments sp LEFT JOIN staff s ON s.id = sp.staff_id WHERE ${w.join(" AND ")}`);
+      parts.push(`SELECT sp.id AS source_id, 'salary' AS source, sp.payment_date AS ledger_date, 'Expense' AS type, sp.amount, ('Salary — ' || s.name || ' (' || printf('%02d', sp.period_month) || '/' || sp.period_year || ')') AS description, sp.payment_method, sp.transaction_ref, '' AS receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, NULL AS category, NULL AS status, NULL AS void_reason, NULL AS voided_at, 0 AS has_history FROM staff_payments sp LEFT JOIN staff s ON s.id = sp.staff_id WHERE ${w.join(" AND ")}`);
     }
 
     // Combine — wrap in a sub-select so we can filter by source + paginate uniformly.
@@ -345,16 +351,105 @@ export const accounting = {
   },
 
   /**
-   * Annual audit pack for a financial year (default 01-Apr → 31-Mar, matching
-   * the settings financial_year_start of "04-01").
+   * Double-click preview data for one unified ledger row: the FULL underlying
+   * record (whichever module the money came from) plus its change history —
+   * structured BEFORE→AFTER field diffs from record_history where available —
+   * and the raw audit trail rows, newest first. Salary rows resolve their
+   * history against the STAFF id, because salary audit entries are recorded
+   * per staff member rather than per payment row.
+   */
+  unifiedDetail: (source: string, id: number) => {
+    const safeId = Number(id) || 0;
+    let record: any = null;
+    const changes: any[] = [];
+    const auditTrail: any[] = [];
+
+    const collectHistory = (entityType: string, entityIds: number[], module: string, moduleIds: number[]) => {
+      for (const eid of Array.from(new Set(entityIds.map(Number).filter(Boolean)))) {
+        for (const row of all<any>(
+          "SELECT * FROM record_history WHERE entity_type = ? AND entity_id = ? ORDER BY changed_at DESC, id DESC",
+          [entityType, eid]
+        )) changes.push({ ...row });
+      }
+      for (const mid of Array.from(new Set(moduleIds.map(Number).filter(Boolean)))) {
+        for (const row of all<any>(
+          "SELECT id, user_id, username, action, module, entity_id, description, metadata, created_at FROM audit_log WHERE module = ? AND entity_id = ? ORDER BY created_at DESC, id DESC",
+          [module, mid]
+        )) auditTrail.push({ ...row });
+      }
+    };
+
+    if (source === "transactions" && safeId) {
+      record = one<any>(
+        `SELECT t.*, u.username AS created_by_name
+         FROM transactions t LEFT JOIN users u ON u.id = t.created_by WHERE t.id = ?`,
+        [safeId]
+      );
+      collectHistory("transaction", [safeId], "accounting", [safeId]);
+    } else if (source === "donations" && safeId) {
+      record = one<any>(
+        `SELECT d.*, c.name AS category_name, u.username AS received_by_name
+         FROM donations d
+         LEFT JOIN donation_categories c ON c.id = d.category_id
+         LEFT JOIN users u ON u.id = d.received_by
+         WHERE d.id = ?`,
+        [safeId]
+      );
+      collectHistory("donation", [safeId], "donations", [safeId]);
+    } else if (source === "subscriptions" && safeId) {
+      record = one<any>(
+        `SELECT sp.*, f.house_name, f.family_number,
+           (SELECT m.name FROM members m WHERE m.id = sp.member_id) AS member_name
+         FROM subscription_payments sp LEFT JOIN families f ON f.id = sp.family_id
+         WHERE sp.id = ?`,
+        [safeId]
+      );
+      // Payment events are audited against BOTH the payment row and the
+      // subscription account (recordings/cancellations use the account id).
+      collectHistory("subscription_payment", [safeId], "subscriptions", [safeId, Number(record?.subscription_id) || 0]);
+    } else if (source === "welfare" && safeId) {
+      record = one<any>(
+        `SELECT w.*, f.house_name, f.family_number
+         FROM welfare_requests w LEFT JOIN families f ON f.id = w.family_id
+         WHERE w.id = ?`,
+        [safeId]
+      );
+      collectHistory("welfare", [safeId], "welfare", [safeId]);
+    } else if (source === "salary" && safeId) {
+      record = one<any>(
+        `SELECT sp.*, s.name AS staff_name, s.staff_code
+         FROM staff_payments sp LEFT JOIN staff s ON s.id = sp.staff_id
+         WHERE sp.id = ?`,
+        [safeId]
+      );
+      collectHistory("staff", [Number(record?.staff_id) || 0], "staff", [Number(record?.staff_id) || 0]);
+    }
+
+    return { record, changes, auditTrail };
+  },
+
+  /**
+   * Annual audit pack for a financial year. The year boundary comes from the
+   * Settings "Financial Year Start" value (MM-DD, default 04-01 → 01-Apr to
+   * 31-Mar) so masjids whose books close on a different date get a pack that
+   * matches their real year.
    * Produces: Receipts & Payments, Income & Expenditure, the 7% Waqf
    * contribution indicator (S.77), and the voucher-indexed transaction
    * listing — everything a Kerala Waqf Board / society auditor asks for.
    */
   auditPack: (fyYear: number) => {
     const fy = Number(fyYear) || new Date().getFullYear();
-    const fyStart = `${fy}-04-01`;
-    const fyEnd = `${fy + 1}-03-31`;
+    // Read the configured FY start (MM-DD). Anything malformed falls back to
+    // the Kerala-standard 04-01.
+    const cfg = one<any>("SELECT financial_year_start FROM settings WHERE id = 1");
+    const raw = String((cfg as any)?.financial_year_start || "").trim();
+    const mmdd = /^\d{2}-\d{2}$/.test(raw) ? raw : "04-01";
+    const [fmm, fdd] = mmdd.split("-").map(Number);
+    const fyStart = `${fy}-${mmdd}`;
+    // End = the day BEFORE next year's start date (pure date arithmetic).
+    const endDate = new Date(Date.UTC(fy + 1, fmm - 1, fdd));
+    endDate.setUTCDate(endDate.getUTCDate() - 1);
+    const fyEnd = endDate.toISOString().slice(0, 10);
     const s = (sql: string) => scalar<number>(sql) || 0;
 
     // Opening balance = everything received/spent BEFORE the FY (all sources).
@@ -391,7 +486,7 @@ export const accounting = {
 
     const settings = one<any>("SELECT mahallu_name, wakf_reg_no, society_reg_no, village, taluk, district, state FROM settings WHERE id = 1") || {};
     return {
-      fyLabel: `${fy}-04-01 to ${fy + 1}-03-31`,
+      fyLabel: `${fyStart} to ${fyEnd}`,
       fyYear: fy,
       mahalluName: settings.mahallu_name || "Minz Mahallu",
       wakfRegNo: settings.wakf_reg_no || "",

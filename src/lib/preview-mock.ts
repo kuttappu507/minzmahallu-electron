@@ -284,6 +284,11 @@ export function installPreviewMock() {
     },
     exportPdf: (filter: any = {}) => accounting.unifiedList({ ...filter, page: undefined, pageSize: undefined }).then((res: any) => ({ success: true, count: res.total, cancelled: false })),
     exportExcel: (filter: any = {}) => accounting.unifiedList({ ...filter, page: undefined, pageSize: undefined }).then((res: any) => ({ success: true, count: res.total, cancelled: false })),
+    // Double-click preview — preview mode returns the underlying ledger row + empty history.
+    detail: (source: string, id: number) => {
+      const row = ledgerRows.find((r) => r.source === source && r.source_id === id) || null;
+      return Promise.resolve({ record: row ? { ...row } : null, changes: [], auditTrail: [] });
+    },
   };
 
   // Heuristic fallback: any other mms.<module>.<method> returns a safe default.
@@ -322,7 +327,40 @@ export function installPreviewMock() {
     saveSubscriptionBatchPdf: () => Promise.resolve({ success: true, cancelled: false, count: 0, skipped: [] }),
   };
 
-  const base: Record<string, unknown> = { dashboard, settings, auth, win, uninstall, accounting, certificates: mockCertificates, whatsapp, receipts };
+  // App info (Settings → About) — preview-safe stub.
+  const app = {
+    info: () => Promise.resolve({ version: "dev-preview", electron: "-", platform: "browser", dataDir: "(preview mode — no data folder)" }),
+  };
+
+  // Donations module used by Settings (category manager) — the Proxy fallback
+  // returns a bare function for unknown modules, so `window.mms.donations
+  // .categoriesAll()` would crash the Settings page in preview mode.
+  const donationCats = [
+    { id: 1, name: "Zakath", description: "Annual zakath", is_active: 1, donation_count: 4 },
+    { id: 2, name: "Masjid Fund", description: "", is_active: 1, donation_count: 2 },
+    { id: 3, name: "Library", description: "Old library fund", is_active: 0, donation_count: 0 },
+  ];
+  const donations = {
+    categoriesAll: () => Promise.resolve(donationCats),
+    categories: () => Promise.resolve(donationCats.filter((c) => c.is_active)),
+    createCategory: () => Promise.resolve({ success: true }),
+    updateCategory: () => Promise.resolve({ success: true }),
+    setCategoryActive: () => Promise.resolve({ success: true }),
+    removeCategory: () => Promise.resolve({ success: true }),
+    memberBalance: () => Promise.resolve(0),
+    totalThisMonth: () => Promise.resolve(0),
+  };
+
+  // Backup module used by Settings (mirror folder picker).
+  const backup = {
+    create: () => Promise.resolve({ success: true, cancelled: false, path: "" }),
+    list: () => Promise.resolve({ backups: [] }),
+    verify: () => Promise.resolve({ success: true }),
+    restore: () => Promise.resolve({ success: false, error: "Preview mode" }),
+    chooseMirrorDir: () => Promise.resolve({ success: true, cancelled: true }),
+  };
+
+  const base: Record<string, unknown> = { dashboard, settings, auth, win, uninstall, accounting, certificates: mockCertificates, whatsapp, receipts, app, donations, backup };
   const handler: ProxyHandler<Record<string, unknown>> = {
     get(target, prop) {
       if (prop === "then") return undefined; // avoid thenable detection

@@ -506,7 +506,7 @@ app.whenReady().then(() => {
     try {
       const pack = data.accounting.auditPack(fyYear);
       const lang = await mainWindow!.webContents.executeJavaScript("document.documentElement.classList.contains('lang-ml') ? 'ml' : 'en'");
-      const html = buildAuditPackHtml(pack, lang);
+      const html = buildAuditPackHtml(pack, lang, String((data.settings.load() as any)?.currency_symbol || "₹"));
       const defaultName = `audit-pack-${fyYear}-${(fyYear + 1).toString().slice(2)}.pdf`;
       const written = await saveExportFile({ title: "Save Annual Audit Pack", defaultName, ext: "pdf", filterName: "PDF Document" }, async () => await renderHtmlToPdf(html));
       if (written.status === "cancelled") return { success: false, cancelled: true };
@@ -548,6 +548,15 @@ app.whenReady().then(() => {
   ipcMain.handle("audit:list", (_e, filter) => data.audit.list(filter || {}));
   ipcMain.handle("settings:load", () => data.settings.load());
   ipcMain.handle("settings:save", (_e, d) => data.settings.save(d));
+  // Read-only app information for the Settings → About card (version, data
+  // folder). No sensitive values — helps the office quote the exact build
+  // when reporting an issue.
+  ipcMain.handle("app:info", () => ({
+    version: app.getVersion(),
+    electron: process.versions.electron || "",
+    platform: process.platform,
+    dataDir: app.getPath("userData"),
+  }));
   ipcMain.handle("dashboard:summary", () => data.dashboard.summary());
   ipcMain.handle("dashboard:incomeThisMonth", () => data.dashboard.incomeThisMonth());
   ipcMain.handle("dashboard:expenseThisMonth", () => data.dashboard.expenseThisMonth());
@@ -732,6 +741,21 @@ app.whenReady().then(() => {
       const filePath = path.join(userData, name);
       await createBackup(filePath);
       console.log(`[auto-backup] Created: ${name}`);
+      // Retention: keep only the newest N auto-backups in the app data folder
+      // (manual/verified backups and mirrored copies are NEVER touched).
+      // Without this the folder grows forever — a hidden disk-space leak on
+      // machines that run for months.
+      try {
+        const keepRaw = Number((settings as any)?.backup_keep_count ?? 30);
+        const keep = Number.isFinite(keepRaw) && keepRaw > 0 ? Math.min(200, Math.max(3, Math.floor(keepRaw))) : 30;
+        const autoBackups = backups
+          .filter((b: any) => /^backup-auto-.*\.mmbak$/i.test(String(b?.name || "")))
+          .sort((a: any, b: any) => new Date(b.time).getTime() - new Date(a.time).getTime());
+        for (const old of autoBackups.slice(keep)) {
+          const oldPath = path.join(userData, String(old.name));
+          try { if (fs.existsSync(oldPath)) { fs.unlinkSync(oldPath); console.log(`[auto-backup] Pruned old: ${old.name}`); } } catch (e) { console.warn("[auto-backup] prune failed:", e); }
+        }
+      } catch (e) { console.warn("[auto-backup] retention check failed:", e); }
       // Mirror the auto-backup to the configured second location (best-effort).
       const mirrorDir = String((settings as any)?.backup_mirror_dir || "").trim();
       if (mirrorDir) {

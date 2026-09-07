@@ -107,6 +107,17 @@ function mahalluName(): string {
   }
 }
 
+/** Currency symbol from Settings — printed receipts follow the configured
+ *  symbol so the whole office output stays consistent. */
+function currencySymbol(): string {
+  try {
+    const row = getDB().prepare("SELECT currency_symbol FROM settings WHERE id = 1").get() as { currency_symbol?: string } | undefined;
+    return String(row?.currency_symbol || "").trim() || "\u20B9";
+  } catch {
+    return "\u20B9";
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Data assembly
 // ---------------------------------------------------------------------------
@@ -151,6 +162,7 @@ async function donationReceiptData(donationId: number): Promise<ReceiptData | nu
     transactionRef: String(d.transaction_ref || ""),
     notes: String(d.remarks || ""),
     mahalluName: mahalluName(),
+    currencySymbol: currencySymbol(),
     verificationCode,
     qrSvg: await receiptQrSvg(receiptNumber, verificationCode, String(d.donation_date || "")),
   };
@@ -206,7 +218,7 @@ async function subscriptionReceiptData(subscriptionId: number): Promise<ReceiptD
   );
   const dateStr = String(r.payment_date || r.period_start || "");
   // ---- Receipt footnote: the money story on one line (or two short ones) ----
-  const inr = (n: number) => `\u20B9${n.toLocaleString("en-IN")}`;
+  const inr = (n: number) => `${currencySymbol()}${n.toLocaleString("en-IN")}`;
   const appliedBits: string[] = [];
   if (arrearsCleared > 0) appliedBits.push(ml ? `${inr(arrearsCleared)} പഴയ മാസങ്ങൾ` : `${inr(arrearsCleared)} previous months`);
   if (monthPart > 0) appliedBits.push(ml ? `${inr(monthPart)} ഈ മാസം` : `${inr(monthPart)} this month`);
@@ -239,6 +251,7 @@ async function subscriptionReceiptData(subscriptionId: number): Promise<ReceiptD
     transactionRef: String(r.transaction_ref || ""),
     notes: String(r.remarks || ""),
     mahalluName: mahalluName(),
+    currencySymbol: currencySymbol(),
     verificationCode,
     qrSvg: await receiptQrSvg(receiptNumber, verificationCode, dateStr),
     footNote,

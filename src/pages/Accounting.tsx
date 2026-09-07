@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { Plus, Edit2, Ban, ReceiptText, TrendingUp, TrendingDown, Scale, Eye, Calendar, FileDown, Loader2 } from "lucide-react";
+import { Plus, Edit2, Ban, ReceiptText, TrendingUp, TrendingDown, Scale, Eye, Calendar, FileDown, Loader2, History } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
 import { SecureActionDialog } from "@/components/SecureActionDialog";
-import { formatCurrency, formatDate, todayIST } from "@/lib/utils";
+import { formatCurrency, formatDate, formatDateTime, todayIST } from "@/lib/utils";
 
 interface Transaction {
   id: number;
@@ -46,6 +46,7 @@ interface UnifiedRow {
   status?: string | null;
   void_reason?: string | null;
   voided_at?: string | null;
+  has_history?: number | null;
 }
 
 interface UnifiedSummary {
@@ -100,6 +101,36 @@ function sourceBadgeVariant(source: UnifiedRow["source"]): string {
   }
 }
 
+/** Friendly labels for the fields shown in the double-click preview. */
+const PREVIEW_FIELD_LABELS: Record<string, { en: string; ml: string }> = {
+  txn_date: { en: "Date", ml: "തീയതി" },
+  type: { en: "Type", ml: "തരം" },
+  amount: { en: "Amount", ml: "തുക" },
+  payment_method: { en: "Payment method", ml: "പേയ്മെന്റ് രീതി" },
+  description: { en: "Description", ml: "വിവരണം" },
+  category: { en: "Category", ml: "വിഭാഗം" },
+  payee: { en: "Paid to (Payee)", ml: "നൽകിയത് (പേയി)" },
+  voucher_no: { en: "Voucher No.", ml: "വൗച്ചർ നമ്പർ" },
+  bill_no: { en: "Bill / Invoice No.", ml: "ബിൽ / ഇൻവോയ്സ് നമ്പർ" },
+  transaction_ref: { en: "Reference", ml: "റഫറൻസ്" },
+  receipt_number: { en: "Receipt No.", ml: "രസീത് നമ്പർ" },
+  account_id: { en: "Account", ml: "അക്കൗണ്ട്" },
+  amount_paid: { en: "Amount paid", ml: "അടച്ച തുക" },
+  status: { en: "Status", ml: "നില" },
+  remarks: { en: "Remarks", ml: "കുറിപ്പുകൾ" },
+  purpose: { en: "Purpose", ml: "ആവശ്യം" },
+};
+
+/** Parse a changes JSON string ({field:{old,new}}) defensively. */
+function parseChanges(json: string | null | undefined): Record<string, { old: unknown; new: unknown }> | null {
+  if (!json) return null;
+  try {
+    const parsed = JSON.parse(json);
+    if (parsed && typeof parsed === "object" && Object.keys(parsed).length > 0) return parsed;
+  } catch { /* legacy rows carry plain text */ }
+  return null;
+}
+
 export function Accounting() {
   const { t, isMalayalam } = useI18n();
   const tx = (en: string, ml: string) => isMalayalam() ? ml : en;
@@ -135,6 +166,11 @@ export function Accounting() {
   const [receiptsData, setReceiptsData] = useState<any>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
+  // Double-click preview: full record + change history for one ledger row.
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewRow, setPreviewRow] = useState<UnifiedRow | null>(null);
+  const [previewDetail, setPreviewDetail] = useState<{ record: any; changes: any[]; auditTrail: any[] } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const totalPages = Math.max(1, Math.ceil(total / 20));
 
@@ -261,6 +297,22 @@ export function Accounting() {
     }
   };
 
+  // Double-click (or eye button) opens the full preview of a ledger entry —
+  // including every recorded edit: what changed, who changed it, when and why.
+  const openPreview = async (row: UnifiedRow) => {
+    setPreviewRow(row);
+    setPreviewDetail(null);
+    setPreviewOpen(true);
+    setPreviewLoading(true);
+    try {
+      setPreviewDetail(await window.mms.accounting.detail(row.source, row.source_id));
+    } catch (e: any) {
+      toast.error(e.message || tx("Could not load entry details", "എൻട്രി വിവരങ്ങൾ ലോഡ് ചെയ്യാനായില്ല"));
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   // Export handlers — both respect the current period/source/type filters.
   const buildExportFilter = () => {
     const filter: any = { period, source: sourceFilter, type: typeFilter };
@@ -302,7 +354,15 @@ export function Accounting() {
     },
     { header: t("acc_description"), accessor: r => (
       <div>
-        <span className={`font-medium ${r.status === "Void" ? "line-through text-muted" : ""}`}>{r.description || "—"}</span>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className={`font-medium ${r.status === "Void" ? "line-through text-muted" : ""}`}>{r.description || "—"}</span>
+          {!!r.has_history && r.status !== "Void" && (
+            <span title={tx("This entry was edited — double-click to see the change history", "ഈ എൻട്രി തിരുത്തപ്പെട്ടിട്ടുണ്ട് — മാറ്റങ്ങൾ കാണാൻ ഇരട്ട ക്ലിക്ക് ചെയ്യുക")}
+              className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 whitespace-nowrap">
+              {tx("EDITED", "തിരുത്തി")}
+            </span>
+          )}
+        </div>
         {r.status === "Void" && r.void_reason && (
           <div className="text-xs text-rose-600/80 italic mt-0.5">{tx("Voided:", "റദ്ദാക്കി:")} {r.void_reason}{r.voided_at ? ` · ${formatDate(r.voided_at)}` : ""}</div>
         )}
@@ -350,10 +410,16 @@ export function Accounting() {
               <button className="act-btn act-del" onClick={() => openVoid(r.source_id)} title={tx("Void (keep for audit)", "റദ്ദാക്കുക (ഓഡിറ്റിനായി സൂക്ഷിക്കും)")}><Ban className="h-4 w-4 text-danger" /></button>
             </>
           )}
+          <button className="act-btn" onClick={() => openPreview(r)} title={tx("View details & history", "വിവരങ്ങളും ചരിത്രവും കാണുക")}><Eye className="h-4 w-4" /></button>
         </div>
-      ) : <span className="text-xs text-muted">{tx("auto", "ഓട്ടോ")}</span>,
+      ) : (
+        <div className="flex items-center gap-1 justify-end">
+          <span className="text-xs text-muted">{tx("auto", "ഓട്ടോ")}</span>
+          <button className="act-btn" onClick={() => openPreview(r)} title={tx("View details & history", "വിവരങ്ങളും ചരിത്രവും കാണുക")}><Eye className="h-4 w-4" /></button>
+        </div>
+      ),
       align: "right",
-      width: "110px"
+      width: "130px"
     },
   ];
 
@@ -414,34 +480,73 @@ export function Accounting() {
         </div>
       </div>
 
-      {/* Source breakdown card */}
+      {/* Source breakdown card — two high-contrast panels with share bars.
+          Labels and amounts are deliberately bold, full-contrast and set in
+          the UI font (NOT thin mono/muted text) so they read at a glance. */}
       {summary && (
         <div className="card card-pad-tight mt-3">
-          <div className="ch-head mb-3"><div className="ch-title">{t("acc_breakdown")}</div></div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <div className="p-3 rounded-lg border border-border bg-emerald-50/30">
-              <div className="text-xs text-muted">{t("acc_income_donations")}</div>
-              <div className="font-mono font-semibold text-emerald-700">{formatCurrency(summary.incomeDonations)}</div>
+          <div className="ch-head mb-3">
+            <div className="ch-title">{t("acc_breakdown")}</div>
+            <div className="text-xs font-medium text-text-secondary">{rangeLabel || periodLabel(period)}</div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Income panel */}
+            <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/[0.07] p-4">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <span className="inline-flex items-center gap-2 text-sm font-bold tracking-wide text-emerald-700 dark:text-emerald-300 uppercase">
+                  <TrendingUp size={16} strokeWidth={2.5} />{t("acc_income")}
+                </span>
+                <span className="text-base font-bold text-emerald-700 dark:text-emerald-300 tabular-nums">{formatCurrency(summary.totalIncome)}</span>
+              </div>
+              <div className="space-y-3">
+                {([
+                  { label: t("acc_income_donations"), value: summary.incomeDonations },
+                  { label: t("acc_income_subscriptions"), value: summary.incomeSubscriptions },
+                  { label: t("acc_income_manual"), value: summary.incomeManual },
+                ] as const).map(item => {
+                  const pct = summary.totalIncome > 0 ? Math.max(0, Math.min(100, Math.round((item.value / summary.totalIncome) * 100))) : 0;
+                  return (
+                    <div key={item.label}>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-semibold text-text-primary">{item.label}</span>
+                        <span className="text-sm font-bold text-text-primary tabular-nums">{formatCurrency(item.value)}</span>
+                      </div>
+                      <div className="mt-1.5 h-1.5 rounded-full bg-emerald-500/15 overflow-hidden">
+                        <div className="h-full rounded-full bg-emerald-500/70" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <div className="p-3 rounded-lg border border-border bg-emerald-50/30">
-              <div className="text-xs text-muted">{t("acc_income_subscriptions")}</div>
-              <div className="font-mono font-semibold text-emerald-700">{formatCurrency(summary.incomeSubscriptions)}</div>
-            </div>
-            <div className="p-3 rounded-lg border border-border bg-emerald-50/30">
-              <div className="text-xs text-muted">{t("acc_income_manual")}</div>
-              <div className="font-mono font-semibold text-emerald-700">{formatCurrency(summary.incomeManual)}</div>
-            </div>
-            <div className="p-3 rounded-lg border border-border bg-rose-50/30">
-              <div className="text-xs text-muted">{t("acc_expense_welfare")}</div>
-              <div className="font-mono font-semibold text-rose-700">{formatCurrency(summary.expenseWelfare)}</div>
-            </div>
-            <div className="p-3 rounded-lg border border-border bg-rose-50/30">
-              <div className="text-xs text-muted">{t("acc_expense_salary")}</div>
-              <div className="font-mono font-semibold text-rose-700">{formatCurrency(summary.expenseSalary)}</div>
-            </div>
-            <div className="p-3 rounded-lg border border-border bg-rose-50/30">
-              <div className="text-xs text-muted">{t("acc_expense_manual")}</div>
-              <div className="font-mono font-semibold text-rose-700">{formatCurrency(summary.expenseManual)}</div>
+            {/* Expense panel */}
+            <div className="rounded-xl border border-rose-500/25 bg-rose-500/[0.07] p-4">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <span className="inline-flex items-center gap-2 text-sm font-bold tracking-wide text-rose-700 dark:text-rose-300 uppercase">
+                  <TrendingDown size={16} strokeWidth={2.5} />{t("acc_expense")}
+                </span>
+                <span className="text-base font-bold text-rose-700 dark:text-rose-300 tabular-nums">{formatCurrency(summary.totalExpense)}</span>
+              </div>
+              <div className="space-y-3">
+                {([
+                  { label: t("acc_expense_welfare"), value: summary.expenseWelfare },
+                  { label: t("acc_expense_salary"), value: summary.expenseSalary },
+                  { label: t("acc_expense_manual"), value: summary.expenseManual },
+                ] as const).map(item => {
+                  const pct = summary.totalExpense > 0 ? Math.max(0, Math.min(100, Math.round((item.value / summary.totalExpense) * 100))) : 0;
+                  return (
+                    <div key={item.label}>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-semibold text-text-primary">{item.label}</span>
+                        <span className="text-sm font-bold text-text-primary tabular-nums">{formatCurrency(item.value)}</span>
+                      </div>
+                      <div className="mt-1.5 h-1.5 rounded-full bg-rose-500/15 overflow-hidden">
+                        <div className="h-full rounded-full bg-rose-500/70" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
@@ -459,6 +564,7 @@ export function Accounting() {
         searchValue={search}
         onSearchChange={setSearch}
         rowKey={r => `${r.source}-${r.source_id}`}
+        onRowDoubleClick={openPreview}
         toolbar={
           <div className="flex flex-wrap gap-2 items-center">
             <Select value={period} onChange={e => { const v = e.target.value; setPeriod(v); setPage(1); if (v === "custom") setCustomOpen(true); }} className="w-40">
@@ -600,6 +706,104 @@ export function Accounting() {
         reasonPlaceholder={tx("Why is this entry being edited?", "എന്തുകൊണ്ടാണ് ഈ എൻട്രി തിരുത്തുന്നത്?")}
         confirmLabel={tx("Continue to edit", "തിരുത്താൻ തുടരുക")}
       />
+
+      {/* Double-click preview — full entry details + the complete change history */}
+      <Dialog open={previewOpen} onClose={() => setPreviewOpen(false)} title={tx("Entry details", "എൻട്രി വിവരങ്ങൾ")} className="max-w-2xl">
+        <div className="p-6 space-y-4">
+          {previewLoading && (
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-text-secondary"><Loader2 size={16} className="animate-spin" />{tx("Loading…", "ലോഡ് ചെയ്യുന്നു…")}</div>
+          )}
+          {!previewLoading && previewRow && (() => {
+            const rec = previewDetail?.record || {};
+            const isTxn = previewRow.source === "transactions";
+            // Merge record_history diffs + audit trail into one newest-first timeline.
+            type HistEntry = { key: string; when: string; who: string; action: string; summary: string; reason: string; changes: Record<string, { old: unknown; new: unknown }> | null };
+            const entries: HistEntry[] = [];
+            const seen = new Set<string>();
+            for (const c of previewDetail?.changes || []) {
+              const changes = parseChanges(c.changes_json);
+              entries.push({ key: `c${c.id}`, when: String(c.changed_at || ""), who: String(c.username || ""), action: String(c.action || ""), summary: String(c.summary || ""), reason: String(c.reason || ""), changes });
+              if (changes) seen.add(`${c.username || ""}|${String(c.changed_at || "").slice(0, 16)}|${JSON.stringify(changes)}`);
+            }
+            for (const a of previewDetail?.auditTrail || []) {
+              const changes = parseChanges(a.metadata);
+              const dedupeKey = `${a.username || ""}|${String(a.created_at || "").slice(0, 16)}|${JSON.stringify(changes)}`;
+              if (changes && seen.has(dedupeKey)) continue; // same event already recorded with diffs
+              entries.push({ key: `a${a.id}`, when: String(a.created_at || ""), who: String(a.username || ""), action: String(a.action || ""), summary: String(a.description || ""), reason: "", changes });
+            }
+            entries.sort((x, y) => y.when.localeCompare(x.when));
+            const labelOf = (f: string) => { const l = PREVIEW_FIELD_LABELS[f]; return l ? tx(l.en, l.ml) : f; };
+            const valueOf = (f: string, v: unknown) => {
+              if (v == null || v === "") return "—";
+              if (f === "amount" || f === "amount_paid") return formatCurrency(Number(v));
+              if (f === "txn_date") return formatDate(String(v));
+              return String(v);
+            };
+            const detailRows: [string, React.ReactNode][] = [
+              [tx("Source", "ഉറവിടം"), <Badge key="src" variant={sourceBadgeVariant(previewRow.source)}>{t(`acc_source_${previewRow.source}`)}</Badge>],
+              [tx("Date", "തീയതി"), formatDate(previewRow.ledger_date)],
+              [tx("Type", "തരം"), <Badge key="typ" variant={previewRow.type === "Income" ? "success" : "danger"}>{t(previewRow.type === "Income" ? "acc_income" : "acc_expense")}</Badge>],
+              [t("sub_amount"), <span key="amt" className={`font-bold ${previewRow.type === "Income" ? "text-emerald-600" : "text-rose-600"}`}>{formatCurrency(previewRow.amount)}</span>],
+              [tx("Category", "വിഭാഗം"), rec.category_name || previewRow.category || "—"],
+              [t("sub_method"), previewRow.payment_method || "—"],
+              [tx("Receipt", "രസീത്"), previewRow.receipt_number ? <span key="rc" className="code-text-sm text-primary">{previewRow.receipt_number}</span> : "—"],
+              [tx("Voucher No.", "വൗച്ചർ നമ്പർ"), previewRow.voucher_no || "—"],
+              [tx("Bill / Invoice No.", "ബിൽ / ഇൻവോയ്സ് നമ്പർ"), previewRow.bill_no || "—"],
+              [tx("Paid to (Payee)", "നൽകിയത് (പേയി)"), previewRow.payee || "—"],
+              [t("ui_transaction_ref"), previewRow.transaction_ref || "—"],
+            ];
+            if (isTxn && rec.created_by_name) detailRows.push([tx("Created by", "സൃഷ്ടിച്ചത്"), rec.created_by_name]);
+            if (previewRow.source === "donations" && rec.donor_name) detailRows.push([tx("Donor", "ദാതാവ്"), rec.donor_name]);
+            if (previewRow.source === "donations" && (rec.purpose || previewRow.description)) detailRows.push([tx("Purpose", "ആവശ്യം"), rec.purpose || String(previewRow.description || "").replace(/^[^—]*—\s*/, "")]);
+            if (previewRow.source === "subscriptions" && rec.house_name) detailRows.push([tx("Family", "കുടുംബം"), `${rec.house_name || ""}${rec.family_number ? ` (${rec.family_number})` : ""}`]);
+            if (previewRow.source === "welfare" && rec.applicant_name) detailRows.push([tx("Applicant", "അപേക്ഷകൻ"), rec.applicant_name]);
+            if (previewRow.source === "salary" && rec.staff_name) detailRows.push([tx("Staff", "ജീവനക്കാരൻ"), `${rec.staff_name}${rec.staff_code ? ` (${rec.staff_code})` : ""}`]);
+            if (previewRow.status === "Void") detailRows.push([tx("Status", "നില"), <Badge key="void" variant="danger">{tx("VOID", "റദ്ദാക്കി")}</Badge>]);
+            return (
+              <>
+                <div className="det-grid">
+                  {detailRows.map(([k, v], i) => <div className="det" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>)}
+                </div>
+                {previewRow.status === "Void" && previewRow.void_reason && (
+                  <div className="rounded-lg border border-rose-300 bg-rose-50 dark:bg-rose-500/10 dark:border-rose-500/30 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
+                    <b>{tx("Void reason", "റദ്ദാക്കാനുള്ള കാരണം")}:</b> {previewRow.void_reason}
+                  </div>
+                )}
+                <div className="dlg-sec dlg-sec-inset"><span className="ds-ic"><History size={13} /></span><b>{tx("Change history", "മാറ്റ ചരിത്രം")}</b></div>
+                <div className="space-y-2 max-h-64 overflow-auto">
+                  {entries.length ? entries.map((h) => (
+                    <div key={h.key} className="p-3 rounded-lg border border-border">
+                      <div className="flex justify-between gap-3 items-start">
+                        <b className="text-sm">{h.action === "EDIT" || h.action === "UPDATE" ? tx("Entry edited", "എൻട്രി തിരുത്തി") : h.summary || h.action}</b>
+                        <span className="text-xs text-muted whitespace-nowrap">{formatDateTime(h.when)}</span>
+                      </div>
+                      <div className="text-xs text-muted mt-1">{h.who}{h.action ? ` · ${h.action}` : ""}{h.reason ? ` · ${tx("Reason", "കാരണം")}: ${h.reason}` : ""}</div>
+                      {h.changes && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {Object.entries(h.changes).map(([f, ch]) => (
+                            <span key={f} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-surface-hover border border-border-subtle">
+                              <span className="text-text-tertiary font-medium">{labelOf(f)}:</span>
+                              <span className="line-through text-rose-600 dark:text-rose-400">{valueOf(f, ch.old)}</span>
+                              <span className="text-text-tertiary">→</span>
+                              <span className="font-semibold text-emerald-700 dark:text-emerald-400">{valueOf(f, ch.new)}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {!h.changes && h.summary && h.action !== "EDIT" && h.action !== "UPDATE" && <div className="text-xs text-text-secondary mt-1">{h.summary}</div>}
+                    </div>
+                  )) : (
+                    <div className="text-sm text-muted">{tx("No changes recorded — the entry is exactly as it was created.", "മാറ്റങ്ങൾ രേഖപ്പെടുത്തിയിട്ടില്ല — എൻട്രി സൃഷ്ടിച്ചപ്പോഴുള്ളതാണ്.")}</div>
+                  )}
+                </div>
+                <div className="flex justify-end">
+                  <Button variant="secondary" onClick={() => setPreviewOpen(false)}>{t("ui_close")}</Button>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      </Dialog>
 
       {/* Receipt sequence continuity */}
       <Dialog open={receiptsOpen} onClose={() => setReceiptsOpen(false)} title={tx("Receipt sequence", "രസീത് ശ്രേണി")} className="max-w-2xl">

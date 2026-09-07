@@ -25,6 +25,31 @@ function currentMonthPeriod(): { periodStart: string; periodEnd: string } {
   return { periodStart, periodEnd };
 }
 
+function currentQuarterPeriod(ymd: string): { periodStart: string; periodEnd: string } {
+  // Calendar-quarter boundaries (Jan-Mar, Apr-Jun, Jul-Sep, Oct-Dec) as seen
+  // in India — used when Settings → Subscription frequency is "Quarterly".
+  const year = Number(ymd.slice(0, 4));
+  const month = Number(ymd.slice(5, 7));
+  const qStartMonth = Math.floor((month - 1) / 3) * 3 + 1; // 1, 4, 7, 10
+  const qEndMonth = qStartMonth + 2; // 3, 6, 9, 12
+  const periodStart = `${year}-${String(qStartMonth).padStart(2, "0")}-01`;
+  const lastDay = new Date(Date.UTC(year, qEndMonth, 0)).getUTCDate(); // days in the END month
+  const periodEnd = `${year}-${String(qEndMonth).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  return { periodStart, periodEnd };
+}
+
+/** The recurring billing period the masjid currently operates on. Reads the
+ *  Settings "Subscription frequency" — masjids that collect once a quarter
+ *  get a real quarterly account (period covers the whole quarter), everyone
+ *  else keeps the classic monthly cycle. */
+function currentPeriod(): { periodStart: string; periodEnd: string; frequency: "Monthly" | "Quarterly" } {
+  const cfg = one<any>("SELECT subscription_frequency FROM settings WHERE id = 1");
+  const frequency = String((cfg as any)?.subscription_frequency || "Monthly") === "Quarterly" ? "Quarterly" : "Monthly";
+  const ymd = istDateStr(new Date());
+  if (frequency === "Quarterly") return { ...currentQuarterPeriod(ymd), frequency };
+  return { ...currentMonthPeriod(), frequency };
+}
+
 function familyHeadMemberId(familyId: number): number | null {
   const head = one<any>(
     "SELECT id FROM members WHERE family_id = ? AND archive_state = 0 ORDER BY CASE WHEN is_head = 1 THEN 0 WHEN relationship = 'Head' THEN 1 ELSE 2 END, id LIMIT 1",
@@ -34,9 +59,19 @@ function familyHeadMemberId(familyId: number): number | null {
 }
 
 export function ensureCurrentMonth() {
-  const { periodStart, periodEnd } = currentMonthPeriod();
+  const { periodStart, periodEnd, frequency } = currentPeriod();
   const configured = scalar<number>("SELECT COALESCE(subscription_monthly_amount, 0) FROM settings WHERE id = 1") || 0;
-  const plan = one<any>("SELECT * FROM subscription_plans WHERE frequency = 'Monthly' AND is_active = 1 ORDER BY id LIMIT 1");
+  // Plan follows the configured frequency. NOTE: databases created before the
+  // schema fix carry a CHECK constraint that only allows Monthly/Yearly/OneTime
+  // plan rows — V021's "Quarterly Subscription" seed was silently swallowed by
+  // INSERT OR IGNORE on those. There we fall back to the Monthly plan row: the
+  // ACCOUNT still bills with the configured quarterly rate and real quarter
+  // period boundaries (period_start/period_end below), the plan row is only
+  // descriptive metadata.
+  const plan = one<any>(
+    "SELECT * FROM subscription_plans WHERE frequency = ? AND is_active = 1 ORDER BY id LIMIT 1",
+    [frequency]
+  ) || one<any>("SELECT * FROM subscription_plans WHERE frequency = 'Monthly' AND is_active = 1 ORDER BY id LIMIT 1");
   if (!plan || configured <= 0) return { created: 0, rolledOver: 0, amount: configured, periodStart, periodEnd };
   const families = all<any>("SELECT id FROM families WHERE status = 'Active' ORDER BY id");
   let created = 0;
@@ -170,7 +205,7 @@ export const subscriptions = {
         "This family already has a subscription. Open the existing row to record this month's payment — a family has exactly one recurring subscription."
       );
     }
-    const { periodStart, periodEnd } = currentMonthPeriod();
+    const { periodStart, periodEnd } = currentPeriod();
     const configured = scalar<number>("SELECT COALESCE(subscription_monthly_amount, 0) FROM settings WHERE id = 1") || 0;
     const firstPayment = Math.max(0, Number(data.amountPaid ?? 0));
     const { id } = run(

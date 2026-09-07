@@ -189,6 +189,18 @@ export const security = {
   history(entityType: string, entityId: number, limit = 100) {
     return all<any>(`SELECT * FROM record_history WHERE entity_type=? AND entity_id=? ORDER BY changed_at DESC, id DESC LIMIT ?`, [entityType, entityId, limit]);
   },
+  /**
+   * Public writer for the per-record change history (record_history table).
+   * Used by the secured IPC layer to record BEFORE→AFTER diffs of sensitive
+   * edits (e.g. ledger entry edits) so the double-click preview in the UI can
+   * show exactly what changed, who changed it and why. The tamper-evident
+   * audit_log chain keeps its own row in parallel — the two are complementary:
+   * record_history holds structured field diffs, audit_log holds the chain.
+   */
+  logChange(actor: Actor, entityType: string, entityId: number, action: string, summary: string, changes: Record<string, unknown> = {}, reason = "") {
+    requireActor(actor);
+    history(actor, entityType, entityId, action, summary, changes, reason);
+  },
   familyMoveHistory(memberId: number) {
     return all<any>(`SELECT fm.*, of.family_number AS old_family_number, nf.family_number AS new_family_number, u.username AS moved_by_username FROM family_moves fm LEFT JOIN families of ON of.id=fm.old_family_id LEFT JOIN families nf ON nf.id=fm.new_family_id LEFT JOIN users u ON u.id=fm.moved_by WHERE fm.member_id=? ORDER BY fm.moved_at DESC`, [memberId]);
   },

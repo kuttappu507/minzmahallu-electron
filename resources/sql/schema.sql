@@ -73,11 +73,16 @@ CREATE INDEX IF NOT EXISTS idx_members_status ON members(status);
 
 CREATE TABLE IF NOT EXISTS subscription_plans (
     id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE,
-    frequency TEXT NOT NULL CHECK (frequency IN ('Monthly','Yearly','OneTime')),
+    -- 'Quarterly' allowed so V021's quarterly plan seed actually lands
+    -- (the old CHECK silently rejected it — INSERT OR IGNORE swallows
+    -- CHECK violations — so no install ever had the quarterly plan).
+    frequency TEXT NOT NULL CHECK (frequency IN ('Monthly','Quarterly','Yearly','OneTime')),
     default_amount REAL NOT NULL DEFAULT 0, is_active INTEGER NOT NULL DEFAULT 1, description TEXT
 );
 INSERT OR IGNORE INTO subscription_plans (name, frequency, default_amount) VALUES
  ('Monthly Subscription','Monthly',100),('Yearly Subscription','Yearly',1200),('Special Subscription','OneTime',0);
+INSERT OR IGNORE INTO subscription_plans (name, frequency, default_amount, description, is_active) VALUES
+ ('Quarterly Subscription','Quarterly',0,'Automatic quarterly household subscription',1);
 
 CREATE TABLE IF NOT EXISTS subscriptions (
     id INTEGER PRIMARY KEY AUTOINCREMENT, family_id INTEGER NOT NULL, member_id INTEGER, plan_id INTEGER NOT NULL,

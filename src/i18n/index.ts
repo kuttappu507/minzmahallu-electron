@@ -339,6 +339,11 @@ const translations: Record<string, { en: string; ml: string }> = {
   set_cat_delete_title: { en: "Delete category", ml: "വിഭാഗം ഇല്ലാതാക്കുക" },
   set_cat_delete_confirm: { en: "Delete this category? This cannot be undone.", ml: "ഈ വിഭാഗം ഇല്ലാതാക്കണോ? ഇത് തിരിച്ചെടുക്കാനാവില്ല." },
   set_backup_interval: { en: "Backup Interval (hours)", ml: "ബാക്കപ്പ് ഇടവേള (മണിക്കൂർ)" },
+  set_backup_keep: { en: "Auto-backups to keep", ml: "സൂക്ഷിക്കേണ്ട ഓട്ടോ ബാക്കപ്പുകൾ" },
+  set_backup_keep_hint: { en: "Older automatic backups are deleted on their own; manual backups are never touched.", ml: "പഴയ ഓട്ടോമാറ്റിക് ബാക്കപ്പുകൾ സ്വയം ഇല്ലാതാക്കും; സ്വമേധയാ എടുത്ത ബാക്കപ്പുകൾ ഒരിക്കലും മാറ്റില്ല." },
+  set_about_section: { en: "About", ml: "വിവരങ്ങൾ" },
+  set_app_version: { en: "App version", ml: "ആപ്പ് പതിപ്പ്" },
+  set_data_folder: { en: "Data folder", ml: "ഡാറ്റ ഫോൾഡർ" },
 
   // Audit
   audit_title: { en: "Audit Log", ml: "ഓഡിറ്റ് ലോഗ്" },

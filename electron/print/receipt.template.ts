@@ -30,6 +30,9 @@ export interface ReceiptData {
   transactionRef: string;
   notes?: string;
   mahalluName: string;
+  /** Currency symbol from Settings (default "₹") — masjids can change it and
+   *  every printed receipt must follow. */
+  currencySymbol?: string;
   /** Extra footer line (e.g. "Balance this month: ₹0"). */
   footNote?: string;
   /** Anti-forgery: register verification code printed under the QR. */
@@ -74,8 +77,8 @@ export function amountInWords(amount: number): string {
   return `${text} Only`;
 }
 
-export function formatReceiptAmount(amount: number): string {
-  return '\u20B9' + Number(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+export function formatReceiptAmount(amount: number, currencySymbol: string = '\u20B9'): string {
+  return String(currencySymbol || '\u20B9') + Number(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 }
 
 // ---------------------------------------------------------------------------
@@ -147,7 +150,7 @@ function receiptCard(r: ReceiptData, L: ReturnType<typeof labels>): string {
       </div>
       <div class="rc-amount">
         <span>${esc(L.amount)}</span>
-        <b>${esc(formatReceiptAmount(r.amount))}</b>
+        <b>${esc(formatReceiptAmount(r.amount, r.currencySymbol))}</b>
         <small>${esc(amountInWords(r.amount))}</small>
       </div>
       ${notes ? `<div class="rc-notes"><span>${esc(L.note)}:</span> ${esc(notes)}</div>` : ''}
