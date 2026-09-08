@@ -279,6 +279,7 @@ const translations: Record<string, { en: string; ml: string }> = {
   set_backup_mirror_clear: { en: "Clear", ml: "മായ്ക്കുക" },
   set_backup_mirror_none: { en: "Not set", ml: "സജ്ജമാക്കിയിട്ടില്ല" },
   set_mahallu_name: { en: "Mahallu Name", ml: "മഹല്ല് പേര്" },
+  set_ml_enter_hint: { en: "Type in Manglish and press Enter inside the field to convert it to Malayalam.", ml: "മംഗ്ലീഷിൽ ടൈപ്പ് ചെയ്ത് ഫീൽഡിൽ Enter അമർത്തിയാൽ മലയാളമാക്കും." },
   set_affiliation_number: { en: "Affiliation / Reg. No.", ml: "അഫിലിയേഷൻ നമ്പർ" },
   set_reg_section: { en: "Registration Numbers", ml: "രജിസ്ട്രേഷൻ നമ്പറുകൾ" },
   set_reg_hint: { en: "Each number filled here is printed on all certificates; leave blank to omit it.", ml: "ഇവിടെ പൂരിപ്പിക്കുന്ന ഓരോ നമ്പറും എല്ലാ സർട്ടിഫിക്കറ്റുകളിലും അച്ചടിക്കും; ഒഴിവാക്കാൻ ശൂന്യമാക്കുക." },

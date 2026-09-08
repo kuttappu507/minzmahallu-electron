@@ -43,28 +43,30 @@ function OfflineMalayalamLayer() {
   const { lang } = useI18n();
   useEffect(() => {
     if (lang !== "ml") return;
-    const selector = 'input:not([type="password"]):not([type="email"]):not([type="number"]):not([type="search"]), textarea';
     const shouldTransliterate = (el: HTMLInputElement | HTMLTextAreaElement) => {
       const text = `${el.name} ${el.id} ${el.placeholder} ${el.getAttribute("aria-label") || ""}`.toLowerCase();
       return /(name|address|house|event|venue|description|family|member|head|father|mother|spouse|groom|bride|witness|place|remarks|reason|mahallu)/.test(text);
     };
-    const handler = (event: Event) => {
+    // Manglish → Malayalam on ENTER only. Converting on every keystroke
+    // mangles partial words mid-typing ("nan", "mahall") and makes editing
+    // impossible — the user types freely and presses Enter to convert.
+    const handler = (event: KeyboardEvent) => {
+      if (event.key !== "Enter" || event.isComposing) return;
       const el = event.target as HTMLInputElement | HTMLTextAreaElement;
       if (!el || !shouldTransliterate(el) || el.dataset.mlTransliterateBusy === "1") return;
       if (!/[a-z]/i.test(el.value) || /[\u0D00-\u0D7F]/.test(el.value)) return;
       const next = transliterateMalayalam(el.value);
       if (next === el.value) return;
-      const start = el.selectionStart ?? next.length;
-      const oldLength = el.value.length;
+      event.preventDefault();
       el.dataset.mlTransliterateBusy = "1";
       el.value = next;
-      const delta = next.length - oldLength;
-      el.setSelectionRange(Math.max(0, start + delta), Math.max(0, start + delta));
+      const caret = next.length;
+      el.setSelectionRange(caret, caret);
       el.dispatchEvent(new Event("input", { bubbles: true }));
       delete el.dataset.mlTransliterateBusy;
     };
-    document.addEventListener("input", handler, true);
-    return () => document.removeEventListener("input", handler, true);
+    document.addEventListener("keydown", handler, true);
+    return () => document.removeEventListener("keydown", handler, true);
   }, [lang]);
   return null;
 }

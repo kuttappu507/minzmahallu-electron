@@ -16,6 +16,8 @@ const donation: ReceiptData = {
   transactionRef: "UPI-334455",
   notes: "Paid via Google Pay",
   mahalluName: "Minz Mahallu",
+  mahalluAddress: "Minz Road, Malappuram",
+  verificationCode: "AB2C-3D4E-F6GH",
 };
 
 const subscription: ReceiptData = {
@@ -43,8 +45,19 @@ describe("A6 receipt template", () => {
     expect(html).toContain("15-09-2026");
     expect(html).toContain("Haji Abdulla");
     expect(html).toContain("Zakat");
-    expect(html).toContain("RECEIPT");
+    expect(html).toContain("DONATION RECEIPT");
     expect(html).not.toContain("2026-09-15"); // never the storage order
+  });
+
+  it("carries the security-code footer, header address and bottom brand — and no QR", () => {
+    const html = buildReceiptHtml(donation, "en");
+    expect(html).toContain("SECURITY CODE");
+    expect(html).toContain("AB2C-3D4E-F6GH");
+    expect(html).toContain("Minz Road, Malappuram");
+    expect(html).toContain('class="rc-app"');
+    expect(html).toContain("Minz Mahallu Management System");
+    expect(html).not.toContain("rc-qr");
+    expect(html).not.toContain("data:image/svg+xml");
   });
 
   it("renders the amount with the en-IN grouping and words", () => {
@@ -68,7 +81,7 @@ describe("A6 receipt template", () => {
   it("subscription receipt shows the balance foot note", () => {
     const html = buildReceiptHtml(subscription, "en");
     expect(html).toContain("Balance this month: \u20B950");
-    expect(html).toContain("SUBSCRIPTION");
+    expect(html).toContain("SUBSCRIPTION RECEIPT");
   });
 
   it("renders Malayalam labels for ml", () => {

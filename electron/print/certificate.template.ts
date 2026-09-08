@@ -340,14 +340,13 @@ body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayala
 .corner.tr{right:7mm;top:7mm;transform:scaleX(-1)}
 .corner.bl{left:7mm;bottom:7mm;transform:scaleY(-1)}
 .corner.br{right:7mm;bottom:7mm;transform:scale(-1,-1)}
-/* Anti-forgery: verification code + QR box; reprints carry a bottom-left note.
+/* Anti-forgery: security-code box; reprints carry a bottom-left note.
    Compact height — the box must share the single page with the fields above
    it, especially on the LANDSCAPE death certificate where every mm counts. */
 .verify-box{margin:3.5mm 2mm 0;padding:2mm 3.5mm;border:.35mm solid #9fcfbc;border-radius:1.5mm;background:#f2faf6;display:flex;align-items:center;gap:3.5mm;flex-wrap:wrap}
-.verify-qr{flex:none;border:.2mm solid #c9e0d4;border-radius:1.5mm;background:#fff;padding:.8mm}
 .verify-copy{flex:1;min-width:0}
 .verify-label{font-size:7pt;letter-spacing:.8px;color:#5f7268;text-transform:uppercase}
-.verify-code{font-family:'Courier New',monospace;font-weight:700;font-size:9.5pt;letter-spacing:2px;color:#0e7c5b}
+.verify-code{font-family:'Courier New',monospace;font-weight:700;font-size:10.5pt;letter-spacing:2.5px;color:#0e7c5b}
 .verify-hint{font-size:6pt;color:#8ba096;flex-basis:100%;line-height:1.3}
 .reprint-note{position:fixed;left:14mm;bottom:8mm;font-size:7.5pt;color:#7d8f86;letter-spacing:.4px;pointer-events:none;z-index:50}
 .reprint-note b{color:#a33a3a;font-weight:700}
@@ -694,7 +693,7 @@ function buildNocCert(c: CertData, ml: boolean): string {
 </main>`;
 }
 
-export function buildCertificateHtml(cert: any, lang: 'en' | 'ml' = 'en', reprintCount = 0, reprintedAt?: string, qrSvg?: string, extraHeadCss?: string): string {
+export function buildCertificateHtml(cert: any, lang: 'en' | 'ml' = 'en', reprintCount = 0, reprintedAt?: string, extraHeadCss?: string): string {
   const ml = lang === 'ml';
   const c = enrichCertificate(cert);
   // The official SMF death certificate is A4 LANDSCAPE; all other
@@ -710,17 +709,18 @@ export function buildCertificateHtml(cert: any, lang: 'en' | 'ml' = 'en', reprin
     case 'noc': body = buildNocCert(c, ml); break;
     default: body = buildMembershipCert(c, ml); break; // fallback
   }
-  // Anti-forgery: every certificate carries a verification code; reprints are
-  // stamped with a small corner note (bottom-left) recording the reprint date
-  // and time, so a reprint is traceable without defacing the certificate.
+  // Anti-forgery: every certificate carries a SECURITY CODE (no QR — the
+  // office or the Minz Mahallu app verifies the code against the register);
+  // reprints are stamped with a small corner note (bottom-left) recording the
+  // reprint date and time, so a reprint is traceable without defacing the
+  // certificate.
   const reprints = Math.max(0, reprintCount || c.reprint_count || 0);
   const verifyBox = c.verification_code ? `
   <div class="verify-box">
-    ${qrSvg ? `<img class="verify-qr" src="${qrSvg}" alt="QR" width="70" height="70"/>` : ''}
     <div class="verify-copy">
-      <span class="verify-label">${ml ? 'പരിശോധനാ കോഡ്' : 'VERIFICATION CODE'}</span>
+      <span class="verify-label">${ml ? 'സുരക്ഷാ കോഡ്' : 'SECURITY CODE'}</span>
       <span class="verify-code">${esc(c.verification_code)}</span>
-      <span class="verify-hint">${ml ? 'QR സ്കാൻ ചെയ്ത് പരിശോധനാ നിർദ്ദേശം വായിക്കുക — അല്ലെങ്കിൽ ഈ സുരക്ഷാ കോഡ് Minz Mahallu ആപ്പ് ഉപയോഗിച്ച് പരിശോധിക്കുക' : 'Scan the QR for verification instructions, or verify this security code using the Minz Mahallu app'}</span>
+      <span class="verify-hint">${ml ? 'ഈ സുരക്ഷാ കോഡ് Minz Mahallu ആപ്പ് ഉപയോഗിച്ചോ മഹല്ല് ഓഫീസിലോ പരിശോധിക്കുക' : 'Verify this security code using the Minz Mahallu app or at the mahallu office'}</span>
     </div>
   </div>` : '';
   body = body.replace('</main>', `${verifyBox}</main>`);

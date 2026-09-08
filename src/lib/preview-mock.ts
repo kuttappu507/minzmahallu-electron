@@ -327,6 +327,24 @@ export function installPreviewMock() {
     saveSubscriptionBatchPdf: () => Promise.resolve({ success: true, cancelled: false, count: 0, skipped: [] }),
   };
 
+  // Staff — the heuristic fallback answered roles() with {success:true},
+  // which crashed the page's roles.map(). Employees only: committee
+  // positions (President, Vice President, …) live on the Committee page.
+  const staff = {
+    list: () => Promise.resolve({ rows: [], total: 0 }),
+    roles: () => Promise.resolve(["Imam", "Khatheeb", "Muazzin", "Khadim", "Madrasa Teacher", "Accountant", "Cleaner", "Security", "Other"]),
+    get: () => Promise.resolve(null),
+    create: () => Promise.resolve({ success: true }),
+    update: () => Promise.resolve({ success: true }),
+    setStatus: () => Promise.resolve({ success: true }),
+    restore: () => Promise.resolve({ success: true }),
+    history: () => Promise.resolve([]),
+    listPayments: () => Promise.resolve({ rows: [], total: 0 }),
+    salarySummary: () => Promise.resolve({}),
+    paySalary: () => Promise.resolve({ success: true }),
+    cancelPayment: () => Promise.resolve({ success: true }),
+  };
+
   // App info (Settings → About) — preview-safe stub.
   const app = {
     info: () => Promise.resolve({ version: "dev-preview", electron: "-", platform: "browser", dataDir: "(preview mode — no data folder)" }),
@@ -360,7 +378,7 @@ export function installPreviewMock() {
     chooseMirrorDir: () => Promise.resolve({ success: true, cancelled: true }),
   };
 
-  const base: Record<string, unknown> = { dashboard, settings, auth, win, uninstall, accounting, certificates: mockCertificates, whatsapp, receipts, app, donations, backup };
+  const base: Record<string, unknown> = { dashboard, settings, auth, win, uninstall, accounting, certificates: mockCertificates, whatsapp, receipts, staff, app, donations, backup };
   const handler: ProxyHandler<Record<string, unknown>> = {
     get(target, prop) {
       if (prop === "then") return undefined; // avoid thenable detection

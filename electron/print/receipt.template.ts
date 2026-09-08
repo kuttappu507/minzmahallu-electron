@@ -30,16 +30,18 @@ export interface ReceiptData {
   transactionRef: string;
   notes?: string;
   mahalluName: string;
+  /** Mahallu address (+ phone) printed under the name in the header, exactly
+   *  like the certificate header. */
+  mahalluAddress?: string;
+  mahalluPhone?: string;
   /** Currency symbol from Settings (default "₹") — masjids can change it and
    *  every printed receipt must follow. */
   currencySymbol?: string;
   /** Extra footer line (e.g. "Balance this month: ₹0"). */
   footNote?: string;
-  /** Anti-forgery: register verification code printed under the QR. */
+  /** Anti-forgery: register SECURITY CODE printed in the footer (no QR —
+   *  the office verifies the code against the register / the app). */
   verificationCode?: string;
-  /** Anti-forgery: signed QR SVG data-URL (pre-rendered by the caller —
-   *  the template stays synchronous and pure). */
-  qrSvg?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -85,10 +87,12 @@ export function formatReceiptAmount(amount: number, currencySymbol: string = '\u
 // Labels (bilingual like the other print templates)
 // ---------------------------------------------------------------------------
 type Lang = 'en' | 'ml';
+/** App brand — printed in very small letters at the bottom of every receipt. */
+const APP_BRAND = 'Minz Mahallu Management System';
 function labels(lang: Lang) {
   return lang === 'ml' ? {
-    system: 'മഹല്ല് മാനേജ്മെന്റ് സിസ്റ്റം',
-    receipt: 'രസീറ്റ്',
+    titleDonation: 'സംഭാവന രസീറ്റ്',
+    titleSubscription: 'വരിസംഖ്യ രസീറ്റ്',
     no: 'രസീറ്റ് നമ്പർ',
     date: 'തീയതി',
     received: 'ഇവരിൽ നിന്നും സ്വീകരിച്ചത്',
@@ -100,11 +104,12 @@ function labels(lang: Lang) {
     note: 'കുറിപ്പ്',
     cut: 'മുറിക്കുക',
     page: 'ഷീറ്റ്',
-    scan: 'സ്കാൻ ചെയ്ത് പരിശോധിക്കുക',
+    securityCode: 'സുരക്ഷാ കോഡ്',
+    verifyHint: 'ഈ സുരക്ഷാ കോഡ് മഹല്ല് ഓഫീസിലോ Minz Mahallu ആപ്പിലോ പരിശോധിക്കുക.',
     computerGenerated: 'കമ്പ്യൂട്ടർ ജനറേറ്റ് ചെയ്ത രസീറ്റ് — ഒപ്പ് ആവശ്യമില്ല.',
   } : {
-    system: 'Mahallu Management System',
-    receipt: 'RECEIPT',
+    titleDonation: 'DONATION RECEIPT',
+    titleSubscription: 'SUBSCRIPTION RECEIPT',
     no: 'Receipt No',
     date: 'Date',
     received: 'Received with thanks from',
@@ -116,7 +121,8 @@ function labels(lang: Lang) {
     note: 'Notes',
     cut: 'cut',
     page: 'Sheet',
-    scan: 'SCAN TO VERIFY',
+    securityCode: 'SECURITY CODE',
+    verifyHint: 'Verify this security code at the mahallu office or in the Minz Mahallu app.',
     computerGenerated: 'Computer-generated receipt — no signature required.',
   };
 }
@@ -127,11 +133,14 @@ function labels(lang: Lang) {
 function receiptCard(r: ReceiptData, L: ReturnType<typeof labels>): string {
   const isDonation = r.kind === 'DONATION';
   const notes = String(r.notes || '').trim();
+  // Header identity block, mirroring the certificate: mahallu name on top,
+  // address (+ phone) underneath.
+  const addrParts = [r.mahalluAddress, r.mahalluPhone].map((s) => String(s || '').trim()).filter(Boolean);
   return `
   <article class="rc">
     <header class="rc-head">
-      <div class="rc-brand"><b>${esc(r.mahalluName || 'MAHALLU')}</b><span>${esc(L.system)}</span></div>
-      <div class="rc-type">${esc(L.receipt)}<small>${isDonation ? 'DONATION' : 'SUBSCRIPTION'}</small></div>
+      <div class="rc-brand"><b>${esc(r.mahalluName || 'MAHALLU')}</b>${addrParts.length ? `<span>${esc(addrParts.join(' · '))}</span>` : ''}</div>
+      <div class="rc-type">${esc(isDonation ? L.titleDonation : L.titleSubscription)}</div>
     </header>
     <div class="rc-meta">
       <div><span>${esc(L.no)}</span><b>${esc(r.receiptNumber || '—')}</b></div>
@@ -158,14 +167,12 @@ function receiptCard(r: ReceiptData, L: ReturnType<typeof labels>): string {
     </div>
     <footer class="rc-foot">
       <div class="rc-verify">
-        ${r.qrSvg ? `<img class="rc-qr" src="${r.qrSvg}" alt="QR"/>` : ''}
-        <div class="rc-verify-copy">
-          ${r.verificationCode ? `<span class="rc-vcap">${esc(L.scan)}</span><span class="rc-vcode">${esc(r.verificationCode)}</span>` : ''}
-          <span class="rc-vhint">${esc(L.computerGenerated)}</span>
-        </div>
+        ${r.verificationCode ? `<div class="rc-verify-copy"><span class="rc-vcap">${esc(L.securityCode)}</span><span class="rc-vcode">${esc(r.verificationCode)}</span><span class="rc-vhint">${esc(L.verifyHint)}</span></div>` : ''}
+        <span class="rc-vhint">${esc(L.computerGenerated)}</span>
       </div>
       <div class="rc-for"><b>${esc(L.forMahallu)} ${esc(r.mahalluName || 'MAHALLU')}</b><span>${esc(L.thanks)}</span></div>
     </footer>
+    <div class="rc-app">${esc(APP_BRAND)}</div>
   </article>`;
 }
 
@@ -178,8 +185,7 @@ function baseCss(): string {
     .rc-head{display:flex;justify-content:space-between;align-items:center;background:#0d7a5f;color:#fff;padding:4mm 5mm 3.4mm}
     .rc-brand b{display:block;font-size:11.5pt;font-weight:800;letter-spacing:.3px;line-height:1.15}
     .rc-brand span{display:block;font-size:5.6pt;opacity:.9;margin-top:.7mm;letter-spacing:.4px}
-    .rc-type{text-align:right;font-size:10.5pt;font-weight:800;letter-spacing:1.2px}
-    .rc-type small{display:block;font-size:5.4pt;opacity:.85;letter-spacing:.8px;margin-top:.5mm}
+    .rc-type{text-align:right;font-size:9.5pt;font-weight:800;letter-spacing:.6px;line-height:1.25;max-width:38mm;align-self:center}
     .rc-meta{display:flex;border-bottom:.3mm solid #d9e5e0}
     .rc-meta>div{flex:1;display:flex;justify-content:space-between;padding:2.4mm 5mm;border-right:.3mm solid #d9e5e0}
     .rc-meta>div:last-child{border-right:0}
@@ -200,16 +206,16 @@ function baseCss(): string {
     .rc-amount small{font-size:6.2pt;color:#4c5f56;font-style:italic}
     .rc-notes{font-size:6.8pt;color:#4c5f56;border-top:.2mm dashed #c9d8d2;padding-top:1.6mm}
     .rc-foot-note{font-size:7.2pt;color:#0a5c47;font-weight:600}
-    .rc-foot{display:flex;justify-content:space-between;align-items:flex-end;gap:3mm;padding:3mm 5mm 3.5mm;border-top:.3mm solid #d9e5e0;background:#fbfdfc}
-    .rc-verify{display:flex;align-items:center;gap:2.5mm;min-width:0}
-    .rc-qr{width:22mm;height:22mm;flex:none;border:.2mm solid #c9e0d4;border-radius:1mm;background:#fff}
+    .rc-foot{display:flex;justify-content:space-between;align-items:flex-end;gap:3mm;padding:3mm 5mm 2.6mm;border-top:.3mm solid #d9e5e0;background:#fbfdfc}
+    .rc-verify{display:flex;flex-direction:column;gap:1.2mm;min-width:0}
     .rc-verify-copy{display:flex;flex-direction:column;gap:.7mm;min-width:0}
-    .rc-vcap{font-size:5.8pt;font-weight:700;color:#0a5c47;letter-spacing:.5px}
-    .rc-vcode{font-size:8pt;font-weight:800;letter-spacing:.6px;color:#101a14}
-    .rc-vhint{font-size:5.6pt;color:#5d6f67;max-width:52mm;line-height:1.25}
+    .rc-vcap{font-size:6pt;font-weight:700;color:#0a5c47;letter-spacing:.8px}
+    .rc-vcode{font-size:10.5pt;font-weight:800;letter-spacing:1.2px;color:#0a5c47}
+    .rc-vhint{font-size:5.6pt;color:#5d6f67;max-width:58mm;line-height:1.25}
     .rc-for{text-align:right;flex:none}
     .rc-for b{display:block;font-size:7.6pt}
     .rc-for span{display:block;font-size:6.2pt;color:#5d6f67;margin-top:.6mm}
+    .rc-app{text-align:center;font-size:4.8pt;color:#9aaba2;letter-spacing:.5px;padding:1mm 0 1.2mm;border-top:.2mm solid #e7efeb;background:#fbfdfc}
   `;
 }
 

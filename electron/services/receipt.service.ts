@@ -19,8 +19,6 @@ import { buildReceiptHtml, buildReceiptSheetHtml, type ReceiptData } from "../pr
 import { fmtDdMmYyyy, monthLabel } from "./ist-date.js";
 import { ensureDonationReceiptNumber, ensureSubscriptionReceiptNumber, fileNameSafe } from "./doc-number.service.js";
 import { makeVerificationCode } from "./codes.js";
-import { receiptQrVerifyMessage } from "./qr-signing.js";
-import { qrSvgDataUrl } from "./qr-code.js";
 
 const require = createRequire(import.meta.url);
 function electron(): typeof import("electron") {
@@ -107,6 +105,17 @@ function mahalluName(): string {
   }
 }
 
+/** Mahallu address + phone for the receipt header — the same identity block
+ *  the certificate header prints (name on top, address · phone underneath). */
+function mahalluIdentity(): { address: string; phone: string } {
+  try {
+    const row = getDB().prepare("SELECT address, phone FROM settings WHERE id = 1").get() as { address?: string; phone?: string } | undefined;
+    return { address: String(row?.address || "").trim(), phone: String(row?.phone || "").trim() };
+  } catch {
+    return { address: "", phone: "" };
+  }
+}
+
 /** Currency symbol from Settings — printed receipts follow the configured
  *  symbol so the whole office output stays consistent. */
 function currencySymbol(): string {
@@ -121,19 +130,6 @@ function currencySymbol(): string {
 // ---------------------------------------------------------------------------
 // Data assembly
 // ---------------------------------------------------------------------------
-/** Anti-forgery QR: pre-render the verify message as an SVG data-URL so the
- *  (synchronous, pure) template can embed it. Scanning the printed QR with
- *  any phone shows the human-readable instructions ("…can be verified using
- *  the Minz Mahallu app. Give the following security code for verification:
- *  XXXX-XXXX-XXXX") instead of a cryptic machine payload. */
-async function receiptQrSvg(receiptNumber: string, verificationCode: string, date: string): Promise<string> {
-  try {
-    const text = receiptQrVerifyMessage({ receiptNumber, verificationCode, date });
-    return await qrSvgDataUrl(text);
-  } catch {
-    return ""; // never block a receipt because the QR render failed
-  }
-}
 
 async function donationReceiptData(donationId: number): Promise<ReceiptData | null> {
   const d = getDB().prepare(
@@ -145,8 +141,9 @@ async function donationReceiptData(donationId: number): Promise<ReceiptData | nu
   // moment their receipt is generated — a receipt leaving the app (PDF,
   // print, WhatsApp) must always carry one. Issued numbers never change.
   const receiptNumber = ensureDonationReceiptNumber(donationId, String(d.donation_date || ""));
-  // Same for the register verification code riding the QR footer.
+  // Same for the register SECURITY CODE printed in the footer.
   const verificationCode = ensureDonationVerificationCode(donationId);
+  const identity = mahalluIdentity();
   return {
     kind: "DONATION",
     receiptNumber,
@@ -162,9 +159,10 @@ async function donationReceiptData(donationId: number): Promise<ReceiptData | nu
     transactionRef: String(d.transaction_ref || ""),
     notes: String(d.remarks || ""),
     mahalluName: mahalluName(),
+    mahalluAddress: identity.address,
+    mahalluPhone: identity.phone,
     currencySymbol: currencySymbol(),
     verificationCode,
-    qrSvg: await receiptQrSvg(receiptNumber, verificationCode, String(d.donation_date || "")),
   };
 }
 
@@ -236,6 +234,7 @@ async function subscriptionReceiptData(subscriptionId: number): Promise<ReceiptD
           : `Fully paid — ${inr(advanceAfter)} advance reduces next month's due`)
       : (ml ? "ഈ മാസത്തെ വരിസംഖ്യ പൂർണമായി അടയ്ക്കപ്പെട്ടു" : "This month's subscription is fully paid");
   const footNote = appliedNote ? `${appliedNote}. ${balanceNote}` : balanceNote;
+  const identity = mahalluIdentity();
   return {
     kind: "SUBSCRIPTION",
     receiptNumber,
@@ -251,9 +250,10 @@ async function subscriptionReceiptData(subscriptionId: number): Promise<ReceiptD
     transactionRef: String(r.transaction_ref || ""),
     notes: String(r.remarks || ""),
     mahalluName: mahalluName(),
+    mahalluAddress: identity.address,
+    mahalluPhone: identity.phone,
     currencySymbol: currencySymbol(),
     verificationCode,
-    qrSvg: await receiptQrSvg(receiptNumber, verificationCode, dateStr),
     footNote,
   };
 }

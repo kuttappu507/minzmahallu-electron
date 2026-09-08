@@ -15,8 +15,6 @@ import { buildTokenSheetHtml } from "./print/token.template.js";
 import { buildCollectionSheetHtml } from "./print/collection-sheet.template.js";
 import { buildCertificateHtml } from "./print/certificate.template.js";
 import { getPreviewScreenCss } from "./print/utils.js";
-import { qrSvgDataUrl } from "./services/qr-code.js";
-import { certificateQrVerifyMessage } from "./services/qr-signing.js";
 import { buildAccountStatementHtml } from "./print/account-statement.template.js";
 import { buildAuditPackHtml } from "./print/audit-pack.template.js";
 import { buildRegisterBookHtml } from "./print/register-book.template.js";
@@ -352,14 +350,11 @@ app.whenReady().then(() => {
   // replaced by base64 data URIs. Used by the renderer's TokensWithPrint page
   // to embed the font in client-built HTML so Malayalam glyphs render in the
   // printToPDF BrowserWindow (which doesn't have @fontsource bundled).
-  /** QR text for a certificate: the human-readable verify message (scanning
-   *  shows “verification can be done using the Minz Mahallu app” + the printed
-   *  security code). Certificates issued before the anti-forgery feature have
-   *  no code yet — it is minted here (lazily, once) so EVERY print carries the
-   *  QR box, and issued codes never change afterwards. */
-  function buildQrPayloadFor(cert: any): string {
+  /** Certificates issued before the anti-forgery feature have no security
+   *  code yet — it is minted here (lazily, once) so EVERY print carries the
+   *  code, and issued codes never change afterwards. */
+  function ensureCertCode(cert: any): void {
     data.certificates.ensureVerificationCode(cert);
-    return certificateQrVerifyMessage(cert);
   }
 
   ipcMain.handle("pdf:getAnekFontCss", () => {
@@ -377,8 +372,8 @@ app.whenReady().then(() => {
       // "Reprinted on <date time>" note even before the count is persisted
       // (the count only increments if the PDF is actually saved).
       const expectedReprint = (cert.reprint_count || 0) + 1;
-      const qrSvg = await qrSvgDataUrl(buildQrPayloadFor(cert));
-      const html = buildCertificateHtml(cert, lang, expectedReprint, istDateTimeDm(new Date()), qrSvg);
+      ensureCertCode(cert);
+      const html = buildCertificateHtml(cert, lang, expectedReprint, istDateTimeDm(new Date()));
       const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Certificate PDF", defaultPath: `certificate-${cert.certificate_number || certId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] });
       if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true };
       const pdfBuffer = await renderHtmlToPdf(html);
@@ -395,10 +390,10 @@ app.whenReady().then(() => {
       const cert = (listResult?.rows || []).find((c: any) => c.id === certId);
       if (!cert) return { success: false, error: "Certificate not found" };
       const lang = await mainWindow!.webContents.executeJavaScript("document.documentElement.classList.contains('lang-ml') ? 'ml' : 'en'");
-      const qrSvg = await qrSvgDataUrl(buildQrPayloadFor(cert));
       // On-screen preview styles come from the separate stylesheet
       // (resources/templates/preview-screen.css) — no inline <style> in the UI.
-      const html = buildCertificateHtml(cert, lang, 0, undefined, qrSvg, getPreviewScreenCss());
+      ensureCertCode(cert);
+      const html = buildCertificateHtml(cert, lang, 0, undefined, getPreviewScreenCss());
       return { success: true, html };
     } catch (err: any) { return { success: false, error: err.message }; }
   });

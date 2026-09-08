@@ -42,7 +42,10 @@ export const staff = {
     return { rows: all<any>(sql, params), total: 0 };
   },
   get: (id: number) => one<any>("SELECT s.*, m.member_code AS linked_member_code, m.name AS linked_member_name FROM staff s LEFT JOIN members m ON m.id = s.member_id WHERE s.id = ?", [id]),
-  roles: () => ["Imam", "Khatheeb", "Muazzin", "Khadim", "Secretary", "Treasurer", "President", "Vice President", "Committee Member", "Madrasa Teacher", "Accountant", "Cleaner", "Security", "Other"],
+  // EMPLOYEES only — President / Vice President / Secretary / Treasurer /
+  // Committee Member are committee positions (they live on the Committee
+  // page, committee.service.positions) and must NOT appear as staff roles.
+  roles: () => ["Imam", "Khatheeb", "Muazzin", "Khadim", "Madrasa Teacher", "Accountant", "Cleaner", "Security", "Other"],
   create: (data: any) => {
     const num = scalar<string>(
       "SELECT 'STF-' || printf('%04d', COALESCE(MAX(id), 0) + 1) AS n FROM staff"
