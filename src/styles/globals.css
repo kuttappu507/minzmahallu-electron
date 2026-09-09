@@ -346,7 +346,10 @@
     background: var(--panel); border: 1px solid var(--line);
     border-radius: 18px;
     display: flex; flex-direction: column; overflow: visible;
-    position: relative; transition: width 0.28s cubic-bezier(0.2, 0.8, 0.3, 1), background 0.3s, border-color 0.3s;
+    /* Width must transition (the main column genuinely reflows with it), so the
+       duration is kept SHORT: every frame is a full-window relayout+repaint.
+       Paint-only properties (colors) may run longer. See lowfx below. */
+    position: relative; transition: width 0.2s cubic-bezier(0.2, 0.8, 0.3, 1), background 0.3s, border-color 0.3s;
     z-index: 40;
     box-shadow: var(--sh);
   }
@@ -367,7 +370,11 @@
     display: flex; align-items: center; gap: 11px;
     height: 44px; margin: 3px 0; padding: 0 12px;
     border-radius: 12px; color: var(--mut); cursor: pointer;
-    transition: 0.15s; white-space: nowrap; position: relative;
+    /* PAINT-ONLY transitions. Never "transition: all" here: during the collapse
+       slide, all/margin/padding/justify-content transitions would turn every
+       frame into extra LAYOUT work for all ~15 items (low-end killer).
+       Padding/justify-content snaps instantly inside the gliding width — invisible. */
+    transition: background-color 0.15s, color 0.15s, box-shadow 0.15s; white-space: nowrap; position: relative;
     text-decoration: none; min-width: 0;
   }
   .navit b { font: 500 13.5px Poppins; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -376,7 +383,9 @@
     display: grid; place-items: center;
     background: color-mix(in srgb, var(--sc, var(--em)) 10%, transparent);
     color: var(--sc, var(--em));
-    transition: 0.15s;
+    /* Paint-only (see .navit): the collapsed state changes width/height/flex-basis
+       — those are layout properties and must SNAP, not animate. */
+    transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
   }
   .navit-ic .ic, .navit-ic > svg { width: 17px; height: 17px; min-width: 17px; min-height: 17px; }
   .navit:hover { background: var(--panel2); color: var(--tx); }
@@ -389,7 +398,7 @@
   .navit.on .navit-ic { background: var(--sc, var(--em)); color: #fff; box-shadow: 0 3px 8px -3px color-mix(in srgb, var(--sc, var(--em)) 70%, transparent); }
   .navit.on b { font-weight: 600; }
   .navit.on::before { content: ""; position: absolute; left: -12px; top: 13px; width: 4px; height: 18px; border-radius: 4px; background: var(--sc, var(--em)); }
-  .navit-dot { flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--line2); transition: 0.15s; }
+  .navit-dot { flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--line2); transition: background-color 0.15s, box-shadow 0.15s; }
   .navit.on .navit-dot { background: var(--sc, var(--em)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sc, var(--em)) 18%, transparent); }
   .navbadge { font: 700 8.5px Poppins; letter-spacing: 0.1em; background: var(--sb); color: var(--st); border: 1px solid var(--sl); padding: 2.5px 8px; border-radius: 99px; }
   .sidebar.min .navit { justify-content: center; padding: 0; margin-left: 0; margin-right: 0; }
@@ -412,6 +421,14 @@
   .flap:hover { color: var(--em); border-color: var(--em); background: var(--selbg); }
   .flap .ic { transition: transform 0.28s; transform: rotate(180deg); }
   .sidebar.min .flap .ic { transform: rotate(0deg); }
+
+  /* LOW-END MODE — html.lowfx (set from src/lib/fx.ts: weak CPU/RAM detection or
+     the Settings "Interface animations" toggle). On such machines each frame of
+     the width glide is a full-window relayout + gradient re-raster, which reads
+     as a glitch — there we snap the sidebar instantly (snappy beats stuttery). */
+  html.lowfx .sidebar { transition: none; }
+  html.lowfx .flap .ic { transition: none; }
+  html.lowfx .navit, html.lowfx .navit-ic, html.lowfx .navit-dot { transition: none; }
 
   .sb-user { border-top: 1px solid var(--line); padding: 14px 14px 16px; display: flex; align-items: center; gap: 10px; }
   .sb-avatar { position: relative; flex: none; }
@@ -1366,6 +1383,7 @@ html.lang-ml .btn { line-height: 20px !important; }
 .modal-root.open .modal { animation: modalPop 0.18s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
 @media (prefers-reduced-motion: reduce) {
   .modal-root.open, .modal-root.open .modal, .view, .view-enter { animation: none !important; }
+  .sidebar, .flap .ic, .navit, .navit-ic, .navit-dot { transition: none !important; }
 }
 
 /* Top band — mirrors .topbar */
