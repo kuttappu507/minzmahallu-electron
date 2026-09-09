@@ -1,17 +1,13 @@
 -- MMS Seed Data
 -- ============================================================================
--- Only FUNCTIONAL base configuration lives here (admin account, settings row,
--- one extra subscription plan). All demo/record data is provided by migration
--- V032 (fresh complete dataset, every column filled) — no mock families,
--- members, donations or transactions are seeded here anymore.
+-- Only FUNCTIONAL base configuration lives here (settings row, one extra
+-- subscription plan). NO user accounts are seeded: every install must create
+-- its own Administrator through the first-run setup screen, so no password
+-- is ever shipped in this repository. All demo/record data was provided by
+-- migration V032, which has been retired (it wiped real data on upgrades and
+-- reset credentials to publicly-committed values).
 -- ============================================================================
 PRAGMA foreign_keys = OFF;
-
-INSERT OR IGNORE INTO users (id, username, full_name, password_hash, password_salt, role, is_active, must_change_pwd)
-VALUES (1, 'admin', 'System Administrator',
-    'pbkdf2_sha256$200000$zRLKI0xyc2sYKBzQaWXl6w==$qHO4yvos81/Oah+ECzVbh1ZHPz3rEhRHOJT2criWCPg=',
-    'zRLKI0xyc2sYKBzQaWXl6w==',
-    'Administrator', 1, 0);
 
 INSERT OR IGNORE INTO settings (id, mahallu_name, theme, language, currency_symbol) VALUES (1, 'Minz Mahallu', 'light', 'en', '₹');
 

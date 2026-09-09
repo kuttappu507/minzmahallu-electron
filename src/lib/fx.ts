@@ -10,19 +10,19 @@ import { persist } from "zustand/middleware";
  * as a glitch. When html.lowfx is set, globals.css snaps the sidebar instantly
  * instead — snappy beats stuttery.
  *
- * AUTO DETECTION (Chromium APIs, evaluated once at load):
- *  - navigator.hardwareConcurrency: CPU logical cores; <= 4 covers old
- *    Celeron/Pentium and early i3-class machines common in offices.
- *  - navigator.deviceMemory: RAM in GiB (capped at 8 by the spec); <= 4
- *    catches low-RAM laptops that are the typical low-end case.
- * Users can override the detection in Settings → Appearance.
+ * AUTO DETECTION (Chromium APIs, evaluated once at load) — deliberately
+ * CONSERVATIVE: only genuinely ancient hardware (<= 2 cores or <= 2 GB RAM)
+ * opts into the reduced mode. Ordinary 4-core / 4 GB office machines run the
+ * full animation fine now that transitions are paint-only (see globals.css),
+ * and wrongly disabling it made capable PCs feel broken. Users can still
+ * force either mode in Settings → Appearance.
  */
 
 type FxPref = "auto" | "reduced" | "full";
 
 const weakHardware =
-  (typeof navigator !== "undefined" && (navigator.hardwareConcurrency ?? 8) <= 4) ||
-  (typeof navigator !== "undefined" && ((navigator as any).deviceMemory ?? 8) <= 4);
+  (typeof navigator !== "undefined" && (navigator.hardwareConcurrency ?? 8) <= 2) ||
+  (typeof navigator !== "undefined" && ((navigator as any).deviceMemory ?? 8) <= 2);
 
 interface FxState {
   pref: FxPref;

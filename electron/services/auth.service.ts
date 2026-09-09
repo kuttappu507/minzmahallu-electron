@@ -7,7 +7,16 @@ type ActorContext={id:number;username:string;role:string};
 let currentActor:ActorContext|null=null; let currentUser:AuthUser|null=null;
 const globals=globalThis as typeof globalThis & {__mmsGetActor?:()=>ActorContext|null;__mmsGetUser?:()=>AuthUser|null;__mmsClearActor?:()=>void};
 globals.__mmsGetActor=()=>currentActor; globals.__mmsGetUser=()=>currentUser; globals.__mmsClearActor=()=>{currentActor=null;currentUser=null;};
-const SEEDED_ADMIN_HASH="pbkdf2_sha256$200000$c2FsdC1mb3ItbW1zLWFkbWluLXVzZXI=$dJvtGdhlhx7H/9KuwAZs4U/j/DjiiDA88txKk9SnqTU=";
+// Hashes of administrator credentials whose plaintext was publicly committed
+// to this repository by the old demo seed ("admin123" placeholder and the
+// later "Admin@2026" demo reset). An install whose ONLY account is one of
+// these must go through initial setup instead of accepting a password that
+// anyone who read the source knows. See also migration V035, which flags
+// such accounts with must_change_pwd=1 for the multi-user case.
+const SEEDED_ADMIN_HASHES=[
+  "pbkdf2_sha256$200000$c2FsdC1mb3ItbW1zLWFkbWluLXVzZXI=$dJvtGdhlhx7H/9KuwAZs4U/j/DjiiDA88txKk9SnqTU=", // old placeholder: admin123
+  "pbkdf2_sha256$200000$zRLKI0xyc2sYKBzQaWXl6w==$qHO4yvos81/Oah+ECzVbh1ZHPz3rEhRHOJT2criWCPg="  // published demo: Admin@2026
+];
 function parseStoredHash(stored:string){const p=stored.split("$");if(p.length!==4||p[0]!=="pbkdf2_sha256")return null;const iter=parseInt(p[1],10),salt=Buffer.from(p[2],"base64"),hash=Buffer.from(p[3],"base64");return Number.isFinite(iter)&&iter>0&&salt.length&&hash.length?{iter,salt,hash}:null;}
 function verifyPassword(plain:string,stored:string){const p=parseStoredHash(stored);if(!p)return false;try{const d=crypto.pbkdf2Sync(plain,p.salt,p.iter,p.hash.length,"sha256");return d.length===p.hash.length&&crypto.timingSafeEqual(d,p.hash);}catch{return false;}}
 /** Verify a plaintext password against a stored pbkdf2 hash. Exported for the
@@ -15,7 +24,7 @@ function verifyPassword(plain:string,stored:string){const p=parseStoredHash(stor
  *  session (the app runs headless-ish with just a verify window). */
 export function verifyStoredPassword(plain:string,stored:string){return verifyPassword(plain,stored);}
 function makeInitials(name:string){if(!name)return"?";const p=name.trim().split(/\s+/);return p.length===1?p[0].substring(0,1).toUpperCase():(p[0][0]+p[p.length-1][0]).toUpperCase();}
-function seededAdmin(): UserRow|undefined { return one<UserRow>("SELECT id,username,full_name,password_hash,password_salt,role,is_active,is_locked,failed_attempts,locked_until,must_change_pwd FROM users WHERE id=1 AND username='admin' AND password_hash=?",[SEEDED_ADMIN_HASH]); }
+function seededAdmin(): UserRow|undefined { return one<UserRow>(`SELECT id,username,full_name,password_hash,password_salt,role,is_active,is_locked,failed_attempts,locked_until,must_change_pwd FROM users WHERE id=1 AND username='admin' AND password_hash IN (${SEEDED_ADMIN_HASHES.map(()=>"?").join(",")})`,SEEDED_ADMIN_HASHES); }
 export function validatePassword(password:string){if(!password||password.length<8)throw new Error("Password must be at least 8 characters");if(!/[A-Z]/.test(password)||!/[a-z]/.test(password)||!/\d/.test(password)||!/[^A-Za-z0-9]/.test(password))throw new Error("Password must include uppercase, lowercase, digit, and special character");}
 function hashPassword(password:string){validatePassword(password);const salt=crypto.randomBytes(16),iter=200000,hash=crypto.pbkdf2Sync(password,salt,iter,32,"sha256");return {stored:`pbkdf2_sha256$${iter}$${salt.toString("base64")}$${hash.toString("base64")}`,salt:salt.toString("base64")};}
 /** Shared password-hashing helper used by both auth.service and users.service to keep a single source of truth. */

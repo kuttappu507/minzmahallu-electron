@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { getDB } from "../db/connection.js";
 import { donations, subscriptions, certificates } from "./data.service.js";
+import { ensureFamily, ensurePendingSubscription, ensureFamilyWithHead, ensureDeathRecord } from "./fixtures.js";
 import {
   sanitizePrefix,
   mahalluInitials,
@@ -144,6 +145,10 @@ describe("doc-number allocation (real CRUD layer)", () => {
   });
 
   it("numbers subscription payments in the SAME shared series as donations (one money book) and never renumbers an issued receipt", () => {
+    // Fresh DBs ship empty: create the Pending August account this test bills.
+    const famId = ensureFamily();
+    ensurePendingSubscription(famId, 150);
+    getDB().prepare("UPDATE subscriptions SET period_start='2026-08-01', period_end='2026-08-31', amount=150, amount_paid=0, status='Pending' WHERE family_id = ?").run(famId);
     const pending = getDB()
       .prepare("SELECT id, period_start, amount FROM subscriptions WHERE status = 'Pending' AND amount > 0 AND period_start = '2026-08-01' ORDER BY id LIMIT 1")
       .get() as { id: number; period_start: string; amount: number } | undefined;
@@ -166,14 +171,21 @@ describe("doc-number allocation (real CRUD layer)", () => {
   it("numbers certificates MAHALLU/CODE/yy/MM/NNN — the mahallu letters lead every certificate", () => {
     // Certificates are append-only (delete triggers guard the register), so
     // the issued rows are verified in place — the test database is a
-    // throwaway per-process copy.
-    const death = certificates.issueDeath("DTH-2026-0001", 1);
+    // throwaway per-process copy. Fresh DBs are empty: create the register
+    // rows the certificates certify against and use THEIR numbers.
+    const deathNumber = ensureDeathRecord();
+    const { memberId, memberCode } = (() => {
+      const m = ensureFamilyWithHead();
+      const row = getDB().prepare("SELECT member_code FROM members WHERE id = ?").get(m.memberId) as { member_code: string };
+      return { memberId: m.memberId, memberCode: row.member_code };
+    })();
+    const death = certificates.issueDeath(deathNumber, 1);
     expect(death.certificateNumber).toMatch(/^MMJM\/DT\/\d{2}\/\d{2}\/\d{3}$/);
     const deathRow = getDB().prepare("SELECT certificate_number, type FROM certificates WHERE id = ?").get(death.id) as { certificate_number: string; type: string };
     expect(deathRow.certificate_number).toBe(death.certificateNumber);
     expect(deathRow.type).toBe("Death");
 
-    const member = certificates.issueMembership("MEM-001", 1);
+    const member = certificates.issueMembership(memberCode, 1);
     expect(member.certificateNumber).toMatch(/^MMJM\/MB\/\d{2}\/\d{2}\/\d{3}$/);
     const memberRow = getDB().prepare("SELECT certificate_number, type FROM certificates WHERE id = ?").get(member.id) as { certificate_number: string; type: string };
     expect(memberRow.certificate_number).toBe(member.certificateNumber);

@@ -16,8 +16,6 @@ export function Button({ variant = "primary", size = "default", className, child
 }
 
 export function Card({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) { return <div className={cn("card", className)} {...props}>{children}</div>; }
-export function CardHeader({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) { return <div className={cn("m-h", className)} {...props}>{children}</div>; }
-export function CardTitle({ className, children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) { return <h3 className={cn("card-title", className)} {...props}>{children}</h3>; }
 export function CardContent({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) { return <div className={cn("m-b", className)} {...props}>{children}</div>; }
 export function Label({ className, children, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) { return <label className={cn("lbl", className)} {...props}>{children}</label>; }
 
@@ -57,8 +55,6 @@ export function Dialog({ open, onClose, title, description, children, className 
 export function Table({ headers, children, className }: { headers: string[]; children: React.ReactNode; className?: string }) {
   return <div className={cn("tbl", className)}><table><thead><tr>{headers.map((h, i) => <th key={i}>{h}</th>)}</tr></thead><tbody>{children}</tbody></table></div>;
 }
-export function Td({ className, children, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) { return <td className={className} {...props}>{children}</td>; }
-export function Tr({ className, children, ...props }: React.HTMLAttributes<HTMLTableRowElement>) { return <tr className={className} {...props}>{children}</tr>; }
 export function EmptyState({ icon, title, description }: { icon?: React.ReactNode; title: string; description?: string }) { return <div className="empty-state">{icon && <div className="es-ic">{icon}</div>}<div className="es-title">{title}</div>{description && <div className="es-desc">{description}</div>}</div>; }
 
 export function Pagination({ page, totalPages, total, pageSize, onPageChange }: { page: number; totalPages: number; total: number; pageSize: number; onPageChange: (p: number) => void }) {

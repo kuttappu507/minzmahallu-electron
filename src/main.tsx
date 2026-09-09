@@ -10,7 +10,10 @@ import "@/lib/fx";
 
 // Dev-only preview bridge so the renderer can run in a plain browser
 // (Electron IPC unavailable). Enable with: http://localhost:5174/?preview=1
-if (["localhost", "127.0.0.1"].includes(window.location.hostname) && new URLSearchParams(window.location.search).has("preview")) {
+// Gated on import.meta.env.DEV so the mock (which auto-logs-in as an
+// Administrator and contains a historical demo password string) is
+// tree-shaken OUT of packaged production builds entirely.
+if (import.meta.env.DEV && ["localhost", "127.0.0.1"].includes(window.location.hostname) && new URLSearchParams(window.location.search).has("preview")) {
   import("@/lib/preview-mock").then(({ installPreviewMock }) => installPreviewMock());
 }
 

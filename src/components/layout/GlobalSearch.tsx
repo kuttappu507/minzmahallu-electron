@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Search, Users, Home, Receipt, Gift, Calculator, Gem, Flower, Activity, Award, Ticket, Briefcase, Users as UsersIcon, X } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useNavigate } from "react-router-dom";
+import { getCurrencySymbol } from "@/lib/utils";
 
 type Result = { id: number | string; type: string; title: string; subtitle?: string; route: string; icon: any };
 const SOURCES = [["families", "/families", Home, "families"],["members", "/members", Users, "members"],["staff", "/staff", Briefcase, "staff"],["committee", "/committee", UsersIcon, "committee"],["subscriptions", "/subscriptions", Receipt, "subscriptions"],["donations", "/donations", Gift, "donations"],["accounting", "/accounting", Calculator, "accounting"],["marriages", "/marriages", Gem, "marriages"],["deaths", "/deaths", Flower, "deaths"],["welfare", "/welfare", Activity, "welfare"],["certificates", "/certificates", Award, "certificates"],["tokens", "/tokens", Ticket, "tokens"]] as const;
@@ -29,8 +30,8 @@ function pickSubtitle(type: string, row: any) {
   if (type === "staff") return [row.staff_code, row.role, row.phone].filter(Boolean).join(" · ");
   if (type === "committee") return [row.committee_code, row.position, row.committee_type].filter(Boolean).join(" · ");
   if (type === "subscriptions") return [row.family_number, row.member_name, row.status].filter(Boolean).join(" · ");
-  if (type === "donations") return [row.receipt_number, row.category_name, row.amount != null ? `₹${row.amount}` : ""].filter(Boolean).join(" · ");
-  if (type === "accounting") return [row.receipt_number, row.type, row.amount != null ? `₹${row.amount}` : ""].filter(Boolean).join(" · ");
+  if (type === "donations") return [row.receipt_number, row.category_name, row.amount != null ? `${getCurrencySymbol()}${row.amount}` : ""].filter(Boolean).join(" · ");
+  if (type === "accounting") return [row.receipt_number, row.type, row.amount != null ? `${getCurrencySymbol()}${row.amount}` : ""].filter(Boolean).join(" · ");
   if (type === "marriages") return [row.marriage_number, row.groom_name, row.bride_name].filter(Boolean).join(" · ");
   if (type === "deaths") return [row.death_number, row.date_of_death].filter(Boolean).join(" · ");
   if (type === "welfare") return [row.application_number, row.status].filter(Boolean).join(" · ");

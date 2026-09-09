@@ -6,7 +6,7 @@ import { Card, CardContent, Button, Dialog, Input, Label, Select, Textarea, Badg
 import { SecureActionDialog } from "@/components/SecureActionDialog";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
-import { formatCurrency, formatDate, statusVariant, todayIST } from "@/lib/utils";
+import { formatCurrency, formatDate, statusVariant, todayIST, getCurrencySymbol } from "@/lib/utils";
 
 interface Subscription {
   id: number;
@@ -201,9 +201,9 @@ export function Subscriptions() {
     setCancelOpen(true);
   };
 
-  const executeCancel = async ({ reason }: { reason: string }) => {
+  const executeCancel = async ({ reason, password }: { reason: string; password: string }) => {
     if (!cancelTarget) return;
-    await window.mms.subscriptions.cancelPayment(cancelTarget.id, reason);
+    await window.mms.subscriptions.cancelPayment(cancelTarget.id, reason, password);
     toast.success(tx("Payment cancelled — the subscription stays with the family", "പേയ്‌മെന്റ് റദ്ദാക്കി — വരിസംഖ്യ കുടുംബത്തിനൊപ്പം തുടരും"));
     refetch();
     refreshCollected();
@@ -324,15 +324,16 @@ export function Subscriptions() {
         const monthOpen = Math.max(0, rate - Number(r.amount_paid || 0));
         const due = Math.max(0, arrears + monthOpen - advance);
         const monthsDue = rate > 0 ? Math.ceil((due + advance) / rate) : 0;
+        const sym = getCurrencySymbol();
         if (due <= 0 && advance > 0) {
-          return <Badge variant="success">{tx(`Paid ahead ₹${advance.toLocaleString("en-IN")}`, `മുൻകൂട്ടി അടച്ചു ₹${advance.toLocaleString("en-IN")}`)}</Badge>;
+          return <Badge variant="success">{tx(`Paid ahead ${sym}${advance.toLocaleString("en-IN")}`, `മുൻകൂട്ടി അടച്ചു ${sym}${advance.toLocaleString("en-IN")}`)}</Badge>;
         }
         if (due <= 0) return <Badge variant="success">{tx("Paid", "അടച്ചു")}</Badge>;
         return (
           <span className="inline-flex flex-col leading-tight">
             <b className="text-danger">{formatCurrency(due)}</b>
             {monthsDue > 1 && (
-              <small className="text-muted">{tx(`${monthsDue} months due (incl. ₹${arrears.toLocaleString("en-IN")} old)`, `${monthsDue} മാസം ബാക്കി (പഴയവ ₹${arrears.toLocaleString("en-IN")} ഉൾപ്പെടെ)`)}{advance > 0 ? tx(` · less ₹${advance.toLocaleString("en-IN")} advance`, ` · അഡ്വാൻസ് ₹${advance.toLocaleString("en-IN")} കുറച്ചു`) : ""}</small>
+              <small className="text-muted">{tx(`${monthsDue} months due (incl. ${sym}${arrears.toLocaleString("en-IN")} old)`, `${monthsDue} മാസം ബാക്കി (പഴയവ ${sym}${arrears.toLocaleString("en-IN")} ഉൾപ്പെടെ)`)}{advance > 0 ? tx(` · less ${sym}${advance.toLocaleString("en-IN")} advance`, ` · അഡ്വാൻസ് ${sym}${advance.toLocaleString("en-IN")} കുറച്ചു`) : ""}</small>
             )}
           </span>
         );

@@ -170,9 +170,9 @@ export function Staff() {
     setStatusAction(action);
   };
 
-  const executeStatus = async ({ reason, date }: { reason: string; date?: string }) => {
+  const executeStatus = async ({ reason, date, password }: { reason: string; date?: string; password: string }) => {
     if (!statusTarget || !statusAction) return;
-    await window.mms.staff.setStatus(statusTarget.id, statusAction, date || "", reason);
+    await window.mms.staff.setStatus(statusTarget.id, statusAction, date || "", reason, password);
     toast.success(statusAction === "Expelled"
       ? tx(`Expelled effective ${date || "today"} — recorded in the audit log`, `പുറത്താക്കി — ഓഡിറ്റ് ലോഗിൽ രേഖപ്പെടുത്തി`)
       : tx(`Resignation recorded effective ${date || "today"}`, `രാജി രേഖപ്പെടുത്തി — ${date || "ഇന്ന്"} മുതൽ`));
@@ -229,9 +229,9 @@ export function Staff() {
 
   const openCancelPayment = (p: PaymentRow) => { setCancelPayTarget(p); };
 
-  const executeCancelPayment = async ({ reason }: { reason: string }) => {
+  const executeCancelPayment = async ({ reason, password }: { reason: string; password: string }) => {
     if (!cancelPayTarget) return;
-    await window.mms.staff.cancelPayment(cancelPayTarget.id, reason);
+    await window.mms.staff.cancelPayment(cancelPayTarget.id, reason, password);
     toast.success(t("staff_payment_cancelled"));
     refreshPayments(); refreshSummary();
   };

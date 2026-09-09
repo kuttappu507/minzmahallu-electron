@@ -15,6 +15,7 @@ import { buildTokenSheetHtml } from "./print/token.template.js";
 import { buildCollectionSheetHtml } from "./print/collection-sheet.template.js";
 import { buildCertificateHtml } from "./print/certificate.template.js";
 import { getPreviewScreenCss } from "./print/utils.js";
+import { renderHtmlToPdf } from "./print/pdf-renderer.js";
 import { buildAccountStatementHtml } from "./print/account-statement.template.js";
 import { buildAuditPackHtml } from "./print/audit-pack.template.js";
 import { buildRegisterBookHtml } from "./print/register-book.template.js";
@@ -165,46 +166,8 @@ function createUninstallVerifyWindow() {
   win.on("closed", () => { /* window-all-closed decides the exit code */ });
   return win;
 }
-function esc(s: any): string { return String(s ?? "").replace(/[&<>\"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] || c)); }
-async function renderHtmlToPdf(html: string): Promise<Buffer> {
-  // Render untrusted renderer-supplied HTML in a sandboxed, isolated offscreen window.
-  // No preload, no node integration, sandbox enforced, no webSecurity tweaks.
-  const pdfWin = new BrowserWindow({
-    show: false,
-    width: 794,
-    height: 1123,
-    useContentSize: true,
-    backgroundColor: "#ffffff",
-    webPreferences: {
-      preload: undefined,
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      webSecurity: true,
-      allowRunningInsecureContent: false,
-    },
-  });
-  try {
-    await pdfWin.loadURL("data:text/html;charset=UTF-8," + encodeURIComponent(html));
-    await pdfWin.webContents.executeJavaScript(`
-      (async () => {
-        if (document.fonts) {
-          await document.fonts.ready;
-          await Promise.all([
-            document.fonts.load('700 12pt "Anek Malayalam"'),
-            document.fonts.load('400 12pt "Anek Malayalam"')
-          ]);
-        }
-        document.documentElement.style.width = 'auto';
-        document.body.style.width = 'auto';
-        void document.body.offsetHeight;
-        return { bodyWidth: document.body.scrollWidth, bodyHeight: document.body.scrollHeight };
-      })()
-    `);
-    await new Promise(resolve => setTimeout(resolve, 50));
-    return await pdfWin.webContents.printToPDF({ pageSize: "A4", printBackground: true, margins: { top: 0, bottom: 0, left: 0, right: 0 }, preferCSSPageSize: true });
-  } finally { if (!pdfWin.isDestroyed()) pdfWin.destroy(); }
-}
+// esc() lives in ./print/utils.js; renderHtmlToPdf() in ./print/pdf-renderer.js
+// (the duplicates that used to sit here were removed in the dead-code purge).
 
 app.whenReady().then(() => {
   // ===== Uninstall verification mode (launched by the NSIS uninstaller) =====
@@ -562,6 +525,10 @@ app.whenReady().then(() => {
   ipcMain.handle("dashboard:recentActivity", (_e, limit) => data.dashboard.recentActivity(limit || 10));
   // Today-at-a-glance + real backup status (auto-backup schedule + last backup file).
   ipcMain.handle("dashboard:todayAtGlance", () => {
+    // Defence-in-depth: this read surfaces the fund balance, so it requires a
+    // session like every other dashboard read in security-ipc.ts (this raw
+    // registration predates that layer and was missed — audit finding A5).
+    if (!session.user) throw new Error("Authentication required");
     const glance = data.dashboard.todayAtGlance();
     let backupEnabled = false;
     let nextBackup: string | null = null;
@@ -583,6 +550,9 @@ app.whenReady().then(() => {
 
   ipcMain.handle("backup:create", async () => {
     if (!session.user) return { success: false, error: "Authentication required" };
+    // A backup is a full copy of the mahallu database (all money records);
+    // only administrators may export it (audit finding A6).
+    if (session.user.role !== "Administrator") return { success: false, error: "Administrator permission is required" };
     try {
       const defaultName = `mms-backup-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.mmbak`;
       const result = await dialog.showSaveDialog(mainWindow!, {
@@ -643,6 +613,9 @@ app.whenReady().then(() => {
   });
   ipcMain.handle("backup:restore", async (_e, backupPath: string) => {
     if (!session.user) return { success: false, error: "Authentication required" };
+    // Restoring REPLACES the live database (rolling back every financial
+    // record) — administrator-only (audit finding A6).
+    if (session.user.role !== "Administrator") return { success: false, error: "Administrator permission is required" };
     try {
       if (!backupPath || !fs.existsSync(backupPath)) return { success: false, error: "Backup file not found" };
       // 1. Verify the target backup integrity before doing anything destructive.

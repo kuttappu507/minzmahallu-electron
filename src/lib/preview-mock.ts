@@ -109,10 +109,12 @@ export function installPreviewMock() {
   };
 
   // Uninstall-gate window only exists when launched by the NSIS uninstaller;
-  // stubbed so the page still renders in a dev browser preview.
+  // stubbed so the page still renders in a dev browser preview. Dev-only file
+  // (never bundled into production) — accepts any password, and deliberately
+  // contains NO real or historical credential string.
   const uninstall = {
     dbStatus: () => ({ hasDb: true }),
-    verify: (p: string) => (p === "Admin@2026" ? { ok: true, username: "admin" } : { ok: false, reason: "wrong-password" }),
+    verify: (p: string) => (p && p.trim() ? { ok: true, username: "admin" } : { ok: false, reason: "wrong-password" }),
     finish: (_ok: boolean) => ({}),
   };
 

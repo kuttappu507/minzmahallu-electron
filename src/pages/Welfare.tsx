@@ -233,9 +233,9 @@ export function Welfare() {
     setDisburseOpen(true);
   };
 
-  const executeDisburse = async ({ reason }: { reason: string }) => {
+  const executeDisburse = async ({ reason, password }: { reason: string; password: string }) => {
     if (!disburseTarget) return;
-    await window.mms.welfare.disburse(disburseTarget.id, reason);
+    await window.mms.welfare.disburse(disburseTarget.id, reason, password);
     toast.success(t("ui_marked_disbursed"));
     refetch();
     setDialogOpen(false);

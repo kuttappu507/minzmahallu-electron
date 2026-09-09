@@ -15,6 +15,9 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx", "electron/**/*.test.ts"],
+    // Mirror the real post-setup state: a database that accepts writes always
+    // has an Administrator (first-run setup). See scripts/vitest-setup.mjs.
+    setupFiles: ["./scripts/vitest-setup.mjs"],
     // Several test files now open the per-process SQLite file (the shim keys
     // its userData dir by PID, so parallel files share one database). Schema
     // init from two workers at once would race — files run sequentially; the

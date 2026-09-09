@@ -25,9 +25,12 @@ export const security = {
     const before = db.prepare("SELECT * FROM families WHERE id=?").get(familyId) as any;
     if (!before) throw new Error("Family not found");
     if (before.status === "Archived") throw new Error("Archived families cannot be edited; restore the family first");
-    db.prepare(`UPDATE families SET house_name=?, house_number=?, ward=?, area=?, address=?, pincode=?, phone=?, alternative_phone=?, status=?, notes=?, updated_at=datetime('now') WHERE id=?`).run(data.houseName ?? "", data.houseNumber ?? "", data.ward ?? "", data.area ?? "", data.address ?? "", data.pincode ?? "", data.phone ?? "", data.altPhone ?? "", "Active", data.notes ?? "", familyId);
+    // WhatsApp fields MUST be written here too: the family edit dialog saves
+    // through this audited path (families:update), and omitting them silently
+    // discarded any number the user added while editing (real bug report).
+    db.prepare(`UPDATE families SET house_name=?, house_number=?, ward=?, area=?, address=?, pincode=?, phone=?, alternative_phone=?, status=?, notes=?, whatsapp_phone=?, whatsapp_enabled=?, updated_at=datetime('now') WHERE id=?`).run(data.houseName ?? "", data.houseNumber ?? "", data.ward ?? "", data.area ?? "", data.address ?? "", data.pincode ?? "", data.phone ?? "", data.altPhone ?? "", "Active", data.notes ?? "", data.whatsappPhone ?? "", data.whatsappEnabled === 0 ? 0 : 1, familyId);
     const after = db.prepare("SELECT * FROM families WHERE id=?").get(familyId) as any;
-    const changes = changedFields(before, after, ["house_name","house_number","ward","area","address","pincode","phone","alternative_phone","notes"]);
+    const changes = changedFields(before, after, ["house_name","house_number","ward","area","address","pincode","phone","alternative_phone","notes","whatsapp_phone","whatsapp_enabled"]);
     if (Object.keys(changes).length) history(actor, "family", familyId, "EDIT", "Family details updated", changes);
     return { id: familyId, changes };
   },

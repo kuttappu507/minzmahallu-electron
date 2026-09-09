@@ -14,19 +14,6 @@ export function round2(n: number): number {
   return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 }
 
-/** One account's TRUE dues: old arrears + the uncovered part of this month
- *  − any advance credit, clamped at 0 (a prepaid family is never “negative
- *  pending”). Shared by the donations prefill, member pages and totals. */
-export function familyDue(db: ReturnType<typeof getDB>, familyId: number): number {
-  const row = db
-    .prepare(
-      `SELECT COALESCE(SUM(MAX(0, MAX(0, amount - amount_paid) + COALESCE(arrears, 0) - COALESCE(advance, 0))), 0) AS v
-       FROM subscriptions WHERE family_id = ? AND status IN ('Pending','Partial','Overdue')`
-    )
-    .get(familyId) as { v: number } | undefined;
-  return round2(Number(row?.v || 0));
-}
-
 /**
  * Next register number for official registers (marriages / deaths / welfare).
  *

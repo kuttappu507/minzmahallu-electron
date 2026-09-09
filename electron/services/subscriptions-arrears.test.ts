@@ -34,7 +34,10 @@ function ledgerRow(): any {
 const clean = (n: number | null | undefined) => Math.round(Number(n || 0) * 100) / 100;
 
 beforeAll(() => {
-  getDB(); // schema + migrations + demo provisioning (throwaway copy)
+  getDB(); // schema + migrations (fresh DBs are empty — the demo dataset was retired)
+  // The roll-over engine bills at the CONFIGURED monthly rate; pin it to the
+  // rate this suite's math assumes instead of relying on shipped demo settings.
+  getDB().prepare("UPDATE settings SET subscription_monthly_amount = ? WHERE id = 1").run(RATE);
   const fam = families.create({ houseName: "Arrears Engine Test Family" });
   familyId = Number(fam.id);
   const created = subscriptions.create({ familyId, amount: RATE, amountPaid: 0, paymentMethod: "Cash" }) as any;

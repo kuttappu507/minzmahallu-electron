@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { whatsapp } from "./whatsapp.service.js";
 import { recipientStats } from "./whatsapp-recipient.service.js";
 import { getDB } from "../db/connection.js";
+import { ensureFamily, ensurePendingSubscription } from "./fixtures.js";
 
 describe("whatsapp service schema & phone handling", () => {
   beforeAll(() => {
@@ -34,12 +35,13 @@ describe("whatsapp service schema & phone handling", () => {
   });
 
   it("persists family WhatsApp preferences with validation", () => {
-    const result = whatsapp.setFamilyWhatsApp(1, "9876543210", true);
+    const famId = ensureFamily(1);
+    const result = whatsapp.setFamilyWhatsApp(famId, "9876543210", true);
     expect(result.changes).toBe(1);
-    const fam = whatsapp.familyWhatsApp(1) as any;
+    const fam = whatsapp.familyWhatsApp(famId) as any;
     expect(fam.whatsapp_phone).toBe("9876543210");
     expect(fam.whatsapp_enabled).toBe(1);
-    expect(() => whatsapp.setFamilyWhatsApp(1, "12", true)).toThrow("valid WhatsApp number");
+    expect(() => whatsapp.setFamilyWhatsApp(famId, "12", true)).toThrow("valid WhatsApp number");
   });
 });
 
@@ -47,11 +49,14 @@ describe("whatsapp campaign guards (anti-double-send)", () => {
   beforeAll(() => {
     whatsapp.init();
     const db = getDB();
-    // Ensure at least one eligible family head for this month's reminder.
-    whatsapp.setFamilyWhatsApp(1, "919876543210", true);
+    // Fresh DBs ship EMPTY (no demo dataset): make sure family 1 exists with
+    // a pending subscription so the reminder has an eligible recipient.
+    const famId = ensureFamily(1);
+    ensurePendingSubscription(famId, 100);
+    whatsapp.setFamilyWhatsApp(famId, "919876543210", true);
     db.prepare(
-      "UPDATE subscriptions SET amount=100, amount_paid=0, status='Pending' WHERE family_id=1 AND id=(SELECT id FROM subscriptions WHERE family_id=1 LIMIT 1)"
-    ).run();
+      "UPDATE subscriptions SET amount=100, amount_paid=0, status='Pending' WHERE family_id=? AND id=(SELECT id FROM subscriptions WHERE family_id=? LIMIT 1)"
+    ).run(famId, famId);
   });
 
   it("reports recipient readiness stats", () => {

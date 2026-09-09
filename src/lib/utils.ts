@@ -57,10 +57,6 @@ export function formatDateTime(date: string | null | undefined): string {
   return `${dd}-${mm}-${yyyy} ${hh}:${min}`;
 }
 
-export function classNames(...classes: (string | false | null | undefined)[]) {
-  return classes.filter(Boolean).join(" ");
-}
-
 export function statusVariant(status: string): "active" | "inactive" | "overdue" | "paid" | "pending" | "partial" {
   const s = status?.toLowerCase() ?? "";
   if (s === "paid" || s === "active" || s === "approved" || s === "disbursed") return "active";

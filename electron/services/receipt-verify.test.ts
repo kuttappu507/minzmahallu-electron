@@ -21,15 +21,43 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { getDB } from "../db/connection.js";
 import { donations, certificates as certs } from "./data.service.js";
 import { ensureDonationVerificationCode } from "./receipt.service.js";
+import { ensureDonationReceiptNumber } from "./doc-number.service.js";
 import { parseQrPayload, verifyQrSignature, signQrPayload, extractScannedQrText, buildReceiptQrPayload } from "./qr-code.js";
 import { getQrPrintContext, signedReceiptQrPayload } from "./qr-signing.js";
+import { ensureFamilyWithHead, ensureDeathRecord, ensureMarriageRecord } from "./fixtures.js";
 
 function firstReceiptRow() {
   return getDB().prepare("SELECT verification_code, receipt_number FROM donations WHERE verification_code != '' LIMIT 1").get() as any;
 }
 
+/** Fresh DBs ship EMPTY (the demo dataset was retired for security). Seed the
+ *  donation receipts this suite verifies against — the service assigns the
+ *  receipt number and verification code exactly as the office flow does. */
+function ensureDonationFixtures(): void {
+  const db = getDB();
+  const have = db.prepare("SELECT COUNT(*) AS c FROM donations").get() as { c: number };
+  if (Number(have?.c ?? 0) > 0) return;
+  const cat = db.prepare("SELECT id FROM donation_categories ORDER BY id LIMIT 1").get() as { id: number } | undefined;
+  for (const [i, d] of [
+    { donorName: "Fixture Donor One", amount: 1000, donationDate: "2026-09-01", paymentMethod: "Cash" },
+    { donorName: "Fixture Donor Two", amount: 2500, donationDate: "2026-09-02", paymentMethod: "UPI" },
+  ].entries()) {
+    const created: any = donations.create({
+      donorName: d.donorName, donorPhone: `91987654321${i}`, donorAddress: "",
+      familyId: null, memberId: null, categoryId: cat?.id ?? 1, amount: d.amount,
+      donationDate: d.donationDate, receiptNumber: "", purpose: "Fixture", paymentMethod: d.paymentMethod,
+      transactionRef: "", remarks: "",
+    });
+    const id = Number(created?.id ?? created?.lastInsertRowid ?? created);
+    // Numbers and security codes are minted lazily (on first receipt render)
+    // in the office flow — mint them here so the verify lookups have targets.
+    ensureDonationReceiptNumber(id, d.donationDate);
+    ensureDonationVerificationCode(id);
+  }
+}
+
 describe("QR trust chain provisioning", () => {
-  beforeAll(() => { getDB(); /* schema + migrations + demo provisioning */ });
+  beforeAll(() => { getDB(); ensureDonationFixtures(); });
 
   it("provisions a stable 64-hex signing key (never printed, never re-rolled)", () => {
     const row = getDB().prepare("SELECT qr_signing_key, device_fingerprint FROM settings WHERE id = 1").get() as
@@ -53,7 +81,7 @@ describe("QR trust chain provisioning", () => {
 });
 
 describe("receipt verification (verify + verifyQr)", () => {
-  beforeAll(() => { getDB(); });
+  beforeAll(() => { getDB(); ensureDonationFixtures(); });
 
   it("finds a receipt by its verification code", () => {
     const db = getDB();
@@ -202,7 +230,21 @@ describe("receipt verification (verify + verifyQr)", () => {
 });
 
 describe("certificate verification + duplicate-issue guard", () => {
-  beforeAll(() => { getDB(); });
+  beforeAll(() => {
+    getDB();
+    // Fresh DBs are empty — certificate issue flows need a member, a death
+    // register row and a marriage register row to certify against.
+    const { memberId } = ensureFamilyWithHead();
+    ensureDeathRecord();
+    ensureMarriageRecord();
+    // The verify-message test expects at least one ISSUED certificate with a
+    // security code (the office would have issued one; issue it here).
+    const have = getDB().prepare("SELECT COUNT(*) AS c FROM certificates WHERE status='Issued'").get() as { c: number };
+    if (Number(have?.c ?? 0) === 0) {
+      const member = getDB().prepare("SELECT member_code FROM members WHERE id = ?").get(memberId) as { member_code: string };
+      certs.issueMembership(member.member_code, 1);
+    }
+  });
 
   it("returns the human-readable verify message for a certificate", () => {
     const db = getDB();

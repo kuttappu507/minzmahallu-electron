@@ -3,6 +3,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { useI18n } from "@/i18n";
+import { getCurrencySymbol } from "@/lib/utils";
 
 /**
  * Dashboard charts, isolated in their own lazy-loaded chunk.
@@ -37,7 +38,7 @@ export default function DashboardCharts({ collections, incomeExpense, displayLoc
             <div className="ch-sub">{t("dash_subscription_receipts")} · {t("dash_last_6_months")}</div>
           </div>
           <div className="ch-legend">
-            <span className="lg lg-em">₹</span>
+            <span className="lg lg-em">{getCurrencySymbol()}</span>
           </div>
         </div>
         <div className="ch-body">

@@ -23,6 +23,7 @@ import { getDB } from "../db/connection.js";
 import { accounting } from "./data/accounting.service.js";
 import { settings } from "./data/settings.service.js";
 import { subscriptions } from "./data/subscriptions.service.js";
+import { families } from "./data.service.js";
 
 describe("accounting preview + edit flag", () => {
   it("unifiedDetail returns the record and unifiedList starts with a clean history", () => {
@@ -92,6 +93,9 @@ describe("subscription frequency setting is wired", () => {
     // V021's seed) — the engine falls back to the Monthly plan row while still
     // billing the real quarter period, so the test must not depend on which
     // plan row is attached.
+    // Fresh DBs ship empty: give the engine a family WITHOUT an account so it
+    // actually creates one (other suites' families already have accounts).
+    families.create({ houseName: "Quarterly Engine Fixture", phone: "919876543210", whatsappPhone: "919876543210", whatsappEnabled: 1 });
     getDB().prepare("UPDATE settings SET subscription_monthly_amount = 450, subscription_frequency = 'Quarterly' WHERE id = 1").run();
 
     const before = getDB().prepare("SELECT COUNT(*) AS c FROM subscriptions").get() as any;

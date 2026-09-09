@@ -7,7 +7,11 @@ export const users = {
   list: () => all<any>(`SELECT id, username, full_name, role, is_active, must_change_pwd, last_login_at AS last_login, created_at FROM users ORDER BY username`),
   create: (data: any, creatorRole: string) => {
     if (creatorRole !== "Administrator") throw new Error("Only administrators can create users");
-    const { stored, salt } = hashPasswordForStorage(data.password || "Welcome@123");
+    // No fallback password: silently creating an account with a publicly-known
+    // default would be a god-mode footgun. Callers must supply a real password
+    // (the secured IPC layer validates the policy before reaching us).
+    if (!data.password) throw new Error("A password is required to create a user");
+    const { stored, salt } = hashPasswordForStorage(data.password);
     const { id } = run(
       "INSERT INTO users (username, full_name, password_hash, password_salt, role, is_active, must_change_pwd) VALUES (?, ?, ?, ?, ?, 1, ?)",
       [

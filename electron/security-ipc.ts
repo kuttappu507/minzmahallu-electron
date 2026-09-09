@@ -125,10 +125,12 @@ export function registerSecurityIpc(getActor: ActorProvider) {
     }
     return { ...r, receiptWhatsApp: receipt.status, receiptError: receipt.error || "" };
   });
-  // Cancelling a payment is a SECURE action: reason + admin password (the
-  // renderer verifies the password via auth:verifyAdminPassword before calling).
-  register("subscriptions:cancelPayment", (id: number, reason: string) => {
+  // Cancelling a payment is a SECURE action: reason + admin password,
+  // RE-VERIFIED IN THE MAIN PROCESS (a tampered renderer can no longer skip
+  // the password step by calling this channel directly).
+  register("subscriptions:cancelPayment", (id: number, reason: string, adminPassword: string) => {
     const a = admin();
+    verifyCurrentActorPassword(String(adminPassword ?? ""));
     if (!reason || !String(reason).trim()) throw new Error("A cancellation reason is required");
     const s = data.subscriptions.get(id) as any;
     const r = data.subscriptions.cancelPayment(id);
@@ -217,9 +219,10 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   });
   register("welfare:reject", (id: number, reason: string) => { const a = admin(); const r = data.welfare.reject(id, reason, a.id); try { data.audit.log(a.id, a.username, "REJECT", "welfare", id, `Welfare rejected: ${reason}`, reason); } catch {} return r; });
   // Disbursement is a SECURE action: minutes date + reason + administrator
-  // password (verified via auth:verifyAdminPassword before this call).
-  register("welfare:disburse", (id: number, reason = "") => {
+  // password re-verified in the main process.
+  register("welfare:disburse", (id: number, reason = "", adminPassword: string) => {
     const a = admin();
+    verifyCurrentActorPassword(String(adminPassword ?? ""));
     if (!reason || !String(reason).trim()) throw new Error("A disbursement reason is required");
     const w = data.welfare.get(id) as any;
     const r = data.welfare.disburse(id, a.id, String(reason).trim());
@@ -385,9 +388,10 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("staff:update", (id: number, d: any) => { const a = actor(); const r = data.staff.update(id, d); try { data.audit.log(a.id, a.username, "EDIT", "staff", id, `Staff updated: ${d.name || ''}`, ""); } catch {} return r; });
   register("staff:archive", (id: number, reason: string) => { const a = admin(); const r = data.staff.archive(id, reason, a.id); try { data.audit.log(a.id, a.username, "ARCHIVE", "staff", id, `Staff archived: ${reason}`, ""); } catch {} return r; });
   // Resignation / expulsion is a SECURE action: effective date + reason +
-  // administrator password (verified via auth:verifyAdminPassword first).
-  register("staff:setStatus", (id: number, status: "Resigned" | "Expelled", effectiveDate: string, reason: string) => {
+  // administrator password re-verified in the main process.
+  register("staff:setStatus", (id: number, status: "Resigned" | "Expelled", effectiveDate: string, reason: string, adminPassword: string) => {
     const a = admin();
+    verifyCurrentActorPassword(String(adminPassword ?? ""));
     if (!reason || !String(reason).trim()) throw new Error("A reason is required");
     const r = data.staff.setStatus(id, status, effectiveDate || "", String(reason).trim(), a.id);
     try { data.audit.log(a.id, a.username, status === "Expelled" ? "EXPEL" : "RESIGN", "staff", id, `Staff ${status === "Expelled" ? "expelled" : "resigned"} effective ${effectiveDate || "today"}: ${String(reason).trim()}`, String(reason).trim()); } catch {}
@@ -397,9 +401,11 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("staff:history", (id: number) => { actor(); return data.staff.history(id); });
   register("staff:listPayments", (filter: any) => { actor(); return data.staff.listPayments(filter || {}); });
   register("staff:paySalary", (d: any) => { const a = admin(); const r = data.staff.paySalary(d, a.id); try { data.audit.log(a.id, a.username, "PAY_SALARY", "staff", d.staffId, `Salary paid: ${d.amount} for ${d.periodMonth}/${d.periodYear}`, ""); } catch {} return r; });
-  // Cancelling a salary payment is a SECURE action: reason + admin password.
-  register("staff:cancelPayment", (id: number, reason = "") => {
+  // Cancelling a salary payment is a SECURE action: reason + admin password
+  // re-verified in the main process.
+  register("staff:cancelPayment", (id: number, reason = "", adminPassword: string) => {
     const a = admin();
+    verifyCurrentActorPassword(String(adminPassword ?? ""));
     if (!String(reason).trim()) throw new Error("A cancellation reason is required");
     const r = data.staff.cancelPayment(id);
     try { data.audit.log(a.id, a.username, "CANCEL_SALARY", "staff_payments", id, `Salary payment cancelled: ${String(reason).trim()}`, String(reason).trim()); } catch {}
