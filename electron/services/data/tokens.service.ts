@@ -213,13 +213,14 @@ export const tokens = {
   listForPdf: (eventId: number) => all<any>(
     `SELECT ta.token_code, ta.status, ta.collected_at, ta.created_at,
        f.family_number, f.house_name, f.ward, f.house_number, f.phone, f.area,
-       (SELECT m.name FROM members m WHERE m.family_id = f.id AND m.is_head = 1 AND m.status = 'Active' ORDER BY m.id LIMIT 1) AS house_head_name,
+       (SELECT m.name FROM members m WHERE m.family_id = f.id AND m.is_head = 1
+          ORDER BY (m.status = 'Active') DESC, m.id LIMIT 1) AS house_head_name,
        te.event_name, te.event_date, te.venue, te.event_time
      FROM token_assignments ta
      LEFT JOIN families f ON f.id = ta.family_id
      LEFT JOIN token_events te ON te.id = ta.event_id
      WHERE ta.event_id = ? AND ta.status != 'CANCELLED'
-     ORDER BY f.ward, f.family_number`,
+     ORDER BY f.area, f.ward, f.family_number`,
     [eventId]
   ),
 };
