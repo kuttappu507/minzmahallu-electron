@@ -8,6 +8,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { ToastContainer } from "@/components/ToastContainer";
 import { Splash } from "@/components/Splash";
 import { CloseConfirmDialog } from "@/components/CloseConfirmDialog";
+import UpdateBanner from "@/components/UpdateBanner";
 import "@fontsource-variable/anek-malayalam/wght.css";
 import "@/styles/globals.css";
 import { LoginPage } from "@/pages/LoginPage";
@@ -100,5 +101,5 @@ export default function App() {
   }
   /* The app mounts beneath the splash overlay so the splash can cross-fade
      into it — the transparent frameless window never shows the desktop. */
-  return <><LanguagePersistence /><OfflineMalayalamLayer /><Routes><Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} /><Route path="/*" element={user ? <ProtectedLayout /> : <Navigate to="/login" />} /></Routes><ToastContainer />{!splashDone && <Splash onDone={() => setSplashDone(true)} />}<CloseConfirmDialog /></>;
+  return <><LanguagePersistence /><OfflineMalayalamLayer /><Routes><Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} /><Route path="/*" element={user ? <ProtectedLayout /> : <Navigate to="/login" />} /></Routes><ToastContainer /><UpdateBanner />{!splashDone && <Splash onDone={() => setSplashDone(true)} />}<CloseConfirmDialog /></>;
 }

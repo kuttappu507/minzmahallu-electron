@@ -307,6 +307,18 @@ const translations: Record<string, { en: string; ml: string }> = {
   set_app_version: { en: "App version", ml: "ആപ്പ് പതിപ്പ്" },
   set_data_folder: { en: "Data folder", ml: "ഡാറ്റ ഫോൾഡർ" },
 
+  // Update check (monthly GitHub release check)
+  upd_title: { en: "Update available", ml: "പുതിയ പതിപ്പ് ലഭ്യമാണ്" },
+  upd_body: { en: "A new version of Minz Mahallu Management has been published on GitHub.", ml: "Minz Mahallu Management-ന്റെ പുതിയ പതിപ്പ് GitHub-ൽ പ്രസിദ്ധീകരിച്ചിട്ടുണ്ട്." },
+  upd_open: { en: "Open release page", ml: "റിലീസ് താൾ തുറക്കുക" },
+  upd_later: { en: "Later", ml: "പിന്നീട്" },
+  upd_check_now: { en: "Check for updates", ml: "അപ്ഡേറ്റ് ഉണ്ടോ പരിശോധിക്കുക" },
+  upd_checking: { en: "Checking…", ml: "പരിശോധിക്കുന്നു…" },
+  upd_up_to_date: { en: "This is the latest version.", ml: "ഇത് തന്നെയാണ് ഏറ്റവും പുതിയ പതിപ്പ്." },
+  upd_found_new: { en: "New version available", ml: "പുതിയ പതിപ്പ് ലഭ്യമാണ്" },
+  upd_check_failed: { en: "Could not reach GitHub — check the internet connection.", ml: "GitHub-വുമായി ബന്ധപ്പെടാനായില്ല — ഇന്റർനെറ്റ് കണക്ഷൻ പരിശോധിക്കുക." },
+  upd_monthly_note: { en: "The app looks for updates about once a month.", ml: "ആപ്പ് ഏകദേശം മാസത്തിലൊരിക്കൽ അപ്ഡേറ്റ് തിരയുന്നു." },
+
   // Audit
   audit_title: { en: "Audit Log", ml: "ഓഡിറ്റ് ലോഗ്" },
   audit_time: { en: "Time", ml: "സമയം" },

@@ -352,6 +352,27 @@ export function installPreviewMock() {
     info: () => Promise.resolve({ version: "dev-preview", electron: "-", platform: "browser", dataDir: "(preview mode — no data folder)" }),
   };
 
+  // Monthly GitHub update check (UpdateBanner + Settings → About). Append
+  // ?upd=1 to the preview URL to simulate "a new release is available" so the
+  // banner/dismiss flow can be QA'd without touching the network.
+  const updSimulated = new URLSearchParams(window.location.search).get("upd") === "1";
+  const updates = {
+    status: () => Promise.resolve(updSimulated
+      ? { currentVersion: "dev-preview", lastCheckAt: Date.now(), updateAvailable: true, latestVersion: "9.9.9", url: "https://github.com/kuttappu507/minzmahallu-electron/releases/latest" }
+      : { currentVersion: "dev-preview", lastCheckAt: null, updateAvailable: false, latestVersion: null, url: "https://github.com/kuttappu507/minzmahallu-electron/releases/latest" }),
+    checkNow: () => Promise.resolve(updSimulated
+      ? { ok: true, updateAvailable: true, latestVersion: "9.9.9", currentVersion: "dev-preview", url: "https://github.com/kuttappu507/minzmahallu-electron/releases/latest" }
+      : { ok: true, updateAvailable: false, latestVersion: "dev-preview", currentVersion: "dev-preview", url: "https://github.com/kuttappu507/minzmahallu-electron/releases/latest" }),
+    openReleasePage: () => Promise.resolve({ success: true }),
+  };
+
+  // Push-event surface (real app: ipcRenderer.on). Subscribers return an
+  // unsubscribe function — the UpdateBanner cleanup calls it.
+  const events = {
+    onDownloadFailed: (_cb: (name: string) => void) => () => {},
+    onUpdateAvailable: (_cb: (info: { latestVersion: string; url: string; currentVersion: string }) => void) => () => {},
+  };
+
   // Donations module used by Settings (category manager) — the Proxy fallback
   // returns a bare function for unknown modules, so `window.mms.donations
   // .categoriesAll()` would crash the Settings page in preview mode.
@@ -432,7 +453,7 @@ export function installPreviewMock() {
     }),
   };
 
-  const base: Record<string, unknown> = { dashboard, settings, auth, win, uninstall, accounting, certificates: mockCertificates, whatsapp, receipts, staff, app, donations, backup, tokens, families };
+  const base: Record<string, unknown> = { dashboard, settings, auth, win, uninstall, accounting, certificates: mockCertificates, whatsapp, receipts, staff, app, updates, events, donations, backup, tokens, families };
   const handler: ProxyHandler<Record<string, unknown>> = {
     get(target, prop) {
       if (prop === "then") return undefined; // avoid thenable detection

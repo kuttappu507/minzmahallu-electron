@@ -24,6 +24,7 @@ import { registerSecurityIpc } from "./security-ipc.js";
 import { registerWhatsAppIpc } from "./whatsapp-ipc.js";
 import { registerReceiptIpc } from "./receipt-ipc.js";
 import { verifyUninstallPassword, UNINSTALL_ADMIN_SQL } from "./services/uninstall-guard.js";
+import { registerUpdateIpc, scheduleMonthlyUpdateCheck } from "./update-check.js";
 // exceljs ships CommonJS only. Under the packaged ESM main process a named
 // import ({ Workbook }) crashes at startup because Node's cjs-module-lexer
 // cannot see through exceljs's bundled dist. Default-import and destructure
@@ -224,6 +225,9 @@ app.whenReady().then(() => {
   } catch {}
 
   try { data.subscriptions.ensureCurrentMonth(); } catch (err) { console.warn("[subscriptions] monthly generation deferred:", err); }
+  // Monthly GitHub release check (Settings → About can also check on demand).
+  registerUpdateIpc(() => mainWindow);
+  scheduleMonthlyUpdateCheck(() => mainWindow);
   ipcMain.handle("auth:login", (_e, username: string, password: string) => { try { const user = login(username, password); session.user = { id: user.id, username: user.username, fullName: user.fullName, role: user.role }; try { data.audit.log(user.id, user.username, "LOGIN", "auth", user.id, "User logged in", ""); } catch {} return { success: true, user }; } catch (err: any) { return { success: false, error: err.message }; } });
   ipcMain.handle("auth:logout", () => { if (session.user) { try { data.audit.log(session.user.id, session.user.username, "LOGOUT", "auth", session.user.id, "User logged out", ""); } catch {} } session.user = null; return { success: true }; });
   ipcMain.handle("auth:currentUser", () => session.user);

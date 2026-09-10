@@ -18,6 +18,7 @@ const api = {
   audit: { list:(f?:any)=>ipcRenderer.invoke("audit:list",f), verify:()=>ipcRenderer.invoke("audit:verify") },
   settings: { load:()=>ipcRenderer.invoke("settings:load"), save:(d:any)=>ipcRenderer.invoke("settings:save",d) },
   app: { info:()=>ipcRenderer.invoke("app:info") },
+  updates: { status:()=>ipcRenderer.invoke("updates:status"), checkNow:()=>ipcRenderer.invoke("updates:checkNow"), openReleasePage:()=>ipcRenderer.invoke("updates:openReleasePage") },
   dashboard: { summary:()=>ipcRenderer.invoke("dashboard:summary"), incomeThisMonth:()=>ipcRenderer.invoke("dashboard:incomeThisMonth"), expenseThisMonth:()=>ipcRenderer.invoke("dashboard:expenseThisMonth"), balance:()=>ipcRenderer.invoke("dashboard:balance"), monthlyCollections:(m?:number)=>ipcRenderer.invoke("dashboard:monthlyCollections",m), monthlyDonations:(m?:number)=>ipcRenderer.invoke("dashboard:monthlyDonations",m), incomeVsExpense:(m?:number)=>ipcRenderer.invoke("dashboard:incomeVsExpense",m), recentActivity:(l?:number)=>ipcRenderer.invoke("dashboard:recentActivity",l), alerts:()=>ipcRenderer.invoke("dashboard:alerts"), todayAtGlance:()=>ipcRenderer.invoke("dashboard:todayAtGlance") },
   backup: { create:(d?:string)=>ipcRenderer.invoke("backup:create",d), list:()=>ipcRenderer.invoke("backup:list"), verify:(f:string)=>ipcRenderer.invoke("backup:verify",f), restore:(f:string)=>ipcRenderer.invoke("backup:restore",f), chooseMirrorDir:()=>ipcRenderer.invoke("backup:chooseMirrorDir") },
   dialog: { showSave:(n:string,f:any[])=>ipcRenderer.invoke("dialog:showSave",n,f) },
@@ -51,7 +52,7 @@ const api = {
     restore: (id: number) => ipcRenderer.invoke("committee:restore", id),
     history: (id: number) => ipcRenderer.invoke("committee:history", id)
   },
-  events: { onDownloadFailed: (cb: (name: string) => void) => { const h = (_e: unknown, name: string) => cb(String(name)); ipcRenderer.on("download:failed", h); return () => { ipcRenderer.removeListener("download:failed", h); }; } }
+  events: { onDownloadFailed: (cb: (name: string) => void) => { const h = (_e: unknown, name: string) => cb(String(name)); ipcRenderer.on("download:failed", h); return () => { ipcRenderer.removeListener("download:failed", h); }; }, onUpdateAvailable: (cb: (info: { latestVersion: string; url: string; currentVersion: string }) => void) => { const h = (_e: unknown, info: any) => cb(info); ipcRenderer.on("update:available", h); return () => { ipcRenderer.removeListener("update:available", h); }; } }
 };
 
 contextBridge.exposeInMainWorld("mms", api);
