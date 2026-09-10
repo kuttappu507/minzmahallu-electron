@@ -5,14 +5,18 @@
  * release (push event) or when a previous check already found one and the
  * window was reloaded (status pull). Dismissing hides the notice for the
  * SAME version permanently (localStorage) — a newer version re-shows it.
- * "Open release page" sends the office to the same GitHub releases page the
- * installer is published on. No auto-download: the user stays in control.
+ *
+ * "Download update" opens the release's installer ASSET directly (one click
+ * → the .exe download starts) so the office never has to find the right file
+ * on the GitHub release page. "Release page" is kept as the secondary path
+ * for release notes / manual download. No auto-install: the user stays in
+ * control of when the new version is actually run.
  */
 import { useEffect, useState } from "react";
 import { DownloadCloud, X } from "lucide-react";
 import { useI18n } from "@/i18n";
 
-type UpdateInfo = { latestVersion: string; url: string; currentVersion: string };
+type UpdateInfo = { latestVersion: string; url: string; downloadUrl?: string | null; currentVersion: string };
 
 const DISMISS_KEY = "mms-update-dismissed-version";
 
@@ -41,7 +45,7 @@ export default function UpdateBanner() {
       // 1) Re-show after a reload if a previous check already found an update.
       mms?.updates?.status?.().then((s: any) => {
         if (s?.updateAvailable && s.latestVersion) {
-          showIfNotDismissed({ latestVersion: s.latestVersion, url: s.url || "", currentVersion: s.currentVersion || "" });
+          showIfNotDismissed({ latestVersion: s.latestVersion, url: s.url || "", downloadUrl: s.downloadUrl ?? null, currentVersion: s.currentVersion || "" });
         }
       }).catch(() => {});
       // 2) Live push from the monthly check (or a manual Settings check).
@@ -70,6 +74,7 @@ export default function UpdateBanner() {
     try { localStorage.setItem(DISMISS_KEY, info.latestVersion); } catch { /* ignore */ }
   };
   const openRelease = () => { window.mms?.updates?.openReleasePage?.().catch(() => {}); };
+  const hasDownload = !!info.downloadUrl;
 
   return (
     <div className="upd-banner" role="status" data-testid="update-banner">
@@ -82,7 +87,12 @@ export default function UpdateBanner() {
         <div className="upd-body">{t("upd_body")}</div>
       </div>
       <div className="upd-actions">
-        <button className="upd-btn" onClick={openRelease}>{t("upd_open")}</button>
+        {hasDownload && (
+          <button className="upd-btn" onClick={() => { window.mms?.updates?.openDownload?.().catch(() => {}); }}>{t("upd_download")}</button>
+        )}
+        <button className={`upd-btn${hasDownload ? " upd-btn-ghost" : ""}`} onClick={openRelease}>
+          {hasDownload ? t("upd_release_page") : t("upd_open")}
+        </button>
         <button className="upd-btn upd-btn-ghost" onClick={dismiss}>{t("upd_later")}</button>
       </div>
       <button className="upd-x" onClick={dismiss} aria-label="Dismiss" title={t("upd_later")}>

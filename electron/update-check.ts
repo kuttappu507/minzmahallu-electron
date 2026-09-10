@@ -16,9 +16,10 @@
  *    offline machine must not skip a whole month because of one timeout.
  *  - `updates:checkNow` (Settings → About) bypasses the monthly gate.
  *
- * No auto-download/auto-install: the user is sent to the release page to get
- * the new installer. Silent self-update would need code-signing plumbing that
- * this project does not have.
+ * No auto-download/auto-install: the banner carries a DIRECT link to the
+ * release's installer asset (.exe) so the office gets the file in one click,
+ * plus the release page for release notes. Silent self-update would need
+ * code-signing plumbing that this project does not have.
  */
 import { app, ipcMain, shell } from "electron";
 import fs from "node:fs";
@@ -83,6 +84,7 @@ export type UpdateState = {
   last_check_at: number | null;
   latest_version: string | null;
   latest_url: string | null;
+  latest_download_url: string | null;
   update_available: boolean;
 };
 
@@ -98,10 +100,11 @@ export function readState(): UpdateState {
       last_check_at: Number.isFinite(s?.last_check_at) ? s.last_check_at : null,
       latest_version: typeof s?.latest_version === "string" ? s.latest_version : null,
       latest_url: typeof s?.latest_url === "string" ? s.latest_url : null,
+      latest_download_url: typeof s?.latest_download_url === "string" ? s.latest_download_url : null,
       update_available: !!s?.update_available,
     };
   } catch {
-    return { last_check_at: null, latest_version: null, latest_url: null, update_available: false };
+    return { last_check_at: null, latest_version: null, latest_url: null, latest_download_url: null, update_available: false };
   }
 }
 
@@ -120,6 +123,7 @@ export type UpdateCheckResult = {
   latestVersion?: string;
   currentVersion?: string;
   url?: string;
+  downloadUrl?: string | null;
 };
 
 function safeReleaseUrl(raw: unknown): string | null {
@@ -128,8 +132,40 @@ function safeReleaseUrl(raw: unknown): string | null {
   return null;
 }
 
-/** One GitHub API round-trip. Never throws. */
-export async function checkLatestRelease(currentVersion: string, fetchImpl: typeof fetch = fetch): Promise<UpdateCheckResult> {
+/**
+ * Direct-download asset picker — the office user must not have to navigate
+ * the GitHub release page to find the right file. Picks the installer asset
+ * for the RUNNING platform (Windows .exe for this app), never a .blockmap or
+ * source archive, and only accepts github.com-hosted download URLs.
+ * Returns null when nothing suitable is uploaded — the UI then falls back to
+ * the release page link.
+ */
+export function pickDownloadAsset(body: any, platform: string = process.platform): string | null {
+  const assets: any[] = Array.isArray(body?.assets) ? body.assets : [];
+  const candidates: { name: string; url: string }[] = [];
+  for (const a of assets) {
+    const name = typeof a?.name === "string" ? a.name.toLowerCase() : "";
+    const url = safeReleaseUrl(a?.browser_download_url);
+    if (!name || !url) continue;
+    if (name.endsWith(".blockmap") || name.endsWith(".sig") || name.startsWith("source")) continue;
+    candidates.push({ name, url });
+  }
+  const first = (pred: (n: string) => boolean) => candidates.find((c) => pred(c.name))?.url ?? null;
+  if (platform === "darwin") {
+    return first((n) => n.endsWith(".dmg")) ?? first((n) => n.endsWith(".zip"));
+  }
+  if (platform === "linux") {
+    return first((n) => n.endsWith(".appimage")) ?? first((n) => n.endsWith(".deb"));
+  }
+  // win32 (and anything else): NSIS installer .exe — Setup/installer names first
+  return (
+    first((n) => n.endsWith(".exe") && /(setup|install)/.test(n)) ??
+    first((n) => n.endsWith(".exe"))
+  );
+}
+
+/** One GitHub API round-trip. Never throws. Platform injectable for tests. */
+export async function checkLatestRelease(currentVersion: string, fetchImpl: typeof fetch = fetch, platform: string = process.platform): Promise<UpdateCheckResult> {
   try {
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS);
@@ -146,10 +182,11 @@ export async function checkLatestRelease(currentVersion: string, fetchImpl: type
     const body: any = await res.json();
     const tag = typeof body?.tag_name === "string" ? body.tag_name : "";
     const url = safeReleaseUrl(body?.html_url) || RELEASES_PAGE_URL;
+    const downloadUrl = pickDownloadAsset(body, platform);
     if (!tag) return { ok: false, reason: "no-release-info" };
     const updateAvailable = isNewerVersion(currentVersion, tag);
-    if (updateAvailable) return { ok: true, updateAvailable: true, latestVersion: tag.replace(/^[vV]/, ""), currentVersion, url };
-    return { ok: true, updateAvailable: false, latestVersion: tag.replace(/^[vV]/, ""), currentVersion, url };
+    if (updateAvailable) return { ok: true, updateAvailable: true, latestVersion: tag.replace(/^[vV]/, ""), currentVersion, url, downloadUrl };
+    return { ok: true, updateAvailable: false, latestVersion: tag.replace(/^[vV]/, ""), currentVersion, url, downloadUrl };
   } catch {
     return { ok: false, reason: "network-error" };
   }
@@ -163,7 +200,7 @@ type GetWindow = () => import("electron").BrowserWindow | null;
 
 function pushToRenderer(getWindow: GetWindow, result: UpdateCheckResult): void {
   if (!result.ok || !result.updateAvailable) return;
-  try { getWindow()?.webContents.send("update:available", { latestVersion: result.latestVersion, url: result.url, currentVersion: result.currentVersion }); } catch { /* window gone */ }
+  try { getWindow()?.webContents.send("update:available", { latestVersion: result.latestVersion, url: result.url, downloadUrl: result.downloadUrl ?? null, currentVersion: result.currentVersion }); } catch { /* window gone */ }
 }
 
 /**
@@ -179,6 +216,7 @@ async function dueGatedCheck(getWindow: GetWindow): Promise<void> {
       last_check_at: Date.now(),
       latest_version: result.latestVersion ?? null,
       latest_url: result.url ?? null,
+      latest_download_url: result.downloadUrl ?? null,
       update_available: !!result.updateAvailable,
     });
     pushToRenderer(getWindow, result);
@@ -197,6 +235,7 @@ export function registerUpdateIpc(getWindow: GetWindow): void {
       updateAvailable: state.update_available,
       latestVersion: state.latest_version ? state.latest_version.replace(/^[vV]/, "") : null,
       url: state.latest_url || RELEASES_PAGE_URL,
+      downloadUrl: state.latest_download_url,
     };
   });
 
@@ -208,6 +247,7 @@ export function registerUpdateIpc(getWindow: GetWindow): void {
         last_check_at: Date.now(),
         latest_version: result.latestVersion ?? null,
         latest_url: result.url ?? null,
+        latest_download_url: result.downloadUrl ?? null,
         update_available: !!result.updateAvailable,
       });
       // Manual check result is returned directly; ALSO push so the banner
@@ -215,6 +255,19 @@ export function registerUpdateIpc(getWindow: GetWindow): void {
       pushToRenderer(getWindow, result);
     }
     return result;
+  });
+
+  // Direct-download: open the release ASSET (installer file) itself, so the
+  // user gets the .exe with one click instead of hunting through the GitHub
+  // release page. State-based (not renderer-supplied) so a tampered renderer
+  // cannot open arbitrary URLs.
+  ipcMain.handle("updates:openDownload", async () => {
+    const url = readState().latest_download_url;
+    if (typeof url === "string" && url.startsWith("https://github.com/")) {
+      await shell.openExternal(url);
+      return { success: true };
+    }
+    return { success: false };
   });
 
   // Open the SAME GitHub releases page the installer is published on.

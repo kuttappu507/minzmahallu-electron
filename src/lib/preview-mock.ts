@@ -356,21 +356,23 @@ export function installPreviewMock() {
   // ?upd=1 to the preview URL to simulate "a new release is available" so the
   // banner/dismiss flow can be QA'd without touching the network.
   const updSimulated = new URLSearchParams(window.location.search).get("upd") === "1";
+  const updDlUrl = "https://github.com/kuttappu507/minzmahallu-electron/releases/download/v9.9.9/Minz.Mahallu.Setup.9.9.9.exe";
   const updates = {
     status: () => Promise.resolve(updSimulated
-      ? { currentVersion: "dev-preview", lastCheckAt: Date.now(), updateAvailable: true, latestVersion: "9.9.9", url: "https://github.com/kuttappu507/minzmahallu-electron/releases/latest" }
-      : { currentVersion: "dev-preview", lastCheckAt: null, updateAvailable: false, latestVersion: null, url: "https://github.com/kuttappu507/minzmahallu-electron/releases/latest" }),
+      ? { currentVersion: "dev-preview", lastCheckAt: Date.now(), updateAvailable: true, latestVersion: "9.9.9", url: "https://github.com/kuttappu507/minzmahallu-electron/releases/latest", downloadUrl: updDlUrl }
+      : { currentVersion: "dev-preview", lastCheckAt: null, updateAvailable: false, latestVersion: null, url: "https://github.com/kuttappu507/minzmahallu-electron/releases/latest", downloadUrl: null }),
     checkNow: () => Promise.resolve(updSimulated
-      ? { ok: true, updateAvailable: true, latestVersion: "9.9.9", currentVersion: "dev-preview", url: "https://github.com/kuttappu507/minzmahallu-electron/releases/latest" }
-      : { ok: true, updateAvailable: false, latestVersion: "dev-preview", currentVersion: "dev-preview", url: "https://github.com/kuttappu507/minzmahallu-electron/releases/latest" }),
+      ? { ok: true, updateAvailable: true, latestVersion: "9.9.9", currentVersion: "dev-preview", url: "https://github.com/kuttappu507/minzmahallu-electron/releases/latest", downloadUrl: updDlUrl }
+      : { ok: true, updateAvailable: false, latestVersion: "dev-preview", currentVersion: "dev-preview", url: "https://github.com/kuttappu507/minzmahallu-electron/releases/latest", downloadUrl: null }),
     openReleasePage: () => Promise.resolve({ success: true }),
+    openDownload: () => Promise.resolve({ success: updSimulated }),
   };
 
   // Push-event surface (real app: ipcRenderer.on). Subscribers return an
   // unsubscribe function — the UpdateBanner cleanup calls it.
   const events = {
     onDownloadFailed: (_cb: (name: string) => void) => () => {},
-    onUpdateAvailable: (_cb: (info: { latestVersion: string; url: string; currentVersion: string }) => void) => () => {},
+    onUpdateAvailable: (_cb: (info: { latestVersion: string; url: string; downloadUrl?: string | null; currentVersion: string }) => void) => () => {},
   };
 
   // Donations module used by Settings (category manager) — the Proxy fallback

@@ -309,7 +309,9 @@ const translations: Record<string, { en: string; ml: string }> = {
 
   // Update check (monthly GitHub release check)
   upd_title: { en: "Update available", ml: "പുതിയ പതിപ്പ് ലഭ്യമാണ്" },
-  upd_body: { en: "A new version of Minz Mahallu Management has been published on GitHub.", ml: "Minz Mahallu Management-ന്റെ പുതിയ പതിപ്പ് GitHub-ൽ പ്രസിദ്ധീകരിച്ചിട്ടുണ്ട്." },
+  upd_body: { en: "A new version of Minz Mahallu Management has been published on GitHub. Download the new installer directly below.", ml: "Minz Mahallu Management-ന്റെ പുതിയ പതിപ്പ് GitHub-ൽ പ്രസിദ്ധീകരിച്ചിട്ടുണ്ട്. പുതിയ ഇൻസ്റ്റോളർ താഴെ നിന്ന് നേരിട്ട് ഡൗൺലോഡ് ചെയ്യാം." },
+  upd_download: { en: "Download update", ml: "അപ്ഡേറ്റ് ഡൗൺലോഡ്" },
+  upd_release_page: { en: "Release page", ml: "റിലീസ് താൾ" },
   upd_open: { en: "Open release page", ml: "റിലീസ് താൾ തുറക്കുക" },
   upd_later: { en: "Later", ml: "പിന്നീട്" },
   upd_check_now: { en: "Check for updates", ml: "അപ്ഡേറ്റ് ഉണ്ടോ പരിശോധിക്കുക" },

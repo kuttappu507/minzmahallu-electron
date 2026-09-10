@@ -13,6 +13,7 @@ import {
   isNewerVersion,
   isCheckDue,
   checkLatestRelease,
+  pickDownloadAsset,
   RELEASES_API_URL,
   RELEASES_PAGE_URL,
 } from "./update-check.js";
@@ -79,6 +80,45 @@ describe("isCheckDue (monthly gate)", () => {
   });
 });
 
+describe("pickDownloadAsset (direct installer link)", () => {
+  const asset = (name: string, url?: string) => ({ name, browser_download_url: url ?? `https://github.com/kuttappu507/minzmahallu-electron/releases/download/v9.9.9/${name}` });
+  const win = [
+    asset("Minz.Mahallu.Setup.9.9.9.exe.blockmap"),
+    asset("Minz.Mahallu.Setup.9.9.9.exe"),
+    asset("Minz.Mahallu-9.9.9-win.zip"),
+    asset("Minz.Mahallu-9.9.9-mac.dmg"),
+  ];
+
+  it("windows: picks the Setup .exe, never the blockmap or zip", () => {
+    expect(pickDownloadAsset({ assets: win }, "win32")).toBe(win[1].browser_download_url);
+  });
+  it("windows: prefers a plain .exe over archives when no Setup name exists", () => {
+    const assets = [asset("app-9.9.9-win.zip"), asset("app-9.9.9-portable.exe")];
+    expect(pickDownloadAsset({ assets }, "win32")).toBe(assets[1].browser_download_url);
+  });
+  it("macOS: prefers .dmg, falls back to .zip", () => {
+    expect(pickDownloadAsset({ assets: win }, "darwin")).toBe(win[3].browser_download_url);
+    const zipOnly = [asset("app-9.9.9-mac.zip")];
+    expect(pickDownloadAsset({ assets: zipOnly }, "darwin")).toBe(zipOnly[0].browser_download_url);
+  });
+  it("linux: prefers .AppImage, falls back to .deb", () => {
+    const assets = [asset("app_9.9.9_amd64.deb"), asset("App-9.9.9.AppImage")];
+    expect(pickDownloadAsset({ assets }, "linux")).toBe(assets[1].browser_download_url);
+    expect(pickDownloadAsset({ assets: [assets[0]] }, "linux")).toBe(assets[0].browser_download_url);
+  });
+  it("rejects non-github download URLs instead of opening a foreign host", () => {
+    const assets = [asset("mirror-installer.exe", "https://cdn.example.com/installer.exe"), asset("Minz.Mahallu.Setup.9.9.9.exe")];
+    expect(pickDownloadAsset({ assets }, "win32")).toBe(assets[1].browser_download_url);
+    const evilOnly = [asset("evil.exe", "http://github.com.evil.io/evil.exe")];
+    expect(pickDownloadAsset({ assets: evilOnly }, "win32")).toBeNull();
+  });
+  it("no usable assets → null (UI falls back to the release page)", () => {
+    expect(pickDownloadAsset({}, "win32")).toBeNull();
+    expect(pickDownloadAsset({ assets: [] }, "win32")).toBeNull();
+    expect(pickDownloadAsset({ assets: [asset("notes.txt")] }, "win32")).toBeNull();
+  });
+});
+
 describe("checkLatestRelease (injected fetch)", () => {
   const jsonResponse = (body: unknown, status = 200) => async () => ({
     ok: status >= 200 && status < 300,
@@ -90,6 +130,24 @@ describe("checkLatestRelease (injected fetch)", () => {
     const r = await checkLatestRelease("2.0.0", jsonResponse({ tag_name: "v2.1.0", html_url: `${RELEASES_PAGE_URL.replace(/latest$/, "tag/v2.1.0")}` }) as any);
     expect(r).toMatchObject({ ok: true, updateAvailable: true, latestVersion: "2.1.0" });
     expect(r.url?.startsWith("https://github.com/")).toBe(true);
+  });
+  it("carries the direct installer download URL when the release ships one", async () => {
+    const body = {
+      tag_name: "v2.1.0",
+      html_url: RELEASES_PAGE_URL,
+      assets: [
+        { name: "Minz.Mahallu.Setup.2.1.0.exe.blockmap", browser_download_url: "https://github.com/kuttappu507/minzmahallu-electron/releases/download/v2.1.0/Minz.Mahallu.Setup.2.1.0.exe.blockmap" },
+        { name: "Minz.Mahallu.Setup.2.1.0.exe", browser_download_url: "https://github.com/kuttappu507/minzmahallu-electron/releases/download/v2.1.0/Minz.Mahallu.Setup.2.1.0.exe" },
+      ],
+    };
+    const r = await checkLatestRelease("2.0.0", jsonResponse(body) as any, "win32");
+    expect(r.updateAvailable).toBe(true);
+    expect(r.downloadUrl).toBe("https://github.com/kuttappu507/minzmahallu-electron/releases/download/v2.1.0/Minz.Mahallu.Setup.2.1.0.exe");
+  });
+  it("downloadUrl is null when the release ships no installer asset", async () => {
+    const r = await checkLatestRelease("2.0.0", jsonResponse({ tag_name: "v2.1.0", html_url: RELEASES_PAGE_URL, assets: [] }) as any, "win32");
+    expect(r.updateAvailable).toBe(true);
+    expect(r.downloadUrl).toBeNull();
   });
   it("stays quiet when the installed version is the latest", async () => {
     const r = await checkLatestRelease("2.1.0", jsonResponse({ tag_name: "v2.1.0", html_url: RELEASES_PAGE_URL }) as any);
