@@ -380,7 +380,59 @@ export function installPreviewMock() {
     chooseMirrorDir: () => Promise.resolve({ success: true, cancelled: true }),
   };
 
-  const base: Record<string, unknown> = { dashboard, settings, auth, win, uninstall, accounting, certificates: mockCertificates, whatsapp, receipts, staff, app, donations, backup };
+  // Tokens module (token events + distribution) — without it `window.mms
+  // .tokens` resolves through the Proxy fallback to a bare function and any
+  // `.tokens.X()` call crashes the page in preview mode.
+  const previewEvents = [{
+    id: 1, event_name: "Annual General Body", event_type: "general",
+    event_date: "2027-01-10", event_time: "10:00", venue: "Mahallu Hall",
+    description: "", status: "ACTIVE",
+  }];
+  const mkTokenRow = (i: number, familyId: number, status: string) => ({
+    id: i, event_id: 1, family_id: familyId,
+    token_code: `TKN-2026-${String(i).padStart(4, "0")}`, status,
+    collected_at: status === "COLLECTED" ? "2026-01-05" : null,
+    created_at: "2026-01-01", family_number: `F-${100 + familyId}`,
+    house_name: `House of family ${familyId}`, house_number: `HN-${familyId}`,
+    ward: familyId % 2 ? "Ward A" : "Ward B", phone: "98470000" + familyId,
+  });
+  const previewTokenRows = [
+    mkTokenRow(1, 11, "GENERATED"), mkTokenRow(2, 12, "COLLECTED"),
+    mkTokenRow(3, 13, "GENERATED"), mkTokenRow(4, 14, "CANCELLED"),
+    mkTokenRow(5, 15, "GENERATED"),
+  ];
+  const tokens = {
+    listEvents: () => Promise.resolve(previewEvents),
+    getEvent: (id: number) => Promise.resolve(previewEvents.find((e) => e.id === id) || previewEvents[0]),
+    createEvent: () => Promise.resolve({ success: true, id: 2 }),
+    updateEvent: () => Promise.resolve({ success: true }),
+    removeEvent: () => Promise.resolve({ success: true, deletedTokens: 0 }),
+    list: () => Promise.resolve({ rows: previewTokenRows }),
+    checkExisting: () => Promise.resolve([11, 12]),
+    generate: (_id: number, fs: number[]) => Promise.resolve({ generated: fs.length, skipped: 0 }),
+    collect: () => Promise.resolve({ success: true }),
+    cancel: () => Promise.resolve({ success: true }),
+    replace: () => Promise.resolve({ success: true, tokenCode: "TKN-2026-0099" }),
+    remove: () => Promise.resolve({ success: true }),
+    stats: () => Promise.resolve({ total: previewTokenRows.length, collected: 1, remaining: previewTokenRows.length - 1, rate: 20 }),
+    listForPdf: () => Promise.resolve(previewTokenRows),
+    generateTokenPdf: () => Promise.resolve({ success: true, count: previewTokenRows.length }),
+    generateCollectionSheet: () => Promise.resolve({ success: true, count: previewTokenRows.length }),
+  };
+
+  // Families list used by the token family picker (startSelection).
+  const mkFamily = (id: number, ward: string) => ({
+    id, family_number: `F-${100 + id}`, house_name: `House of family ${id}`,
+    house_number: `HN-${id}`, ward, phone: "98470000" + id,
+    status: "Active", member_count: 4,
+  });
+  const families = {
+    list: () => Promise.resolve({
+      rows: [mkFamily(11, "Ward A"), mkFamily(12, "Ward B"), mkFamily(13, "Ward A"), mkFamily(14, "Ward B"), mkFamily(15, "Ward A")],
+    }),
+  };
+
+  const base: Record<string, unknown> = { dashboard, settings, auth, win, uninstall, accounting, certificates: mockCertificates, whatsapp, receipts, staff, app, donations, backup, tokens, families };
   const handler: ProxyHandler<Record<string, unknown>> = {
     get(target, prop) {
       if (prop === "then") return undefined; // avoid thenable detection
