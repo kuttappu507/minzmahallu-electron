@@ -142,6 +142,41 @@ describe("preview popup styles come from the separate stylesheet (no inline <sty
     expect(css).toContain("@media print");
   });
 
+  it("screen css keeps the preview window scrollable (print lock must not leak to screen)", () => {
+    // The print template hardens html/body to one A4 box with
+    // height:296.7mm + overflow:hidden (no 2nd-page spill). If the screen
+    // stylesheet fails to override BOTH properties the preview popup is
+    // clipped to a single A4-height box and cannot scroll at all.
+    const css = getPreviewScreenCss();
+    expect(css).toContain("height: auto !important");
+    expect(css).toContain("overflow: visible !important");
+    // Centering must be overflow-safe: centered flex alignment on an
+    // overflowing flex child pushes the left half above the scroll origin
+    // (permanently unreachable); auto margins fall back to the start edge.
+    const cssCode = css.replace(/\/\*[\s\S]*?\*\//g, ""); // strip comments
+    expect(cssCode).not.toContain("justify-content");
+    expect(cssCode).toContain("margin: 0 auto");
+    // Centering only works if html stays a plain block (a flex html makes
+    // body shrink-wrap to the certificate width → page hugs the left edge).
+    expect(cssCode).toMatch(/html\s*{[^}]*display:\s*block/);
+    // The certificate must never flex-shrink: a squashed A4 page would clip
+    // its right edge (overflow:hidden) instead of scrolling on narrow windows.
+    expect(cssCode).toMatch(/body > \.cert\s*{[^}]*flex:\s*none/);
+  });
+
+  it("print reset re-locks the anti-spill geometry (printing from the preview window)", () => {
+    // The screen rules are !important and apply in every medium, so the
+    // @media print reset must re-assert the template's print contract:
+    // block flow + overflow clipping (fixed reprint note) so printing from
+    // the preview still yields exactly one page.
+    const css = getPreviewScreenCss();
+    const m = css.match(/@media print\s*{[\s\S]*$/);
+    expect(m).not.toBeNull();
+    const printBlock = m![0];
+    expect(printBlock).toContain("overflow: hidden !important");
+    expect(printBlock).toContain("display: block");
+  });
+
   it("embeds the preview stylesheet when extraHeadCss is passed (preview popup)", () => {
     const html = buildCertificateHtml(base, "ml", 0, undefined, getPreviewScreenCss());
     expect(html).toContain('<style data-src="templates/preview-screen.css">');
