@@ -55,10 +55,12 @@ export function installPreviewMock() {
       { month: "2026-08", income: 26200, expense: 11800 },
     ],
     recentActivity: () => [
-      { id: 1, action: "created", entity_type: "member", entity_id: 12, username: "admin", changed_at: "2026-08-29 18:42:11", summary: "Added member Ayaan Rahman" },
-      { id: 2, action: "created", entity_type: "donation", entity_id: 8, username: "treasurer", changed_at: "2026-08-29 17:15:03", summary: "Recorded donation ₹2,500" },
-      { id: 3, action: "updated", entity_type: "family", entity_id: 4, username: "secretary", changed_at: "2026-08-28 11:20:47", summary: "Updated family FAM-004" },
-      { id: 4, action: "created", entity_type: "certificate", entity_id: 5, username: "secretary", changed_at: "2026-08-27 15:05:22", summary: "Issued certificate CERT-2025-0005" },
+      // Field names mirror the real audit_log columns (created_at/description)
+      // so the Dashboard's Recent Activity table renders identically here.
+      { id: 1, action: "created", entity_type: "member", entity_id: 12, username: "admin", created_at: "2026-08-29 18:42:11", description: "Added member Ayaan Rahman" },
+      { id: 2, action: "created", entity_type: "donation", entity_id: 8, username: "treasurer", created_at: "2026-08-29 17:15:03", description: "Recorded donation ₹2,500" },
+      { id: 3, action: "updated", entity_type: "family", entity_id: 4, username: "secretary", created_at: "2026-08-28 11:20:47", description: "Updated family FAM-004" },
+      { id: 4, action: "created", entity_type: "certificate", entity_id: 5, username: "secretary", created_at: "2026-08-27 15:05:22", description: "Issued certificate CERT-2025-0005" },
     ],
     alerts: () => [
       { type: "subscriptions_overdue", count: 3 },
@@ -454,23 +456,49 @@ export function installPreviewMock() {
       rows: [mkFamily(11, "Ward A"), mkFamily(12, "Ward B"), mkFamily(13, "Ward A"), mkFamily(14, "Ward B"), mkFamily(15, "Ward A")],
     }),
   };
+  /* Unknown MODULES (mms.members, mms.marriages, …) used to fall back to one
+   * bare function, so `mms.members.list()` threw "not a function" and every
+   * page using the generic useList hook logged console errors in preview.
+   * Modules must themselves be callable namespaces: return a callable Proxy
+   * whose methods answer the same safe defaults as the top-level heuristic.
+   * Explicitly mocked modules are ALSO wrapped (withLoose) so a page calling
+   * a real bridge method the mock didn't stub (e.g. certificates.list) gets
+   * a safe empty answer instead of "not a function" — production preload
+   * exposes it, so preview should behave the same. */
+  const looseMethod = (name: string) => {
+    const n = name.toLowerCase();
+    if (/list|rows|items|history|activity|search|positions|types|categories|notifications|backups|events|payments/.test(n)) {
+      return () => Promise.resolve([]);
+    }
+    return (...args: unknown[]) => Promise.resolve({ success: true });
+  };
+  const withLoose = <T extends object>(mod: T): any => new Proxy(mod, {
+    get(t, p) {
+      if (p === "then") return undefined; // avoid thenable detection
+      if (p in t) return (t as any)[p];
+      return looseMethod(String(p));
+    },
+  });
+  const looseModule = (): any => {
+    const fn: any = (...args: unknown[]) => Promise.resolve({ success: true });
+    return new Proxy(fn, { get(_t, p) { if (p === "then") return undefined; return looseMethod(String(p)); } });
+  };
 
-  const base: Record<string, unknown> = { dashboard, settings, auth, win, uninstall, accounting, certificates: mockCertificates, whatsapp, receipts, staff, app, updates, events, donations, backup, tokens, families };
+  const base: Record<string, unknown> = { dashboard: withLoose(dashboard), settings: withLoose(settings), auth: withLoose(auth), win: withLoose(win), uninstall: withLoose(uninstall), accounting: withLoose(accounting), certificates: withLoose(mockCertificates), whatsapp: withLoose(whatsapp), receipts: withLoose(receipts), staff: withLoose(staff), app: withLoose(app), updates: withLoose(updates), events: withLoose(events), donations: withLoose(donations), backup: withLoose(backup), tokens: withLoose(tokens), families: withLoose(families) };
   const handler: ProxyHandler<Record<string, unknown>> = {
     get(target, prop) {
       if (prop === "then") return undefined; // avoid thenable detection
       const key = String(prop);
       if (key in target) return target[key];
-      return (...args: unknown[]) => {
+      if (typeof window !== "undefined") {
+        // Called as mms.<listish>() at top level → same defaults as before;
+        // otherwise treat the key as a module namespace.
         const name = key.toLowerCase();
         if (/list|rows|items|history|activity|search|positions|types|categories|notifications|backups|events|payments/.test(name)) {
-          return Promise.resolve([]);
+          return () => Promise.resolve([]);
         }
-        if (/summary|stats|balance|count|total|overview|verify|receipt/.test(name)) {
-          return Promise.resolve({ success: true });
-        }
-        return Promise.resolve({ success: true });
-      };
+      }
+      return looseModule();
     },
   };
 
