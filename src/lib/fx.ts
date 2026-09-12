@@ -6,9 +6,11 @@ import { persist } from "zustand/middleware";
  *
  * WHY THIS EXISTS: the sidebar collapse animates CSS `width`, which forces a
  * full-window relayout + repaint on every frame (the main column, its tables
- * and the gradient canvases all resize with it). On weak hardware that reads
- * as a glitch. When html.lowfx is set, globals.css snaps the sidebar instantly
- * instead — snappy beats stuttery.
+ * and the gradient canvases all resize with it). On weak hardware a full-speed
+ * glide once read as a glitch, so lowfx used to snap the sidebar instantly —
+ * but the office found the instant jump too abrupt on EVERY machine. Lowfx now
+ * keeps a slightly shorter, eased width glide (see globals.css) instead of
+ * removing it, and only the hover/color transitions are dropped.
  *
  * AUTO DETECTION (Chromium APIs, evaluated once at load) — deliberately
  * CONSERVATIVE: only genuinely ancient hardware (<= 2 cores or <= 2 GB RAM)

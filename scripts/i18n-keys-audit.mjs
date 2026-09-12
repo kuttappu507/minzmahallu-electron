@@ -9,7 +9,7 @@ const root = process.cwd();
 const dictPath = path.join(root, "src/i18n/index.ts");
 const dict = fs.readFileSync(dictPath, "utf8");
 const keys = new Set();
-for (const m of dict.matchAll(/([a-z_0-9]+):\s*\{ en:/g)) keys.add(m[1]);
+for (const m of dict.matchAll(/([a-z_0-9]+):\s*\{\s*en:/g)) keys.add(m[1]);
 
 const files = execSync(`grep -rl 't("' src --include=*.tsx --include=*.ts`)
   .toString().trim().split("\n").filter(Boolean);

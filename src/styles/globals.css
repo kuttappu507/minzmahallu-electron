@@ -347,9 +347,10 @@
     border-radius: 18px;
     display: flex; flex-direction: column; overflow: visible;
     /* Width must transition (the main column genuinely reflows with it), so the
-       duration is kept SHORT: every frame is a full-window relayout+repaint.
-       Paint-only properties (colors) may run longer. See lowfx below. */
-    position: relative; transition: width 0.2s cubic-bezier(0.2, 0.8, 0.3, 1), background 0.3s, border-color 0.3s;
+       duration stays SHORT — but long enough to read as a glide, not a jump
+       (the office found the old 0.2s snap too abrupt). Paint-only properties
+       (colors) may run longer. See lowfx below. */
+    position: relative; transition: width 0.28s cubic-bezier(0.45, 0, 0.2, 1), background 0.3s, border-color 0.3s;
     z-index: 40;
     box-shadow: var(--sh);
   }
@@ -401,7 +402,7 @@
   .navit-dot { flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--line2); transition: background-color 0.15s, box-shadow 0.15s; }
   .navit.on .navit-dot { background: var(--sc, var(--em)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sc, var(--em)) 18%, transparent); }
   .navbadge { font: 700 8.5px Poppins; letter-spacing: 0.1em; background: var(--sb); color: var(--st); border: 1px solid var(--sl); padding: 2.5px 8px; border-radius: 99px; }
-  .sidebar.min .navit { justify-content: center; padding: 0; margin-left: 0; margin-right: 0; }
+  .sidebar.min .navit { justify-content: center; }
   .sidebar.min .navit b, .sidebar.min .navit .navbadge, .sidebar.min .navit-dot { display: none; }
   .sidebar.min .navit-ic { flex: 0 0 34px; width: 34px; height: 34px; }
   .sidebar.min .navit:hover::after {
@@ -423,10 +424,12 @@
   .sidebar.min .flap .ic { transform: rotate(0deg); }
 
   /* LOW-END MODE — html.lowfx (set from src/lib/fx.ts: weak CPU/RAM detection or
-     the Settings "Interface animations" toggle). On such machines each frame of
-     the width glide is a full-window relayout + gradient re-raster, which reads
-     as a glitch — there we snap the sidebar instantly (snappy beats stuttery). */
-  html.lowfx .sidebar { transition: none; }
+     the Settings "Interface animations" toggle). A full-speed glide once read
+     as a glitch on weak machines, so it used to snap instantly — but the
+     office found the instant jump TOO ABRUPT on every class of hardware.
+     Compromise: lowfx keeps a slightly shorter, eased width glide (a handful
+     of cheap frames) while hover/hover-color transitions stay off. */
+  html.lowfx .sidebar { transition: width 0.2s cubic-bezier(0.4, 0, 0.25, 1); }
   html.lowfx .flap .ic { transition: none; }
   html.lowfx .navit, html.lowfx .navit-ic, html.lowfx .navit-dot { transition: none; }
 

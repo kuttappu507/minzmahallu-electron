@@ -233,7 +233,7 @@ const translations: Record<string, { en: string; ml: string }> = {
   set_anim_auto: { en: "Auto (recommended)", ml: "ഓട്ടോ (ശുപാർശ ചെയ്യുന്നു)" },
   set_anim_reduced: { en: "Reduced", ml: "കുറച്ചത്" },
   set_anim_full: { en: "Full", ml: "പൂർണ്ണം" },
-  set_anim_hint: { en: "Auto detects low-end PCs and removes the sidebar slide animation to keep the app smooth.", ml: "പഴയ കമ്പ്യൂട്ടറുകൾ സ്വയം കണ്ടെത്തി, ആപ്പ് വേഗത്തിൽ പ്രവർത്തിക്കാൻ സൈഡ്ബാർ ആനിമേഷൻ നീക്കും." },
+  set_anim_hint: { en: "Auto keeps animations light on low-end PCs so the app stays smooth.", ml: "പഴയ കമ്പ്യൂട്ടറുകൾ സ്വയം കണ്ടെത്തി, ആനിമേഷനുകൾ ലഘുവാക്കി ആപ്പ് സുഗമമായി പ്രവർത്തിപ്പിക്കും." },
   set_backup_section: { en: "Backup", ml: "ബാക്കപ്പ്" },
   set_backup_mirror: { en: "Backup mirror folder", ml: "ബാക്കപ്പ് മിറർ ഫോൾഡർ" },
   set_backup_mirror_desc: { en: "Every backup is also copied here (latest 10 kept). Pick a USB drive, another disk, or your Google Drive folder — so the data survives even if this PC is lost.", ml: "ഓരോ ബാക്കപ്പും ഇവിടെയും ഒരു പകർപ്പ് സൂക്ഷിക്കും (പുതിയ 10 എണ്ണം മാത്രം നിലനിർത്തും). യുഎസ്ബി ഡ്രൈവ്, മറ്റൊരു ഡിസ്ക്, അല്ലെങ്കിൽ ഗൂഗ്ൾ ഡ്രൈവ് ഫോൾഡർ തിരഞ്ഞെടുക്കുക — കമ്പ്യൂട്ടർ നഷ്ടപ്പെട്ടാലും ഡാറ്റ സുരക്ഷിതമായിരിക്കും." },
@@ -255,10 +255,7 @@ const translations: Record<string, { en: string; ml: string }> = {
   set_district: { en: "District", ml: "ജില്ല" },
   set_pincode: { en: "Pincode", ml: "പിൻകോഡ്" },
   set_state: { en: "State", ml: "സംസ്ഥാനം" },
-  set_committee_term_start: { en: "Committee Term Start", ml: "കമ്മിറ്റി കാലാവധി ആരംഭം" },
-  set_committee_term_end: { en: "Committee Term End", ml: "കമ്മിറ്റി കാലാവധി അവസാനം" },
   set_phone: { en: "Phone", ml: "ഫോൺ" },
-  set_email: { en: "Email", ml: "ഇമെയിൽ" },
   set_financial_year_start: { en: "Financial Year Start", ml: "സാമ്പത്തിക വർഷം ആരംഭം" },
   set_currency_symbol: { en: "Currency Symbol", ml: "കറൻസി ചിഹ്നം" },
   set_receipt_prefix: { en: "Numbering Prefix", ml: "നമ്പറിംഗ് പ്രിഫിക്സ്" },
@@ -305,7 +302,6 @@ const translations: Record<string, { en: string; ml: string }> = {
   set_backup_keep_hint: { en: "Older automatic backups are deleted on their own; manual backups are never touched.", ml: "പഴയ ഓട്ടോമാറ്റിക് ബാക്കപ്പുകൾ സ്വയം ഇല്ലാതാക്കും; സ്വമേധയാ എടുത്ത ബാക്കപ്പുകൾ ഒരിക്കലും മാറ്റില്ല." },
   set_about_section: { en: "About", ml: "വിവരങ്ങൾ" },
   set_app_version: { en: "App version", ml: "ആപ്പ് പതിപ്പ്" },
-  set_data_folder: { en: "Data folder", ml: "ഡാറ്റ ഫോൾഡർ" },
 
   // Update check (monthly GitHub release check)
   upd_title: { en: "Update available", ml: "പുതിയ പതിപ്പ് ലഭ്യമാണ്" },

@@ -340,14 +340,16 @@ body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayala
 .corner.tr{right:7mm;top:7mm;transform:scaleX(-1)}
 .corner.bl{left:7mm;bottom:7mm;transform:scaleY(-1)}
 .corner.br{right:7mm;bottom:7mm;transform:scale(-1,-1)}
-/* Anti-forgery: security-code box; reprints carry a bottom-left note.
-   Compact height — the box must share the single page with the fields above
-   it, especially on the LANDSCAPE death certificate where every mm counts. */
-.verify-box{margin:3.5mm 2mm 0;padding:2mm 3.5mm;border:.35mm solid #9fcfbc;border-radius:1.5mm;background:#f2faf6;display:flex;align-items:center;gap:3.5mm;flex-wrap:wrap}
-.verify-copy{flex:1;min-width:0}
-.verify-label{font-size:7pt;letter-spacing:.8px;color:#5f7268;text-transform:uppercase}
-.verify-code{font-family:'Courier New',monospace;font-weight:700;font-size:10.5pt;letter-spacing:2.5px;color:#0e7c5b}
-.verify-hint{font-size:6pt;color:#8ba096;flex-basis:100%;line-height:1.3}
+/* Anti-forgery: security code — one SMALL, unobtrusive line pinned to the
+   BOTTOM of the page (office request): below the signature zone, above the
+   page edge, centered. Absolute positioning keeps it out of the document
+   flow on every certificate type — including the landscape death
+   certificate, where it used to compete with the SMF fields for space. */
+.verify-box{position:absolute;left:16mm;right:16mm;bottom:10.5mm;text-align:center;z-index:40}
+.verify-copy{display:block}
+.verify-label{font-size:6pt;letter-spacing:.8px;color:#8ba096;text-transform:uppercase}
+.verify-code{display:inline;font-family:'Courier New',monospace;font-weight:700;font-size:8pt;letter-spacing:2px;color:#4f6a5d;margin:0 2.5mm}
+.verify-hint{display:inline;font-size:6pt;color:#8ba096;line-height:1.3}
 .reprint-note{position:fixed;left:14mm;bottom:8mm;font-size:7.5pt;color:#7d8f86;letter-spacing:.4px;pointer-events:none;z-index:50}
 .reprint-note b{color:#a33a3a;font-weight:700}
 /* Header: 3-column grid (spacer | centered name block | reg-no stack).

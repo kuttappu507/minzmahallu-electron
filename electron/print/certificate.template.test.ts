@@ -89,6 +89,31 @@ describe("certificate security-code box renders on every certificate (no QR)", (
     expect(html).toContain("Reprinted on");
     expect(html).toContain("03-09-2026 12:00");
   });
+
+  it("pins the security code to the page BOTTOM in small text (office request)", () => {
+    // The office asked for the code to sit at the bottom of the sheet in a
+    // small, unobtrusive line — not a bordered box inside the document body.
+    const html = buildCertificateHtml(
+      {
+        certificate_number: "MMJM/MB/26/09/011",
+        type: "Membership",
+        issued_to: "Bottom Line Person",
+        issued_date: "2026-09-03",
+        issued_by: 1,
+        verification_code: "AB2C-3D4E-F6GH",
+      },
+      "en"
+    );
+    const boxCss = /\.verify-box\{[^}]*\}/.exec(html)?.[0] ?? "";
+    expect(boxCss).toContain("position:absolute");
+    expect(boxCss).toContain("bottom:");
+    // Small text: label and hint 6pt, code 8pt (was a 10.5pt bordered box).
+    expect(html).toMatch(/\.verify-label\{[^}]*font-size:6pt/);
+    expect(html).toMatch(/\.verify-hint\{[^}]*font-size:6pt/);
+    expect(html).toMatch(/\.verify-code\{[^}]*font-size:8pt/);
+    // Out of the document flow: no tinted panel any more.
+    expect(boxCss).not.toContain("background:#f2faf6");
+  });
 });
 
 describe("every certificate fits ONE A4 page (no spill onto a second sheet)", () => {
