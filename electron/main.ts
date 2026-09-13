@@ -283,6 +283,16 @@ app.whenReady().then(() => {
   ipcMain.handle("accounting:totalExpense", () => data.accounting.totalExpense());
   ipcMain.handle("accounting:balance", () => data.accounting.balance());
 
+  // ---- Asset register (V036) — buildings, lands, rentable goods ----
+  ipcMain.handle("assets:list", (_e, filter) => data.assets.list(filter || {}));
+  ipcMain.handle("assets:get", (_e, id) => data.assets.get(id));
+  ipcMain.handle("assets:create", (_e, d) => data.assets.create(d));
+  ipcMain.handle("assets:update", (_e, id, d) => data.assets.update(id, d));
+  ipcMain.handle("assets:remove", (_e, id) => data.assets.remove(id));
+  ipcMain.handle("assets:options", () => data.assets.options());
+  ipcMain.handle("assets:summary", () => data.assets.summary());
+  ipcMain.handle("assets:statement", (_e, id) => data.assets.statement(id));
+
   ipcMain.handle("marriages:list", (_e, filter) => data.marriages.list(filter || {}));
   ipcMain.handle("marriages:get", (_e, id) => data.marriages.get(id));
   ipcMain.handle("marriages:create", (_e, d) => data.marriages.create(d));

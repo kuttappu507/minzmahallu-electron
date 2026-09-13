@@ -180,13 +180,21 @@ export function installPreviewMock() {
     amount: number; description: string; payment_method: string; transaction_ref: string; receipt_number: string;
     voucher_no?: string | null; bill_no?: string | null; payee?: string | null; account_id?: number | null;
     linked_module?: string | null; linked_id?: number | null; status?: string | null; void_reason?: string | null; voided_at?: string | null;
+    category?: string | null; asset_id?: number | null; asset_name?: string | null;
   }
   let mockTxnSeq = 200;
+  // ===== Asset register (V036) — stateful sample data for the Assets page. =====
+  let mockAssetSeq = 4;
+  const assetRows = [
+    { id: 1, asset_code: "AST-001", name: "Main Road Shop", category: "Shop", reference_no: "Sy.No. 142/2", location: "Main Road", acquisition_date: "2019-06-12", acquisition_cost: 1800000, current_value: 2600000, status: "Given rent", condition_note: "Good", custodian: "Secretary", income_generating: 1, tenant_name: "Anwar Stores", monthly_rent: 6500, agreement_start: "2025-04-01", agreement_end: "2028-03-31", notes: "", income_total: 78000, expense_total: 3420 },
+    { id: 2, asset_code: "AST-002", name: "West Side Plot", category: "Land", reference_no: "Sy.No. 87/1B", location: "West of masjid", acquisition_date: "1998-01-20", acquisition_cost: 250000, current_value: 1900000, status: "Vacant", condition_note: "Good", custodian: "President", income_generating: 0, tenant_name: "", monthly_rent: 0, agreement_start: "", agreement_end: "", notes: "Kept for future madrasa expansion", income_total: 0, expense_total: 0 },
+    { id: 3, asset_code: "AST-003", name: "Community Hall", category: "Hall", reference_no: "", location: "First floor", acquisition_date: "2015-03-10", acquisition_cost: 950000, current_value: 1400000, status: "In use", condition_note: "Needs repair", custodian: "Manager", income_generating: 1, tenant_name: "", monthly_rent: 0, agreement_start: "", agreement_end: "", notes: "Booked for weddings via office", income_total: 64000, expense_total: 2750 },
+  ];
   const ledgerRows: MockLedgerRow[] = [
     // Manual transactions (source: transactions) — editable / voidable
     { source_id: 1, source: "transactions", ledger_date: daysAgo(3), type: "Income", amount: 5000, description: "Donation — Haji Abdulla", payment_method: "Bank Transfer", transaction_ref: "NEFT-22310", receipt_number: "TXN-2026-0101", voucher_no: "V-2026-118", payee: "Haji Abdulla", account_id: 1, status: "Posted" },
-    { source_id: 2, source: "transactions", ledger_date: daysAgo(9), type: "Income", amount: 8000, description: "Community hall rent — July", payment_method: "Cash", transaction_ref: "CASH-00312", receipt_number: "TXN-2026-0098", voucher_no: "V-2026-115", payee: "Moulavi Hassan", account_id: 1, status: "Posted" },
-    { source_id: 3, source: "transactions", ledger_date: daysAgo(2), type: "Expense", amount: 3420, description: "Electricity bill (July)", payment_method: "Bank Transfer", transaction_ref: "NEFT-55912", receipt_number: "TXN-2026-0103", voucher_no: "V-2026-120", bill_no: "KSEB-77812", payee: "KSEB Ltd", account_id: 1, status: "Posted" },
+    { source_id: 2, source: "transactions", ledger_date: daysAgo(9), type: "Income", amount: 8000, description: "Community hall rent — July", payment_method: "Cash", transaction_ref: "CASH-00312", receipt_number: "TXN-2026-0098", voucher_no: "V-2026-115", payee: "Moulavi Hassan", account_id: 1, status: "Posted", category: "Hall Rent", asset_id: 3, asset_name: "Community Hall" },
+    { source_id: 3, source: "transactions", ledger_date: daysAgo(2), type: "Expense", amount: 3420, description: "Electricity bill (July)", payment_method: "Bank Transfer", transaction_ref: "NEFT-55912", receipt_number: "TXN-2026-0103", voucher_no: "V-2026-120", bill_no: "KSEB-77812", payee: "KSEB Ltd", account_id: 1, status: "Posted", category: "Electricity", asset_id: 1, asset_name: "Main Road Shop" },
     { source_id: 4, source: "transactions", ledger_date: daysAgo(12), type: "Expense", amount: 2750, description: "Maintenance — plumbing repair", payment_method: "Cash", transaction_ref: "CASH-00451", receipt_number: "TXN-2026-0095", voucher_no: "V-2026-112", bill_no: "PL-0881", payee: "Basheer Plumbers", account_id: 1, status: "Posted" },
     { source_id: 5, source: "transactions", ledger_date: daysAgo(20), type: "Income", amount: 1450, description: "FD interest", payment_method: "Bank Transfer", transaction_ref: "NEFT-11022", receipt_number: "TXN-2026-0090", voucher_no: "V-2026-108", payee: "Canara Bank", account_id: 1, status: "Posted" },
     { source_id: 6, source: "transactions", ledger_date: daysAgo(16), type: "Expense", amount: 1200, description: "Stationery", payment_method: "Cash", transaction_ref: "CASH-00418", receipt_number: "TXN-2026-0092", voucher_no: "V-2026-110", bill_no: "ST-041", payee: "City Stationers", account_id: 1, status: "Posted" },
@@ -252,17 +260,20 @@ export function installPreviewMock() {
         id, receipt_number: row.receipt_number, txn_date: row.ledger_date, type: row.type, amount: row.amount,
         payment_method: row.payment_method, description: row.description, account_id: row.account_id ?? 1,
         transaction_ref: row.transaction_ref, voucher_no: row.voucher_no || "", bill_no: row.bill_no || "",
-        payee: row.payee || "", linked_module: row.linked_module || "", linked_id: row.linked_id || 0,
+        payee: row.payee || "", category: row.category || "", asset_id: row.asset_id ?? null,
+        linked_module: row.linked_module || "", linked_id: row.linked_id || 0,
       });
     },
     create: (payload: any) => {
       const nextId = ++mockTxnSeq;
+      const linkedAsset = payload.assetId ? assetRows.find((a) => a.id === Number(payload.assetId)) : null;
       ledgerRows.unshift({
         source_id: nextId, source: "transactions", ledger_date: payload.txnDate, type: payload.type, amount: payload.amount,
         description: payload.description || "Manual entry", payment_method: payload.paymentMethod || "Cash",
         transaction_ref: payload.transactionRef || "", receipt_number: payload.receiptNumber || "",
         voucher_no: payload.voucherNo || "", bill_no: payload.billNo || "", payee: payload.payee || "",
         account_id: payload.accountId || 1, linked_module: payload.linkedModule || "", linked_id: payload.linkedId || null, status: "Posted",
+        category: payload.category || "", asset_id: linkedAsset ? linkedAsset.id : null, asset_name: linkedAsset ? linkedAsset.name : null,
       });
       return Promise.resolve({ success: true, duplicateBill: false });
     },
@@ -292,6 +303,76 @@ export function installPreviewMock() {
     detail: (source: string, id: number) => {
       const row = ledgerRows.find((r) => r.source === source && r.source_id === id) || null;
       return Promise.resolve({ record: row ? { ...row } : null, changes: [], auditTrail: [] });
+    },
+  };
+
+  // ===== Assets — stateful register so the Assets page + accounting link QA
+  // runs without the main process. =====
+  const assets = {
+    list: (filter: any = {}) => {
+      const q = String(filter.search || "").toLowerCase();
+      let rows = assetRows.filter((a) =>
+        (!q || [a.asset_code, a.name, a.location, a.reference_no, a.tenant_name, a.custodian].join(" ").toLowerCase().includes(q)) &&
+        (!filter.category || filter.category === "All" || a.category === filter.category) &&
+        (!filter.status || filter.status === "All" || a.status === filter.status)
+      );
+      const total = rows.length;
+      const page = filter.page || 1; const pageSize = filter.pageSize || 20;
+      rows = rows.slice((page - 1) * pageSize, page * pageSize);
+      return Promise.resolve({ rows: rows.map((r) => ({ ...r })), total });
+    },
+    get: (id: number) => Promise.resolve(assetRows.find((a) => a.id === id) ? { ...assetRows.find((a) => a.id === id) } : null),
+    create: (payload: any) => {
+      const code = `AST-${String(mockAssetSeq++).padStart(3, "0")}`;
+      const income = payload.incomeGenerating ? 1 : 0;
+      const row: any = {
+        id: mockAssetSeq + 100, asset_code: code, name: payload.name, category: payload.category || "Other",
+        reference_no: payload.referenceNo || "", location: payload.location || "", acquisition_date: payload.acquisitionDate || "",
+        acquisition_cost: Number(payload.acquisitionCost) || 0, current_value: Number(payload.currentValue) || 0,
+        status: payload.status || "In use", condition_note: payload.conditionNote || "Good", custodian: payload.custodian || "",
+        income_generating: income, tenant_name: income ? (payload.tenantName || "") : "", monthly_rent: income ? (Number(payload.monthlyRent) || 0) : 0,
+        agreement_start: income ? (payload.agreementStart || "") : "", agreement_end: income ? (payload.agreementEnd || "") : "",
+        notes: payload.notes || "", income_total: 0, expense_total: 0,
+      };
+      assetRows.push(row);
+      return Promise.resolve({ id: row.id, assetCode: code });
+    },
+    update: (id: number, payload: any) => {
+      const row: any = assetRows.find((a) => a.id === id);
+      if (row) Object.assign(row, {
+        name: payload.name, category: payload.category, reference_no: payload.referenceNo, location: payload.location,
+        acquisition_date: payload.acquisitionDate, acquisition_cost: Number(payload.acquisitionCost) || 0,
+        current_value: Number(payload.currentValue) || 0, status: payload.status, condition_note: payload.conditionNote,
+        custodian: payload.custodian, income_generating: payload.incomeGenerating ? 1 : 0,
+        tenant_name: payload.incomeGenerating ? (payload.tenantName || "") : "", monthly_rent: payload.incomeGenerating ? (Number(payload.monthlyRent) || 0) : 0,
+        agreement_start: payload.incomeGenerating ? (payload.agreementStart || "") : "", agreement_end: payload.incomeGenerating ? (payload.agreementEnd || "") : "",
+        notes: payload.notes,
+      });
+      return Promise.resolve({ success: true });
+    },
+    remove: (id: number) => {
+      const idx = assetRows.findIndex((a) => a.id === id);
+      if (idx >= 0 && (assetRows[idx].income_total || 0) > 0) {
+        return Promise.reject(new Error("This asset has accounting entries linked to it, so it cannot be deleted. Change its status to Sold or Demolished instead."));
+      }
+      if (idx >= 0) assetRows.splice(idx, 1);
+      return Promise.resolve({ success: true });
+    },
+    options: () => Promise.resolve(assetRows.filter((a) => !["Sold", "Demolished", "Transferred"].includes(a.status)).map((a) => ({ id: a.id, asset_code: a.asset_code, name: a.name, category: a.category, income_generating: a.income_generating, monthly_rent: a.monthly_rent }))),
+    summary: () => Promise.resolve({
+      count: assetRows.length,
+      incomeGenerating: assetRows.filter((a) => a.income_generating).length,
+      monthlyRentPotential: assetRows.reduce((s, a) => s + (a.income_generating ? a.monthly_rent : 0), 0),
+      totalCurrentValue: assetRows.reduce((s, a) => s + a.current_value, 0),
+      byCategory: [],
+    }),
+    statement: (id: number) => {
+      const entries = ledgerRows
+        .filter((r) => r.source === "transactions" && r.asset_id === id)
+        .map((r) => ({ id: r.source_id, txn_date: r.ledger_date, type: r.type, amount: r.amount, description: r.description, category: r.category || null, receipt_number: r.receipt_number, status: r.status || null }));
+      const income = entries.filter((e) => e.type === "Income").reduce((s, e) => s + e.amount, 0);
+      const expense = entries.filter((e) => e.type === "Expense").reduce((s, e) => s + e.amount, 0);
+      return Promise.resolve({ income, expense, net: income - expense, entries });
     },
   };
 
@@ -501,7 +582,7 @@ export function installPreviewMock() {
     return new Proxy(fn, { get(_t, p) { if (p === "then") return undefined; return looseMethod(String(p)); } });
   };
 
-  const base: Record<string, unknown> = { dashboard: withLoose(dashboard), settings: withLoose(settings), auth: withLoose(auth), win: withLoose(win), uninstall: withLoose(uninstall), accounting: withLoose(accounting), certificates: withLoose(mockCertificates), whatsapp: withLoose(whatsapp), receipts: withLoose(receipts), staff: withLoose(staff), app: withLoose(app), updates: withLoose(updates), events: withLoose(events), donations: withLoose(donations), backup: withLoose(backup), tokens: withLoose(tokens), families: withLoose(families) };
+  const base: Record<string, unknown> = { dashboard: withLoose(dashboard), settings: withLoose(settings), auth: withLoose(auth), win: withLoose(win), uninstall: withLoose(uninstall), accounting: withLoose(accounting), assets: withLoose(assets), certificates: withLoose(mockCertificates), whatsapp: withLoose(whatsapp), receipts: withLoose(receipts), staff: withLoose(staff), app: withLoose(app), updates: withLoose(updates), events: withLoose(events), donations: withLoose(donations), backup: withLoose(backup), tokens: withLoose(tokens), families: withLoose(families) };
   const handler: ProxyHandler<Record<string, unknown>> = {
     get(target, prop) {
       if (prop === "then") return undefined; // avoid thenable detection

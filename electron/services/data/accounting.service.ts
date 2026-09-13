@@ -20,8 +20,10 @@ export const accounting = {
       where.push("t.type = ?");
       params.push(filter.type);
     }
-    const sql = `SELECT t.*, u.username AS created_by_name
-      FROM transactions t LEFT JOIN users u ON u.id = t.created_by
+    const sql = `SELECT t.*, u.username AS created_by_name, a.name AS asset_name
+      FROM transactions t
+      LEFT JOIN users u ON u.id = t.created_by
+      LEFT JOIN assets a ON a.id = t.asset_id
       WHERE ${where.join(" AND ")}
       ORDER BY t.txn_date DESC, t.id DESC`;
     if (filter.page && filter.pageSize) {
@@ -66,10 +68,19 @@ export const accounting = {
       );
       if (found) duplicateBill = found;
     }
+    // Asset link (V036): an entry can be tagged with the building / land /
+    // rentable good it belongs to, so the Assets page can total its income
+    // and upkeep. Unknown ids are refused rather than silently dropped.
+    let assetId: number | null = null;
+    if (data.assetId) {
+      const asset = one<any>("SELECT id FROM assets WHERE id = ?", [Number(data.assetId)]);
+      if (!asset) throw new Error("The selected asset no longer exists — please pick it again");
+      assetId = Number(data.assetId);
+    }
     const { id } = run(
       `INSERT INTO transactions
-        (txn_date, account_id, type, amount, payment_method, description, linked_module, linked_id, receipt_number, transaction_ref, voucher_no, bill_no, payee, category, status, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Posted', ?)`,
+        (txn_date, account_id, type, amount, payment_method, description, linked_module, linked_id, receipt_number, transaction_ref, voucher_no, bill_no, payee, category, asset_id, status, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Posted', ?)`,
       [
         data.txnDate || nowDate(), data.accountId ?? 1, data.type,
         data.amount, data.paymentMethod ?? "Cash", data.description ?? "",
@@ -78,6 +89,7 @@ export const accounting = {
         voucher, data.billNo ? String(data.billNo).trim() : null,
         data.payee ? String(data.payee).trim() : null,
         data.category ? String(data.category).trim() : null,
+        assetId,
         data.createdBy ?? 1
       ]
     );
@@ -86,8 +98,14 @@ export const accounting = {
   update: (id: number, data: any) => {
     const existing = one<any>("SELECT status FROM transactions WHERE id = ?", [id]);
     if (existing?.status === "Void") throw new Error("Voided entries cannot be edited. Enter a new entry instead.");
+    let assetId: number | null = null;
+    if (data.assetId) {
+      const asset = one<any>("SELECT id FROM assets WHERE id = ?", [Number(data.assetId)]);
+      if (!asset) throw new Error("The selected asset no longer exists — please pick it again");
+      assetId = Number(data.assetId);
+    }
     return run(
-      `UPDATE transactions SET txn_date = ?, account_id = ?, type = ?, amount = ?, payment_method = ?, description = ?, linked_module = ?, linked_id = ?, transaction_ref = ?, voucher_no = ?, bill_no = ?, payee = ?, category = ?, updated_at = datetime('now') WHERE id = ?`,
+      `UPDATE transactions SET txn_date = ?, account_id = ?, type = ?, amount = ?, payment_method = ?, description = ?, linked_module = ?, linked_id = ?, transaction_ref = ?, voucher_no = ?, bill_no = ?, payee = ?, category = ?, asset_id = ?, updated_at = datetime('now') WHERE id = ?`,
       [
         data.txnDate, data.accountId, data.type, data.amount,
         data.paymentMethod, data.description,
@@ -97,6 +115,7 @@ export const accounting = {
         data.billNo ? String(data.billNo).trim() : null,
         data.payee ? String(data.payee).trim() : null,
         data.category ? String(data.category).trim() : null,
+        assetId,
         id
       ]
     );
@@ -209,12 +228,12 @@ export const accounting = {
       const w: string[] = ["1=1"];
       if (range) { w.push("t.txn_date >= ?"); w.push("t.txn_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All") { w.push("t.type = ?"); params.push(filter.type); }
-      if (filter.search) { w.push("(t.description LIKE ? OR t.receipt_number LIKE ? OR t.transaction_ref LIKE ? OR t.voucher_no LIKE ? OR t.bill_no LIKE ? OR t.category LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t, t, t, t, t); }
-      parts.push(`SELECT t.id AS source_id, 'transactions' AS source, t.txn_date AS ledger_date, t.type, t.amount, t.description, t.payment_method, t.transaction_ref, t.receipt_number, t.account_id, t.linked_module, t.linked_id, t.voucher_no, t.bill_no, t.payee, t.category, t.status, t.void_reason, t.voided_at,
+      if (filter.search) { w.push("(t.description LIKE ? OR t.receipt_number LIKE ? OR t.transaction_ref LIKE ? OR t.voucher_no LIKE ? OR t.bill_no LIKE ? OR t.category LIKE ? OR a.name LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t, t, t, t, t, t); }
+      parts.push(`SELECT t.id AS source_id, 'transactions' AS source, t.txn_date AS ledger_date, t.type, t.amount, t.description, t.payment_method, t.transaction_ref, t.receipt_number, t.account_id, t.linked_module, t.linked_id, t.voucher_no, t.bill_no, t.payee, t.category, t.status, t.void_reason, t.voided_at, a.name AS asset_name,
         CASE WHEN EXISTS(SELECT 1 FROM audit_log al WHERE al.module='accounting' AND al.entity_id=t.id AND al.action IN ('UPDATE','EDIT'))
                OR EXISTS(SELECT 1 FROM record_history rh WHERE rh.entity_type='transaction' AND rh.entity_id=t.id AND rh.action='EDIT')
              THEN 1 ELSE 0 END AS has_history
-        FROM transactions t WHERE ${w.join(" AND ")}`);
+        FROM transactions t LEFT JOIN assets a ON a.id = t.asset_id WHERE ${w.join(" AND ")}`);
     }
     // 2. Donations (always Income)
     {
@@ -222,7 +241,7 @@ export const accounting = {
       if (range) { w.push("d.donation_date >= ?"); w.push("d.donation_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All" && filter.type !== "Income") { w.push("1=0"); } // donations are income only
       if (filter.search) { w.push("(d.donor_name LIKE ? OR d.receipt_number LIKE ? OR d.purpose LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t, t); }
-      parts.push(`SELECT d.id AS source_id, 'donations' AS source, d.donation_date AS ledger_date, 'Income' AS type, d.amount, (d.donor_name || COALESCE(' — ' || d.purpose, '')) AS description, d.payment_method, '' AS transaction_ref, d.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, NULL AS category, NULL AS status, NULL AS void_reason, NULL AS voided_at,
+      parts.push(`SELECT d.id AS source_id, 'donations' AS source, d.donation_date AS ledger_date, 'Income' AS type, d.amount, (d.donor_name || COALESCE(' — ' || d.purpose, '')) AS description, d.payment_method, '' AS transaction_ref, d.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, NULL AS category, NULL AS status, NULL AS void_reason, NULL AS voided_at, NULL AS asset_name,
         CASE WHEN EXISTS(SELECT 1 FROM audit_log al WHERE al.module='donations' AND al.entity_id=d.id AND al.action IN ('UPDATE','EDIT')) THEN 1 ELSE 0 END AS has_history
         FROM donations d WHERE ${w.join(" AND ")}`);
     }
@@ -232,7 +251,7 @@ export const accounting = {
       if (range) { w.push("sp.payment_date >= ?"); w.push("sp.payment_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All" && filter.type !== "Income") { w.push("1=0"); }
       if (filter.search) { w.push("(sp.receipt_number LIKE ? OR sp.remarks LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t); }
-      parts.push(`SELECT sp.id AS source_id, 'subscriptions' AS source, COALESCE(sp.payment_date, sp.period_start) AS ledger_date, 'Income' AS type, sp.amount, ('Subscription — ' || COALESCE(sp.receipt_number, '')) AS description, sp.payment_method, sp.transaction_ref, sp.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, NULL AS category, NULL AS status, NULL AS void_reason, NULL AS voided_at, 0 AS has_history FROM subscription_payments sp WHERE ${w.join(" AND ")}`);
+      parts.push(`SELECT sp.id AS source_id, 'subscriptions' AS source, COALESCE(sp.payment_date, sp.period_start) AS ledger_date, 'Income' AS type, sp.amount, ('Subscription — ' || COALESCE(sp.receipt_number, '')) AS description, sp.payment_method, sp.transaction_ref, sp.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, NULL AS category, NULL AS status, NULL AS void_reason, NULL AS voided_at, NULL AS asset_name, 0 AS has_history FROM subscription_payments sp WHERE ${w.join(" AND ")}`);
     }
     // 4. Welfare disbursements (Expense)
     {
@@ -240,7 +259,7 @@ export const accounting = {
       if (range) { w.push("w.disbursed_date >= ?"); w.push("w.disbursed_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All" && filter.type !== "Expense") { w.push("1=0"); }
       if (filter.search) { w.push("(w.applicant_name LIKE ? OR w.request_number LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t); }
-      parts.push(`SELECT w.id AS source_id, 'welfare' AS source, COALESCE(w.disbursed_date, w.created_at) AS ledger_date, 'Expense' AS type, w.amount_approved AS amount, ('Welfare — ' || w.applicant_name) AS description, '' AS payment_method, '' AS transaction_ref, w.request_number AS receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, NULL AS category, NULL AS status, NULL AS void_reason, NULL AS voided_at, 0 AS has_history FROM welfare_requests w WHERE ${w.join(" AND ")}`);
+      parts.push(`SELECT w.id AS source_id, 'welfare' AS source, COALESCE(w.disbursed_date, w.created_at) AS ledger_date, 'Expense' AS type, w.amount_approved AS amount, ('Welfare — ' || w.applicant_name) AS description, '' AS payment_method, '' AS transaction_ref, w.request_number AS receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, NULL AS category, NULL AS status, NULL AS void_reason, NULL AS voided_at, NULL AS asset_name, 0 AS has_history FROM welfare_requests w WHERE ${w.join(" AND ")}`);
     }
     // 5. Staff salary payments (Expense, status='Paid')
     {
@@ -248,7 +267,7 @@ export const accounting = {
       if (range) { w.push("sp.payment_date >= ?"); w.push("sp.payment_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All" && filter.type !== "Expense") { w.push("1=0"); }
       if (filter.search) { w.push("(s.name LIKE ? OR s.staff_code LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t); }
-      parts.push(`SELECT sp.id AS source_id, 'salary' AS source, sp.payment_date AS ledger_date, 'Expense' AS type, sp.amount, ('Salary — ' || s.name || ' (' || printf('%02d', sp.period_month) || '/' || sp.period_year || ')') AS description, sp.payment_method, sp.transaction_ref, '' AS receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, NULL AS category, NULL AS status, NULL AS void_reason, NULL AS voided_at, 0 AS has_history FROM staff_payments sp LEFT JOIN staff s ON s.id = sp.staff_id WHERE ${w.join(" AND ")}`);
+      parts.push(`SELECT sp.id AS source_id, 'salary' AS source, sp.payment_date AS ledger_date, 'Expense' AS type, sp.amount, ('Salary — ' || s.name || ' (' || printf('%02d', sp.period_month) || '/' || sp.period_year || ')') AS description, sp.payment_method, sp.transaction_ref, '' AS receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, NULL AS category, NULL AS status, NULL AS void_reason, NULL AS voided_at, NULL AS asset_name, 0 AS has_history FROM staff_payments sp LEFT JOIN staff s ON s.id = sp.staff_id WHERE ${w.join(" AND ")}`);
     }
 
     // Combine — wrap in a sub-select so we can filter by source + paginate uniformly.

@@ -21,6 +21,7 @@ interface Transaction {
   bill_no: string;
   payee: string;
   category?: string;
+  asset_id?: number | null;
   linked_module: string;
   linked_id: number;
   created_by_name?: string;
@@ -40,6 +41,7 @@ interface UnifiedRow {
   bill_no?: string | null;
   payee?: string | null;
   category?: string | null;
+  asset_name?: string | null;
   account_id: number | null;
   linked_module: string | null;
   linked_id: number | null;
@@ -68,6 +70,7 @@ interface UnifiedSummary {
 const emptyForm: Partial<Transaction> = {
   receipt_number: "", txn_date: "", type: "Income", amount: 0, payment_method: "Cash",
   description: "", account_id: 1, transaction_ref: "", voucher_no: "", bill_no: "", payee: "", category: "",
+  asset_id: null,
   linked_module: "", linked_id: 0,
 };
 
@@ -153,6 +156,9 @@ export function Accounting() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<Partial<Transaction>>(emptyForm);
+  // Asset register link (V036) — optional asset to tag the entry with.
+  const [assetOptions, setAssetOptions] = useState<Array<{ id: number; asset_code: string; name: string }>>([]);
+  useEffect(() => { window.mms.assets?.options?.().then((o: any[]) => setAssetOptions(o || [])).catch(() => setAssetOptions([])); }, []);
   // VOID workflow: entries are never deleted — they are voided with a reason.
   // Both EDIT and VOID of ledger entries are gated by the SecureActionDialog
   // (reason + administrator password, re-verified in the main process).
@@ -227,6 +233,7 @@ export function Accounting() {
         billNo: form.bill_no || "",
         payee: form.payee || "",
         category: form.category || "",
+        assetId: form.asset_id || null,
         createdBy: 1,
       };
       if (editingId) {
@@ -370,8 +377,15 @@ export function Accounting() {
     ) },
     {
       header: tx("Category", "വിഭാഗം"),
-      accessor: r => r.category ? <span className="text-xs px-2 py-0.5 rounded-full bg-surface-hover whitespace-nowrap">{r.category}</span> : <span className="text-muted">—</span>,
-      width: "130px"
+      accessor: r => (
+        <div className="flex flex-col items-start gap-1">
+          {r.category ? <span className="text-xs px-2 py-0.5 rounded-full bg-surface-hover whitespace-nowrap">{r.category}</span> : <span className="text-muted">—</span>}
+          {r.asset_name && (
+            <span title={tx("Linked to an asset in the Asset Register", "ആസ്തി രജിസ്റ്ററിലെ ആസ്തിയുമായി ബന്ധിപ്പിച്ചിരിക്കുന്നു")} className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-500/15 text-teal-700 dark:text-teal-400 border border-teal-500/30 whitespace-nowrap">{r.asset_name}</span>
+          )}
+        </div>
+      ),
+      width: "150px"
     },
     {
       header: tx("Receipt", "രസീത്"),
@@ -630,6 +644,14 @@ export function Accounting() {
                   : ["Electricity", "Water", "Fuel", "Maintenance", "Stationery", "Conveyance", "Refreshments", "Other Expense"]
                 ).map((c) => <option key={c} value={c} />)}
               </datalist>
+            </div>
+            <div>
+              <Label>{tx("Asset (optional)", "ആസ്തി (ഓപ്ഷണൽ)")}</Label>
+              <Select value={form.asset_id ? String(form.asset_id) : ""} onChange={e => setForm({ ...form, asset_id: e.target.value ? Number(e.target.value) : null })}>
+                <option value="">{tx("— Not linked to an asset —", "— ആസ്തിയുമായി ബന്ധമില്ല —")}</option>
+                {assetOptions.map(a => <option key={a.id} value={a.id}>{a.asset_code} · {a.name}</option>)}
+              </Select>
+              <div className="text-xs text-muted mt-1">{tx("Tag rent collections and repair bills with the building/land they belong to.", "വാടാക്ക വാങ്ങലുകളും അറ്റകുറ്റി ബില്ലുകളും അതത് കെട്ടിടത്തുമായി / ഭൂമിയുമായി ബന്ധിപ്പിക്കുക.")}</div>
             </div>
             <div>
               <Label>{t("ui_transaction_ref")}</Label>

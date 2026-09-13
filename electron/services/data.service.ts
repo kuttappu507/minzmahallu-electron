@@ -6,6 +6,7 @@
  */
 export { todayIST, istMonth, istPlusDays, istDateStr } from "./ist-date.js";
 export { families } from "./data/families.service.js";
+export { assets, ASSET_CATEGORIES, ASSET_STATUSES, ASSET_CONDITIONS } from "./data/assets.service.js";
 export { members } from "./data/members.service.js";
 export { ensureCurrentMonth, subscriptions } from "./data/subscriptions.service.js";
 export { donations } from "./data/donations.service.js";

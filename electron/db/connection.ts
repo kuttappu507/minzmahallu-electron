@@ -258,6 +258,40 @@ function ensureRuntimeSchema(database: DB) {
     addColumn(database, "staff", "updated_at", "TEXT");
   }
 
+  // Asset register (V036) — the mahallu's buildings, lands and rentable goods.
+  // Created here (idempotent) so the module works on any database version,
+  // even before the migration file has a chance to run. transactions.asset_id
+  // is the accounting link: rent income and repair expenses can be tagged
+  // with the asset they belong to.
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS assets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      asset_code TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'Other',
+      reference_no TEXT DEFAULT '',
+      location TEXT DEFAULT '',
+      acquisition_date TEXT DEFAULT '',
+      acquisition_cost REAL DEFAULT 0,
+      current_value REAL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'In use',
+      condition_note TEXT DEFAULT 'Good',
+      custodian TEXT DEFAULT '',
+      income_generating INTEGER NOT NULL DEFAULT 0,
+      tenant_name TEXT DEFAULT '',
+      monthly_rent REAL DEFAULT 0,
+      agreement_start TEXT DEFAULT '',
+      agreement_end TEXT DEFAULT '',
+      notes TEXT DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_assets_category ON assets(category);
+    CREATE INDEX IF NOT EXISTS idx_assets_status ON assets(status);
+  `);
+  addColumn(database, "transactions", "asset_id", "INTEGER REFERENCES assets(id)");
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_transactions_asset ON transactions(asset_id);`);
+
   // Committee module tables — created idempotently so the module works on any DB.
   database.exec(`
     CREATE TABLE IF NOT EXISTS committee_members (
