@@ -9,10 +9,12 @@
 //   • a random 5–10 s gap between EVERY message (robots space evenly;
 //     jitter does not),
 //   • a long 4-minute rest after every 20 messages (bulk rest),
-//   • hard caps — 50 messages per rolling hour, 250 per day — after which
-//     the campaign PAUSES instead of pushing on,
+//   • NO hard hourly/daily caps — the mahallu decides its own volume;
+//     the human-like pacing above is what keeps the number safe. If
+//     WhatsApp itself signals a rate limit, the campaign pauses (that
+//     reaction lives in whatsapp.service.ts).
 //   • counters PERSIST to <userData>/whatsapp/throttle.json so restarting
-//     the app cannot bypass a cap.
+//     the app cannot skip a due rest or reset the pacing clock.
 //
 // Receipt sends (one PDF to one recipient, human-paced by button clicks)
 // do NOT go through this throttle — the volume risk that gets numbers
@@ -28,30 +30,21 @@ const require = createRequire(import.meta.url);
 export interface ThrottleConfig {
   minGapMs: number;      // smallest gap between two sends
   maxGapMs: number;      // largest gap (jitter upper bound)
-  hourlyCap: number;     // max sends per clock-hour bucket
-  dailyCap: number;      // max sends per calendar day (local time)
-  restEvery: number;     // sends after which a long rest is taken
+  restEvery: number;     // sends after which a long rest is taken (0 = never)
   restMs: number;        // length of that rest
 }
 
 export const DEFAULT_THROTTLE: ThrottleConfig = {
   minGapMs: 5_000,
   maxGapMs: 10_000,
-  hourlyCap: 50,
-  dailyCap: 250,
   restEvery: 20,
   restMs: 4 * 60_000,
 };
 
-export type TurnResult =
-  | { ok: true }
-  | { ok: false; reason: "hourly-cap" | "daily-cap"; retryAtMs: number };
-
 interface PersistedCounters {
-  hourKey: number;   // epoch-ms bucket: Math.floor(now / 3_600_000)
-  hourCount: number;
+  sinceRest: number; // sends gone out since the last long rest
   dayKey: string;    // local YYYY-MM-DD
-  dayCount: number;
+  dayCount: number;  // informational: sends today (shown on the WhatsApp page)
   lastSentAt: number;
 }
 
@@ -65,8 +58,6 @@ export interface ThrottleDeps {
   load?: () => PersistedCounters | null;
   save?: (data: PersistedCounters) => void;
 }
-
-const HOUR_MS = 3_600_000;
 
 function localDayKey(ts: number): string {
   const d = new Date(ts);
@@ -103,17 +94,21 @@ export class SendThrottle {
         fs.writeFileSync(filePath, JSON.stringify(data), "utf-8");
       } catch { /* best effort — a lost counter file only resets pacing */ }
     });
-    this.counters = this.loadFn() || { hourKey: 0, hourCount: 0, dayKey: "", dayCount: 0, lastSentAt: 0 };
+    // Normalize whatever is on disk. Files written by the older capped
+    // build ({hourKey, hourCount, …}) simply start fresh on the rest
+    // counter while today's count and the pacing clock carry over.
+    const raw: any = this.loadFn();
+    this.counters = {
+      sinceRest: Math.max(0, Math.floor(Number(raw?.sinceRest) || 0)),
+      dayKey: typeof raw?.dayKey === "string" ? raw.dayKey : "",
+      dayCount: Math.max(0, Math.floor(Number(raw?.dayCount) || 0)),
+      lastSentAt: Math.max(0, Number(raw?.lastSentAt) || 0),
+    };
   }
 
-  /** Roll the counters when the hour/day bucket rotated or the process napped. */
+  /** Roll the daily counter when the calendar day changed. */
   private rolled(): void {
     const ts = this.now();
-    const hk = Math.floor(ts / HOUR_MS);
-    if (this.counters.hourKey !== hk) {
-      this.counters.hourKey = hk;
-      this.counters.hourCount = 0;
-    }
     const dk = localDayKey(ts);
     if (this.counters.dayKey !== dk) {
       this.counters.dayKey = dk;
@@ -125,70 +120,48 @@ export class SendThrottle {
     try { this.saveFn({ ...this.counters }); } catch { /* never break sends */ }
   }
 
-  /** Gap the next send must wait, from the jitter window plus the bulk rest
-   *  (the rest applies when `restEvery` sends have already gone out). */
-  private nextGapMs(): number {
-    const { minGapMs, maxGapMs } = this.config;
+  /** Gap between two sends: the jitter window, widened to the bulk rest
+   *  when `withRest` (i.e. `restEvery` sends have already gone out). */
+  private gapMs(withRest: boolean): number {
+    const { minGapMs, maxGapMs, restMs } = this.config;
     const jitter = minGapMs + Math.random() * Math.max(0, maxGapMs - minGapMs);
-    const dueRest = this.counters.hourCount > 0
-      && this.config.restEvery > 0
-      && this.counters.hourCount % this.config.restEvery === 0;
-    return Math.round(dueRest ? Math.max(jitter, this.config.restMs) : jitter);
+    return Math.round(withRest ? Math.max(jitter, restMs) : jitter);
   }
 
-  /** Reserve the next send slot: sleeps the human-gap (jitter + bulk rest)
-   *  and answers whether the send may proceed. Caps are re-checked after
-   *  every sleep so an hour/day rollover during a long rest re-opens the
-   *  throttle instead of falsely pausing the campaign. */
-  async beforeSend(): Promise<TurnResult> {
-    for (let round = 0; round < 3; round++) {
-      this.rolled();
-      if (this.counters.hourCount >= this.config.hourlyCap) {
-        const retryAtMs = (this.counters.hourKey + 1) * HOUR_MS;
-        return { ok: false, reason: "hourly-cap", retryAtMs };
-      }
-      if (this.counters.dayCount >= this.config.dailyCap) {
-        // Retry at local midnight (approximate: next day-key change).
-        const ts = this.now();
-        const nextMidnight = new Date(ts);
-        nextMidnight.setHours(24, 0, 0, 0);
-        return { ok: false, reason: "daily-cap", retryAtMs: nextMidnight.getTime() };
-      }
-      const wait = this.counters.lastSentAt
-        ? Math.max(0, this.counters.lastSentAt + this.nextGapMs() - this.now())
-        : 0;
-      if (wait > 0) await this.sleep(wait);
-      // Re-check caps once after the wait (the bucket may have rolled).
-      this.rolled();
-      const stillCapped = this.counters.hourCount >= this.config.hourlyCap
-        || this.counters.dayCount >= this.config.dailyCap;
-      if (!stillCapped) return { ok: true };
+  /** Reserve the next send slot: sleeps the human-gap (jitter, plus the
+   *  long bulk rest when one is due) and always allows the send — there
+   *  are no volume caps, only pacing. */
+  async beforeSend(): Promise<void> {
+    this.rolled();
+    const dueRest = this.config.restEvery > 0
+      && this.counters.sinceRest >= this.config.restEvery;
+    const wait = this.counters.lastSentAt
+      ? Math.max(0, this.counters.lastSentAt + this.gapMs(dueRest) - this.now())
+      : 0;
+    if (wait > 0) await this.sleep(wait);
+    if (dueRest) {
+      this.counters.sinceRest = 0;
+      this.persist();
     }
-    return { ok: false, reason: "hourly-cap", retryAtMs: (this.counters.hourKey + 1) * HOUR_MS };
   }
 
   /** Call right after the socket accepted the message. */
   recordSent(): void {
     this.rolled();
-    this.counters.hourCount++;
+    this.counters.sinceRest++;
     this.counters.dayCount++;
     this.counters.lastSentAt = this.now();
     this.persist();
   }
 
   /** UI/status snapshot — what the WhatsApp page can show the office. */
-  snapshot(): { sentLastHour: number; hourlyCap: number; sentToday: number; dailyCap: number } {
+  snapshot(): { sentToday: number } {
     this.rolled();
-    return {
-      sentLastHour: this.counters.hourCount,
-      hourlyCap: this.config.hourlyCap,
-      sentToday: this.counters.dayCount,
-      dailyCap: this.config.dailyCap,
-    };
+    return { sentToday: this.counters.dayCount };
   }
 
   /** Test/reset helper — wipes counters in memory (persistence is separate). */
   resetForTests(): void {
-    this.counters = { hourKey: 0, hourCount: 0, dayKey: "", dayCount: 0, lastSentAt: 0 };
+    this.counters = { sinceRest: 0, dayKey: "", dayCount: 0, lastSentAt: 0 };
   }
 }

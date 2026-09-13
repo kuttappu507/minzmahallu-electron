@@ -295,28 +295,32 @@ export function installPreviewMock() {
     },
   };
 
-  // ===== WhatsApp — stateful ToS consent + throttle snapshot so the page's
-  // safety-notice flow (checkbox → ackToS → connect) can be QA'd without the
-  // real engine. =====
+  // ===== WhatsApp — stateful ToS consent + connect + throttle snapshot so
+  // the page's safety-notice flow (checkbox → ackToS → connect → connected
+  // view) can be QA'd without the real engine. =====
   let waTosAcked = false;
+  let waConnected = false;
   const whatsapp = {
     status: () => Promise.resolve({
-      status: "DISCONNECTED", connected: false, internet: navigator.onLine, service: "", number: "", name: "",
-      message: "WhatsApp pairing is available in the installed desktop app (dev preview).",
+      status: waConnected ? "CONNECTED" : "DISCONNECTED",
+      connected: waConnected, internet: navigator.onLine,
+      service: waConnected ? "RUNNING" : "", number: waConnected ? "919999000000" : "", name: waConnected ? "Mahallu" : "",
+      message: waConnected ? "WhatsApp connected" : "WhatsApp pairing is available in the installed desktop app (dev preview).",
       tosAcked: waTosAcked,
-      throttle: { sentLastHour: 0, hourlyCap: 50, sentToday: 0, dailyCap: 250 },
+      throttle: { sentToday: 0 },
     }),
     connect: (opts?: { acknowledged?: boolean }) => {
       if (!waTosAcked && !opts?.acknowledged) {
         return Promise.reject(new Error("Before connecting, please read and accept the WhatsApp safety notice on this page (tick the box, then press Connect)."));
       }
       waTosAcked = true;
+      waConnected = true;
       return Promise.resolve({ success: true });
     },
     ackToS: () => { waTosAcked = true; return Promise.resolve({ success: true }); },
     qr: () => Promise.reject(new Error("QR code is not available yet")),
-    disconnect: () => Promise.resolve({ success: true, keptPairing: true }),
-    unlink: () => Promise.resolve({ success: true, unlinked: true }),
+    disconnect: () => { waConnected = false; return Promise.resolve({ success: true, keptPairing: true }); },
+    unlink: () => { waConnected = false; return Promise.resolve({ success: true, unlinked: true }); },
     checkNumber: () => Promise.resolve({ available: false, reason: "Preview mode" }),
     setFamily: () => Promise.resolve({ success: true }),
     getFamily: () => Promise.resolve({ whatsapp_phone: "", whatsapp_enabled: 1 }),

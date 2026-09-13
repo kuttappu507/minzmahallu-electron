@@ -100,9 +100,11 @@ function ensureSchema() {
   }
 }
 
-// Anti-ban pacing for bulk campaigns — random 5–10 s gaps, a 4-minute rest
-// every 20 messages, 50/hour and 250/day caps. Counters persist in
-// <userData>/whatsapp/throttle.json so an app restart cannot bypass a cap.
+// Anti-ban pacing for bulk campaigns — random 5–10 s gaps and a 4-minute
+// rest every 20 messages. No hard volume caps: the mahallu decides its own
+// volume, the human-like pacing is what protects the number. Counters
+// persist in <userData>/whatsapp/throttle.json so an app restart cannot
+// skip a due rest or reset the pacing clock.
 const sendThrottle = new SendThrottle({ storeDir: whatsappStoreDir });
 
 function normalizePhone(value: string): string {
@@ -277,16 +279,9 @@ async function runQueue(campaignId: number) {
   };
   for (const r of rows) {
     // Anti-ban pacing: every message waits a random 5–10 s gap (long rest
-    // every 20). If an hourly/daily safety cap is hit the campaign PAUSES
-    // instead of pushing on — it can be resumed later from the campaign
-    // list once the window rolls over.
-    const turn = await sendThrottle.beforeSend();
-    if (!turn.ok) {
-      const reason = turn.reason === "daily-cap"
-        ? "Daily safety limit reached — the campaign paused. Resume it tomorrow from the campaign list."
-        : "Hourly safety limit reached — the campaign paused. Resume it (Retry) after the hour rolls over.";
-      return pauseCampaign(reason);
-    }
+    // every 20). No volume caps — pacing only; the campaign still PAUSES
+    // when WhatsApp itself signals a rate limit (caught below).
+    await sendThrottle.beforeSend();
     try {
       const result = await sendTextInternal(r.recipient_phone, r.message_text);
       sendThrottle.recordSent();

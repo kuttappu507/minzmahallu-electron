@@ -233,7 +233,7 @@ export function WhatsApp() {
             </div>
           )}
           {!needsTosAck && !connected && (
-            <div className="wa-note wa-note-safe">{tx("Safety notice accepted — bulk sending is paced and capped to protect the number.", "സുരക്ഷാ അറിയിപ്പ് സ്വീകരിച്ചു — നമ്പർ സംരക്ഷിക്കാൻ ബൾക്ക് സന്ദേശങ്ങൾ നിയന്ത്രിച്ചാണ് അയയ്ക്കുന്നത്.")}</div>
+            <div className="wa-note wa-note-safe">{tx("Safety notice accepted — bulk sending is gently paced to protect the number.", "സുരക്ഷാ അറിയിപ്പ് സ്വീകരിച്ചു — നമ്പർ സംരക്ഷിക്കാൻ ബൾക്ക് സന്ദേശങ്ങൾ പതുക്കെ അയയ്ക്കുന്നതാണ്.")}</div>
           )}
 
           <div className="wa-actions">
@@ -246,8 +246,8 @@ export function WhatsApp() {
           </div>
           {connected && status.throttle && (
             <div className="wa-note">{tx(
-              `Safety limits: ${status.throttle.sentLastHour}/${status.throttle.hourlyCap} this hour · ${status.throttle.sentToday}/${status.throttle.dailyCap} today`,
-              `സുരക്ഷാ പരിധികൾ: ഈ മണിക്കൂറിൽ ${status.throttle.sentLastHour}/${status.throttle.hourlyCap} · ഇന്ന് ${status.throttle.sentToday}/${status.throttle.dailyCap}`
+              `Sent today: ${status.throttle.sentToday} message${status.throttle.sentToday === 1 ? "" : "s"}`,
+              `ഇന്ന് അയച്ചത്: ${status.throttle.sentToday} സന്ദേശങ്ങൾ`
             )}</div>
           )}
         </div>
@@ -265,7 +265,7 @@ export function WhatsApp() {
             <li>✓ <span>{tx("Subscription reminder: once per family per month", "വരിസംഖ്യ റിമൈൻഡർ: കുടുംബത്തിന് മാസത്തിൽ ഒരിക്കൽ")}</span></li>
             <li>✓ <span>{tx("Announcement: one campaign per day", "അറിയിപ്പ്: ദിവസത്തിൽ ഒരു ക്യാമ്പയിൻ")}</span></li>
             <li>✓ <span>{tx("Messages spaced 5–10 s apart with a rest every 20", "സന്ദേശങ്ങൾക്കിടയിൽ 5–10 സെക്കൻഡ് ഇടവേള; ഓരോ 20-നും ദീർഘ ഇടവേള")}</span></li>
-            <li>✓ <span>{tx("Safety caps: 50/hour, 250/day — campaigns auto-pause", "സുരക്ഷാ പരിധി: മണിക്കൂറിൽ 50, ദിവസം 250 — ക്യാമ്പയിൻ സ്വയം നിർത്തും")}</span></li>
+            <li>✓ <span>{tx("Campaigns pause automatically if WhatsApp signals a rate limit", "WhatsApp റേറ്റ് ലിമിറ്റ് സൂചിപ്പിച്ചാൽ ക്യാമ്പയിൻ സ്വയം നിർത്തും")}</span></li>
             <li>✓ <span>{tx("Families can opt out — opted-out heads are never messaged", "കുടുംബങ്ങൾക്ക് ഒഴിവാക്കാം — ഒഴിവാക്കിയവർക്ക് അയയ്ക്കില്ല")}</span></li>
             <li>✓ <span>{tx("Missing or invalid numbers are skipped and reported", "നമ്പർ ഇല്ലാത്തത് / തെറ്റായത് അയയ്ക്കില്ല")}</span></li>
             <li>✓ <span>{tx("Archived families are excluded", "ആർക്കൈവ് ചെയ്ത കുടുംബങ്ങൾ ഒഴിവാക്കും")}</span></li>
