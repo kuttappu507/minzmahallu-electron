@@ -8,7 +8,7 @@
  * opt-out message while an opted-in family gets past it (and only then hits
  * the "WhatsApp is not connected" guidance).
  */
-import { describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { getDB } from "../db/connection.js";
 import { families } from "./data/families.service.js";
 import { whatsapp } from "./whatsapp.service.js";
@@ -16,6 +16,16 @@ import { whatsapp } from "./whatsapp.service.js";
 const PHONE_OK = "9876500011";
 
 describe("direct sendMessage honours the family opt-out", () => {
+  beforeEach(() => {
+    // Test the opt-out/session gates, not public network availability. An
+    // offline runner must still reach the expected unpaired-session error.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("refuses an opted-out family before touching the session", async () => {
     const created: any = families.create({
       houseName: "Opt-out Guard Family", phone: PHONE_OK,
@@ -26,6 +36,7 @@ describe("direct sendMessage honours the family opt-out", () => {
     await expect(whatsapp.sendMessage({
       phone: "919876500011", text: "hello", familyId,
     })).rejects.toThrow(/opted out of WhatsApp/i);
+    expect(fetch).not.toHaveBeenCalled();
 
     // Nothing was logged as sent for the refused attempt.
     const logged = getDB().prepare(
