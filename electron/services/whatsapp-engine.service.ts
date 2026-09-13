@@ -118,6 +118,12 @@ export function waitForDelivery(msgId: string, timeoutMs: number): Promise<boole
 function userDataDir(): string | null {
   try { return electron().app.getPath("userData"); } catch { return null; }
 }
+/** <userData>/whatsapp — home of the auth session AND the send-throttle
+ *  counters. Exported for the throttle's persisted anti-ban counters. */
+export function whatsappStoreDir(): string | null {
+  const base = userDataDir();
+  return base ? path.join(base, "whatsapp") : null;
+}
 function authDir(): string | null {
   const base = userDataDir();
   return base ? path.join(base, "whatsapp", "auth") : null;

@@ -48,6 +48,9 @@ export function WhatsApp() {
   const [subStats, setSubStats] = useState<any>(null);
   const [annStats, setAnnStats] = useState<any>(null);
   const [unlinkOpen, setUnlinkOpen] = useState(false);
+  // ToS safety notice: the checkbox must be ticked before the FIRST pairing
+  // (until `status.tosAcked` comes back true from the main process).
+  const [tosCheck, setTosCheck] = useState(false);
   const busy = useRef(false);
 
   const refresh = useCallback(async () => {
@@ -90,7 +93,10 @@ export function WhatsApp() {
   const connect = async () => {
     setLoading(true);
     try {
-      await window.mms.whatsapp.connect();
+      // First-time pairing: persist the safety-notice acknowledgment before
+      // the connect call — the main process refuses without it.
+      if (!status.tosAcked) await window.mms.whatsapp.ackToS();
+      await window.mms.whatsapp.connect({ acknowledged: true });
       toast.success(tx("WhatsApp connection started", "വാട്ട്സ്ആപ്പ് കണക്ഷൻ ആരംഭിച്ചു"));
       await refresh();
     } catch (e: any) {
@@ -168,6 +174,7 @@ export function WhatsApp() {
 
   const connected = status.status === "CONNECTED";
   const canSend = connected && status.internet;
+  const needsTosAck = !connected && !status.tosAcked;
   const statusLabel = STATUS_LABELS[String(status.status)] || { en: "Not connected", ml: "കണക്റ്റ് ചെയ്തിട്ടില്ല" };
 
   return (
@@ -209,14 +216,40 @@ export function WhatsApp() {
             </div>
           )}
 
+          {/* SAFETY NOTICE — this connection is unofficial automation and
+              WhatsApp may ban the paired number. The office must opt in
+              knowingly before the first pairing. */}
+          {needsTosAck && (
+            <div className="wa-tos" data-testid="wa-tos">
+              <div className="wa-tos-head"><AlertTriangle size={14} />{tx("Read before connecting", "കണക്റ്റ് ചെയ്യും മുമ്പ് വായിക്കുക")}</div>
+              <p>{tx(
+                "This app connects to WhatsApp through an unofficial link. WhatsApp does not allow automation like this and may permanently ban the number you pair — use a secondary mahallu number if possible.",
+                "ഈ ആപ്പ് WhatsApp-മായി അനൗദ്യോഗികമായ വഴിയിലൂടെയാണ് കണക്റ്റ് ചെയ്യുന്നത്. WhatsApp ഇത്തരം ഓട്ടോമേഷൻ അനുവദിക്കാത്തതിനാൽ പെയർ ചെയ്യുന്ന നമ്പർ ശാശ്വതമായി നിരോധിക്കപ്പെടാം — സാധ്യമെങ്കിൽ മഹല്ലിന്റെ രണ്ടാമത്തെ നമ്പർ ഉപയോഗിക്കുക."
+              )}</p>
+              <label className="wa-tos-check">
+                <input type="checkbox" checked={tosCheck} onChange={(e) => setTosCheck(e.target.checked)} data-testid="wa-tos-check" />
+                <span>{tx("I understand the risk and want to connect", "ഈ സാഹചര്യം മനസ്സിലാക്കി ഞാൻ കണക്റ്റ് ചെയ്യാൻ സമ്മതിക്കുന്നു")}</span>
+              </label>
+            </div>
+          )}
+          {!needsTosAck && !connected && (
+            <div className="wa-note wa-note-safe">{tx("Safety notice accepted — bulk sending is paced and capped to protect the number.", "സുരക്ഷാ അറിയിപ്പ് സ്വീകരിച്ചു — നമ്പർ സംരക്ഷിക്കാൻ ബൾക്ക് സന്ദേശങ്ങൾ നിയന്ത്രിച്ചാണ് അയയ്ക്കുന്നത്.")}</div>
+          )}
+
           <div className="wa-actions">
             {connected
               ? <>
                   <Button variant="secondary" onClick={pause} disabled={loading}><Power className="h-4 w-4" />{tx("Pause (keeps pairing)", "താൽക്കാലിക നിർത്തുക (പെയറിംഗ് നിലനിൽക്കും)")}</Button>
                   <Button variant="danger" onClick={() => setUnlinkOpen(true)} disabled={loading}><Unlink className="h-4 w-4" />{tx("Unlink phone", "ഫോൺ വിച്ഛേദിക്കുക")}</Button>
                 </>
-              : <Button onClick={connect} disabled={loading || !status.internet}><Smartphone className="h-4 w-4" />{tx("Connect WhatsApp", "വാട്ട്സ്ആപ്പ് കണക്റ്റ് ചെയ്യുക")}</Button>}
+              : <Button onClick={connect} disabled={loading || !status.internet || (needsTosAck && !tosCheck)} data-testid="wa-connect"><Smartphone className="h-4 w-4" />{tx("Connect WhatsApp", "വാട്ട്സ്ആപ്പ് കണക്റ്റ് ചെയ്യുക")}</Button>}
           </div>
+          {connected && status.throttle && (
+            <div className="wa-note">{tx(
+              `Safety limits: ${status.throttle.sentLastHour}/${status.throttle.hourlyCap} this hour · ${status.throttle.sentToday}/${status.throttle.dailyCap} today`,
+              `സുരക്ഷാ പരിധികൾ: ഈ മണിക്കൂറിൽ ${status.throttle.sentLastHour}/${status.throttle.hourlyCap} · ഇന്ന് ${status.throttle.sentToday}/${status.throttle.dailyCap}`
+            )}</div>
+          )}
         </div>
 
         <div className="card card-pad-4">
@@ -231,7 +264,9 @@ export function WhatsApp() {
             <li>✓ <span>{tx("Bulk messages go to the family head only", "ബൾക്ക് സന്ദേശങ്ങൾ കുടുംബനാഥന് മാത്രം")}</span></li>
             <li>✓ <span>{tx("Subscription reminder: once per family per month", "വരിസംഖ്യ റിമൈൻഡർ: കുടുംബത്തിന് മാസത്തിൽ ഒരിക്കൽ")}</span></li>
             <li>✓ <span>{tx("Announcement: one campaign per day", "അറിയിപ്പ്: ദിവസത്തിൽ ഒരു ക്യാമ്പയിൻ")}</span></li>
-            <li>✓ <span>{tx("5 messages per batch with a pause between batches", "5 സന്ദേശങ്ങൾ വീതം, ബാച്ചുകൾക്കിടയിൽ ഇടവേള")}</span></li>
+            <li>✓ <span>{tx("Messages spaced 5–10 s apart with a rest every 20", "സന്ദേശങ്ങൾക്കിടയിൽ 5–10 സെക്കൻഡ് ഇടവേള; ഓരോ 20-നും ദീർഘ ഇടവേള")}</span></li>
+            <li>✓ <span>{tx("Safety caps: 50/hour, 250/day — campaigns auto-pause", "സുരക്ഷാ പരിധി: മണിക്കൂറിൽ 50, ദിവസം 250 — ക്യാമ്പയിൻ സ്വയം നിർത്തും")}</span></li>
+            <li>✓ <span>{tx("Families can opt out — opted-out heads are never messaged", "കുടുംബങ്ങൾക്ക് ഒഴിവാക്കാം — ഒഴിവാക്കിയവർക്ക് അയയ്ക്കില്ല")}</span></li>
             <li>✓ <span>{tx("Missing or invalid numbers are skipped and reported", "നമ്പർ ഇല്ലാത്തത് / തെറ്റായത് അയയ്ക്കില്ല")}</span></li>
             <li>✓ <span>{tx("Archived families are excluded", "ആർക്കൈവ് ചെയ്ത കുടുംബങ്ങൾ ഒഴിവാക്കും")}</span></li>
           </ul>
@@ -295,6 +330,7 @@ export function WhatsApp() {
                 </div>
                 <div className="wa-row-side">
                   <Badge variant={campaignBadge(c.status)}>{c.status}</Badge>
+                  {c.status === "PAUSED" && c.pause_reason && <small className="wa-pause-reason" title={c.pause_reason}>{c.pause_reason}</small>}
                   {c.failed_count > 0 && c.status !== "RUNNING" && c.status !== "PENDING" && (
                     <button className="ibtn" title={tx("Retry failed", "പരാജയപ്പെട്ടവ വീണ്ടും ശ്രമിക്കുക")} onClick={() => retryFailed(c.id)}><RotateCcw size={13} /></button>
                   )}

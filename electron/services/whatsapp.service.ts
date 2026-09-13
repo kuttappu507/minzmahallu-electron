@@ -3,8 +3,9 @@ import { getDB } from "../db/connection.js";
 import {
   startEngine, maybeStartEngine, stopEngine, currentQr, engineState,
   requireConnectedSocket, resolveJid, engineSendText, engineSendDocument,
-  clearLegacyWahaData, onDelivery, isDelivered, waitForDelivery,
+  clearLegacyWahaData, onDelivery, isDelivered, waitForDelivery, whatsappStoreDir,
 } from "./whatsapp-engine.service.js";
+import { SendThrottle } from "./whatsapp-throttle.js";
 import {
   generateDonationReceiptPdf, generateSubscriptionReceiptPdf,
   receiptSendState, markReceiptAccepted, markReceiptDelivered,
@@ -86,11 +87,23 @@ function ensureSchema() {
   const columns = new Set((db.prepare("PRAGMA table_info(families)").all() as any[]).map(c => c.name));
   if (!columns.has("whatsapp_phone")) db.exec("ALTER TABLE families ADD COLUMN whatsapp_phone TEXT DEFAULT ''");
   if (!columns.has("whatsapp_enabled")) db.exec("ALTER TABLE families ADD COLUMN whatsapp_enabled INTEGER NOT NULL DEFAULT 1");
+  // ToS acknowledgment — the WhatsApp page requires an explicit "I accept the
+  // ban risk" tick before the FIRST pairing; the timestamp lives here.
+  const waCols = new Set((db.prepare("PRAGMA table_info(whatsapp_settings)").all() as any[]).map(c => c.name));
+  if (!waCols.has("tos_ack_at")) db.exec("ALTER TABLE whatsapp_settings ADD COLUMN tos_ack_at TEXT DEFAULT ''");
+  // Why a campaign auto-paused ("hourly safety cap reached", WhatsApp 429…).
+  const campCols = new Set((db.prepare("PRAGMA table_info(whatsapp_campaigns)").all() as any[]).map(c => c.name));
+  if (!campCols.has("pause_reason")) db.exec("ALTER TABLE whatsapp_campaigns ADD COLUMN pause_reason TEXT DEFAULT ''");
   const row = db.prepare("SELECT * FROM whatsapp_settings WHERE id = 1").get() as any;
   if (!row) {
     db.prepare("INSERT INTO whatsapp_settings (id, api_key, session_name) VALUES (1, ?, ?)").run(randomBytes(32).toString("hex"), "mahallu");
   }
 }
+
+// Anti-ban pacing for bulk campaigns — random 5–10 s gaps, a 4-minute rest
+// every 20 messages, 50/hour and 250/day caps. Counters persist in
+// <userData>/whatsapp/throttle.json so an app restart cannot bypass a cap.
+const sendThrottle = new SendThrottle({ storeDir: whatsappStoreDir });
 
 function normalizePhone(value: string): string {
   const raw = String(value || "").trim();
@@ -253,34 +266,45 @@ function withTransaction(fn: () => void) {
   try { fn(); db.exec("COMMIT"); } catch (e) { db.exec("ROLLBACK"); throw e; }
 }
 
-async function runQueue(campaignId: number, delayMs = 3000) {
+async function runQueue(campaignId: number) {
   const db = getDB();
   db.prepare("UPDATE whatsapp_campaigns SET status = 'RUNNING', started_at = datetime('now') WHERE id = ?").run(campaignId);
   const rows = db.prepare("SELECT * FROM whatsapp_campaign_recipients WHERE campaign_id = ? AND status = 'PENDING' ORDER BY id").all(campaignId) as any[];
   let sent = 0, failed = 0, skipped = 0;
-  for (let i = 0; i < rows.length; i += 5) {
-    const batch = rows.slice(i, i + 5);
-    for (const r of batch) {
-      try {
-        const result = await sendTextInternal(r.recipient_phone, r.message_text);
-        db.prepare("UPDATE whatsapp_campaign_recipients SET status='SENT', provider_message_id=?, sent_at=datetime('now') WHERE id=?").run(result.id || "", r.id);
-        saveMessage({ type: r.campaign_type || "BULK", name: r.recipient_name, phone: r.recipient_phone, text: r.message_text, status: "SENT", familyId: r.family_id, providerId: result.id });
-        sent++;
-      } catch (err: any) {
-        const message = String(err?.message || err);
-        db.prepare("UPDATE whatsapp_campaign_recipients SET status='FAILED', error_message=? WHERE id=?").run(message, r.id);
-        saveMessage({ type: "BULK", name: r.recipient_name, phone: r.recipient_phone, text: r.message_text, status: "FAILED", familyId: r.family_id, error: message });
-        failed++;
-        if (/timelock|capp|429|rate|too many|463|precondition|428/i.test(message)) {
-          db.prepare("UPDATE whatsapp_campaigns SET status='PAUSED', sent_count=?, failed_count=?, skipped_count=? WHERE id=?").run(sent, failed, skipped, campaignId);
-          return { sent, failed, skipped, paused: true };
-        }
+  const pauseCampaign = (reason: string) => {
+    db.prepare("UPDATE whatsapp_campaigns SET status='PAUSED', pause_reason=?, sent_count=?, failed_count=?, skipped_count=? WHERE id=?").run(reason.slice(0, 300), sent, failed, skipped, campaignId);
+    return { sent, failed, skipped, paused: true, pausedReason: reason.slice(0, 300) };
+  };
+  for (const r of rows) {
+    // Anti-ban pacing: every message waits a random 5–10 s gap (long rest
+    // every 20). If an hourly/daily safety cap is hit the campaign PAUSES
+    // instead of pushing on — it can be resumed later from the campaign
+    // list once the window rolls over.
+    const turn = await sendThrottle.beforeSend();
+    if (!turn.ok) {
+      const reason = turn.reason === "daily-cap"
+        ? "Daily safety limit reached — the campaign paused. Resume it tomorrow from the campaign list."
+        : "Hourly safety limit reached — the campaign paused. Resume it (Retry) after the hour rolls over.";
+      return pauseCampaign(reason);
+    }
+    try {
+      const result = await sendTextInternal(r.recipient_phone, r.message_text);
+      sendThrottle.recordSent();
+      db.prepare("UPDATE whatsapp_campaign_recipients SET status='SENT', provider_message_id=?, sent_at=datetime('now') WHERE id=?").run(result.id || "", r.id);
+      saveMessage({ type: r.campaign_type || "BULK", name: r.recipient_name, phone: r.recipient_phone, text: r.message_text, status: "SENT", familyId: r.family_id, providerId: result.id });
+      sent++;
+    } catch (err: any) {
+      const message = String(err?.message || err);
+      db.prepare("UPDATE whatsapp_campaign_recipients SET status='FAILED', error_message=? WHERE id=?").run(message, r.id);
+      saveMessage({ type: "BULK", name: r.recipient_name, phone: r.recipient_phone, text: r.message_text, status: "FAILED", familyId: r.family_id, error: message });
+      failed++;
+      if (/timelock|capp|429|rate|too many|463|precondition|428/i.test(message)) {
+        return pauseCampaign("WhatsApp signalled a rate limit on its side — the campaign paused to protect the number. Resume later with Retry.");
       }
     }
-    if (i + 5 < rows.length) await new Promise(resolve => setTimeout(resolve, delayMs));
   }
   db.prepare("UPDATE whatsapp_campaigns SET status='COMPLETED', sent_count=?, failed_count=?, skipped_count=?, completed_at=datetime('now') WHERE id=?").run(sent, failed, skipped, campaignId);
-  return { sent, failed, skipped, paused: false };
+  return { sent, failed, skipped, paused: false, pausedReason: "" };
 }
 
 // The family head's WhatsApp number: the dedicated field when set, otherwise
@@ -305,26 +329,28 @@ export const whatsapp = {
     // A paired session logs back in silently at app start / after drops.
     maybeStartEngine();
     const snap = engineState();
+    const tosAcked = !!String((getDB().prepare("SELECT tos_ack_at FROM whatsapp_settings WHERE id=1").get() as any)?.tos_ack_at || "");
+    const throttle = sendThrottle.snapshot();
 
     // The one truthful case for OFFLINE: the machine itself has no internet.
     if (!internet) {
       updateStatus("OFFLINE", "No internet connection");
-      return { status: "OFFLINE", connected: false, internet, service: snap.connected ? "RUNNING" : "", number: snap.number, name: snap.name, message: "No internet connection. Check your network and try again." };
+      return { status: "OFFLINE", connected: false, internet, service: snap.connected ? "RUNNING" : "", number: snap.number, name: snap.name, message: "No internet connection. Check your network and try again.", tosAcked, throttle };
     }
 
     switch (snap.state) {
       case "CONNECTED": {
         getDB().prepare("UPDATE whatsapp_settings SET connected_number=?, connected_name=?, status='CONNECTED', last_error='', updated_at=datetime('now') WHERE id=1").run(snap.number, snap.name);
-        return { status: "CONNECTED", connected: true, internet, service: "RUNNING", number: snap.number, name: snap.name, message: "WhatsApp connected" };
+        return { status: "CONNECTED", connected: true, internet, service: "RUNNING", number: snap.number, name: snap.name, message: "WhatsApp connected", tosAcked, throttle };
       }
       case "QR_REQUIRED": {
         updateStatus("QR_REQUIRED");
-        return { status: "QR_REQUIRED", connected: false, internet, service: "RUNNING", number: "", name: "", message: "Scan the QR code to connect WhatsApp" };
+        return { status: "QR_REQUIRED", connected: false, internet, service: "RUNNING", number: "", name: "", message: "Scan the QR code to connect WhatsApp", tosAcked, throttle };
       }
       case "CONNECTING":
       case "RECONNECTING": {
         updateStatus("STARTING", "");
-        return { status: "STARTING", connected: false, internet, service: "STARTING", number: "", name: "", message: snap.state === "RECONNECTING" ? "WhatsApp connection was lost — reconnecting…" : "WhatsApp is connecting…" };
+        return { status: "STARTING", connected: false, internet, service: "STARTING", number: "", name: "", message: snap.state === "RECONNECTING" ? "WhatsApp connection was lost — reconnecting…" : "WhatsApp is connecting…", tosAcked, throttle };
       }
       default: {
         // IDLE — no live socket. A paused-but-paired machine (Quit the app or
@@ -336,12 +362,23 @@ export const whatsapp = {
             ? "WhatsApp is paused — press Connect to resume. Your pairing is kept; no new QR scan is needed."
             : "WhatsApp is not connected yet. Use the Connect button to pair a phone.";
         updateStatus("DISCONNECTED", snap.lastError);
-        return { status: "DISCONNECTED", connected: false, internet, service: "", number: "", name: "", message };
+        return { status: "DISCONNECTED", connected: false, internet, service: "", number: "", name: "", message, tosAcked, throttle };
       }
     }
   },
-  connect: async () => {
+  connect: async (opts: { acknowledged?: boolean } = {}) => {
     ensureSchema();
+    // ToS CONSENT GATE — pairing uses an unofficial connection and carries a
+    // real ban risk for the paired number. The first pairing requires an
+    // explicit acknowledgment (the WhatsApp page's checkbox); once stored,
+    // later connections (resumes after Pause, app restarts) don't re-ask.
+    const settings = getDB().prepare("SELECT tos_ack_at FROM whatsapp_settings WHERE id=1").get() as any;
+    if (!String(settings?.tos_ack_at || "")) {
+      if (!opts.acknowledged) {
+        throw new Error("Before connecting, please read and accept the WhatsApp safety notice on this page (tick the box, then press Connect).");
+      }
+      getDB().prepare("UPDATE whatsapp_settings SET tos_ack_at = datetime('now') WHERE id = 1").run();
+    }
     await requireInternet();
     // Explicit user action — bring the in-process engine up and give it a
     // moment to reach a meaningful state (QR available or logged in).
@@ -352,6 +389,11 @@ export const whatsapp = {
       if (snap.state === "QR_REQUIRED" || snap.state === "CONNECTED") break;
       await new Promise(resolve => setTimeout(resolve, 300));
     }
+    return { success: true };
+  },
+  acknowledgeToS: () => {
+    ensureSchema();
+    getDB().prepare("UPDATE whatsapp_settings SET tos_ack_at = datetime('now') WHERE id = 1").run();
     return { success: true };
   },
   qr: async () => {
@@ -401,6 +443,16 @@ export const whatsapp = {
     ensureSchema();
     const phone = normalizePhone(input.phone);
     if (!phone) throw new Error("WhatsApp number is missing or invalid");
+    // OPT-OUT guard (defense in depth): campaigns already filter
+    // whatsapp_enabled=1 at the SQL level; a direct send that names a family
+    // must honour the family's opt-out too. Receipts stay exempt — they are
+    // transactional one-to-one documents tied to a payment the family made.
+    if (input.familyId) {
+      const fam = getDB().prepare("SELECT whatsapp_enabled FROM families WHERE id=?").get(Number(input.familyId)) as any;
+      if (fam && Number(fam.whatsapp_enabled) === 0) {
+        throw new Error("This family has opted out of WhatsApp messages. Turn messaging back on in the family record first.");
+      }
+    }
     await requireInternet();
     requirePairedSession();
     const result = await sendTextInternal(phone, input.text);
@@ -613,7 +665,7 @@ export const whatsapp = {
     await requireInternet();
     requirePairedSession();
     getDB().prepare("UPDATE whatsapp_campaign_recipients SET status='PENDING', error_message='' WHERE campaign_id=? AND status='FAILED'").run(campaignId);
-    return runQueue(campaignId, 3000);
+    return runQueue(campaignId);
   },
   // Compatibility snapshot for anything still reading runtimeState. The
   // in-process engine is always "installed"; state maps onto the old enum.

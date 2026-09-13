@@ -35,7 +35,11 @@ export function registerWhatsAppIpc(getActor: () => Actor | null) {
     return { success: true };
   });
   register("whatsapp:status", () => { requireAuth(); return whatsapp.status(); });
-  register("whatsapp:connect", () => { requireAuth(); return whatsapp.connect(); });
+  // `connect` carries the ToS consent: the renderer's safety-notice checkbox
+  // sets `acknowledged` — the FIRST pairing is refused without it (stored in
+  // whatsapp_settings.tos_ack_at, so later resumes don't re-ask).
+  register("whatsapp:connect", (opts?: { acknowledged?: boolean }) => { requireAuth(); return whatsapp.connect(opts || {}); });
+  register("whatsapp:ackToS", () => { requireAuth(); return whatsapp.acknowledgeToS(); });
   register("whatsapp:qr", () => { requireAuth(); return whatsapp.qr(); });
   // PAUSE the engine — the paired device stays linked on the phone, so
   // Connect resumes without a new QR scan.

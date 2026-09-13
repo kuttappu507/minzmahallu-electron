@@ -664,6 +664,17 @@
   .wa-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
   .wa-acct { font: 500 12px Poppins; color: var(--mut); }
   .wa-note { font: 500 11.5px Poppins; color: var(--fnt); margin-top: 8px; }
+  .wa-note-safe { color: var(--c-em, #0d7a4f); }
+  /* ToS safety notice — amber callout + consent checkbox before first pairing */
+  .wa-tos { margin-top: 14px; padding: 12px 14px; border: 1.5px solid #f0c36d; background: #fff8e8; border-radius: 12px; }
+  .wa-tos-head { display: flex; align-items: center; gap: 6px; font: 700 12px Poppins; color: #8a5a00; margin-bottom: 6px; }
+  .wa-tos p { margin: 0; font: 500 11.5px Poppins; line-height: 1.5; color: #6b5200; }
+  .wa-tos-check { display: flex; align-items: center; gap: 8px; margin-top: 10px; cursor: pointer; font: 600 12px Poppins; color: var(--tx); }
+  .wa-tos-check input { width: 15px; height: 15px; accent-color: var(--pri, #0d7a4f); cursor: pointer; }
+  :root.dark .wa-tos { border-color: #7a5c1e; background: #2b230d; }
+  :root.dark .wa-tos-head { color: #e8c26a; }
+  :root.dark .wa-tos p { color: #cdb26a; }
+  .wa-pause-reason { font: 500 10.5px Poppins; color: var(--mut); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .wa-meta .gchip.wa-chip-danger { border-color: var(--rose-line); background: var(--rose-bg); color: var(--c-rose); }
   .wa-meta .gchip.wa-chip-danger:hover { border-color: var(--c-rose); box-shadow: none; }
   .wa-qr { margin-top: 14px; padding: 16px; border: 1.5px dashed var(--line2); border-radius: 14px; background: var(--panel2); display: flex; flex-direction: column; align-items: center; gap: 12px; }
