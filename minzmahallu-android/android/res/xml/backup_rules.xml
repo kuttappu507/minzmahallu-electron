@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android auto-backup (API 23–30): keep the mahallu database and the verified
+  .mmbak copies; skip share-sheet scratch files.
+-->
+<full-backup-content>
+    <include domain="file" path="." />
+    <exclude domain="cache" path="." />
+    <exclude domain="file" path="mms-share" />
+</full-backup-content>

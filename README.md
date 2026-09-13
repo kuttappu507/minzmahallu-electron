@@ -145,6 +145,26 @@ React/Electron edition is fully compatible with databases created by the Qt vers
 
 Module integrity, report layout, welfare CRUD compatibility and demo seed coverage are continuously verified in CI.
 
+## Android edition (in this branch)
+
+The same application, rebuilt for Android phones and tablets, lives in
+[`minzmahallu-android/`](./minzmahallu-android). It is a complete port: every
+module, the same SQL schema and 27 migrations, the same PBKDF2 security model,
+offline on the device, with a framework-only native WebView shell and a build
+that needs neither Gradle nor Android Studio (`npm run apk`).
+
+An installable APK built from this branch is committed here:
+
+- [`minzmahallu-android/minz-mahallu-2.0.0-debug.apk`](./minzmahallu-android/minz-mahallu-2.0.0-debug.apk)
+  (2.15 MB, signed v1+v2+v3, Android 6.0+)
+
+CI also builds it on every push: **Actions → Android APK → Artifacts →
+`minz-mahallu-debug-apk`**. See
+[`minzmahallu-android/README.md`](./minzmahallu-android/README.md) for install
+steps and
+[`minzmahallu-android/docs/ANDROID-PORT.md`](./minzmahallu-android/docs/ANDROID-PORT.md)
+for how the port works.
+
 ## License
 
 MIT

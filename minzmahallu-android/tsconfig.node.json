@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    // Referenced projects must emit, so keep the generated config JS out of
+    // the repository entirely.
+    "outDir": "./node_modules/.cache/tsconfig-node"
+  },
+  "include": ["vite.config.ts"]
+}

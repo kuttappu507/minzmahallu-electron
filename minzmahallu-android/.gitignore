@@ -1,0 +1,19 @@
+node_modules/
+dist/
+release/
+coverage/
+*.log
+.DS_Store
+.vite/
+*.tsbuildinfo
+.env
+.env.*
+
+# Android build output. The shell in android/ IS committed (manifest, Java,
+# resources) so a fresh clone can build an APK with `npm run apk`, but the
+# scratch build directory, the downloaded toolchain and the signed APKs are not.
+android/build/
+.toolchain/
+release/
+*.keystore
+*.jks

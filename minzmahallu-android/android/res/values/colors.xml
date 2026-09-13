@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App chrome colours. The launcher-icon background lives in its own
+     generated file (values/ic_launcher_background.xml, `npm run icons`). -->
+<resources>
+    <color name="brand">#0d9488</color>
+    <color name="brand_dark">#0b7c72</color>
+</resources>

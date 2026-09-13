@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The app's native theme. Deliberately framework-only (no AndroidX/Material
+  dependency): the entire UI is the web application inside the WebView, so the
+  theme only has to look right during launch and behind the status bar.
+-->
+<resources>
+    <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:colorPrimary">@color/brand</item>
+        <item name="android:colorPrimaryDark">@color/brand_dark</item>
+        <item name="android:colorAccent">@color/brand</item>
+        <item name="android:windowBackground">@color/brand</item>
+        <item name="android:statusBarColor">@color/brand</item>
+        <item name="android:navigationBarColor">@color/brand_dark</item>
+    </style>
+
+    <!-- Shown by the system while the process starts: the branded splash. -->
+    <style name="AppTheme.Launch" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@drawable/splash</item>
+        <item name="android:statusBarColor">@color/brand</item>
+        <item name="android:navigationBarColor">@color/brand</item>
+    </style>
+</resources>

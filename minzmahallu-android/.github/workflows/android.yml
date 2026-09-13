@@ -1,0 +1,128 @@
+# =============================================================================
+# Build the Android app — tests first, then a real, installable APK.
+#
+#   · every push / pull request  → typecheck + 196-test suite + bundle smoke
+#                                  test + debug APK, verified and uploaded
+#   · tag `v*`                   → the APKs are attached to a GitHub Release
+#   · `workflow_dispatch`        → run it by hand from the Actions tab
+#
+# The artifact to install on a phone:
+#   Actions → the run → Artifacts → minz-mahallu-debug-apk
+#
+# No Gradle, no Android Studio: `npm run apk` assembles the APK from the shell in
+# android/ plus the vite bundle, using tools fetched from npm and PyPI (see
+# scripts/build-apk.mjs). The JDK comes from setup-java below.
+#
+# A signed RELEASE build is produced automatically once these repository
+# secrets exist (Settings → Secrets and variables → Actions):
+#   MMS_KEYSTORE_BASE64   base64 of your .jks  (base64 -w0 release.jks)
+#   MMS_KEYSTORE_PASSWORD
+#   MMS_KEY_ALIAS
+#   MMS_KEY_PASSWORD
+# =============================================================================
+name: Android APK
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    name: Test and build APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Unit + integration tests
+        run: npm test
+
+      - name: Build web bundle
+        run: npm run build
+
+      - name: Boot the built bundle (renders the first-run screen)
+        run: npm run smoke
+
+      - name: Build the APK
+        run: node scripts/build-apk.mjs
+
+      - name: Verify the APK (signature, manifest, packaged bundle)
+        run: npm run smoke:apk
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: minz-mahallu-debug-apk
+          path: release/*-debug.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      # ---------- signed release build (only when the secrets exist) ----------
+      - name: Decode release keystore
+        if: ${{ github.event_name != 'pull_request' && secrets.MMS_KEYSTORE_BASE64 != '' }}
+        run: |
+          echo "${{ secrets.MMS_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "MMS_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          echo "MMS_KEYSTORE_PASSWORD=${{ secrets.MMS_KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "MMS_KEY_ALIAS=${{ secrets.MMS_KEY_ALIAS }}" >> "$GITHUB_ENV"
+          echo "MMS_KEY_PASSWORD=${{ secrets.MMS_KEY_PASSWORD }}" >> "$GITHUB_ENV"
+
+      - name: Build signed release APK
+        if: ${{ env.MMS_KEYSTORE_PATH != '' }}
+        run: node scripts/build-apk.mjs --keep
+
+      - name: Upload release APK
+        if: ${{ env.MMS_KEYSTORE_PATH != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: minz-mahallu-release-apk
+          path: release/*-release.apk
+          if-no-files-found: error
+          retention-days: 365
+
+      # ---------- publish on tag ----------
+      - name: Attach APKs to the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*.apk
+          generate_release_notes: true
+          body: |
+            Minz Mahallu Management System — Android build.
+
+            Install `minz-mahallu-<version>-debug.apk` on the phone (Android 6.0 /
+            API 23 and newer). Enable "Install unknown apps" for your file manager
+            or browser when Android asks.
+
+            The first screen is Initial Setup: create the Administrator account.
+            Everything runs offline; the database lives on the phone.

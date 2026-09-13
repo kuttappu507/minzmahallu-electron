@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- user-scalable stays on: an office phone must be able to pinch-zoom a
+         register. Inputs are 16px on mobile, so focusing one never zooms. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="icon" type="image/png" sizes="512x512" href="./favicon.png" />
+    <!--
+      Content-Security-Policy for the Android WebView:
+        script-src  'wasm-unsafe-eval'  → SQLite runs as WebAssembly (sql.js)
+        img-src     data: blob:        → QR codes, PDF rasterisation, logos
+        connect-src 'self' data: blob: → same-origin asset/wasm reads
+      No remote origins: the app is fully offline, all data stays on the device.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' data: blob:; media-src 'self' data: blob:;" />
+    <title>MMS — Minz Mahallu Management System</title>
+    <style>
+      html, body { overscroll-behavior: none; }
+      .tbl th { font-size: 13.5px; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
