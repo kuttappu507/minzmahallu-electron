@@ -479,7 +479,7 @@ export function Certificates() {
             {qrDataUrl && <img src={qrDataUrl} alt="QR" className="w-20 h-20 rounded-md border border-border bg-white" />}
             <div className="text-sm min-w-0 flex-1">
               <div className="text-emerald-700 font-medium">
-                ✓ {checkResult.certificate.type} · {checkResult.certificate.certificate_number} · {lang === "ml" ? "നൽകിയത്" : "issued to"} {checkResult.certificate.issued_to} · {formatDate(checkResult.certificate.issued_date)} · {checkResult.certificate.status}{checkResult.certificate.reprint_count > 0 ? ` · ${lang === "ml" ? "പുനഃമുദ്രണം" : "reprint"} #${checkResult.certificate.reprint_count}` : ""}
+                ✓ {checkResult.certificate.type} · {checkResult.certificate.certificate_number} · {lang === "ml" ? "നൽകിയിട്ടുള്ളത്" : "issued to"} {checkResult.certificate.issued_to} · {formatDate(checkResult.certificate.issued_date)} · {checkResult.certificate.status}{checkResult.certificate.reprint_count > 0 ? ` · ${lang === "ml" ? "പുനഃമുദ്രണം" : "reprint"} #${checkResult.certificate.reprint_count}` : ""}
               </div>
               {checkResult.deviceFingerprint && (
                 <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted flex-wrap">

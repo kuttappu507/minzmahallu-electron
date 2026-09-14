@@ -279,7 +279,7 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
       const payload = { ...eventForm, eventName: eventForm.event_name, eventType: eventForm.event_type, eventDate: eventForm.event_date, eventTime: eventForm.event_time };
       if (editingEventId) {
         await window.mms.tokens.updateEvent(editingEventId, payload);
-        toast.success(ml ? "ഇവന്റ് പുതുക്കി" : "Event updated");
+        toast.success(ml ? "ഇവന്റ് അപ്ഡേറ്റ് ചെയ്തു" : "Event updated");
       } else {
         const result = await window.mms.tokens.createEvent(payload);
         setSelectedEventId(result.id);

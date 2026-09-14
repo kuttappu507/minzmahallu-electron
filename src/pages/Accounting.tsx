@@ -112,7 +112,7 @@ const PREVIEW_FIELD_LABELS: Record<string, { en: string; ml: string }> = {
   payment_method: { en: "Payment method", ml: "പേയ്മെന്റ് രീതി" },
   description: { en: "Description", ml: "വിവരണം" },
   category: { en: "Category", ml: "വിഭാഗം" },
-  payee: { en: "Paid to (Payee)", ml: "നൽകിയത് (പേയി)" },
+  payee: { en: "Paid to (Payee)", ml: "സ്വീകർത്താവ് (Payee)" },
   voucher_no: { en: "Voucher No.", ml: "വൗച്ചർ നമ്പർ" },
   bill_no: { en: "Bill / Invoice No.", ml: "ബിൽ / ഇൻവോയ്സ് നമ്പർ" },
   transaction_ref: { en: "Reference", ml: "റഫറൻസ്" },
@@ -668,7 +668,7 @@ export function Accounting() {
                   <Input value={form.bill_no || ""} onChange={(e) => setForm({ ...form, bill_no: e.target.value })} placeholder={tx("e.g. shop bill no.", "ഉദാ: കടയുടെ ബിൽ നമ്പർ")} />
                 </div>
                 <div className="col-span-2">
-                  <Label>{tx("Paid to (Payee)", "നൽകിയത് (പേയി)")}</Label>
+                  <Label>{tx("Paid to (Payee)", "സ്വീകർത്താവ് (Payee)")}</Label>
                   <Input value={form.payee || ""} onChange={(e) => setForm({ ...form, payee: e.target.value })} placeholder={tx("Who was this payment made to?", "ആർക്കാണ് ഈ പണം നൽകിയത്?")} />
                 </div>
                 <p className="col-span-2 text-xs text-muted">{tx("Voucher & bill numbers are kept for audit — no files need to be uploaded.", "ഓഡിറ്റിനായി വൗച്ചർ, ബിൽ നമ്പറുകൾ സൂക്ഷിക്കും — ഫയലുകൾ അപ്‌ലോഡ് ചെയ്യേണ്ടതില്ല.")}</p>
@@ -771,7 +771,7 @@ export function Accounting() {
               [tx("Receipt", "രസീത്"), previewRow.receipt_number ? <span key="rc" className="code-text-sm text-primary">{previewRow.receipt_number}</span> : "—"],
               [tx("Voucher No.", "വൗച്ചർ നമ്പർ"), previewRow.voucher_no || "—"],
               [tx("Bill / Invoice No.", "ബിൽ / ഇൻവോയ്സ് നമ്പർ"), previewRow.bill_no || "—"],
-              [tx("Paid to (Payee)", "നൽകിയത് (പേയി)"), previewRow.payee || "—"],
+              [tx("Paid to (Payee)", "സ്വീകർത്താവ് (Payee)"), previewRow.payee || "—"],
               [t("ui_transaction_ref"), previewRow.transaction_ref || "—"],
             ];
             if (isTxn && rec.created_by_name) detailRows.push([tx("Created by", "സൃഷ്ടിച്ചത്"), rec.created_by_name]);

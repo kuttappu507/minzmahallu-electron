@@ -80,7 +80,7 @@ export function SecureActionDialog({
   };
 
   return (
-    <Dialog open={open} onClose={close} title={title || tx("Confirm secure action", "സുരക്ഷിത പ്രവർത്തനം ഉറപ്പാക്കുക")} className="modal-sm">
+    <Dialog open={open} onClose={close} title={title || tx("Confirm secure action", "സുരക്ഷിത പ്രവർത്തനം സ്ഥിരീകരിക്കുക")} className="modal-sm">
       <div className="dlg-pad space-y-4">
         <div className="dlg-hero t-rose">
           <div className="dlg-hero-ic"><ShieldAlert size={18} /></div>
@@ -113,12 +113,12 @@ export function SecureActionDialog({
             placeholder="••••••••"
             onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
           />
-          <div className="text-xs text-muted mt-1.5">{tx("Verified in the main process — never stored.", "പ്രധാന പ്രക്രിയയിൽ പരിശോധിക്കുന്നു — സൂക്ഷിക്കുന്നില്ല.")}</div>
+          <div className="text-xs text-muted mt-1.5">{tx("Verified by the system — never stored.", "സിസ്റ്റം പരിശോധിക്കുന്നു — എവിടെയും സൂക്ഷിക്കുന്നില്ല.")}</div>
         </div>
         <div className="dlg-actions">
           <Button variant="secondary" onClick={close} disabled={busy}>{t("action_cancel")}</Button>
           <Button variant={danger ? "danger" : "primary"} onClick={submit} disabled={busy}>
-            {busy ? tx("Verifying…", "പരിശോധിക്കുന്നു…") : (confirmLabel || tx("Confirm", "ഉറപ്പാക്കുക"))}
+            {busy ? tx("Verifying…", "പരിശോധിക്കുന്നു…") : (confirmLabel || tx("Confirm", "സ്ഥിരീകരിക്കുക"))}
           </Button>
         </div>
       </div>

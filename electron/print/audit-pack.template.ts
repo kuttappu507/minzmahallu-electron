@@ -171,7 +171,7 @@ export function buildAuditPackHtml(pack: PackData, lang: 'en' | 'ml' = 'en', cur
     : `<tr><td colspan="7" style="text-align:center;color:#8ba096">${ml ? "രേഖകളില്ല" : "No entries"}</td></tr>`;
   const vouchers = `<div class="page">${head(L.vouchers)}
     <table>
-      <tr><th>${ml ? "തീയതി" : "Date"}</th><th>${ml ? "വൗച്ചർ" : "Voucher"}</th><th>${ml ? "രസീത്" : "Receipt"}</th><th>${ml ? "നൽകിയത്" : "Payee"}</th><th>${ml ? "ബിൽ നം." : "Bill No."}</th><th>${ml ? "വിവരണം" : "Description"}</th><th>${ml ? "തുക" : "Amount"}</th></tr>
+      <tr><th>${ml ? "തീയതി" : "Date"}</th><th>${ml ? "വൗച്ചർ" : "Voucher"}</th><th>${ml ? "രസീത്" : "Receipt"}</th><th>${ml ? "സ്വീകർത്താവ്" : "Payee"}</th><th>${ml ? "ബിൽ നം." : "Bill No."}</th><th>${ml ? "വിവരണം" : "Description"}</th><th>${ml ? "തുക" : "Amount"}</th></tr>
       ${vrows}
     </table>
     <p class="note">${ml ? "വൗച്ചറുകളും ബിൽ നമ്പറുകളും ഓഡിറ്റ് രേഖകളായി സൂക്ഷിക്കുന്നു." : "Voucher and bill numbers are retained as audit evidence."}</p>
