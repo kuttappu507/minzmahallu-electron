@@ -648,7 +648,7 @@ export const whatsapp = {
     requirePairedSession();
     const campaign = getDB().prepare("SELECT * FROM whatsapp_campaigns WHERE id=?").get(campaignId) as any;
     if (!campaign) throw new Error("Campaign not found");
-    const result = await runQueue(campaignId, 3000);
+    const result = await runQueue(campaignId);
     return { campaignId, ...result };
   },
   campaign: (id: number) => { ensureSchema(); return getDB().prepare("SELECT * FROM whatsapp_campaigns WHERE id=?").get(id); },
