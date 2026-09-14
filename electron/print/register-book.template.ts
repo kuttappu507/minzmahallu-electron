@@ -44,7 +44,7 @@ export function mapRegisterRow(type: "marriage" | "death", r: RegisterRow, ml: b
       { label: ml ? "വയസ്സ്" : "Age", value: r.age != null ? String(r.age) : "—" },
       { label: ml ? "മരണ തീയതി" : "Date of Death", value: fmtDate(r.date_of_death) },
       { label: ml ? "സ്ഥലം" : "Place", value: r.place_of_death || "—" },
-      { label: ml ? "ഖബറടക്കം" : "Burial", value: `${fmtDate(r.burial_date)}${r.burial_place ? ` (${r.burial_place})` : ""}` },
+      { label: ml ? "ദഫനം" : "Burial", value: `${fmtDate(r.burial_date)}${r.burial_place ? ` (${r.burial_place})` : ""}` },
     ],
   };
 }

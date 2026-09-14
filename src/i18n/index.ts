@@ -147,7 +147,7 @@ const translations: Record<string, { en: string; ml: string }> = {
 
   // Donations
   don_title: { en: "Donations", ml: "സംഭാവനകൾ" },
-  don_subtitle: { en: "Manage one-off donations and contributions", ml: "ഏകതവണ സംഭാവനകളും സംഭാവനകളും കൈകാര്യം ചെയ്യുക" },
+  don_subtitle: { en: "Manage one-off donations and contributions", ml: "ഒറ്റതവണ ദാനങ്ങളും സംഭാവനകളും കൈകാര്യം ചെയ്യുക" },
   don_donor_name: { en: "Donor Name", ml: "സംഭാവകന്റെ പേര്" },
   don_donor_phone: { en: "Donor Phone", ml: "സംഭാവകന്റെ ഫോൺ" },
   don_category: { en: "Category", ml: "വിഭാഗം" },
@@ -234,7 +234,7 @@ const translations: Record<string, { en: string; ml: string }> = {
   set_anim_auto: { en: "Auto (recommended)", ml: "ഓട്ടോ (ശുപാർശ ചെയ്യുന്നു)" },
   set_anim_reduced: { en: "Reduced", ml: "കുറച്ചത്" },
   set_anim_full: { en: "Full", ml: "പൂർണ്ണം" },
-  set_anim_hint: { en: "Auto keeps animations light on low-end PCs so the app stays smooth.", ml: "പഴയ കമ്പ്യൂട്ടറുകൾ സ്വയം കണ്ടെത്തി, ആനിമേഷനുകൾ ലഘുവാക്കി ആപ്പ് സുഗമമായി പ്രവർത്തിപ്പിക്കും." },
+  set_anim_hint: { en: "Auto keeps animations light on low-end PCs so the app stays smooth.", ml: "പഴയ കമ്പ്യൂട്ടറുകളെ സ്വയം കണ്ടെത്തി, ആനിമേഷനുകൾ കുറച്ച് ആപ്പ് സുഗമമായി പ്രവർത്തിപ്പിക്കും." },
   set_backup_section: { en: "Backup", ml: "ബാക്കപ്പ്" },
   set_backup_mirror: { en: "Backup mirror folder", ml: "ബാക്കപ്പ് മിറർ ഫോൾഡർ" },
   set_backup_mirror_desc: { en: "Every backup is also copied here (latest 10 kept). Pick a USB drive, another disk, or your Google Drive folder — so the data survives even if this PC is lost.", ml: "ഓരോ ബാക്കപ്പും ഇവിടെയും ഒരു പകർപ്പ് സൂക്ഷിക്കും (പുതിയ 10 എണ്ണം മാത്രം നിലനിർത്തും). യുഎസ്ബി ഡ്രൈവ്, മറ്റൊരു ഡിസ്ക്, അല്ലെങ്കിൽ ഗൂഗ്ൾ ഡ്രൈവ് ഫോൾഡർ തിരഞ്ഞെടുക്കുക — കമ്പ്യൂട്ടർ നഷ്ടപ്പെട്ടാലും ഡാറ്റ സുരക്ഷിതമായിരിക്കും." },
@@ -244,7 +244,7 @@ const translations: Record<string, { en: string; ml: string }> = {
   set_mahallu_name: { en: "Mahallu Name", ml: "മഹല്ല് പേര്" },
   set_ml_enter_hint: { en: "Type in Manglish and press Enter inside the field to convert it to Malayalam.", ml: "മംഗ്ലീഷിൽ ടൈപ്പ് ചെയ്ത് ഫീൽഡിൽ Enter അമർത്തിയാൽ മലയാളമാക്കും." },
   set_reg_section: { en: "Registration Numbers", ml: "രജിസ്ട്രേഷൻ നമ്പറുകൾ" },
-  set_reg_hint: { en: "Each number filled here is printed on all certificates; leave blank to omit it.", ml: "ഇവിടെ പൂരിപ്പിക്കുന്ന ഓരോ നമ്പറും എല്ലാ സർട്ടിഫിക്കറ്റുകളിലും അച്ചടിക്കും; ഒഴിവാക്കാൻ ശൂന്യമാക്കുക." },
+  set_reg_hint: { en: "Each number filled here is printed on all certificates; leave blank to omit it.", ml: "ഇവിടെ പൂരിപ്പിക്കുന്ന ഓരോ നമ്പറും എല്ലാ സർട്ടിഫിക്കറ്റുകളിലും അച്ചടിക്കും; ഒഴിവാക്കണമെങ്കിൽ കാലിയായി വയ്ക്കുക." },
   set_smf_reg_no: { en: "SMF Reg. No.", ml: "SMF രജി. നമ്പർ" },
   set_wakf_reg_no: { en: "Mahallu Wakf Reg. No.", ml: "മഹല്ല് വഖഫ് രജി. നമ്പർ" },
   set_society_reg_no: { en: "Society Reg. No.", ml: "സൊസൈറ്റി രജി. നമ്പർ" },
@@ -262,7 +262,7 @@ const translations: Record<string, { en: string; ml: string }> = {
   set_receipt_prefix: { en: "Numbering Prefix", ml: "നമ്പറിംഗ് പ്രിഫിക്സ്" },
   set_receipt_prefix_hint: {
     en: "These mahallu letters lead EVERY number — receipts MMJM/26/09/001 and certificates MMJM/DT/26/09/001 (DT death, MB membership, RS residence, MR marriage, NOC), so no two mahallus can issue the same number. Leave as RCP or blank to auto-use the mahallu name's own letters (initials of its words, or the first three letters).",
-    ml: "ഈ മഹല്ല് അക്ഷരങ്ങളിൽ എല്ലാ നമ്പറും തുടങ്ങും — രസീറ്റ് MMJM/26/09/001, സർട്ടിഫിക്കറ്റ് MMJM/DT/26/09/001 (DT മരണം, MB അംഗത്വം, RS താമസം, MR വിവാഹം, NOC). അതുകൊണ്ട് രണ്ട് മഹല്ലുകൾക്ക് ഒരേ നമ്പർ വരില്ല. RCP അല്ലെങ്കിൽ ഒഴിവായാൽ മഹല്ല് പേരിന്റെ അക്ഷരങ്ങൾ (വാക്കുകളുടെ ഇനീഷ്യലുകൾ, അല്ലെങ്കിൽ ആദ്യ മൂന്നക്ഷരങ്ങൾ) സ്വയമേവ ഉപയോഗിക്കും.",
+    ml: "ഈ മഹല്ല് അക്ഷരങ്ങളിൽ എല്ലാ നമ്പറും തുടങ്ങും — രസീറ്റ് MMJM/26/09/001, സർട്ടിഫിക്കറ്റ് MMJM/DT/26/09/001 (DT മരണം, MB അംഗത്വം, RS താമസം, MR വിവാഹം, NOC). അതുകൊണ്ട് രണ്ട് മഹല്ലുകൾക്ക് ഒരേ നമ്പർ വരില്ല. RCP ആയിട്ടുവയ്ക്കുക അല്ലെങ്കിൽ കാലിയാക്കിവയ്ക്കുക — മഹല്ല് പേരിന്റെ അക്ഷരങ്ങൾ (വാക്കുകളുടെ ഇനീഷ്യലുകൾ, അല്ലെങ്കിൽ ആദ്യ മൂന്നക്ഷരങ്ങൾ) സ്വയമേവ ഉപയോഗിക്കും.",
   },
   set_auto_backup: { en: "Auto Backup", ml: "ഓട്ടോ ബാക്കപ്പ്" },
   set_financial_sub_section: { en: "Financial & Subscription", ml: "സാമ്പത്തികവും വരിസംഖ്യയും" },
@@ -370,7 +370,7 @@ const translations: Record<string, { en: string; ml: string }> = {
   relation_father_in_law: { en: "Father-in-law", ml: "മാമയൻ / അമ്മാവൻ" },
   relation_mother_in_law: { en: "Mother-in-law", ml: "മാതാവി / അമ്മായി" },
   member_father_name: { en: "Father's name", ml: "പിതാവിന്റെ പേര്" },
-  member_family_head_hint: { en: "Relationship is with respect to the family head", ml: "ബന്ധം കുടുംബനാഥനുമായി ബന്ധപ്പെട്ടതാണ്" },
+  member_family_head_hint: { en: "Relationship is with respect to the family head", ml: "കുടുംബനാഥനുമായുള്ള ബന്ധമാണ് ഇവിടെ നൽകേണ്ടത്" },
   member_family_head_is: { en: "Family head", ml: "കുടുംബനാഥൻ" },
   mrg_select_bride_family: { en: "Bride's family", ml: "വധുവിന്റെ കുടുംബം" },
   mrg_select_groom_family: { en: "Groom's family", ml: "വരന്റെ കുടുംബം" },
@@ -468,7 +468,7 @@ const translations: Record<string, { en: string; ml: string }> = {
   ui_permanent_action: { en: "This action is permanent — the record will be removed from the database.", ml: "ഇത് തിരിച്ചെടുക്കാനാവാത്ത പ്രവർത്തിയാണ് — രേഖ ഡാറ്റയിൽ നിന്ന് ശാശ്വതമായി നീക്കം ചെയ്യപ്പെടും." },
 
   // Certificates extras
-  cert_subtitle: { en: "Issue and manage community certificates with searchable picker.", ml: "തിരയാവുന്ന പിക്കറുമായി കമ്മ്യൂണിറ്റി സർട്ടിഫിക്കറ്റുകൾ നൽകുകയും കൈകാര്യം ചെയ്യുകയും ചെയ്യുക." },
+  cert_subtitle: { en: "Issue and manage community certificates with searchable picker.", ml: "തിരയാവുന്ന പട്ടികയിൽ നിന്ന് കമ്മ്യൂണിറ്റി സർട്ടിഫിക്കറ്റുകൾ നൽകുകയും കൈകാര്യം ചെയ്യുകയും ചെയ്യുക." },
   cert_member_code: { en: "Member Code", ml: "അംഗ കോഡ്" },
   cert_family_number: { en: "Family Number", ml: "കുടുംബ നമ്പർ" },
   cert_marriage_number: { en: "Marriage Number", ml: "വിവാഹ നമ്പർ" },
@@ -514,12 +514,12 @@ const translations: Record<string, { en: string; ml: string }> = {
   usr_last_login: { en: "Last Login", ml: "അവസാന ലോഗിൻ" },
 
   // Backup
-  bak_subtitle: { en: "Create database snapshots for safekeeping & disaster recovery.", ml: "സുരക്ഷിതമായി സൂക്ഷിക്കാനും ദുരന്ത വിമുക്തമാക്കാനും ഡാറ്റാബേസ് സ്നാപ്പ്ഷോട്ടുകൾ ഉണ്ടാക്കുക." },
+  bak_subtitle: { en: "Create database snapshots for safekeeping & disaster recovery.", ml: "സുരക്ഷിതമായി സൂക്ഷിക്കാനും ഡാറ്റ നഷ്ടപ്പെട്ടാൽ വീണ്ടെടുക്കാനും ഡാറ്റാബേസ് സ്നാപ്പ്ഷോട്ടുകൾ ഉണ്ടാക്കുക." },
   bak_total_backups: { en: "Total Backups", ml: "മൊത്തം ബാക്കപ്പുകൾ" },
   bak_most_recent: { en: "Most Recent Backup", ml: "ഏറ്റവും പുതിയ ബാക്കപ്പ്" },
   bak_health: { en: "Backup Health", ml: "ബാക്കപ്പ് ആരോഗ്യം" },
   bak_recent: { en: "Recent Backups", ml: "സമീപകാല ബാക്കപ്പുകൾ" },
-  bak_no_backups: { en: "No backups yet — click Create Backup Now to create your first snapshot.", ml: "ബാക്കപ്പുകളൊന്നുമില്ല — ആദ്യത്തെ സ്നാപ്പ്ഷോട്ട് ഉണ്ടാക്കാൻ ഇപ്പോൾ ബാക്കപ്പ് ഉണ്ടാക്കുക ക്ലിക്ക് ചെയ്യുക." },
+  bak_no_backups: { en: "No backups yet — click Create Backup Now to create your first snapshot.", ml: "ബാക്കപ്പുകളൊന്നുമില്ല — ആദ്യ സ്നാപ്പ്ഷോട്ട് ഉണ്ടാക്കാൻ \"ഇപ്പോൾ ബാക്കപ്പ് ഉണ്ടാക്കുക\" ക്ലിക്ക് ചെയ്യുക." },
   bak_size_col: { en: "Size", ml: "വലുപ്പം" },
   bak_name_col: { en: "Name", ml: "പേര്" },
 

@@ -472,7 +472,7 @@ export function Staff() {
                 <option value="Active">{t("staff_active")}</option>
                 <option value="Inactive">{t("staff_inactive")}</option>
               </Select>
-              <div className="text-xs text-muted mt-1.5">{tx("Resignation / expulsion is executed from the member's view with date, reason and admin password.", "രാജി / പുറത്താക്കൽ തീയതി, കാരണം, അഡ്മിൻ പാസ്‌വേഡ് എന്നിവയോടെ അംഗത്തിന്റെ വ്യൂവിൽ നിന്ന് നടത്തുന്നു.")}</div>
+              <div className="text-xs text-muted mt-1.5">{tx("Resignation / expulsion is executed from the member's view with date, reason and admin password.", "രാജി / പുറത്താക്കൽ അംഗത്തിന്റെ വിവരങ്ങൾ തുറന്ന്, തീയതി, കാരണം, അഡ്മിൻ പാസ്‌വേഡ് എന്നിവയോടെ നടത്തുന്നു.")}</div>
             </div>
           </div>
           <div><Label>{t("staff_address")}</Label><Textarea rows={2} value={form.address || ""} onChange={e => setForm({ ...form, address: e.target.value })} /></div>
