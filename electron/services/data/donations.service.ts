@@ -39,7 +39,7 @@ export const donations = {
   create: (data: any) => {
     // Auto-numbered in the mahallu's PREFIX/YYYY/MM/NNN series unless the
     // user typed their own number (book migration / manual override).
-    const receipt = data.receiptNumber || nextReceiptNumber(data.donationDate || nowDate());
+    const receipt = data.receiptNumber || nextReceiptNumber(data.donationDate || nowDate(), "donation");
     const { id } = run(
       `INSERT INTO donations
         (donor_name, donor_phone, donor_address, family_id, member_id, category_id, amount, donation_date, receipt_number, purpose, payment_method, transaction_ref, received_by, remarks)

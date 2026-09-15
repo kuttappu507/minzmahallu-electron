@@ -272,10 +272,10 @@ export const subscriptions = {
       }
       // A receipt number already issued for this month (printed / sent on
       // WhatsApp) is NEVER renumbered. A fresh month gets a fresh number in
-      // the mahallu's shared receipt series (donations + subscriptions use
-      // ONE counter) — the legacy behaviour of reusing the subscription row's
-      // number from a previous month is a duplicate-receipt bug and is gone.
-      const receipt = String(paid?.receipt_number || "").trim() || nextReceiptNumber(paymentDate);
+      // the mahallu's subscription receipt series (SB — donations run in
+      // their own DN book), never reusing the subscription row's number from
+      // a previous month (that legacy reuse was a duplicate-receipt bug).
+      const receipt = String(paid?.receipt_number || "").trim() || nextReceiptNumber(paymentDate, "subscription");
       // ---- Oldest-first allocation of the cash given this month ----
       const arrearsTake = Math.min(arrears, cash);            // 1) old dues
       arrears = round2(arrears - arrearsTake);
@@ -356,10 +356,16 @@ export const subscriptions = {
   },
   remove: (id: number) => run("DELETE FROM subscriptions WHERE id = ?", [id]),
   markOverdue: () => {
-    const today = nowDate();
+    // Accounts are rolled to the CURRENT month by ensureCurrentMonth, so the
+    // old "period_end < today" rule could never fire — the button did
+    // nothing. A family is overdue when its account carries past-month debt
+    // (arrears > 0 — the "N months due (incl. old)" stack), so flag those;
+    // recording a payment re-computes the status and clears the flag when
+    // the backlog is gone.
     return run(
-      `UPDATE subscriptions SET status = 'Overdue' WHERE status = 'Pending' AND period_end < ?`,
-      [today]
+      `UPDATE subscriptions SET status = 'Overdue', updated_at = datetime('now')
+       WHERE status IN ('Pending','Partial') AND COALESCE(arrears,0) > 0.004`,
+      []
     ).changes;
   },
   totalCollected: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM subscription_payments WHERE status = 'Active'"),

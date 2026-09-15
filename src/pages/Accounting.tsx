@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus, Edit2, Ban, ReceiptText, TrendingUp, TrendingDown, Scale, Eye, Calendar, FileDown, Loader2, History } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
@@ -134,6 +134,30 @@ function parseChanges(json: string | null | undefined): Record<string, { old: un
   return null;
 }
 
+/** Category suggestions for manual ledger entries — Malayalam-aware and
+ *  themed (a native datalist popup can't be styled and shows English only).
+ *  The stored value stays the English name so reports/exports stay stable;
+ *  the dropdown shows the app language with the other language as a hint. */
+const TXN_CATEGORIES: Record<string, { en: string; ml: string }[]> = {
+  Income: [
+    { en: "Shop Rent", ml: "കട വാടകം" },
+    { en: "Goods Rent", ml: "സാധന വാടകം" },
+    { en: "Hall Rent", ml: "ഹാൾ വാടകം" },
+    { en: "Parking", ml: "പാർക്കിംഗ്" },
+    { en: "Other Income", ml: "മറ്റ് വരവുകൾ" },
+  ],
+  Expense: [
+    { en: "Electricity", ml: "കറണ്ട്" },
+    { en: "Water", ml: "വാട്ടർ ബിൽ" },
+    { en: "Fuel", ml: "ഇന്ധനം" },
+    { en: "Maintenance", ml: "അറ്റകുറ്റപ്പണി" },
+    { en: "Stationery", ml: "സ്റ്റേഷനറി" },
+    { en: "Conveyance", ml: "യാത്രാ ചെലവ്" },
+    { en: "Refreshments", ml: "ചായ-പലഹാരം" },
+    { en: "Other Expense", ml: "മറ്റ് ചെലവുകൾ" },
+  ],
+};
+
 export function Accounting() {
   const { t, isMalayalam } = useI18n();
   const tx = (en: string, ml: string) => isMalayalam() ? ml : en;
@@ -154,6 +178,23 @@ export function Accounting() {
 
   // Manual transaction dialog (still uses legacy list/create/update).
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [catOpen, setCatOpen] = useState(false);
+  const catWrapRef = useRef<HTMLDivElement | null>(null);
+  // Close the themed category dropdown on any click/focus outside it — keeps
+  // the Save action reachable and matches normal combobox behaviour.
+  useEffect(() => {
+    if (!catOpen) return;
+    const close = (e: Event) => {
+      const wrap = catWrapRef.current;
+      if (wrap && !wrap.contains(e.target as Node)) setCatOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("focusin", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("focusin", close);
+    };
+  }, [catOpen]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<Partial<Transaction>>(emptyForm);
   // Asset register link (V036) — optional asset to tag the entry with.
@@ -635,15 +676,35 @@ export function Accounting() {
                 <option value="Other">{t("payment_other")}</option>
               </Select>
             </div>
-            <div>
+            <div className="relative" ref={catWrapRef}>
               <Label>{tx("Category", "വിഭാഗം")}</Label>
-              <Input list="txn-category-options" value={form.category || ""} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder={form.type === "Income" ? tx("e.g. Shop Rent, Goods Rent", "ഉദാ: കട വാടാക്കാസ്, സാധന വാടാക്കാസ്") : tx("e.g. Electricity, Maintenance", "ഉദാ: കറണ്ട്, അറ്റകുറ്റപ്പണി")} />
-              <datalist id="txn-category-options">
-                {(form.type === "Income"
-                  ? ["Shop Rent", "Goods Rent", "Hall Rent", "Parking", "Other Income"]
-                  : ["Electricity", "Water", "Fuel", "Maintenance", "Stationery", "Conveyance", "Refreshments", "Other Expense"]
-                ).map((c) => <option key={c} value={c} />)}
-              </datalist>
+              <Input
+                value={form.category || ""}
+                onChange={(e) => { setForm({ ...form, category: e.target.value }); setCatOpen(true); }}
+                onFocus={() => setCatOpen(true)}
+                onKeyDown={(e) => { if (e.key === "Escape") setCatOpen(false); }}
+                placeholder={form.type === "Income" ? tx("e.g. Shop Rent, Goods Rent", "ഉദാ: കട വാടകം, സാധന വാടകം") : tx("e.g. Electricity, Maintenance", "ഉദാ: കറണ്ട്, അറ്റകുറ്റപ്പണി")}
+              />
+              {dialogOpen && catOpen && (() => {
+                const q = String(form.category || "").toLowerCase();
+                const opts = (TXN_CATEGORIES[form.type === "Expense" ? "Expense" : "Income"] || [])
+                  .filter((c) => !q || c.en.toLowerCase().includes(q) || c.ml.includes(String(form.category || "")));
+                return opts.length ? (
+                  <div className="absolute z-30 left-0 right-0 mt-1 max-h-52 overflow-auto rounded-lg border border-border bg-surface shadow-lg" onMouseDown={(e) => e.preventDefault()}>
+                    {opts.map((c) => (
+                      <button
+                        key={c.en}
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-surface-hover flex items-baseline justify-between gap-2"
+                        onMouseDown={(e) => { e.preventDefault(); setForm({ ...form, category: c.en }); setCatOpen(false); }}
+                      >
+                        <span className="font-medium">{tx(c.en, c.ml)}</span>
+                        <span className="text-xs text-muted whitespace-nowrap">{tx(c.ml, c.en)}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null;
+              })()}
             </div>
             <div>
               <Label>{tx("Asset (optional)", "ആസ്തി (ഓപ്ഷണൽ)")}</Label>

@@ -479,12 +479,12 @@ function buildSignatures(ml: boolean): string {
 
 function buildMarriageCert(c: CertData, ml: boolean): string {
   const L = ml ? {
-    title: 'വിവാഹ സർട്ടിഫിക്കറ്റ്', subtitle: 'മഹല്ല് വിവാഹ രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയത്',
+    title: 'നികാഹ് സർട്ടിഫിക്കറ്റ്', subtitle: 'മഹല്ല് നികാഹ് രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയത്',
     groom: 'വരന്റെ പേര്', groomFather: 'വരന്റെ പിതാവ്', groomAddr: 'വരന്റെ വിലാസം',
     bride: 'വധുവിന്റെ പേര്', brideFather: 'വധുവിന്റെ പിതാവ്', brideAddr: 'വധുവിന്റെ വിലാസം',
     mahar: 'മഹർ', nikahDate: 'നികാഹ് തീയതി', place: 'സ്ഥലം', regDate: 'രജിസ്ട്രേഷൻ തീയതി',
     witnesses: 'സാക്ഷികൾ', witness: 'സാക്ഷി',
-    certifyText: 'മേല്പറഞ്ഞ വിവാഹം മഹല്ല് രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയതായി സാക്ഷ്യപ്പെടുത്തുന്നു.',
+    certifyText: 'മേല്പറഞ്ഞ നികാഹ് മഹല്ല് രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയതായി സാക്ഷ്യപ്പെടുത്തുന്നു.',
   } : {
     title: 'MARRIAGE CERTIFICATE', subtitle: 'Registered in the Mahallu Marriage Register',
     groom: 'Name of Bridegroom', groomFather: 'Son of', groomAddr: 'Address',
@@ -667,10 +667,10 @@ function buildResidenceCert(c: CertData, ml: boolean): string {
 
 function buildNocCert(c: CertData, ml: boolean): string {
   const L = ml ? {
-    title: 'വിവാഹത്തിനുള്ള എതിർപ്പില്ലാ സർട്ടിഫിക്കറ്റ്', subtitle: 'No Objection Certificate for Marriage',
+    title: 'നികാഹിനുള്ള എതിർപ്പില്ലാ സർട്ടിഫിക്കറ്റ്', subtitle: 'No Objection Certificate for Marriage',
     groom: 'വരൻ', groomFather: 'വരന്റെ പിതാവ്', bride: 'വധു', brideFather: 'വധുവിന്റെ പിതാവ്',
     nikahDate: 'നികാഹ് തീയതി', place: 'സ്ഥലം',
-    certifyText: 'മേല്പറഞ്ഞ വിവാഹത്തിന് ഈ മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിക്ക് യാതൊരു എതിർപ്പുമില്ലെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.',
+    certifyText: 'മേല്പറഞ്ഞ നികാഹിന് ഈ മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിക്ക് യാതൊരു എതിർപ്പുമില്ലെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.',
   } : {
     title: 'NO OBJECTION CERTIFICATE FOR MARRIAGE', subtitle: 'Mahallu Committee Clearance',
     groom: 'Bridegroom', groomFather: "Groom's Father", bride: 'Bride', brideFather: "Bride's Father",

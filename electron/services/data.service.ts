@@ -22,3 +22,4 @@ export { dashboard } from "./data/dashboard.service.js";
 export { tokens } from "./data/tokens.service.js";
 export { staff } from "./data/staff.service.js";
 export { committee } from "./data/committee.service.js";
+export { clearAllData } from "./data/clear-data.service.js";

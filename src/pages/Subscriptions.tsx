@@ -295,7 +295,7 @@ export function Subscriptions() {
   const handleMarkOverdue = async () => {
     try {
       const count = await window.mms.subscriptions.markOverdue();
-      toast.success(`${count} ${tx("subscriptions marked overdue", "വരിസംഖ്യകൾ ഓവർഡ്യൂ ആയി")}`);
+      toast.success(`${count} ${tx("subscriptions marked overdue", "വരിസംഖ്യകൾ കാലാവധി കഴിഞ്ഞതായി")}`);
       refetch();
       refreshCollected();
       refreshPending();

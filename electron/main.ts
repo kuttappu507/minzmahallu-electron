@@ -5,7 +5,7 @@ import { app, BrowserWindow, ipcMain, nativeTheme, dialog } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import { login, changePassword, needsInitialSetup, createInitialAdministrator } from "./services/auth.service.js";
+import { login, changePassword, needsInitialSetup, createInitialAdministrator, verifyCurrentActorPassword } from "./services/auth.service.js";
 import * as data from "./services/data.service.js";
 import { todayIST } from "./services/data.service.js";
 import { istDateTimeDm } from "./services/ist-date.js";
@@ -257,6 +257,12 @@ app.whenReady().then(() => {
   ipcMain.handle("subscriptions:update", (_e, id, d) => data.subscriptions.update(id, d));
   ipcMain.handle("subscriptions:create", (_e, d) => data.subscriptions.create(d));
   ipcMain.handle("subscriptions:markOverdue", () => data.subscriptions.markOverdue());
+  // Fail-closed fallback for the factory reset — the security layer's
+  // registration (with admin re-auth) wins when it is active.
+  ipcMain.handle("system:clearAllData", (_e, reason: string, adminPassword: string) => {
+    verifyCurrentActorPassword(String(adminPassword ?? ""));
+    return data.clearAllData(String(reason ?? ""));
+  });
   ipcMain.handle("subscriptions:totalCollected", () => data.subscriptions.totalCollected());
   ipcMain.handle("subscriptions:totalPending", () => data.subscriptions.totalPending());
   ipcMain.handle("subscriptions:plans", () => data.subscriptions.plans());

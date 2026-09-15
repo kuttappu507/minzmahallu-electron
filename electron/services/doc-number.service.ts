@@ -15,10 +15,13 @@
  *     issue the same number to two different people. (A manually chosen
  *     prefix may still be 1–5 letters.)
  *   CODE    certificate type only: DT (death), MB (membership), RS
- *     (residence), MR (marriage), NOC (no-objection) — keeps certificate
- *     kinds in separate series. Receipts share ONE series (donations +
- *     subscription payments — the same money book, per the mahallu's rule),
- *     so they carry no code.
+ *     (residence), MR (marriage/Nikah), NOC (no-objection) — keeps
+ *     certificate kinds in separate series. Receipts carry a two-letter
+ *     series code too, so the two money books never share a number:
+ *     DN (donations) and SB (subscriptions) — the mahallu ruled the
+ *     donation book and the subscription book are DIFFERENT books, so a
+ *     donation receipt and a subscription receipt can never print the
+ *     same number.
  *   yy/MM   the document's OWN date in IST — a backdated receipt is numbered
  *     inside its own month. The year prints as TWO digits (26 = 2026) to
  *     keep the number short; the month and the zero-padded sequence keep
@@ -48,6 +51,16 @@ export const CERT_TYPE_CODES: Record<string, string> = {
   Residence: "RS",
   Marriage: "MR",
   NOC: "NOC",
+};
+
+/** Receipt series codes — donations and subscriptions are DIFFERENT money
+ *  books (the mahallu's rule), so each gets its own code AND its own
+ *  per-month sequence. A donation receipt (MMJM/DN/26/09/001) can never
+ *  collide with a subscription receipt (MMJM/SB/26/09/001). */
+export type ReceiptKind = "donation" | "subscription";
+export const RECEIPT_SERIES: Record<ReceiptKind, string> = {
+  donation: "DN",
+  subscription: "SB",
 };
 
 /** A–Z only, at most 5 letters — safe for SQL LIKE (no wildcards) and for
@@ -151,19 +164,22 @@ function mahalluPrefix(): string {
   return mahalluPrefixFor(getDB());
 }
 
-/** Next receipt number for a document dated `dateStr`. ONE series is shared
- *  by donations and subscription payments — both are money receipts from the
- *  same book (the mahallu's rule: "receipt number for donation and
- *  subscription is same series") — and the scan covers the legacy
- *  subscriptions mirror so the series can never produce a duplicate. */
-export function nextReceiptNumber(dateStr?: string | null): string {
+/** Next receipt number for a document dated `dateStr`. Donations and
+ *  subscription payments are SEPARATE series (code DN vs SB — different
+ *  money books), each scanning only its own tables so a series can never
+ *  produce a duplicate or leak across books. Legacy rows numbered under
+ *  the old shared scheme (bare PREFIX/yy/mm/NNN) match neither new head —
+ *  their issued numbers stay final and never inflate the new series. */
+export function nextReceiptNumber(dateStr: string | null | undefined, kind: ReceiptKind): string {
   const { y, m } = yearMonthOf(dateStr);
-  const prefix = mahalluPrefix();
-  const used = [
-    ...columnValues("donations", "receipt_number"),
-    ...columnValues("subscription_payments", "receipt_number"),
-    ...columnValues("subscriptions", "receipt_number"),
-  ];
+  const code = RECEIPT_SERIES[kind] || "DN";
+  const prefix = `${mahalluPrefix()}/${code}`;
+  const used = kind === "subscription"
+    ? [
+        ...columnValues("subscription_payments", "receipt_number"),
+        ...columnValues("subscriptions", "receipt_number"),
+      ]
+    : columnValues("donations", "receipt_number");
   return formatDocNumber(prefix, y, m, maxSeriesUsed(used, prefix, y, m) + 1);
 }
 
@@ -189,7 +205,7 @@ export function ensureDonationReceiptNumber(donationId: number, dateStr?: string
     | undefined;
   const current = String(row?.receipt_number || "").trim();
   if (current) return current;
-  const number = nextReceiptNumber(dateStr);
+  const number = nextReceiptNumber(dateStr, "donation");
   getDB().prepare("UPDATE donations SET receipt_number = ? WHERE id = ?").run(number, donationId);
   return number;
 }
@@ -202,7 +218,7 @@ export function ensureSubscriptionReceiptNumber(
 ): string {
   const current = String(source.receiptNumber || "").trim();
   if (current) return current;
-  const number = nextReceiptNumber(dateStr);
+  const number = nextReceiptNumber(dateStr, "subscription");
   getDB().prepare(`UPDATE ${source.table} SET receipt_number = ? WHERE id = ?`).run(number, source.id);
   return number;
 }

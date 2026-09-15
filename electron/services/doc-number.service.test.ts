@@ -1,5 +1,5 @@
 /*
- * Unified document numbering — PREFIX/yy/MM/NNN.
+ * Unified document numbering — PREFIX/CODE/yy/MM/NNN.
  * Pure helpers are checked directly; the DB-backed allocation is exercised
  * through the real CRUD layer (donations / subscriptions / certificates) on
  * the demo database, exactly as the app uses it.
@@ -20,7 +20,7 @@ import {
   ensureDonationReceiptNumber,
 } from "./doc-number.service.js";
 
-const NUM = /^[A-Z]{1,5}\/\d{2}\/\d{2}\/\d{3,}$/;
+const NUM = /^[A-Z]{1,5}\/[A-Z]{1,3}\/\d{2}\/\d{2}\/\d{3,}$/;
 
 describe("doc-number pure helpers", () => {
   it("sanitizes prefixes to 1–5 capital letters", () => {
@@ -81,9 +81,10 @@ describe("doc-number pure helpers", () => {
   });
 
   it("never lets receipt numbers inflate a certificate series (or vice versa)", () => {
-    // Receipts are PREFIX/yy/MM/NNN; certificates are PREFIX/CODE/yy/MM/NNN —
-    // the heads cannot cross-match, so the series stay independent even
-    // though donations and subscription receipts SHARE one counter.
+    // Receipts are PREFIX/SERIES/yy/MM/NNN; certificates are
+    // PREFIX/CODE/yy/MM/NNN — the heads cannot cross-match, so the series
+    // stay independent, and the DN/SB receipt codes keep the two money
+    // books apart as well.
     expect(maxSeriesUsed(["MM/26/09/001", "MM/26/09/007"], "MM/DT", "26", "09")).toBe(0);
     expect(maxSeriesUsed(["MM/DT/26/09/004"], "MM", "26", "09")).toBe(0);
     // Old-scheme certificate numbers (four-digit year, no mahallu prefix)
@@ -106,16 +107,16 @@ describe("doc-number allocation (real CRUD layer)", () => {
     db.prepare("UPDATE settings SET mahallu_name = 'Minz Mahallu Juma Masjid', receipt_prefix = 'RCP' WHERE id = 1").run();
   });
 
-  it("numbers donations MMJM/yy/MM/NNN, sequencing per month, honoring manual numbers", () => {
+  it("numbers donations MMJM/DN/yy/MM/NNN, sequencing per month, honoring manual numbers", () => {
     const cat = getDB().prepare("SELECT id FROM donation_categories ORDER BY id LIMIT 1").get() as { id: number } | undefined;
     expect(cat).toBeTruthy();
     const created: number[] = [];
     try {
       const first = donations.create({ donorName: "Numbering One", amount: 100, categoryId: cat!.id, donationDate: "2026-09-01" });
-      expect(first.receiptNumber).toBe("MMJM/26/09/001");
+      expect(first.receiptNumber).toBe("MMJM/DN/26/09/001");
 
       const second = donations.create({ donorName: "Numbering Two", amount: 100, categoryId: cat!.id, donationDate: "2026-09-02" });
-      expect(second.receiptNumber).toBe("MMJM/26/09/002");
+      expect(second.receiptNumber).toBe("MMJM/DN/26/09/002");
 
       // A manual number (book migration) is honored verbatim.
       const manual = donations.create({ donorName: "Numbering Book", amount: 100, categoryId: cat!.id, donationDate: "2026-09-03", receiptNumber: "BOOK-77" });
@@ -123,7 +124,7 @@ describe("doc-number allocation (real CRUD layer)", () => {
 
       // A different month starts its own sequence.
       const aug = donations.create({ donorName: "Numbering Aug", amount: 100, categoryId: cat!.id, donationDate: "2026-08-15" });
-      expect(aug.receiptNumber).toMatch(/^MMJM\/26\/08\/\d{3}$/);
+      expect(aug.receiptNumber).toMatch(/^MMJM\/DN\/26\/08\/\d{3}$/);
 
       created.push(first.id, second.id, manual.id, aug.id);
     } finally {
@@ -135,7 +136,8 @@ describe("doc-number allocation (real CRUD layer)", () => {
     const db = getDB();
     db.prepare("UPDATE settings SET receipt_prefix = 'KMJ' WHERE id = 1").run();
     try {
-      expect(nextReceiptNumber("2026-09-01")).toMatch(/^KMJ\/26\/09\/\d{3}$/);
+      expect(nextReceiptNumber("2026-09-01", "donation")).toMatch(/^KMJ\/DN\/26\/09\/\d{3}$/);
+      expect(nextReceiptNumber("2026-09-01", "subscription")).toMatch(/^KMJ\/SB\/26\/09\/\d{3}$/);
       // The customized prefix leads certificate numbers too — one mahallu
       // identity across every document the app issues.
       expect(nextCertificateNumber("Death", "2026-09-01")).toMatch(/^KMJ\/DT\/26\/09\/\d{3}$/);
@@ -144,7 +146,7 @@ describe("doc-number allocation (real CRUD layer)", () => {
     }
   });
 
-  it("numbers subscription payments in the SAME shared series as donations (one money book) and never renumbers an issued receipt", () => {
+  it("numbers subscription payments in their OWN SB series (donations run DN) and never renumbers an issued receipt", () => {
     // Fresh DBs ship empty: create the Pending August account this test bills.
     const famId = ensureFamily();
     ensurePendingSubscription(famId, 150);
@@ -155,7 +157,12 @@ describe("doc-number allocation (real CRUD layer)", () => {
     expect(pending).toBeTruthy();
 
     const paid = subscriptions.applyPayment(pending!.id, { amountPaid: 100, paymentDate: "2026-08-20", paymentMethod: "Cash" });
-    expect(paid.receiptNumber).toMatch(/^MMJM\/26\/08\/\d{3}$/);
+    expect(paid.receiptNumber).toMatch(/^MMJM\/SB\/26\/08\/\d{3}$/);
+
+    // The two money books never share a number: same day, same prefix, but
+    // the donation series carries DN while the subscription series carries SB.
+    expect(nextReceiptNumber("2026-08-20", "donation")).toMatch(/^MMJM\/DN\/26\/08\/\d{3}$/);
+    expect(nextReceiptNumber("2026-08-20", "donation")).not.toBe(paid.receiptNumber);
 
     // Re-recording the SAME month (member tops up the payment) must keep the
     // receipt number that may already be printed / sent on WhatsApp.

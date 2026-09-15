@@ -61,7 +61,7 @@ function fmtDate(d: string): string {
 export function buildRegisterBookHtml(data: RegisterData, lang: 'en' | 'ml' = 'en'): string {
   const ml = lang === 'ml';
   const title = ml
-    ? (data.type === "marriage" ? "വിവാഹ രജിസ്റ്റർ" : "മരണ രജിസ്റ്റർ")
+    ? (data.type === "marriage" ? "നികാഹ് രജിസ്റ്റർ" : "മരണ രജിസ്റ്റർ")
     : (data.type === "marriage" ? "MARRIAGE REGISTER" : "DEATH REGISTER");
   const anekCss = getAnekMalayalamCss();
   const css = `${anekCss}
