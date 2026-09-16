@@ -4,6 +4,7 @@ import { LogIn, Loader2, Eye, EyeOff, ShieldCheck, Database, AlertTriangle, User
 import { useAuth, type AuthUser } from "@/lib/auth";
 import { useI18n } from "@/i18n";
 import { toast } from "@/lib/toast";
+import { friendlyAuthError, passwordPolicyError } from "@/lib/pwd";
 
 export function LoginPage() {
   const { t, lang } = useI18n();
@@ -15,17 +16,40 @@ export function LoginPage() {
   const [username, setUsername] = useState(""); const [fullName, setFullName] = useState(""); const [password, setPassword] = useState(""); const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false); const [loading, setLoading] = useState(false); const [error, setError] = useState<string | null>(null);
   const copy = {
-    bridge: ml ? "ആപ്പ് വേണ്ടവിധം ലോഡ് ആയില്ല. ആപ്പ് അടച്ച് വീണ്ടും തുറക്കുക." : "The app failed to load properly. Please close and reopen the app.", loginFailed: ml ? "ലോഗിൻ പരാജയപ്പെട്ടു. വിവരങ്ങൾ പരിശോധിക്കുക." : "Login failed. Please check your credentials.", unexpected: ml ? "അപ്രതീക്ഷിത പിശക് സംഭവിച്ചു." : "An unexpected error occurred.", welcome: ml ? "സ്വാഗതം" : "Welcome", welcomeBack: ml ? "വീണ്ടും സ്വാഗതം." : "Welcome back.", setupTitle: ml ? "ആദ്യ സജ്ജീകരണം" : "Initial Setup", setupSub: ml ? "ആദ്യ Administrator അക്കൗണ്ട് സൃഷ്ടിക്കുക." : "Create the first Administrator account.", fullName: ml ? "പൂർണ്ണ പേര്" : "Full name", username: ml ? "ഉപയോക്തൃനാമം" : "Username", password: ml ? "പാസ്‌വേഡ്" : "Password", confirm: ml ? "പാസ്‌വേഡ് സ്ഥിരീകരിക്കുക" : "Confirm password", create: ml ? "Administrator അക്കൗണ്ട് സൃഷ്ടിക്കുക" : "Create Administrator Account", creating: ml ? "സൃഷ്ടിക്കുന്നു..." : "Creating...", mismatch: ml ? "പാസ്‌വേഡുകൾ പൊരുത്തപ്പെടുന്നില്ല." : "Passwords do not match.", requirements: ml ? "കുറഞ്ഞത് 8 അക്ഷരങ്ങൾ, വലിയക്ഷരം, ചെറിയക്ഷരം, സംഖ്യ, പ്രത്യേക ചിഹ്നം." : "At least 8 characters, uppercase, lowercase, number and special character.", manageTitle: ml ? "നിങ്ങളുടെ മഹല്ല്\nവ്യക്തതയോടെ നിയന്ത്രിക്കുക." : "Manage your mahallu\nwith clarity.", manageText: ml ? "കുടുംബങ്ങൾ, അംഗങ്ങൾ, സംഭാവനകൾ, സർട്ടിഫിക്കറ്റുകൾ എന്നിവ ഒരിടത്ത് കൈകാര്യം ചെയ്യാനുള്ള ആധുനിക ആപ്പ്." : "A modern app for families, members, donations, certificates, and more — all in one place.", secured: ml ? "PBKDF2 സുരക്ഷിതം" : "PBKDF2 secured", offline: ml ? "ഓഫ്‌ലൈൻ SQLite" : "Offline SQLite", signing: ml ? "സൈൻ ഇൻ ചെയ്യുന്നു..." : "Signing in...", minimize: ml ? "ചുരുക്കുക" : "Minimize", maximize: ml ? "വലുതാക്കുക" : "Maximize", close: ml ? "അടയ്ക്കുക" : "Close", rotateTitle: ml ? "പാസ്‌വേഡ് അപ്ഡേറ്റ് ചെയ്യുക" : "Update your password", rotateSub: ml ? "ഈ അക്കൗണ്ട് പൊതുവിൽ അറിയപ്പെടുന്ന ഒരു സ്ഥിര പാസ്‌വേഡ് ആണ് ഉപയോഗിക്കുന്നത്. സുരക്ഷയ്ക്ക് ഇപ്പോൾ പുതിയ പാസ്‌വേഡ് സജ്ജമാക്കുക." : "This account still uses a publicly-known default password. For security, set a new one now.", rotateNew: ml ? "പുതിയ പാസ്‌വേഡ്" : "New password", rotateSaved: ml ? "പാസ്‌വേഡ് അപ്ഡേറ്റ് ചെയ്തു. സ്വാഗതം!" : "Password updated. Welcome!", rotate: ml ? "പാസ്‌വേഡ് സജ്ജമാക്കുക" : "Set new password"
+    bridge: ml ? "ആപ്പ് വേണ്ടവിധം ലോഡ് ആയില്ല. ആപ്പ് അടച്ച് വീണ്ടും തുറക്കുക." : "The app failed to load properly. Please close and reopen the app.", loginFailed: ml ? "ലോഗിൻ പരാജയപ്പെട്ടു. വിവരങ്ങൾ പരിശോധിക്കുക." : "Login failed. Please check your credentials.", unexpected: ml ? "അപ്രതീക്ഷിത പിശക് സംഭവിച്ചു." : "An unexpected error occurred.", welcome: ml ? "സ്വാഗതം" : "Welcome", welcomeBack: ml ? "വീണ്ടും സ്വാഗതം." : "Welcome back.", setupTitle: ml ? "ആദ്യ സജ്ജീകരണം" : "Initial Setup", setupSub: ml ? "ആദ്യ Administrator അക്കൗണ്ട് സൃഷ്ടിക്കുക." : "Create the first Administrator account.", fullName: ml ? "പൂർണ്ണ പേര്" : "Full name", username: ml ? "ഉപയോക്തൃനാമം" : "Username", password: ml ? "പാസ്‌വേഡ്" : "Password", confirm: ml ? "പാസ്‌വേഡ് സ്ഥിരീകരിക്കുക" : "Confirm password", create: ml ? "Administrator അക്കൗണ്ട് സൃഷ്ടിക്കുക" : "Create Administrator Account", creating: ml ? "സൃഷ്ടിക്കുന്നു..." : "Creating...", mismatch: ml ? "പാസ്‌വേഡുകൾ പൊരുത്തപ്പെടുന്നില്ല." : "Passwords do not match.", requirements: ml ? "കുറഞ്ഞത് 8 അക്ഷരങ്ങൾ, വലിയക്ഷരം, ചെറിയക്ഷരം, സംഖ്യ, പ്രത്യേക ചിഹ്നം." : "At least 8 characters, uppercase, lowercase, number and special character.", manageTitle: ml ? "നിങ്ങളുടെ മഹല്ല്\nവ്യക്തതയോടെ നിയന്ത്രിക്കുക." : "Manage your mahallu\nwith clarity.", manageText: ml ? "കുടുംബങ്ങൾ, അംഗങ്ങൾ, സംഭാവനകൾ, സർട്ടിഫിക്കറ്റുകൾ എന്നിവ ഒരിടത്ത് കൈകാര്യം ചെയ്യാനുള്ള ആധുനിക ആപ്പ്." : "A modern app for families, members, donations, certificates, and more — all in one place.", secured: ml ? "PBKDF2 സുരക്ഷിതം" : "PBKDF2 secured", offline: ml ? "ഓഫ്‌ലൈൻ SQLite" : "Offline SQLite", signing: ml ? "സൈൻ ഇൻ ചെയ്യുന്നു..." : "Signing in...", minimize: ml ? "ചുരുക്കുക" : "Minimize", maximize: ml ? "വലുതാക്കുക" : "Maximize", close: ml ? "അടയ്ക്കുക" : "Close", rotateTitle: ml ? "പാസ്‌വേഡ് അപ്ഡേറ്റ് ചെയ്യുക" : "Update your password", rotateSub: ml ? "ഈ അക്കൗണ്ട് പൊതുവിൽ അറിയപ്പെടുന്ന ഒരു സ്ഥിര പാസ്‌വേഡ് ആണ് ഉപയോഗിക്കുന്നത്. സുരക്ഷയ്ക്ക് ഇപ്പോൾ പുതിയ പാസ്‌വേഡ് സജ്ജമാക്കുക." : "This account still uses a publicly-known default password. For security, set a new one now.", rotateNew: ml ? "പുതിയ പാസ്‌വേഡ്" : "New password", rotateSaved: ml ? "പാസ്‌വേഡ് അപ്ഡേറ്റ് ചെയ്തു. സ്വാഗതം!" : "Password updated. Welcome!", rotate: ml ? "പാസ്‌വേഡ് സജ്ജമാക്കുക" : "Set new password",
+    // Localized policy errors for the rotation form — validated client-side so
+    // a rule-breaking password never reaches the main process (whose raw
+    // English IPC error users used to see here).
+    pwdShort: ml ? "പാസ്‌വേഡിന് കുറഞ്ഞത് 8 അക്ഷരങ്ങൾ വേണം." : "Password must be at least 8 characters.",
+    pwdWeak: ml ? "പാസ്‌വേഡിൽ വലിയക്ഷരം, ചെറിയക്ഷരം, സംഖ്യ, പ്രത്യേക ചിഹ്നം എന്നിവ ഉൾപ്പെടുത്തണം." : "Password must include uppercase, lowercase, a number and a special character."
   };
+  // Shim that lets friendlyAuthError() reuse the inline bilingual copy above;
+  // everything else (login lockout, inactive account, incorrect admin password)
+  // resolves through the shared i18n dictionary.
+  const pwdT = (key: string) => key === "pwd_policy_min" ? copy.pwdShort : key === "pwd_policy_complex" ? copy.pwdWeak : t(key);
   useEffect(() => { (async () => { try { const r = await (window as any).mms?.auth?.setupStatus?.(); setSetup(!!r?.required); } catch {} finally { setCheckedSetup(true); } })(); }, []);
   const handleLogin = async (e: React.FormEvent) => { e.preventDefault(); setLoading(true); setError(null); if (!(window as any).mms) { setError(copy.bridge); setLoading(false); return; } try { const result = await (window as any).mms.auth.login(username, password); if (result.success && result.user) {
         // V035 rotation gate: accounts still carrying a publicly-committed demo
         // password are flagged must_change_pwd — force a new password first.
         if (result.user.mustChangePwd) { setMustRotate(result.user); setPassword(""); setConfirmPassword(""); setLoading(false); return; }
         setUser(result.user); toast.success(`${copy.welcome}, ${result.user.fullName}`); navigate("/");
-      } else { const msg=result.error||copy.loginFailed; setError(msg); toast.error(msg); } } catch(err:any) { const msg=err?.message||copy.unexpected; setError(msg); toast.error(msg); } finally { setLoading(false); } };
-  const handleRotate = async (e: React.FormEvent) => { e.preventDefault(); if (password !== confirmPassword) { setError(copy.mismatch); return; } setLoading(true); setError(null); try { await (window as any).mms.auth.changePassword(mustRotate!.id, password); setUser({ ...mustRotate!, mustChangePwd: false }); toast.success(copy.rotateSaved); navigate("/"); } catch(err:any){ setError(err?.message||copy.unexpected); } finally { setLoading(false); } };
-  const handleSetup = async (e: React.FormEvent) => { e.preventDefault(); setLoading(true); setError(null); if (password !== confirmPassword) { setError(copy.mismatch); setLoading(false); return; } try { const result=await (window as any).mms.auth.createInitialAdministrator(username,fullName,password); if(result.success&&result.user){setUser(result.user);toast.success(copy.welcome);navigate("/");}else{setError(result.error||copy.unexpected);} } catch(err:any){setError(err?.message||copy.unexpected);} finally{setLoading(false);} };
+      } else { const msg=friendlyAuthError(result.error||copy.loginFailed, pwdT); setError(msg); toast.error(msg); } } catch(err:any) { const msg=friendlyAuthError(err?.message||copy.unexpected, pwdT); setError(msg); toast.error(msg); } finally { setLoading(false); } };
+  const handleRotate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password !== confirmPassword) { setError(copy.mismatch); return; }
+    // Client-side policy check FIRST: show the localized rule message instead
+    // of the main process's raw English IPC error (the reported bug).
+    const policyKey = passwordPolicyError(password);
+    if (policyKey) { setError(policyKey === "pwd_policy_min" ? copy.pwdShort : copy.pwdWeak); return; }
+    setLoading(true); setError(null);
+    try {
+      const result: any = await (window as any).mms.auth.changePassword(mustRotate!.id, password);
+      // Structured failure from the secured handler — never treat it as success.
+      if (result && result.success === false) { setError(friendlyAuthError(result.error, pwdT)); return; }
+      setUser({ ...mustRotate!, mustChangePwd: false }); toast.success(copy.rotateSaved); navigate("/");
+    } catch (err: any) { setError(friendlyAuthError(err, pwdT)); } finally { setLoading(false); }
+  };
+  const handleSetup = async (e: React.FormEvent) => { e.preventDefault(); setLoading(true); setError(null); if (password !== confirmPassword) { setError(copy.mismatch); setLoading(false); return; } const policyKey = passwordPolicyError(password); if (policyKey) { setError(policyKey === "pwd_policy_min" ? copy.pwdShort : copy.pwdWeak); setLoading(false); return; } try { const result=await (window as any).mms.auth.createInitialAdministrator(username,fullName,password); if(result.success&&result.user){setUser(result.user);toast.success(copy.welcome);navigate("/");}else{setError(friendlyAuthError(result.error||copy.unexpected, pwdT));} } catch(err:any){setError(friendlyAuthError(err?.message||copy.unexpected, pwdT));} finally{setLoading(false);} };
   return (
     <div className="login-wrap">
       <div className="login-win-controls">

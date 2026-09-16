@@ -6,6 +6,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
 import { formatDate } from "@/lib/utils";
+import { friendlyAuthError, localizedPolicyError } from "@/lib/pwd";
 
 interface UserRow {
   id: number; username: string; full_name: string; role: string;
@@ -48,6 +49,7 @@ export function Users() {
   const save = async () => {
     if (!form.username || !form.full_name) { toast.error(t("ui_username_fullname_required")); return; }
     if (!editingId && !form.password) { toast.error(t("ui_password_required")); return; }
+    if (!editingId) { const policyMsg = localizedPolicyError(form.password, t); if (policyMsg) { toast.error(policyMsg); return; } }
     try {
       if (editingId) {
         await window.mms.users.update(editingId, { fullName: form.full_name, role: form.role, isActive: true });
@@ -57,7 +59,7 @@ export function Users() {
         toast.success(t("usr_add"));
       }
       setDialogOpen(false); setEditingId(null); setForm({ ...emptyForm }); await fetchUsers();
-    } catch (e: any) { toast.error(e.message || t("ui_failed_save")); }
+    } catch (e: any) { toast.error(friendlyAuthError(e, t) || t("ui_failed_save")); }
   };
 
   const toggleLock = async (u: UserRow) => {
@@ -66,8 +68,12 @@ export function Users() {
   };
   const resetPassword = async () => {
     if (!resetUserId || !newPwd) { toast.error(t("tb_pwd_required")); return; }
-    try { await window.mms.users.resetPassword(resetUserId, newPwd); toast.success(t("ui_password_reset")); setResetUserId(null); setNewPwd(""); }
-    catch (e: any) { toast.error(e.message); }
+    // Validate against the real policy locally so admins get a clean localized
+    // message instead of the main process's raw English IPC error.
+    const policyMsg = localizedPolicyError(newPwd, t);
+    if (policyMsg) { toast.error(policyMsg); return; }
+    try { const r: any = await window.mms.users.resetPassword(resetUserId, newPwd); if (r && r.success === false) throw new Error(r.error || ""); toast.success(t("ui_password_reset")); setResetUserId(null); setNewPwd(""); }
+    catch (e: any) { toast.error(friendlyAuthError(e, t)); }
   };
   const remove = async () => {
     if (deleteId == null) return;

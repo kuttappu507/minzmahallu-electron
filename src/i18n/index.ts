@@ -454,9 +454,17 @@ const translations: Record<string, { en: string; ml: string }> = {
   tb_save_password: { en: "Save Password", ml: "പാസ്‌വേഡ് സേവ് ചെയ്യുക" },
   tb_saving: { en: "Saving…", ml: "സേവ് ചെയ്യുന്നു…" },
   tb_pwd_required: { en: "New password is required", ml: "പുതിയ പാസ്‌വേഡ് ആവശ്യമാണ്" },
-  tb_pwd_min: { en: "Password must be at least 6 characters", ml: "പാസ്‌വേഡിന് കുറഞ്ഞത് 6 അക്ഷരങ്ങളെങ്കിലും വേണം" },
+  tb_pwd_min: { en: "Password must be at least 8 characters", ml: "പാസ്‌വേഡിന് കുറഞ്ഞത് 8 അക്ഷരങ്ങളെങ്കിലും വേണം" },
   tb_pwd_mismatch: { en: "Passwords do not match", ml: "പാസ്‌വേഡുകൾ പൊരുത്തപ്പെടുന്നില്ല" },
   tb_pwd_updated: { en: "Password updated successfully", ml: "പാസ്‌വേഡ് വിജയകരമായി അപ്ഡേറ്റ് ചെയ്തു" },
+  // Real password policy + auth error texts (used by src/lib/pwd.ts to replace
+  // the raw English IPC errors users saw on the rotation / login screens).
+  pwd_policy_min: { en: "Password must be at least 8 characters", ml: "പാസ്‌വേഡിന് കുറഞ്ഞത് 8 അക്ഷരങ്ങൾ വേണം" },
+  pwd_policy_complex: { en: "Password must include uppercase, lowercase, a number and a special character", ml: "പാസ്‌വേഡിൽ വലിയക്ഷരം, ചെറിയക്ഷരം, സംഖ്യ, പ്രത്യേക ചിഹ്നം എന്നിവ ഉൾപ്പെടുത്തണം" },
+  auth_incorrect_password: { en: "Incorrect administrator password", ml: "അഡ്മിൻ പാസ്‌വേഡ് തെറ്റാണ്" },
+  auth_invalid_credentials: { en: "Invalid username or password", ml: "ഉപയോക്തൃനാമമോ പാസ്‌വേഡോ തെറ്റാണ്" },
+  auth_locked: { en: "Too many failed attempts — account locked. Try again later.", ml: "പലതവണ തെറ്റായ ശ്രമങ്ങൾ — അക്കൗണ്ട് ലോക്ക് ചെയ്തിരിക്കുന്നു. പിന്നീട് ശ്രമിക്കുക." },
+  auth_inactive: { en: "Account is inactive — contact administrator", ml: "അക്കൗണ്ട് നിഷ്ക്രിയമാണ് — അഡ്മിനിസ്ട്രേറ്ററെ സമീപിക്കുക" },
   tb_no_session: { en: "No user session found", ml: "ഉപയോക്തൃ സെഷൻ കണ്ടെത്തിയില്ല" },
   tb_quick_backup: { en: "Quick backup", ml: "ദ്രുത ബാക്കപ്പ്" },
   tb_creating_backup: { en: "Creating backup...", ml: "ബാക്കപ്പ് ഉണ്ടാക്കുന്നു..." },

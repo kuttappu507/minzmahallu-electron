@@ -49,11 +49,19 @@ export function registerSecurityIpc(getActor: ActorProvider) {
     return current;
   };
   register("auth:changePassword", (userId: number, newPassword: string) => {
-    const a = actor();
-    if (userId !== a.id && a.role !== "Administrator") throw new Error("You can only change your own password");
-    validatePassword(newPassword); changePassword(userId, newPassword);
-    try { data.audit.log(a.id, a.username, "PASSWORD_CHANGE", "auth", userId, "Password changed", ""); } catch {}
-    return { success: true };
+    try {
+      const a = actor();
+      if (userId !== a.id && a.role !== "Administrator") throw new Error("You can only change your own password");
+      validatePassword(newPassword); changePassword(userId, newPassword);
+      try { data.audit.log(a.id, a.username, "PASSWORD_CHANGE", "auth", userId, "Password changed", ""); } catch {}
+      return { success: true };
+    } catch (err: any) {
+      // Structured failure (NOT a throw): a rejected invoke would reach the
+      // renderer as "Error invoking remote method 'auth:changePassword':
+      // Error: <message>" — the raw technical string users reported seeing on
+      // the forced-rotation screen. Callers check result.success === false.
+      return { success: false, error: String(err?.message || "Password change failed") };
+    }
   });
   // ===== Secure-action re-authentication =====
   // Cancelling payments, disbursing welfare, resigning/expelling staff etc.
@@ -238,7 +246,7 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("users:create", (d: any) => { const a = admin(); validatePassword(String(d?.password ?? "")); return data.users.create(d, a.role); });
   register("users:update", (id: number, d: any) => { admin(); return data.users.update(id, d); });
   register("users:toggleLock", (id: number, locked: boolean) => { admin(); return data.users.toggleLock(id, locked); });
-  register("users:resetPassword", (id: number, p: string) => { const a = admin(); validatePassword(p); changePassword(id, p); try { data.audit.log(a.id, a.username, "PASSWORD_RESET", "users", id, "Administrator reset user password", ""); } catch {} return { success: true }; });
+  register("users:resetPassword", (id: number, p: string) => { const a = admin(); try { validatePassword(p); changePassword(id, p); } catch (err: any) { return { success: false, error: String(err?.message || "Password reset failed") }; } try { data.audit.log(a.id, a.username, "PASSWORD_RESET", "users", id, "Administrator reset user password", ""); } catch {} return { success: true }; });
   register("users:remove", (id: number) => { admin(); return data.users.remove(id); });
   register("audit:list", (filter: any) => { actor(); return data.audit.list(filter || {}); });
   register("audit:verify", () => { actor(); return data.audit.verify(); });

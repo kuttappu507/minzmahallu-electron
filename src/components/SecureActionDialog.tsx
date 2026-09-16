@@ -12,6 +12,7 @@ import { ShieldAlert, Lock } from "lucide-react";
 import { Dialog, Button, Input, Label, Textarea } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import { toast } from "@/lib/toast";
+import { friendlyAuthError } from "@/lib/pwd";
 
 export interface SecureActionDialogProps {
   open: boolean;
@@ -73,7 +74,10 @@ export function SecureActionDialog({
       reset();
       onClose();
     } catch (err: any) {
-      toast.error(err?.message || tx("Action failed", "പ്രവർത്തനം പരാജയപ്പെട്ടു"));
+      // friendlyAuthError strips Electron's "Error invoking remote method…"
+      // wrapper and localizes known password/auth failures (e.g. the
+      // administrator re-auth rejection) in both en and ml.
+      toast.error(friendlyAuthError(err, t) || tx("Action failed", "പ്രവർത്തനം പരാജയപ്പെട്ടു"));
     } finally {
       setBusy(false);
     }

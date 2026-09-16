@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "@/lib/toast";
 import { Dialog, Button, Input, Label, Badge } from "@/components/ui";
 import { GlobalSearch } from "@/components/layout/GlobalSearch";
+import { friendlyAuthError, localizedPolicyError } from "@/lib/pwd";
 
 const PAGE_TITLE_KEYS: Record<string, string> = {
   "/": "nav_dashboard", "/families": "nav_families", "/members": "nav_members", "/staff": "nav_staff", "/committee": "nav_committee", "/subscriptions": "nav_subscriptions", "/donations": "nav_donations", "/accounting": "nav_accounting", "/marriages": "nav_marriage", "/deaths": "nav_death", "/welfare": "nav_welfare", "/certificates": "nav_certificates", "/tokens": "nav_tokens", "/reports": "nav_reports", "/settings": "nav_settings", "/users": "nav_users", "/audit": "nav_audit", "/backup": "nav_backup",
@@ -48,14 +49,18 @@ export function Topbar() {
   const handleChangePassword = async () => {
     if (!user?.id) { toast.error(t("tb_no_session")); return; }
     if (!newPwd) { toast.error(t("tb_pwd_required")); return; }
-    if (newPwd.length < 6) { toast.error(t("tb_pwd_min")); return; }
+    // Real main-process policy (8+ chars, upper/lower/digit/special) checked
+    // locally with a LOCALIZED message — the old "min 6 characters" check let
+    // rule-breaking passwords through to a raw English IPC error.
+    const policyMsg = localizedPolicyError(newPwd, t);
+    if (policyMsg) { toast.error(policyMsg); return; }
     if (newPwd !== confirmPwd) { toast.error(t("tb_pwd_mismatch")); return; }
     setSavingPwd(true);
     try {
       const result: any = await window.mms.auth.changePassword(user.id, newPwd);
-      if (result && result.success === false) throw new Error(result.error || t("ui_failed_save"));
+      if (result && result.success === false) throw new Error(friendlyAuthError(result.error, t));
       toast.success(t("tb_pwd_updated")); setNewPwd(""); setConfirmPwd(""); setProfileOpen(false);
-    } catch (e: any) { toast.error(e.message || t("ui_failed_save")); }
+    } catch (e: any) { toast.error(e?.message ? friendlyAuthError(e, t) : t("ui_failed_save")); }
     finally { setSavingPwd(false); }
   };
 
