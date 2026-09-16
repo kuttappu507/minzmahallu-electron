@@ -140,16 +140,6 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("subscriptions:paymentsHistory", (familyId: number) => { actor(); return data.subscriptions.paymentsHistory(familyId); });
   register("subscriptions:remove", () => { admin(); throw new Error("A recurring subscription cannot be deleted. Cancel the payment instead — the account stays with the family."); });
   register("subscriptions:markOverdue", () => { actor(); return data.subscriptions.markOverdue(); });
-  // Factory reset for the RECORD data — Administrator role + own-password
-  // re-auth (verified HERE in the main process) + a reason, then every
-  // business table is wiped and the audit trail restarts with this entry.
-  register("system:clearAllData", (reason: string, adminPassword: string) => {
-    const a = admin();
-    verifyCurrentActorPassword(String(adminPassword ?? ""));
-    const r = data.clearAllData(String(reason ?? ""));
-    try { data.audit.log(a.id, a.username, "CLEAR_ALL_DATA", "settings", 0, `ALL RECORDS ERASED (${r.cleared.length} tables) — the app was factory-reset for production. Reason: ${String(reason ?? "").trim()}`, String(reason ?? "").trim()); } catch {}
-    return r;
-  });
   register("donations:create", (d: any) => { const a = actor(); return data.donations.create({ ...d, receivedBy: a.id }); });
   register("donations:update", (id: number, d: any, adminPassword: string, reason: string) => {
     const a = admin();
@@ -267,14 +257,6 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("subscriptions:list", (filter: any) => { actor(); return data.subscriptions.list(filter || {}); });
   register("subscriptions:get", (id: number) => { actor(); return data.subscriptions.get(id); });
   register("subscriptions:markOverdue", () => { actor(); return data.subscriptions.markOverdue(); });
-  // Fail-closed fallback for the factory reset — password still verified here.
-  register("system:clearAllData", (reason: string, adminPassword: string) => {
-    const a = admin();
-    verifyCurrentActorPassword(String(adminPassword ?? ""));
-    const r = data.clearAllData(String(reason ?? ""));
-    try { data.audit.log(a.id, a.username, "CLEAR_ALL_DATA", "settings", 0, `ALL RECORDS ERASED (${r.cleared.length} tables) — the app was factory-reset for production. Reason: ${String(reason ?? "").trim()}`, String(reason ?? "").trim()); } catch {}
-    return r;
-  });
   register("subscriptions:totalCollected", () => { actor(); return data.subscriptions.totalCollected(); });
   register("subscriptions:totalPending", () => { actor(); return data.subscriptions.totalPending(); });
   register("subscriptions:plans", () => { actor(); return data.subscriptions.plans(); });

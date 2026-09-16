@@ -7,7 +7,7 @@ import { app, dialog } from "electron";
 import { fileURLToPath } from "node:url";
 import { computeDeviceFingerprint } from "../services/device-fingerprint.js";
 import { installTokenDateGuard } from "./token-guard.js";
-import { renumberDemoDocuments, provisionDemoReceiptVerificationCodes, provisionCertificateVerificationCodes } from "../services/demo-renumber.service.js";
+import { provisionCertificateVerificationCodes } from "../services/certificate-codes.service.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export type DB = Database.Database;
@@ -411,15 +411,6 @@ function initializeSchema(database: DB) {
   ensureRuntimeSchema(database);
   provisionDeviceFingerprint(database);
   provisionQrSigningKey(database);
-  // Demo profile only: re-issue legacy demo numbers (DON-/RCP-/CERT-) in the
-  // unified MAHALLU/… scheme. Idempotent, rolled back on failure, and a
-  // no-op on real mahallu databases (settings.demo_data = 0).
-  renumberDemoDocuments(database as any);
-  // Demo profile only: receipt verification codes for the seeded money rows
-  // so the verify box works immediately on the demo data (real mahallu rows
-  // get a code the moment their first receipt is generated — see
-  // receipt.service.ts ensureDonation/SubscriptionVerificationCode).
-  provisionDemoReceiptVerificationCodes(database as any);
   // Certificates issued before the anti-forgery feature have NO verification
   // code, and without a code a certificate print shows NO verify box / NO QR
   // at all. Mint codes for every existing certificate once at startup —
