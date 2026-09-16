@@ -15,12 +15,12 @@ const codeFontStyle="code-text-sm";
 
 export function Marriages(){
  const {t,lang}=useI18n(); const ml=lang==="ml"; const tx=(en:string,mlt:string)=>ml?mlt:en;
- const [search,setSearch]=useState(""); const [dialogOpen,setDialogOpen]=useState(false); const [editingId,setEditingId]=useState<number|null>(null); const [form,setForm]=useState<Partial<Marriage>>(emptyForm); const [previewOpen,setPreviewOpen]=useState(false); const [previewRow,setPreviewRow]=useState<Marriage|null>(null);
+ const [dialogOpen,setDialogOpen]=useState(false); const [editingId,setEditingId]=useState<number|null>(null); const [form,setForm]=useState<Partial<Marriage>>(emptyForm); const [previewOpen,setPreviewOpen]=useState(false); const [previewRow,setPreviewRow]=useState<Marriage|null>(null);
  const [families,setFamilies]=useState<Family[]>([]);
  const [brideFromMahallu,setBrideFromMahallu]=useState(false); const [groomFromMahallu,setGroomFromMahallu]=useState(false);
  const [brideFamilyId,setBrideFamilyId]=useState(""); const [brideMemberId,setBrideMemberId]=useState(""); const [brideMembers,setBrideMembers]=useState<Member[]>([]);
  const [groomFamilyId,setGroomFamilyId]=useState(""); const [groomMemberId,setGroomMemberId]=useState(""); const [groomMembers,setGroomMembers]=useState<Member[]>([]);
- const {rows,total,totalPages,loading,refetch,page,setPage}=useList((filter)=>window.mms.marriages.list(filter),{pageSize:20});
+ const {rows,total,totalPages,loading,refetch,page,setPage,search,setSearch}=useList((filter)=>window.mms.marriages.list(filter),{pageSize:20});
  useEffect(()=>{window.mms.families.list({pageSize:5000}).then(r=>setFamilies((r.rows||[]).filter((f:Family)=>f.status!=="Archived"))).catch(()=>{});},[]);
  // Cascading: loading members of the chosen family (bride side).
  useEffect(()=>{ if(!brideFamilyId){setBrideMembers([]);return;} window.mms.members.list({familyId:Number(brideFamilyId),status:"Active",pageSize:1000}).then(r=>setBrideMembers((r.rows||[]).filter((m:Member)=>m.gender==="Female"))).catch(()=>setBrideMembers([])); },[brideFamilyId]);

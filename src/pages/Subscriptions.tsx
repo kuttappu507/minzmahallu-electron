@@ -74,7 +74,6 @@ export function Subscriptions() {
   const { t, lang } = useI18n();
   const ml = lang === "ml";
   const tx = (en: string, m: string) => (ml ? m : en);
-  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [page, setPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -91,7 +90,7 @@ export function Subscriptions() {
   const [resendTarget, setResendTarget] = useState<Subscription | null>(null);
   const [sendingId, setSendingId] = useState<number | null>(null);
 
-  const { rows, total, totalPages, loading, refetch, setFilters } = useList(
+  const { rows, total, totalPages, loading, refetch, setFilters, search, setSearch } = useList(
     (filter) => window.mms.subscriptions.list(filter),
     { pageSize: 20, initialFilters: { status: statusFilter !== "All" ? statusFilter : undefined } }
   );

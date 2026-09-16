@@ -42,7 +42,9 @@ export function CloseConfirmDialog() {
             <div className="dlg-hero-sub">{t("close_confirm_sub")}</div>
           </div>
         </div>
-        <p className="text-xs text-text-tertiary text-center -mt-1 mb-1">{t("close_feedback")}</p>
+        <div className="flex justify-center -mt-1 mb-2">
+          <p className="text-xs font-medium text-red-600 dark:text-red-400 bg-red-500/10 dark:bg-red-400/10 border border-red-500/30 rounded-full px-3 py-1 text-center">{t("close_feedback")}</p>
+        </div>
         <div className="dlg-actions">
           <Button variant="secondary" onClick={() => setOpen(false)}>{t("close_confirm_no")}</Button>
           <Button variant="primary" onClick={confirmClose} disabled={closing}>{t("close_confirm_yes")}</Button>

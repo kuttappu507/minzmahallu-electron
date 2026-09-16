@@ -51,7 +51,6 @@ export function Committee() {
   const ml = isMalayalam();
 
   const [tab, setTab] = useState<"active" | "past" | "archived">("active");
-  const [search, setSearch] = useState("");
   const [positionFilter, setPositionFilter] = useState("All");
   const [typeFilter, setTypeFilter] = useState("All");
   const [page, setPage] = useState(1);
@@ -76,7 +75,7 @@ export function Committee() {
     ...filter,
     status: tab === "archived" ? "Archived" : tab === "past" ? "Past" : "Active"
   });
-  const { rows, total, totalPages, loading, refetch, setFilters } = useList(listFn, { pageSize: 20, initialFilters: { position: "All", committeeType: "All" } });
+  const { rows, total, totalPages, loading, refetch, setFilters, search, setSearch } = useList(listFn, { pageSize: 20, initialFilters: { position: "All", committeeType: "All" } });
 
   // When tab changes, force a refetch.
   useEffect(() => { setPage(1); setFilters({ position: positionFilter, committeeType: typeFilter }); setTimeout(() => refetch(), 0); }, [tab]);

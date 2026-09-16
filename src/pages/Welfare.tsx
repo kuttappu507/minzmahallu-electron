@@ -40,7 +40,6 @@ export function Welfare() {
   const { t, lang } = useI18n();
   const ml = lang === "ml";
   const tx = (en: string, m: string) => (ml ? m : en);
-  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -66,7 +65,7 @@ export function Welfare() {
   const [disburseOpen, setDisburseOpen] = useState(false);
   const [disburseTarget, setDisburseTarget] = useState<Welfare | null>(null);
 
-  const { rows, total, totalPages, loading, refetch, page, setPage } = useList(
+  const { rows, total, totalPages, loading, refetch, page, setPage, search, setSearch } = useList(
     (filter) => window.mms.welfare.list(filter),
     { pageSize: 20 }
   );
@@ -433,7 +432,7 @@ export function Welfare() {
                 if (!e.target.checked) { setFamilyId(""); setMemberId(""); setMemberInfo(null); setFamilyMembers([]); }
               }}
             />
-            <span className="text-sm">{tx("അപേക്ഷകൻ ഈ മഹല്ലിലെ അംഗമാണ്", "Applicant is from this Mahallu")}</span>
+            <span className="text-sm">{tx("Applicant is from this Mahallu", "അപേക്ഷകൻ ഈ മഹല്ലിലെ അംഗമാണ്")}</span>
           </div>
           {fromMahallu && (
             <div className="space-y-3">
@@ -448,7 +447,7 @@ export function Welfare() {
               </div>
               {familyId && (
                 <div>
-                  <Label><Users size={14} className="inline" /> {tx("അംഗത്തെ തിരഞ്ഞെടുക്കുക", "Select member")}</Label>
+                  <Label><Users size={14} className="inline" /> {tx("Select member", "അംഗത്തെ തിരഞ്ഞെടുക്കുക")}</Label>
                   <Select value={memberId} onChange={(e) => selectMember(e.target.value)}>
                     <option value="">{t("ui_select")}</option>
                     {familyMembers.map((m: any) => (

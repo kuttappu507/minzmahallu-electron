@@ -20,7 +20,7 @@ const normalizeWhatsApp=(value:string)=>{const d=String(value||"").replace(/\D/g
 
 export function Donations(){
   const {t,lang}=useI18n(); const tx=(en:string,ml:string)=>lang==="ml"?ml:en;
-  const [search,setSearch]=useState(""); const [categoryFilter,setCategoryFilter]=useState("All");
+  const [categoryFilter,setCategoryFilter]=useState("All");
   const [dialogOpen,setDialogOpen]=useState(false); const [editingId,setEditingId]=useState<number|null>(null); const [form,setForm]=useState<Partial<Donation>>(emptyForm);
   // Editing an issued donation (a financial receipt) is gated: reason +
   // administrator password, re-verified in the main process on save.
@@ -33,7 +33,7 @@ export function Donations(){
   const [previewOpen,setPreviewOpen]=useState(false); const [previewRow,setPreviewRow]=useState<Donation|null>(null); const [confirmOpen,setConfirmOpen]=useState(false); const [pendingDeleteId,setPendingDeleteId]=useState<number|null>(null);
   // WhatsApp receipt privacy lock: admin re-send gate for a DELIVERED receipt.
   const [resendOpen,setResendOpen]=useState(false); const [resendRow,setResendRow]=useState<Donation|null>(null); const [sendingId,setSendingId]=useState<number|null>(null);
-  const {rows,total,totalPages,loading,refetch,setFilters,page,setPage}=useList((filter)=>window.mms.donations.list(filter),{pageSize:20});
+  const {rows,total,totalPages,loading,refetch,setFilters,page,setPage,search,setSearch}=useList((filter)=>window.mms.donations.list(filter),{pageSize:20});
   useEffect(()=>{setFilters(categoryFilter==="All"?{}:{category:categoryFilter});setPage(1);},[categoryFilter,setFilters]);
 
   const loadFamilies=()=>window.mms.families.list({pageSize:1000}).then(r=>setFamilies(r.rows||[])).catch(()=>{});

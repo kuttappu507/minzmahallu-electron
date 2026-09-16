@@ -64,7 +64,6 @@ export function Staff() {
   const ml = isMalayalam();
 
   const [tab, setTab] = useState<"active" | "archived" | "salary">("active");
-  const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
   const [roles, setRoles] = useState<string[]>([]);
   const [yearFilter, setYearFilter] = useState<number>(new Date().getFullYear());
@@ -96,7 +95,7 @@ export function Staff() {
     ...filter,
     status: tab === "archived" ? "Archived" : "Active"
   });
-  const { rows, total, totalPages, loading, refetch, setFilters, page, setPage } = useList(listFn, { pageSize: 20, initialFilters: { role: "All" } });
+  const { rows, total, totalPages, loading, refetch, setFilters, page, setPage, search, setSearch } = useList(listFn, { pageSize: 20, initialFilters: { role: "All" } });
 
   // When tab changes, force a refetch (useList stores listFn in a ref,
   // so changing the tab closure alone doesn't trigger re-fetch).

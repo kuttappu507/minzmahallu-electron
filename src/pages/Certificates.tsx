@@ -114,7 +114,7 @@ export function Certificates() {
         const r = await window.mms.members.list({ pageSize: 100 });
         return (r?.rows || []).map((m: any) => ({
           id: m.id,
-          code: m.code || "",
+          code: m.member_code || m.code || "",
           primaryName: m.name || "—",
           sub: m.house_name || m.family_number || "",
         }));

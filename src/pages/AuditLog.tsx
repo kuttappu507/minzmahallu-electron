@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ScrollText, Eye, ShieldCheck, ShieldAlert, Loader2 } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
@@ -53,10 +53,21 @@ export function AuditLog() {
   const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null);
   const [verifying, setVerifying] = useState(false);
 
-  const { rows, total, totalPages, loading } = useList(
+  const { rows, total, totalPages, loading, setFilters } = useList(
     (filter) => window.mms.audit.list(filter),
     { pageSize: 50 }
   );
+
+  // Push the action dropdown into the list query (search is filtered client-side).
+  useEffect(() => { setFilters({ action: actionFilter }); }, [actionFilter, setFilters]);
+  const filteredRows = rows.filter((r) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (r.username || "").toLowerCase().includes(q)
+      || (r.description || "").toLowerCase().includes(q)
+      || (r.action || "").toLowerCase().includes(q)
+      || (r.module || "").toLowerCase().includes(q);
+  });
 
   const runVerify = async () => {
     setVerifying(true);
@@ -120,9 +131,9 @@ export function AuditLog() {
 
       <DataTable
         columns={columns}
-        rows={rows as AuditEntry[]}
+        rows={filteredRows as AuditEntry[]}
         loading={loading}
-        total={total}
+        total={search.trim() ? filteredRows.length : total}
         page={page}
         pageSize={50}
         totalPages={totalPages}

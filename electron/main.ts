@@ -693,6 +693,20 @@ app.whenReady().then(() => {
     try { const tokenList = data.tokens.listForPdf(eventId); if (!tokenList || tokenList.length === 0) return { success: false, error: "No tokens found for this event" }; const event = data.tokens.getEvent(eventId); const html = buildCollectionSheetHtml(tokenList, event); const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Collection Sheet PDF", defaultPath: `collection-sheet-${event?.event_name?.replace(/\s+/g, "-") || eventId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] }); if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true }; const pdfBuffer = await renderHtmlToPdf(html); fs.writeFileSync(saveResult.filePath, pdfBuffer); return { success: true, path: saveResult.filePath, count: tokenList.length }; } catch (err: any) { return { success: false, error: err.message }; } });
 
   registerSecurityIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null);
+  // Re-take auth:createInitialAdministrator from security-ipc.ts (whose
+  // registration above wins). The setup handler must ALSO establish the
+  // main-process session — first-run setup IS an auto-login — otherwise every
+  // session-gated export (PDF registers, receipts, audit pack) answers
+  // "Authentication required" until the user logs out and back in.
+  ipcMain.removeHandler("auth:createInitialAdministrator");
+  ipcMain.handle("auth:createInitialAdministrator", (_e, username: string, fullName: string, password: string) => {
+    try {
+      const user = createInitialAdministrator(username, fullName, password);
+      session.user = { id: user.id, username: user.username, fullName: user.fullName, role: user.role };
+      try { data.audit.log(user.id, user.username, "INITIAL_SETUP", "auth", user.id, "Initial Administrator account created", ""); } catch {}
+      return { success: true, user };
+    } catch (err: any) { return { success: false, error: err.message }; }
+  });
   registerWhatsAppIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null);
   registerReceiptIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow);
   createWindow();
