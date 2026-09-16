@@ -423,7 +423,9 @@ export const certificates = {
   },
   /** Count reprints so printed copies carry a "Reprinted on" corner note. */
   markReprint: (id: number) => {
-    run("UPDATE certificates SET reprint_count = COALESCE(reprint_count, 0) + 1, updated_at = datetime('now') WHERE id = ?", [id]);
+    // NOTE: the certificates table has no updated_at column (V023 rebuild) —
+    // stamping it here would throw "no such column: updated_at" on reprint.
+    run("UPDATE certificates SET reprint_count = COALESCE(reprint_count, 0) + 1 WHERE id = ?", [id]);
     return one<any>("SELECT * FROM certificates WHERE id = ?", [id]);
   },
   remove: (id: number) => run("DELETE FROM certificates WHERE id = ?", [id]),

@@ -409,6 +409,7 @@ function initializeSchema(database: DB) {
   ensureRuntimeSchema(database);
   applyMigrations(database);
   ensureRuntimeSchema(database);
+  reassertCriticalTriggers(database);
   provisionDeviceFingerprint(database);
   provisionQrSigningKey(database);
   // Certificates issued before the anti-forgery feature have NO verification
@@ -442,6 +443,26 @@ function provisionQrSigningKey(database: DB) {
       database.prepare("UPDATE settings SET qr_signing_key = ? WHERE id = 1").run(crypto.randomBytes(32).toString("hex"));
     }
   } catch (err) { console.warn("[db] could not provision QR signing key:", err); }
+}
+
+/** Re-assert the official-records guard trigger. V023's certificates table
+ *  rebuild (DROP TABLE) silently dropped the V008 delete guard — DROP TABLE
+ *  always drops the triggers attached to the table, so every migrated
+ *  database lost the "issued certificates cannot be hard-deleted" protection
+ *  while schema_version still claimed V008 was applied. Creating it here on
+ *  every boot restores the guard on already-shipped installs and keeps it in
+ *  place on fresh ones. Idempotent. */
+function reassertCriticalTriggers(database: DB) {
+  try {
+    database.exec(`
+      CREATE TRIGGER IF NOT EXISTS trg_block_certificate_delete
+      BEFORE DELETE ON certificates
+      WHEN OLD.status IN ('Issued','Revoked') OR OLD.status IS NULL
+      BEGIN
+        SELECT RAISE(ABORT, 'Certificates cannot be permanently deleted; revoke the certificate instead');
+      END;
+    `);
+  } catch (err) { console.warn("[db] could not re-assert certificate guard trigger:", err); }
 }
 
 function applyMigrations(database: DB) {

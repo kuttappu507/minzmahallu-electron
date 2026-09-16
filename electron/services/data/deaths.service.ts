@@ -35,7 +35,7 @@ export const deaths = {
       [
         num, data.deceasedName ?? "", data.fatherName ?? "",
         data.gender ?? "Male", data.age ?? null, data.dateOfDeath,
-        data.placeOfDeath ?? "", data.burialDate, data.causeOfDeath ?? "", data.burialPlace ?? "",
+        data.placeOfDeath ?? "", data.burialDate ?? null, data.causeOfDeath ?? "", data.burialPlace ?? "",
         data.address ?? "", data.familyId ?? null,
         data.registrationDate || nowDate(), data.remarks ?? ""
       ]

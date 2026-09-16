@@ -241,6 +241,7 @@ const translations: Record<string, { en: string; ml: string }> = {
   set_backup_mirror_pick: { en: "Browse", ml: "തിരഞ്ഞെടുക്കുക" },
   set_backup_mirror_clear: { en: "Clear", ml: "മായ്ക്കുക" },
   set_backup_mirror_none: { en: "Not set", ml: "സജ്ജമാക്കിയിട്ടില്ല" },
+  set_saved_success: { en: "Settings saved successfully", ml: "ക്രമീകരണങ്ങൾ വിജയകരമായി സേവ് ചെയ്തു" },
   set_mahallu_name: { en: "Mahallu Name", ml: "മഹല്ല് പേര്" },
   set_ml_enter_hint: { en: "Type in Manglish and press Enter inside the field to convert it to Malayalam.", ml: "മംഗ്ലീഷിൽ ടൈപ്പ് ചെയ്ത് ഫീൽഡിൽ Enter അമർത്തിയാൽ മലയാളമാക്കും." },
   set_reg_section: { en: "Registration Numbers", ml: "രജിസ്ട്രേഷൻ നമ്പറുകൾ" },

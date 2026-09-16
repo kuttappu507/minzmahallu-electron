@@ -864,10 +864,18 @@
   }
 
   /* ===== Toast ===== */
-  .toast { display: flex; align-items: center; gap: 11px; background: var(--panel); color: var(--tx); border: 1.5px solid var(--line); border-left: 6px solid var(--em); border-radius: 14px; padding: 12px 16px; font: 500 12.5px Poppins; box-shadow: var(--shl); animation: tIn 0.3s; max-width: 340px; }
-  .toast.err { border-left-color: var(--c-rose); }
-  .toast.warn { border-left-color: var(--c-gold); }
-  .toast.info { border-left-color: var(--c-sky); }
+  .toast { display: flex; align-items: center; gap: 11px; background: var(--panel); color: var(--tx); border: 1.5px solid var(--line); border-left: 6px solid var(--em); border-radius: 14px; padding: 12px 16px; font: 600 13px Poppins; box-shadow: var(--shl); animation: tIn 0.3s; max-width: 340px; }
+  /* Feedback text is colour-coded per type — never grey/muted:
+     success = teal, error = red, warning = deep gold, info = blue.
+     Error/warning/info also get a subtle type tint on the panel. */
+  .toast > span { color: var(--emdd); }
+  .toast.err { border-left-color: var(--c-rose); background: color-mix(in srgb, var(--c-rose) 7%, var(--panel)); }
+  .toast.err > span { color: var(--c-rose); }
+  .toast.warn { border-left-color: var(--c-gold); background: color-mix(in srgb, var(--c-gold) 10%, var(--panel)); }
+  .toast.warn > span { color: var(--gold-deep); }
+  .toast.info { border-left-color: var(--c-sky); background: color-mix(in srgb, var(--c-sky) 7%, var(--panel)); }
+  .toast.info > span { color: var(--c-sky); }
+  html.dark .toast > span { color: var(--em); }
   .toast.out { animation: tOut 0.3s forwards; }
   .toast-container { position: absolute; right: 18px; bottom: 42px; z-index: 130; display: flex; flex-direction: column; gap: 9px; align-items: flex-end; }
   .toast-close { background: none; border: 0; color: var(--fnt); cursor: pointer; padding: 0; margin-left: 4px; }

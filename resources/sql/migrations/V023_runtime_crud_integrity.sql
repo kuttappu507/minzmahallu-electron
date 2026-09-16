@@ -41,3 +41,14 @@ DROP TABLE certificates;
 ALTER TABLE certificates_v015 RENAME TO certificates;
 CREATE INDEX IF NOT EXISTS idx_cert_type ON certificates(type);
 CREATE INDEX IF NOT EXISTS idx_cert_num ON certificates(certificate_number);
+
+-- The rebuild above (DROP TABLE certificates) silently dropped V008's
+-- trg_block_certificate_delete — DROP TABLE always drops the triggers
+-- attached to the table. Re-create the guard here so databases that run
+-- the migration chain keep the official-records protection.
+CREATE TRIGGER IF NOT EXISTS trg_block_certificate_delete
+BEFORE DELETE ON certificates
+WHEN OLD.status IN ('Issued','Revoked') OR OLD.status IS NULL
+BEGIN
+  SELECT RAISE(ABORT, 'Certificates cannot be permanently deleted; revoke the certificate instead');
+END;

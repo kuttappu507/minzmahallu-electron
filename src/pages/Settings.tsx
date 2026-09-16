@@ -92,7 +92,7 @@ export function Settings(){
       });
       // Currency symbol takes effect across every screen immediately.
       setCurrencySymbol(settings.currency_symbol);
-      toast.success(t("ui_save_changes"));
+      toast.success(t("set_saved_success"));
     }catch(err:any){toast.error(err.message||t("ui_failed_save"));}
     finally{setSaving(false);}
   };
