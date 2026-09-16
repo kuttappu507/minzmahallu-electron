@@ -47,3 +47,6 @@ vite.config.d.ts
 coverage/
 resources/waha/
 scripts/brand-out/
+
+# E2E screenshot artifacts
+qa-screens/
