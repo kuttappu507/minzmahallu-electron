@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus, Edit2, Ban, ReceiptText, TrendingUp, TrendingDown, Scale, Eye, Calendar, FileDown, Loader2, History } from "lucide-react";
 import { useAsyncLock } from "../lib/use-async-lock";
+import { amountError } from "@/lib/amount";
 import { useI18n } from "@/i18n";
 import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
 import { DataTable, type Column } from "@/components/DataTable";
@@ -260,6 +261,8 @@ export function Accounting() {
       toast.error(t("ui_amount_date_required"));
       return;
     }
+    const amtErr = amountError(form.amount, t);
+    if (amtErr) { toast.error(amtErr); return; }
     try {
       const payload: any = {
         txnDate: form.txn_date,

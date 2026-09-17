@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Edit2, Eye, LogOut, UserX, RotateCcw, History, Wallet, XCircle, Briefcase } from "lucide-react";
 import { useAsyncLock } from "../lib/use-async-lock";
+import { clampPhone10 } from "@/lib/phone";
+import { amountError, nonNegativeAmountError } from "@/lib/amount";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
 import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
@@ -134,6 +136,8 @@ export function Staff() {
   const [busy, runLocked] = useAsyncLock();
   const save = () => runLocked(async () => {
     if (!form.name) { toast.error(t("staff_name_required")); return; }
+    const salaryErr = nonNegativeAmountError(form.salary, t);
+    if (salaryErr) { toast.error(salaryErr); return; }
     try {
       const payload = {
         memberId: form.member_id || null,
@@ -211,6 +215,8 @@ export function Staff() {
 
   const executePay = async () => {
     if (!payForm.staffId || !payForm.periodMonth || !payForm.periodYear) return;
+    const payAmtErr = amountError(payForm.amount, t);
+    if (payAmtErr) { toast.error(payAmtErr); return; }
     try {
       await window.mms.staff.paySalary({
         staffId: payForm.staffId,
@@ -459,7 +465,7 @@ export function Staff() {
                 {roles.map(r => <option key={r} value={r}>{r}</option>)}
               </Select>
             </div>
-            <div><Label>{t("staff_phone")}</Label><Input value={form.phone || ""} onChange={e => setForm({ ...form, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })} maxLength={10} inputMode="numeric" placeholder="98XXXXXXXX" /></div>
+            <div><Label>{t("staff_phone")}</Label><Input value={form.phone || ""} onChange={e => setForm({ ...form, phone: clampPhone10(e.target.value) })} inputMode="numeric" placeholder="98XXXXXXXX" /></div>
             <div><Label>{t("staff_id_number")}</Label><Input value={form.id_number || ""} onChange={e => setForm({ ...form, id_number: e.target.value })} placeholder="XXXX-XXXX-XXXX" /><div className="text-xs text-muted mt-1.5">{t("staff_id_number_hint")}</div></div>
             <div><Label>{t("staff_email")}</Label><Input type="email" value={form.email || ""} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
             <div><Label>{t("staff_joined_date")}</Label><Input type="date" value={form.joined_date || ""} onChange={e => setForm({ ...form, joined_date: e.target.value })} /></div>

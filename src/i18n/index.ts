@@ -475,6 +475,16 @@ const translations: Record<string, { en: string; ml: string }> = {
   auth_invalid_credentials: { en: "Invalid username or password", ml: "ഉപയോക്തൃനാമമോ പാസ്‌വേഡോ തെറ്റാണ്" },
   auth_locked: { en: "Too many failed attempts — account locked. Try again later.", ml: "പലതവണ തെറ്റായ ശ്രമങ്ങൾ — അക്കൗണ്ട് ലോക്ക് ചെയ്തിരിക്കുന്നു. പിന്നീട് ശ്രമിക്കുക." },
   auth_inactive: { en: "Account is inactive — contact administrator", ml: "അക്കൗണ്ട് നിഷ്ക്രിയമാണ് — അഡ്മിനിസ്ട്രേറ്ററെ സമീപിക്കുക" },
+  // Amount validation (src/lib/amount.ts) — negatives/zeros/huge values must
+  // never reach SQLite (hostile-user sweep round 2).
+  amount_invalid: { en: "Enter a valid amount greater than 0", ml: "0-ൽ കൂടുതലായ സാധുവായ തുക നൽകുക" },
+  amount_too_large: { en: "Amount is too large", ml: "തുക വളരെ വലുതാണ്" },
+  amount_negative: { en: "Amount cannot be negative", ml: "തുക നെഗറ്റീവ് ആകാൻ പാടില്ല" },
+  // Runtime send-failure guidance (src/lib/ipc-error.ts) — WhatsApp sends
+  // without a paired session / internet now speak the user's language.
+  wa_not_connected: { en: "WhatsApp is not connected. Open the WhatsApp page, connect and scan the QR code, then try again.", ml: "വാട്ട്സ്ആപ്പ് കണക്റ്റ് ചെയ്തിട്ടില്ല. വാട്ട്സ്ആപ്പ് പേജ് തുറന്ന് കണക്റ്റ് ചെയ്ത് QR കോഡ് സ്കാൻ ചെയ്യുക, പിന്നീട് വീണ്ടും ശ്രമിക്കുക." },
+  wa_no_internet: { en: "No internet connection. Check your network and try again.", ml: "ഇന്റർനെറ്റ് കണക്ഷൻ ഇല്ല. നിങ്ങളുടെ നെറ്റ്‌വർക്ക് പരിശോധിച്ച് വീണ്ടും ശ്രമിക്കുക." },
+  wa_send_failed: { en: "Could not send the WhatsApp message", ml: "വാട്ട്സ്ആപ്പ് സന്ദേശം അയയ്ക്കാനായില്ല" },
   tb_no_session: { en: "No user session found", ml: "ഉപയോക്തൃ സെഷൻ കണ്ടെത്തിയില്ല" },
   tb_quick_backup: { en: "Quick backup", ml: "ദ്രുത ബാക്കപ്പ്" },
   tb_creating_backup: { en: "Creating backup...", ml: "ബാക്കപ്പ് ഉണ്ടാക്കുന്നു..." },

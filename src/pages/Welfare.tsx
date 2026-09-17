@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Plus, Edit2, Check, X, Send, Eye, ShieldCheck, Users, MapPin, Phone } from "lucide-react";
 import { useAsyncLock } from "../lib/use-async-lock";
+import { amountError } from "@/lib/amount";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
 import { Card, CardContent, Button, Dialog, Input, Label, Select, Textarea, Badge, SectionLabel } from "@/components/ui";
@@ -142,6 +143,8 @@ export function Welfare() {
       toast.error(t("wel_category_required"));
       return;
     }
+    const amtErr = amountError(form.amount_requested, t);
+    if (amtErr) { toast.error(amtErr); return; }
     try {
       const payload: any = {
         applicantName: form.applicant_name,

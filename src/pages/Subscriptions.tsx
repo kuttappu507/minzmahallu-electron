@@ -4,6 +4,7 @@ import { useI18n } from "@/i18n";
 import { useList, useAsync } from "@/hooks/useList";
 import { Card, CardContent, Button, Dialog, Input, Label, Select, Textarea, Badge, SectionLabel } from "@/components/ui";
 import { SecureActionDialog } from "@/components/SecureActionDialog";
+import { friendlySendError } from "@/lib/ipc-error";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
 import { formatCurrency, formatDate, statusVariant, todayIST, getCurrencySymbol } from "@/lib/utils";
@@ -240,7 +241,7 @@ export function Subscriptions() {
       }
       refetch();
     } catch (e: any) {
-      toast.error(e?.message || tx("Could not send the receipt", "\u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d4d \u0d05\u0d2f\u0d2f\u0d4d\u0d15\u0d4d\u0d15\u0d3e\u0d28\u0d3e\u0d2f\u0d3f\u0d32\u0d4d\u0d32"));
+      toast.error(friendlySendError(e, t) || tx("Could not send the receipt", "\u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d4d \u0d05\u0d2f\u0d2f\u0d4d\u0d15\u0d4d\u0d15\u0d3e\u0d28\u0d3e\u0d2f\u0d3f\u0d32\u0d4d\u0d32"));
       refetch();
     } finally {
       setSendingId(null);

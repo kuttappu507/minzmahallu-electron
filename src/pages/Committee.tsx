@@ -5,6 +5,7 @@ import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
 import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
 import { SecureActionDialog } from "@/components/SecureActionDialog";
+import { clampPhone10 } from "@/lib/phone";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
 import { friendlyAuthError } from "@/lib/pwd";
@@ -380,7 +381,7 @@ export function Committee() {
                 <option value="Resigned">{t("committee_resigned")}</option>
               </Select>
             </div>
-            <div><Label>{t("committee_phone")}</Label><Input value={form.phone || ""} onChange={e => setForm({ ...form, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })} maxLength={10} inputMode="numeric" placeholder="98XXXXXXXX" /></div>
+            <div><Label>{t("committee_phone")}</Label><Input value={form.phone || ""} onChange={e => setForm({ ...form, phone: clampPhone10(e.target.value) })} inputMode="numeric" placeholder="98XXXXXXXX" /></div>
             <div><Label>{t("committee_email")}</Label><Input type="email" value={form.email || ""} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
             <div><Label>{t("committee_term_start")}</Label><Input type="date" value={form.term_start || ""} onChange={e => setForm({ ...form, term_start: e.target.value })} /></div>
             <div><Label>{t("committee_term_end")}</Label><Input type="date" value={form.term_end || ""} onChange={e => setForm({ ...form, term_end: e.target.value })} /></div>
