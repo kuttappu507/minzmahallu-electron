@@ -141,6 +141,24 @@ This branch (`react-electron-port`) was created from the original Qt/QML `master
 branch. The SQL schema, seed data, and migration files are identical, so the
 React/Electron edition is fully compatible with databases created by the Qt version.
 
+## Landing Page & Downloads
+
+The public landing page lives at `docs/index.html` — a self-contained bilingual
+(Malayalam + English) static site advertising every module, with download links
+wired to the GitHub Releases.
+
+**Hosting on Vercel** (recommended — short URL, auto-HTTPS, redeploys on push):
+
+1. Go to [vercel.com/new](https://vercel.com/new) and import this repository.
+2. In **Build & Output Settings**, set **Root Directory** to `docs`.
+3. Deploy — no build command, install, or framework is needed (`docs/vercel.json`
+   handles it). You get `minzmahallu-electron.vercel.app`; rename it to a short
+   domain under *Settings → Domains* (e.g. `minzmahallu.vercel.app`).
+
+**Hosting on GitHub Pages** (alternative): Settings → Pages → Source
+"GitHub Actions", then run the *Deploy Landing Page* workflow. URL will be
+`kuttappu507.github.io/minzmahallu-electron/`.
+
 ## Verification
 
 Module integrity, report layout, welfare CRUD compatibility and demo seed coverage are continuously verified in CI.
