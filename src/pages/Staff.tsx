@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Edit2, Eye, LogOut, UserX, RotateCcw, History, Wallet, XCircle, Briefcase } from "lucide-react";
+import { useAsyncLock } from "../lib/use-async-lock";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
 import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
@@ -130,7 +131,8 @@ export function Staff() {
   useEffect(() => { setFilters({ role: roleFilter }); }, [roleFilter, setFilters]);
   useEffect(() => { refreshPayments(); refreshSummary(); }, [tab, yearFilter, paymentsPage]);
 
-  const save = async () => {
+  const [busy, runLocked] = useAsyncLock();
+  const save = () => runLocked(async () => {
     if (!form.name) { toast.error(t("staff_name_required")); return; }
     try {
       const payload = {
@@ -152,7 +154,7 @@ export function Staff() {
       toast.success(t("staff_saved"));
       setDialogOpen(false); setEditingId(null); setForm(emptyForm); refetch();
     } catch (e: any) { toast.error(e.message || t("ui_failed_save")); }
-  };
+  });
 
   const edit = async (id: number) => {
     const s = await window.mms.staff.get(id);
@@ -482,7 +484,7 @@ export function Staff() {
           <div><Label>{t("staff_notes")}</Label><Textarea rows={2} value={form.notes || ""} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setDialogOpen(false)}>{t("action_cancel")}</Button>
-            <Button onClick={save}>{t("action_save")}</Button>
+            <Button onClick={save} disabled={busy}>{busy ? t("ui_saving") : t("action_save")}</Button>
           </div>
         </div>
       </Dialog>

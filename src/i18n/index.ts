@@ -581,6 +581,7 @@ const translations: Record<string, { en: string; ml: string }> = {
   ui_donor_cat_amount_required: { en: "Donor Name, Category and Amount are required", ml: "സംഭാവകന്റെ പേര്, വിഭാഗം, തുക എന്നിവ ആവശ്യമാണ്" },
   ui_amount_date_required: { en: "Amount and Date are required", ml: "തുകയും തീയതിയും ആവശ്യമാണ്" },
   ui_applicant_amount_required: { en: "Applicant Name and Requested Amount are required", ml: "അപേക്ഷകന്റെ പേരും ആവശ്യപ്പെട്ട തുകയും ആവശ്യമാണ്" },
+  wel_category_required: { en: "Select an assistance category", ml: "ഒരു സഹായ വിഭാഗം തിരഞ്ഞെടുക്കുക" },
   ui_username_fullname_required: { en: "Username and Full Name are required", ml: "ഉപയോക്തൃനാമവും പൂർണ്ണ പേരും ആവശ്യമാണ്" },
   ui_password_required: { en: "Password is required", ml: "പാസ്‌വേഡ് ആവശ്യമാണ്" },
   ui_bride_groom_date_required: { en: "Bride, Groom and Nikah Date are required", ml: "വധു, വരൻ, നികാഹ് തീയതി എന്നിവ ആവശ്യമാണ്" },

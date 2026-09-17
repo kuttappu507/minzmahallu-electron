@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Plus, Edit2, Check, X, Send, Eye, ShieldCheck, Users, MapPin, Phone } from "lucide-react";
+import { useAsyncLock } from "../lib/use-async-lock";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
 import { Card, CardContent, Button, Dialog, Input, Label, Select, Textarea, Badge, SectionLabel } from "@/components/ui";
@@ -127,9 +128,18 @@ export function Welfare() {
   const totalRequested = (rows as Welfare[]).reduce((s, r) => s + (r.amount_requested || 0), 0);
   const totalApproved = (rows as Welfare[]).reduce((s, r) => s + (r.amount_approved || 0), 0);
 
-  const handleSave = async () => {
+  const [busy, runLocked] = useAsyncLock();
+  const handleSave = () => runLocked(async () => {
     if (!form.applicant_name || !form.amount_requested) {
       toast.error(t("ui_applicant_amount_required"));
+      return;
+    }
+    // The welfare table has a CHECK constraint on category (Medical Aid /
+    // Education Aid / Marriage Assistance / Financial Assistance) — submitting
+    // without one used to leak a raw SqliteError toast. Validate client-side
+    // with a clean bilingual message instead.
+    if (!form.category) {
+      toast.error(t("wel_category_required"));
       return;
     }
     try {
@@ -162,7 +172,7 @@ export function Welfare() {
     } catch (err: any) {
       toast.error(err.message || t("ui_failed_save"));
     }
-  };
+  });
 
   const handleEdit = async (id: number) => {
     const w = await window.mms.welfare.get(id);
@@ -577,7 +587,7 @@ export function Welfare() {
 
           <div className="flex justify-end gap-2 pt-2 sec-divider">
             <Button variant="secondary" onClick={() => setDialogOpen(false)}>{t("action_cancel")}</Button>
-            <Button onClick={handleSave}>{t("action_save")}</Button>
+            <Button onClick={handleSave} disabled={busy}>{busy ? t("ui_saving") : t("action_save")}</Button>
           </div>
         </div>
       </Dialog>

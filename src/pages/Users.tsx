@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Edit2, Trash2, Lock, Unlock, KeyRound, Users as UsersIcon } from "lucide-react";
+import { useAsyncLock } from "../lib/use-async-lock";
 import { useI18n } from "@/i18n";
 import { Button, Dialog, Input, Label, Select, Badge } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -46,7 +47,8 @@ export function Users() {
 
   const filtered = rows.filter(u => !search || u.username?.toLowerCase().includes(search.toLowerCase()) || u.full_name?.toLowerCase().includes(search.toLowerCase()));
 
-  const save = async () => {
+  const [busy, runLocked] = useAsyncLock();
+  const save = () => runLocked(async () => {
     if (!form.username || !form.full_name) { toast.error(t("ui_username_fullname_required")); return; }
     if (!editingId && !form.password) { toast.error(t("ui_password_required")); return; }
     if (!editingId) { const policyMsg = localizedPolicyError(form.password, t); if (policyMsg) { toast.error(policyMsg); return; } }
@@ -60,7 +62,7 @@ export function Users() {
       }
       setDialogOpen(false); setEditingId(null); setForm({ ...emptyForm }); await fetchUsers();
     } catch (e: any) { toast.error(friendlyAuthError(e, t) || t("ui_failed_save")); }
-  };
+  });
 
   const toggleLock = async (u: UserRow) => {
     try { await window.mms.users.toggleLock(u.id, !locked(u)); toast.success(!locked(u) ? t("ui_user_locked") : t("ui_user_unlocked")); await fetchUsers(); }
@@ -105,7 +107,7 @@ export function Users() {
     </Dialog>
 
     <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editingId ? t("action_edit") : t("usr_add")}>
-      <div className="m-b"><div className="grid-2"><div><Label>{t("usr_username")} *</Label><Input value={form.username} disabled={!!editingId} onChange={e => setForm({ ...form, username: e.target.value })} /></div><div><Label>{t("usr_full_name")} *</Label><Input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} /></div><div><Label>{t("usr_role")}</Label><Select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}><option value="Administrator">{roleLabel("Administrator")}</option><option value="President">{roleLabel("President")}</option><option value="Secretary">{roleLabel("Secretary")}</option><option value="Treasurer">{roleLabel("Treasurer")}</option><option value="Imam">{roleLabel("Imam")}</option><option value="Staff">{roleLabel("Staff")}</option><option value="Auditor">{roleLabel("Auditor")}</option></Select></div>{!editingId && <div><Label>{t("login_password")} *</Label><Input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></div>}</div></div><div className="m-f"><Button variant="secondary" onClick={() => setDialogOpen(false)}>{t("action_cancel")}</Button><Button onClick={save}>{t("action_save")}</Button></div>
+      <div className="m-b"><div className="grid-2"><div><Label>{t("usr_username")} *</Label><Input value={form.username} disabled={!!editingId} onChange={e => setForm({ ...form, username: e.target.value })} /></div><div><Label>{t("usr_full_name")} *</Label><Input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} /></div><div><Label>{t("usr_role")}</Label><Select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}><option value="Administrator">{roleLabel("Administrator")}</option><option value="President">{roleLabel("President")}</option><option value="Secretary">{roleLabel("Secretary")}</option><option value="Treasurer">{roleLabel("Treasurer")}</option><option value="Imam">{roleLabel("Imam")}</option><option value="Staff">{roleLabel("Staff")}</option><option value="Auditor">{roleLabel("Auditor")}</option></Select></div>{!editingId && <div><Label>{t("login_password")} *</Label><Input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></div>}</div></div><div className="m-f"><Button variant="secondary" onClick={() => setDialogOpen(false)}>{t("action_cancel")}</Button><Button onClick={save} disabled={busy}>{busy ? t("ui_saving") : t("action_save")}</Button></div>
     </Dialog>
 
     <Dialog open={resetUserId !== null} onClose={() => { setResetUserId(null); setNewPwd(""); }} title={t("usr_reset_password")} className="modal-sm">

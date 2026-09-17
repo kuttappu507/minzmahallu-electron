@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus, Edit2, Ban, ReceiptText, TrendingUp, TrendingDown, Scale, Eye, Calendar, FileDown, Loader2, History } from "lucide-react";
+import { useAsyncLock } from "../lib/use-async-lock";
 import { useI18n } from "@/i18n";
 import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
 import { DataTable, type Column } from "@/components/DataTable";
@@ -253,7 +254,8 @@ export function Accounting() {
     setDialogOpen(true);
   };
 
-  const handleSave = async () => {
+  const [busy, runLocked] = useAsyncLock();
+  const handleSave = () => runLocked(async () => {
     if (!form.amount || !form.txn_date) {
       toast.error(t("ui_amount_date_required"));
       return;
@@ -301,7 +303,7 @@ export function Accounting() {
     } catch (err: any) {
       toast.error(err.message || t("ui_failed_save"));
     }
-  };
+  });
 
   // Editing a ledger entry is gated: SecureActionDialog collects a reason and
   // the administrator password (re-verified in the main process) BEFORE the
@@ -742,7 +744,7 @@ export function Accounting() {
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setDialogOpen(false)}>{t("action_cancel")}</Button>
-            <Button onClick={handleSave}>{t("action_save")}</Button>
+            <Button onClick={handleSave} disabled={busy}>{busy ? t("ui_saving") : t("action_save")}</Button>
           </div>
         </div>
       </Dialog>

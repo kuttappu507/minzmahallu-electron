@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Edit2, Eye, Archive, RotateCcw, History, Users, CalendarClock, AlertCircle } from "lucide-react";
+import { useAsyncLock } from "../lib/use-async-lock";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
 import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
@@ -103,7 +104,8 @@ export function Committee() {
   useEffect(() => { refreshMeta(); }, []);
   useEffect(() => { setFilters({ position: positionFilter, committeeType: typeFilter }); }, [positionFilter, typeFilter, setFilters]);
 
-  const save = async () => {
+  const [busy, runLocked] = useAsyncLock();
+  const save = () => runLocked(async () => {
     if (!form.name) { toast.error(t("committee_name_required")); return; }
     try {
       const payload = {
@@ -128,7 +130,7 @@ export function Committee() {
       toast.success(t("committee_saved"));
       setDialogOpen(false); setEditingId(null); setForm(emptyForm); refetch(); refreshMeta();
     } catch (e: any) { toast.error(e.message || t("ui_failed_save")); }
-  };
+  });
 
   // The row ✎ button OPENS THE GATE first — the dialog itself only appears
   // after the administrator password verifies (renderer-side first gate).
@@ -387,7 +389,7 @@ export function Committee() {
           <div><Label>{t("committee_notes")}</Label><Textarea rows={2} value={form.notes || ""} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setDialogOpen(false)}>{t("action_cancel")}</Button>
-            <Button onClick={save}>{t("action_save")}</Button>
+            <Button onClick={save} disabled={busy}>{busy ? t("ui_saving") : t("action_save")}</Button>
           </div>
         </div>
       </Dialog>

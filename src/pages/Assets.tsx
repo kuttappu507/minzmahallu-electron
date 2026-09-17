@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plus, Edit2, Trash2, Landmark, TrendingUp, TrendingDown, Wallet, Home, Eye, RefreshCw } from "lucide-react";
+import { useAsyncLock } from "../lib/use-async-lock";
 import { useI18n } from "@/i18n";
 import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
 import { DataTable, type Column } from "@/components/DataTable";
@@ -100,7 +101,8 @@ export function Assets() {
     setDialogOpen(true);
   };
 
-  const save = async () => {
+  const [busy, runLocked] = useAsyncLock();
+  const save = () => runLocked(async () => {
     if (!form.name?.trim()) { toast.error(tx("Asset name is required", "ആസ്തിയുടെ പേര് ആവശ്യമാണ്")); return; }
     const payload = {
       name: form.name,
@@ -126,7 +128,7 @@ export function Assets() {
       setDialogOpen(false); setForm(emptyForm); setEditingId(null);
       refetch(); fetchSummary();
     } catch (e: any) { toast.error(e.message || t("ui_failed_save")); }
-  };
+  });
 
   const confirmDelete = async () => {
     if (deleteId == null) return;
@@ -332,7 +334,7 @@ export function Assets() {
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setDialogOpen(false)}>{t("action_cancel")}</Button>
-            <Button onClick={save}>{t("action_save")}</Button>
+            <Button onClick={save} disabled={busy}>{busy ? t("ui_saving") : t("action_save")}</Button>
           </div>
         </div>
       </Dialog>
