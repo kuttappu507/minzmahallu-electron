@@ -26,16 +26,50 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Enable Pages (first run only)
+      # First-ever enablement needs the owner to have chosen a Pages source once.
+      # If already enabled (either mode) this is a no-op; if not permitted, we continue.
+      - name: Ensure Pages enabled (no-op if already)
         uses: actions/configure-pages@v5
         with:
           enablement: true
+        continue-on-error: true
 
+      - name: Detect Pages mode
+        id: pages
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              const r = await github.rest.repos.getPages({ owner: context.repo.owner, repo: context.repo.repo });
+              const t = r.data.build_type || 'legacy';
+              core.setOutput('build_type', t);
+              core.info('Pages build_type = ' + t + ' | source = ' + (r.data.source || {}).path);
+            } catch (e) {
+              core.setOutput('build_type', 'none');
+              core.warning('Pages site not enabled yet — enable it once in Settings → Pages.');
+            }
+
+      # Only deploy via Actions when the site's build source is "GitHub Actions".
+      # If the owner picked "Deploy from a branch (main /docs)", docs/ is served
+      # automatically and these steps are skipped.
       - name: Upload pages artifact
+        if: steps.pages.outputs.build_type == 'workflow'
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs
 
       - name: Deploy to GitHub Pages
         id: deployment
+        if: steps.pages.outputs.build_type == 'workflow'
         uses: actions/deploy-pages@v4
+
+      - name: Summary
+        run: |
+          echo "build_type: ${{ steps.pages.outputs.build_type }}"
+          if [ "${{ steps.pages.outputs.build_type }}" = "workflow" ]; then
+            echo "Deployed via GitHub Actions: ${{ steps.deployment.outputs.page_url }}"
+          elif [ "${{ steps.pages.outputs.build_type }}" = "legacy" ]; then
+            echo "Branch mode (main /docs) — GitHub serves docs/ automatically."
+          else
+            echo "Pages not enabled yet — one-time setup required in repo Settings → Pages."
+          fi
