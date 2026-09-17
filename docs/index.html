@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="ml">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minz Mahallu Management System — മഹല്ല് ഭരണം ഇനി ലളിതം</title>
+<meta name="description" content="മഹല്ല് ഭരണത്തിനുള്ള സൗജന്യ ഡെസ്ക്ടോപ്പ് ആപ്പ് — അംഗങ്ങൾ, കുടുംബങ്ങൾ, വരിസംഖ്യ, സംഭാവനകൾ, അക്കൗണ്ടിംഗ്, വാട്ട്സ്ആപ്പ് റസീറ്റുകൾ. Free & open-source mahallu management app for Windows, Linux and macOS.">
+<meta property="og:title" content="Minz Mahallu Management System — പൂർണ്ണമായും സൗജന്യം">
+<meta property="og:description" content="അംഗങ്ങൾ, കുടുംബങ്ങൾ, വരിസംഖ്യ, സംഭാവനകൾ, കണക്ക് — എല്ലാം ഒരേ ആപ്പിൽ. 100% സൗജന്യം, ഓഫ്‌ലൈൻ, മലയാളം സപ്പോർട്ട്.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#0d9488">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d9488'/%3E%3Ctext x='32' y='44' font-family='Arial,sans-serif' font-size='34' font-weight='bold' fill='white' text-anchor='middle'%3EM%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anek+Malayalam:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============ MMS Landing — Modern Light & Airy (matches app design system) ============ */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --teal:#0d9488; --teal-deep:#0a6b63; --teal-ink:#0b4f4a; --teal-tint:#e6f6f3; --teal-line:#bdeae3;
+  --ink:#0f172a; --ink2:#31435c; --mut:#5f7186; --faint:#8b9bb0;
+  --bg:#f6f8fa; --card:#ffffff; --line:#e3eaf2;
+  --sky:#2563eb; --sky-tint:#e7effe; --gold:#d9930a; --gold-tint:#fdf5dd;
+  --rose:#e11d48; --rose-tint:#fdeef1; --vio:#8262e8; --vio-tint:#ede8fd;
+  --cyan:#0aa2c0; --cyan-tint:#e0f5fa; --orange:#ea6f2d; --orange-tint:#fdeee3;
+  --slate:#66788f; --slate-tint:#eaeef3; --green:#16a34a; --green-tint:#e9f9ef;
+  --r:18px; --rs:12px;
+  --shadow:0 14px 34px -16px rgba(4,60,55,.16);
+  --shadow-lg:0 30px 70px -28px rgba(4,60,55,.35);
+  --font:'Poppins','Anek Malayalam',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+html{scroll-behavior:smooth;scroll-padding-top:86px}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);font-size:17px;line-height:1.75;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+img,svg{display:block}
+a{color:inherit;text-decoration:none}
+ul{list-style:none}
+.wrap{max-width:1140px;margin:0 auto;padding:0 24px}
+.t-en{display:none}
+html.lang-en .t-en{display:revert}
+html.lang-en .t-ml{display:none}
+/* elements whose own class sets display (beats .t-en) — re-hide/re-show explicitly */
+.brand small.t-en,.foot-brand small.t-en,.m-card .lb.t-en,.req-line i.t-en,
+.m-row small.t-en,.fl small.t-en,.kicker.t-en{display:none}
+html.lang-en .brand small.t-en,html.lang-en .foot-brand small.t-en{display:block}
+html.lang-en .m-card .lb.t-en{display:flex}
+html.lang-en .req-line i.t-en{display:inline-flex}
+html.lang-en .m-row small.t-en,html.lang-en .fl small.t-en{display:block}
+html.lang-en .kicker.t-en{display:inline-flex}
+html.lang-en .brand small.t-ml,html.lang-en .foot-brand small.t-ml,html.lang-en .m-card .lb.t-ml,
+html.lang-en .req-line i.t-ml,html.lang-en .m-row small.t-ml,html.lang-en .fl small.t-ml,
+html.lang-en .kicker.t-ml{display:none}
+.num{font-variant-numeric:tabular-nums}
+[hidden]{display:none!important}
+
+/* ============ Language toggle ============ */
+.langseg{display:flex;background:#eef2f7;border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px}
+.langseg button{border:0;background:transparent;font-family:var(--font);font-size:13px;font-weight:600;color:var(--mut);padding:5px 13px;border-radius:999px;cursor:pointer;transition:.25s;white-space:nowrap}
+.langseg button.on{background:#fff;color:var(--teal-ink);box-shadow:0 2px 8px rgba(15,23,42,.1)}
+
+/* ============ Header ============ */
+header{position:fixed;inset:0 0 auto 0;z-index:60;transition:.3s;border-bottom:1px solid transparent}
+header.scrolled{background:rgba(255,255,255,.85);backdrop-filter:blur(14px);border-bottom-color:var(--line);box-shadow:0 6px 24px -18px rgba(15,23,42,.25)}
+.nav{display:flex;align-items:center;gap:26px;height:72px}
+.brand{display:flex;align-items:center;gap:11px;font-weight:700;font-size:16.5px;letter-spacing:.1px;flex:none}
+.brand .logo{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#14b8a6,#0a6b63);display:grid;place-items:center;color:#fff;font-weight:800;font-size:17px;box-shadow:0 8px 18px -8px rgba(13,148,136,.6)}
+.brand small{display:block;font-size:10.5px;font-weight:500;color:var(--mut);letter-spacing:.4px;line-height:1.3;white-space:nowrap}
+.nav-links{display:flex;gap:26px;margin-left:14px}
+.nav-links a{font-size:14.5px;font-weight:500;color:var(--ink2);transition:.2s;position:relative;white-space:nowrap}
+.nav-links a:hover{color:var(--teal)}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+.gh-link{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:600;color:var(--ink2);padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:#fff;transition:.25s}
+.gh-link:hover{border-color:var(--teal-line);color:var(--teal);transform:translateY(-1px)}
+.gh-link svg{width:17px;height:17px}
+.btn-mini{font-size:14px;font-weight:600;color:#fff;background:linear-gradient(135deg,#0d9488,#0a6b63);padding:9px 18px;border-radius:999px;box-shadow:0 8px 18px -8px rgba(13,148,136,.55);transition:.25s;display:inline-flex;align-items:center;gap:7px}
+.btn-mini:hover{transform:translateY(-2px);box-shadow:0 14px 26px -10px rgba(13,148,136,.6)}
+
+/* ============ Buttons ============ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;font-family:var(--font);font-weight:600;border-radius:14px;cursor:pointer;transition:.25s;border:0}
+.btn svg{flex:none}
+.btn-primary{background:linear-gradient(135deg,#0d9488,#0a6b63);color:#fff;font-size:16.5px;padding:16px 30px;box-shadow:0 16px 34px -12px rgba(13,148,136,.55)}
+.btn-primary:hover{transform:translateY(-3px);box-shadow:0 22px 44px -14px rgba(13,148,136,.6)}
+.btn-ghost{background:#fff;color:var(--teal-ink);font-size:16px;padding:15px 26px;border:1.5px solid var(--line)}
+.btn-ghost:hover{border-color:var(--teal-line);transform:translateY(-3px);box-shadow:var(--shadow)}
+.btn-dark{background:#fff;color:#06211f;font-size:16px;padding:15px 26px;border-radius:14px}
+.btn-dark:hover{transform:translateY(-3px)}
+.btn-dl svg{width:19px;height:19px}
+
+/* ============ Hero ============ */
+.hero{position:relative;padding:158px 0 96px;overflow:hidden}
+.blob{position:absolute;border-radius:50%;filter:blur(80px);opacity:.4;pointer-events:none}
+.blob.b1{width:520px;height:520px;background:#99f0e4;top:-160px;right:-80px}
+.blob.b2{width:420px;height:420px;background:#cfe0fd;bottom:-140px;left:-120px;opacity:.5}
+.blob.b3{width:300px;height:300px;background:#fdeeba;top:30%;left:42%;opacity:.3}
+.hero-grid{position:relative;display:grid;grid-template-columns:1.02fr .98fr;gap:56px;align-items:center}
+.pill-badge{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--teal-line);color:var(--teal-ink);font-size:13.5px;font-weight:600;padding:8px 16px;border-radius:999px;box-shadow:0 6px 16px -10px rgba(13,148,136,.4)}
+.pill-badge .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(22,163,74,.15);animation:pulse 2.2s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 7px rgba(22,163,74,.05)}}
+h1{font-size:clamp(30px,3.6vw,42px);font-weight:800;line-height:1.35;letter-spacing:-.3px;margin:22px 0 18px;color:var(--ink)}
+h1 .grad{background:linear-gradient(120deg,#0d9488 10%,#0891b2 55%,#2563eb 110%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.hero-sub{font-size:17.5px;color:var(--ink2);max-width:56ch}
+.hero-cta{display:flex;flex-wrap:wrap;gap:14px;margin:30px 0 18px}
+.hero-note{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;font-size:13.5px;color:var(--mut);font-weight:500}
+.hero-note .sep{width:3px;height:3px;border-radius:50%;background:var(--faint)}
+.hero-note b{color:var(--teal-ink);font-weight:600}
+
+/* ============ Mockup ============ */
+.mock-zone{position:relative;perspective:1600px}
+.mock-glow{position:absolute;inset:8% -4% -2% 6%;background:radial-gradient(closest-side,rgba(13,148,136,.28),transparent 72%);filter:blur(30px);z-index:0}
+.win{position:relative;z-index:1;border-radius:16px;background:#fff;border:1px solid var(--line);box-shadow:var(--shadow-lg);overflow:hidden;transform:rotateY(-7deg) rotateX(2.5deg);transition:.5s}
+.mock-zone:hover .win{transform:rotateY(-3deg) rotateX(1deg)}
+.win-bar{display:flex;align-items:center;gap:8px;height:38px;background:#f1f4f8;border-bottom:1px solid var(--line);padding:0 14px}
+.win-bar .dots{display:flex;gap:6px;margin-left:auto}
+.win-bar .dots i{width:11px;height:11px;border-radius:50%}
+.win-bar .dots i:nth-child(1){background:#f8b4b4}.win-bar .dots i:nth-child(2){background:#f9dfa0}.win-bar .dots i:nth-child(3){background:#a7e3c5}
+.win-bar .wt{font-size:11.5px;color:var(--mut);font-weight:500;margin:0 auto;padding-left:56px}
+.win-body{display:grid;grid-template-columns:192px 1fr;min-height:398px}
+.sb{background:#fbfcfe;border-right:1px solid var(--line);padding:14px 12px;display:flex;flex-direction:column;gap:3px}
+.sb-logo{display:flex;align-items:center;gap:9px;padding:6px 8px 14px}
+.sb-logo i{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#14b8a6,#0a6b63);display:grid;place-items:center;color:#fff;font-style:normal;font-weight:800;font-size:13px}
+.sb-logo b{font-size:13px;line-height:1.25}
+.sb-logo small{display:block;font-size:9.5px;color:var(--mut);font-weight:500}
+.sb-sec{font-size:9.5px;font-weight:600;color:var(--faint);letter-spacing:.8px;padding:10px 8px 4px;text-transform:uppercase}
+.sbi{display:flex;align-items:center;gap:9px;padding:7.5px 10px;border-radius:9px;font-size:12.8px;font-weight:500;color:var(--mut)}
+.sbi svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.sbi.act{background:var(--teal-tint);color:var(--teal-ink);font-weight:600}
+.sb-foot{margin-top:auto;display:flex;align-items:center;gap:8px;padding:10px 8px 2px;border-top:1px dashed var(--line)}
+.sb-foot .av{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#8262e8);color:#fff;display:grid;place-items:center;font-size:10.5px;font-weight:700}
+.sb-foot small{font-size:10.5px;color:var(--mut);line-height:1.3}
+.sb-foot small b{display:block;font-size:11px;color:var(--ink2)}
+.mn{padding:14px 16px;background:linear-gradient(180deg,#fdfeff,#f7fafc)}
+.m-top{display:flex;align-items:center;gap:10px;margin-bottom:13px}
+.m-title{font-size:14.5px;font-weight:700}
+.m-sub{font-size:10.5px;color:var(--mut)}
+.m-search{margin-left:auto;display:flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:5.5px 12px;font-size:11px;color:var(--faint);min-width:150px}
+.m-search svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2}
+.m-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.m-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:11px 12px}
+.m-card .lb{font-size:10.5px;color:var(--mut);font-weight:500;display:flex;align-items:center;gap:5px}
+.m-card .lb i{width:7px;height:7px;border-radius:3px;background:var(--teal)}
+.m-card .lb.i2 i{background:var(--sky)}.m-card .lb.i3 i{background:var(--gold)}
+.m-card .vl{font-size:19px;font-weight:800;margin-top:2px;letter-spacing:-.3px}
+.m-card .dl{font-size:9.5px;font-weight:600;color:var(--green);background:var(--green-tint);display:inline-block;padding:1px 7px;border-radius:99px;margin-top:4px}
+.chart-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px 10px;margin-bottom:12px}
+.chart-card .ch-t{font-size:11px;font-weight:600;color:var(--ink2);margin-bottom:9px;display:flex;justify-content:space-between;align-items:center}
+.chart-card .ch-t small{color:var(--faint);font-weight:500}
+.chart{display:flex;align-items:flex-end;gap:9px;height:96px}
+.chart .bar{flex:1;border-radius:6px 6px 3px 3px;background:linear-gradient(180deg,#2dd4bf,#0d9488);opacity:.88;position:relative}
+.chart .bar.hot{background:linear-gradient(180deg,#f4c245,#d9930a);opacity:1}
+.m-list{background:#fff;border:1px solid var(--line);border-radius:12px;padding:4px 14px}
+.m-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:12px}
+.m-row:last-child{border-bottom:0}
+.m-row .av2{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;font-weight:700;font-size:11px;color:#fff}
+.m-row b{font-weight:600}
+.m-row small{display:block;color:var(--faint);font-size:10px}
+.m-row .amt{margin-left:auto;font-weight:700;color:var(--teal-ink)}
+.tagg{font-size:9.5px;font-weight:600;padding:2px 9px;border-radius:99px}
+.tagg.ok{color:#0f7a3d;background:var(--green-tint)}
+.tagg.due{color:#8a5c00;background:var(--gold-tint)}
+.fl{position:absolute;z-index:2;background:#fff;border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);padding:10px 15px;display:flex;align-items:center;gap:10px;font-size:12.8px;font-weight:600;animation:float 5.5s ease-in-out infinite}
+.fl .ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none}
+.fl small{display:block;font-size:10.5px;color:var(--mut);font-weight:500}
+.fl1{top:-20px;right:-10px}
+.fl1 .ic{background:var(--green-tint);color:var(--green)}
+.fl2{bottom:-18px;left:-16px;animation-delay:2.6s}
+.fl2 .ic{background:var(--teal-tint);color:var(--teal)}
+@keyframes float{50%{transform:translateY(-9px)}}
+
+/* ============ Stats strip ============ */
+.stats{margin-top:26px;background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);display:grid;grid-template-columns:repeat(4,1fr);overflow:hidden}
+.stat{padding:26px 20px;text-align:center;position:relative}
+.stat+.stat::before{content:"";position:absolute;left:0;top:22%;bottom:22%;width:1px;background:var(--line)}
+.stat b{display:block;font-size:clamp(24px,2.6vw,32px);font-weight:800;color:var(--teal-ink);letter-spacing:-.5px}
+.stat span{font-size:13.5px;color:var(--mut);font-weight:500}
+
+/* ============ Sections ============ */
+section{padding:96px 0}
+.sec-head{text-align:center;max-width:680px;margin:0 auto 56px}
+.kicker{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--teal)}
+.kicker::before,.kicker::after{content:"";width:22px;height:1.5px;background:var(--teal-line)}
+h2{font-size:clamp(27px,3.4vw,40px);font-weight:800;line-height:1.32;letter-spacing:-.4px;margin:12px 0 14px}
+.sec-sub{color:var(--ink2);font-size:16.5px}
+
+/* ============ Features grid ============ */
+.feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.feat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:26px 24px;transition:.3s;position:relative;overflow:hidden}
+.feat::after{content:"";position:absolute;inset:auto 0 0 0;height:3px;background:var(--fc,var(--teal));opacity:0;transition:.3s}
+.feat:hover{transform:translateY(-5px);box-shadow:var(--shadow);border-color:var(--fc,var(--teal-line))}
+.feat:hover::after{opacity:1}
+.fic{width:47px;height:47px;border-radius:13px;display:grid;place-items:center;margin-bottom:16px;background:var(--fb,var(--teal-tint));color:var(--fc,var(--teal))}
+.fic svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.feat h3{font-size:17.5px;font-weight:700;margin-bottom:7px;letter-spacing:-.2px}
+.feat p{font-size:14.5px;color:var(--mut);line-height:1.7}
+
+/* ============ Why ============ */
+.why{background:linear-gradient(180deg,#fff, #f3faf8 60%, #eef7f5);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.why-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:22px}
+.why-card{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:28px 22px;text-align:center;transition:.3s}
+.why-card:hover{transform:translateY(-5px);box-shadow:var(--shadow)}
+.why-card .fic{margin:0 auto 15px}
+.why-card h3{font-size:17px;font-weight:700;margin-bottom:8px}
+.why-card p{font-size:14px;color:var(--mut)}
+
+/* ============ Download (dark band) ============ */
+.dl-band{background:radial-gradient(900px 480px at 85% -10%,rgba(45,212,191,.22),transparent 62%),radial-gradient(700px 420px at 8% 110%,rgba(37,99,235,.2),transparent 60%),linear-gradient(155deg,#06201d,#073a35 58%,#0a554e);border-radius:26px;color:#eafaf7;padding:64px 56px;position:relative;overflow:hidden;box-shadow:var(--shadow-lg)}
+.dl-band .gr{position:absolute;width:420px;height:420px;border-radius:50%;background:radial-gradient(closest-side,rgba(45,212,191,.35),transparent);filter:blur(50px);top:-160px;right:-90px;pointer-events:none}
+.dl-grid{position:relative;display:grid;grid-template-columns:1.15fr .85fr;gap:52px;align-items:center}
+.dl-band .kicker{color:#7ce8da}
+.dl-band .kicker::before,.dl-band .kicker::after{background:rgba(124,232,218,.4)}
+.dl-band h2{color:#fff}
+.dl-band .sec-sub{color:#b9e6df;text-align:left;margin:0}
+.dl-meta{display:flex;flex-wrap:wrap;gap:9px;margin:24px 0 30px}
+.chip{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.16);color:#d5f5ef;font-size:13px;font-weight:500;padding:7px 15px;border-radius:999px;backdrop-filter:blur(4px)}
+.chip svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.chip b{color:#fff;font-weight:700}
+.dl-cta{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+.rel-line{margin-top:16px;font-size:13px;color:#9fd8cf}
+.rel-line a{color:#7ce8da;font-weight:600;border-bottom:1px dashed rgba(124,232,218,.5)}
+.rel-line a:hover{color:#fff}
+.dl-panel{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:var(--r);padding:28px 26px;backdrop-filter:blur(6px)}
+.dl-panel h3{color:#fff;font-size:16.5px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:9px}
+.dl-panel h3 svg{width:18px;height:18px;stroke:#7ce8da;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.step{display:flex;gap:14px;padding:10px 0}
+.step .n{flex:none;width:30px;height:30px;border-radius:10px;background:rgba(124,232,218,.14);border:1px solid rgba(124,232,218,.3);color:#7ce8da;font-weight:700;font-size:13.5px;display:grid;place-items:center}
+.step p{font-size:13.8px;color:#cdeee8;line-height:1.65}
+.step p b{color:#fff;font-weight:600}
+.alt-dl{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px;padding-top:16px;border-top:1px dashed rgba(255,255,255,.16)}
+.alt-dl a{display:inline-flex;align-items:center;gap:7px;font-size:12.8px;font-weight:600;color:#cdeee8;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);padding:7px 14px;border-radius:999px;transition:.25s}
+.alt-dl a:hover{background:rgba(255,255,255,.16);color:#fff}
+.alt-dl a span{color:#8fd4c9;font-weight:500;font-size:11.5px}
+.req-line{display:flex;flex-wrap:wrap;gap:7px 16px;margin-top:18px;font-size:12.3px;color:#8fc9bf}
+.req-line i{font-style:normal;display:inline-flex;align-items:center;gap:6px}
+.req-line i::before{content:"";width:4px;height:4px;border-radius:50%;background:#7ce8da}
+
+/* ============ FAQ ============ */
+.faq-list{max-width:780px;margin:0 auto;display:grid;gap:14px}
+details{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;transition:.3s}
+details[open]{border-color:var(--teal-line);box-shadow:var(--shadow)}
+summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:14px;padding:19px 22px;font-weight:600;font-size:15.8px;color:var(--ink)}
+summary::-webkit-details-marker{display:none}
+summary .qi{flex:none;width:30px;height:30px;border-radius:10px;background:var(--teal-tint);color:var(--teal);display:grid;place-items:center;font-size:14px;font-weight:700;transition:.3s}
+details[open] .qi{background:var(--teal);color:#fff;transform:rotate(180deg)}
+summary .pm{margin-left:auto;color:var(--faint);font-size:20px;font-weight:400;transition:.3s;line-height:1}
+details[open] .pm{transform:rotate(45deg);color:var(--teal)}
+.faq-a{padding:0 22px 20px 66px;color:var(--ink2);font-size:14.8px;line-height:1.75}
+.faq-a b{color:var(--teal-ink)}
+
+/* ============ Footer ============ */
+footer{background:#07211f;color:#9cc6bf;padding:52px 0 34px;margin-top:20px}
+.foot-grid{display:flex;flex-wrap:wrap;gap:28px;align-items:center;justify-content:space-between;padding-bottom:26px;border-bottom:1px solid rgba(255,255,255,.09)}
+.foot-brand{display:flex;align-items:center;gap:11px;color:#fff;font-weight:700}
+.foot-brand .logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#14b8a6,#0a6b63);display:grid;place-items:center;color:#fff;font-weight:800;font-size:16px}
+.foot-brand small{display:block;font-size:11.5px;font-weight:400;color:#7fb5ac}
+.foot-links{display:flex;flex-wrap:wrap;gap:22px;font-size:14px;font-weight:500}
+.foot-links a{transition:.2s}
+.foot-links a:hover{color:#7ce8da}
+.foot-base{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-between;padding-top:22px;font-size:12.8px;color:#6fa39a}
+.foot-base b{color:#a9d8d0;font-weight:600}
+.free-pill{display:inline-flex;align-items:center;gap:7px;background:rgba(22,163,74,.14);border:1px solid rgba(74,222,128,.3);color:#86efac;font-size:12.3px;font-weight:600;padding:5px 13px;border-radius:999px}
+.free-pill i{width:6px;height:6px;border-radius:50%;background:#4ade80}
+
+/* ============ Reveal ============ */
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .7s ease,transform .7s ease}
+.reveal.in{opacity:1;transform:none}
+.feat-grid .feat:nth-child(3n+2).reveal{transition-delay:.08s}
+.feat-grid .feat:nth-child(3n).reveal{transition-delay:.16s}
+
+/* ============ Responsive ============ */
+@media(max-width:1040px){
+  .hero-grid{grid-template-columns:1fr;gap:64px}
+  .hero{padding-top:140px}
+  .mock-zone{max-width:620px;margin:0 auto}
+  .feat-grid{grid-template-columns:repeat(2,1fr)}
+  .why-grid{grid-template-columns:repeat(2,1fr)}
+  .dl-grid{grid-template-columns:1fr;gap:38px}
+}
+@media(max-width:860px){
+  .nav-links{display:none}
+  .win-body{grid-template-columns:168px 1fr}
+  .fl1{right:2px}.fl2{left:2px}
+}
+@media(max-width:640px){
+  section{padding:72px 0}
+  .feat-grid,.why-grid{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .stat:nth-child(3)::before{display:none}
+  .stat:nth-child(n+3){border-top:1px solid var(--line)}
+  .dl-band{padding:44px 26px;border-radius:20px}
+  .win{transform:none}
+  .m-cards{grid-template-columns:repeat(3,1fr);gap:7px}
+  .m-card .vl{font-size:15px}
+  .m-search{display:none}
+  .gh-link span{display:none}
+  .hero-cta .btn{width:100%}
+  .faq-a{padding-left:22px}
+  .sb{display:none}
+  .win-body{grid-template-columns:1fr}
+  .nav{height:64px}
+}
+</style>
+</head>
+<body>
+
+<!-- ================= HEADER ================= -->
+<header id="hdr">
+  <div class="wrap nav">
+    <a class="brand" href="#top">
+      <span class="logo">M</span>
+      <span>Minz Mahallu<small class="t-ml">മഹല്ല് ഭരണം</small><small class="t-en">Mahallu Management</small></span>
+    </a>
+    <nav class="nav-links">
+      <a href="#features"><span class="t-ml">സവിശേഷതകൾ</span><span class="t-en">Features</span></a>
+      <a href="#why"><span class="t-ml">എന്തുകൊണ്ട് MMS?</span><span class="t-en">Why MMS?</span></a>
+      <a href="#download"><span class="t-ml">ഡൗൺലോഡ്</span><span class="t-en">Download</span></a>
+      <a href="#faq"><span class="t-ml">ചോദ്യങ്ങൾ</span><span class="t-en">FAQ</span></a>
+    </nav>
+    <div class="nav-right">
+      <div class="langseg" role="group" aria-label="Language / ഭാഷ">
+        <button id="btn-ml" class="on" type="button">മലയാളം</button>
+        <button id="btn-en" type="button">English</button>
+      </div>
+      <a class="gh-link" href="https://github.com/kuttappu507/minzmahallu-electron" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55v-2.17c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.75 2.69 1.25 3.34.95.1-.74.4-1.25.72-1.53-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.16-1.18 3.16-1.18.64 1.59.24 2.76.12 3.05.74.8 1.19 1.83 1.19 3.09 0 4.42-2.7 5.39-5.27 5.68.41.36.78 1.05.78 2.13v3.16c0 .31.21.67.8.55A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        <span>GitHub</span>
+      </a>
+      <a class="btn-mini" href="#download" data-i="navdl">ഡൗൺലോഡ്</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+
+<!-- ================= HERO ================= -->
+<section class="hero" style="padding-bottom:70px">
+  <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+  <div class="wrap hero-grid">
+    <div>
+      <span class="pill-badge"><span class="dot"></span><span class="t-ml">പൂർണ്ണമായും സൗജന്യം • ഓപ്പൺ സോഴ്സ് • ഓഫ്‌ലൈൻ</span><span class="t-en">100% Free • Open Source • Offline</span></span>
+      <h1><span class="t-ml">നിങ്ങളുടെ മഹല്ല്<br>ഭരണം, ഇനി <span class="grad">ഒരു<br>ആധുനിക ആപ്പിൽ</span></span><span class="t-en">Run your entire<br>mahallu with<br><span class="grad">one modern app</span></span></h1>
+      <p class="hero-sub"><span class="t-ml">അംഗങ്ങൾ, കുടുംബങ്ങൾ, വരിസംഖ്യ, സംഭാവനകൾ, അക്കൗണ്ടിംഗ്, സർട്ടിഫിക്കറ്റുകൾ — എല്ലാം ഒരേ സ്ഥലത്ത്. ഓരോ അടവും കഴിഞ്ഞാൽ റസീറ്റ് നേരിട്ട് അംഗത്തിന്റെ <b>വാട്ട്സ്ആപ്പിലേക്ക്</b>. ഇന്റർനെറ്റ് വേണ്ട — ഡാറ്റ നിങ്ങളുടെ കമ്പ്യൂട്ടറിൽ തന്നെ സുരക്ഷിതം.</span><span class="t-en">Members, families, subscriptions, donations, accounting and certificates — everything in one place. Every payment triggers an instant receipt to the member's <b>WhatsApp</b>. No internet needed — your data never leaves your PC.</span></p>
+      <div class="hero-cta">
+        <a class="btn btn-primary btn-dl" id="hero-dl" href="https://github.com/kuttappu507/minzmahallu-electron/releases/download/v2.0.0/Minz.Mahallu.Management.System.Setup.2.0.0.exe" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span class="t-ml">സൗജന്യമായി ഡൗൺലോഡ് ചെയ്യുക</span><span class="t-en">Download free for Windows</span>
+        </a>
+        <a class="btn btn-ghost" href="#features"><span class="t-ml">സവിശേഷതകൾ കാണുക</span><span class="t-en">Explore features</span></a>
+      </div>
+      <div class="hero-note">
+        <b id="ver-chip" class="num">v2.0.0</b><span class="sep"></span>
+        <span>Windows 10/11</span><span class="sep"></span><span>Linux</span><span class="sep"></span><span>macOS</span><span class="sep"></span>
+        <span class="t-ml">ഇൻസ്റ്റാളർ വലുപ്പം: <b class="num" id="size-chip">≈ 94.7 MB</b></span><span class="t-en">Installer size: <b class="num" id="size-chip-en">≈ 94.7 MB</b></span>
+      </div>
+    </div>
+
+    <!-- App mockup (illustrative) -->
+    <div class="mock-zone">
+      <div class="mock-glow"></div>
+      <div class="win">
+        <div class="win-bar">
+          <span class="wt">Minz Mahallu Management System</span>
+          <span class="dots"><i></i><i></i><i></i></span>
+        </div>
+        <div class="win-body">
+          <aside class="sb">
+            <div class="sb-logo"><i>M</i><b>MMS<small class="num">v2.0.0</small></b></div>
+            <div class="sb-sec t-ml">പ്രധാനം</div><div class="sb-sec t-en">Main</div>
+            <div class="sbi act"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span class="t-ml">ഡാഷ്ബോർഡ്</span><span class="t-en">Dashboard</span></div>
+            <div class="sbi"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="t-ml">അംഗങ്ങൾ</span><span class="t-en">Members</span></div>
+            <div class="sbi"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg><span class="t-ml">കുടുംബങ്ങൾ</span><span class="t-en">Families</span></div>
+            <div class="sb-sec t-ml">പണം</div><div class="sb-sec t-en">Finance</div>
+            <div class="sbi"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><span class="t-ml">വരിസംഖ്യ</span><span class="t-en">Subscriptions</span></div>
+            <div class="sbi"><svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l8.8 8.9 8.8-8.9a5.5 5.5 0 0 0 0-7.8Z"/></svg><span class="t-ml">സംഭാവനകൾ</span><span class="t-en">Donations</span></div>
+            <div class="sbi"><svg viewBox="0 0 24 24"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span class="t-ml">അക്കൗണ്ടിംഗ്</span><span class="t-en">Accounting</span></div>
+          </aside>
+          <div class="mn">
+            <div class="m-top">
+              <div><div class="m-title t-ml">ഡാഷ്ബോർഡ്</div><div class="m-title t-en">Dashboard</div><div class="m-sub t-ml">നിങ്ങളുടെ മഹല്ലിലെ ഇന്നത്തെ അവലോകനം</div><div class="m-sub t-en">Today at a glance</div></div>
+              <div class="m-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg><span class="t-ml">തിരയുക…</span><span class="t-en">Search…</span></div>
+            </div>
+            <div class="m-cards">
+              <div class="m-card"><span class="lb t-ml"><i></i>കുടുംബങ്ങൾ</span><span class="lb i2 t-en"><i></i>Families</span><div class="vl num">312</div><span class="dl num">+12% ▲</span></div>
+              <div class="m-card"><span class="lb i2 t-ml"><i></i>അംഗങ്ങൾ</span><span class="lb t-en"><i></i>Members</span><div class="vl num">1,847</div><span class="dl num">+8% ▲</span></div>
+              <div class="m-card"><span class="lb i3 t-ml"><i></i>ഈ മാസ വരിസംഖ്യ</span><span class="lb i3 t-en"><i></i>This month</span><div class="vl num">₹86,400</div><span class="dl num">+24% ▲</span></div>
+            </div>
+            <div class="chart-card">
+              <div class="ch-t"><span class="t-ml">പ്രതിമാസ പിരിവ്</span><span class="t-en">Monthly collection</span><small class="num">₹ 4.2L</small></div>
+              <div class="chart">
+                <div class="bar" style="height:42%"></div><div class="bar" style="height:58%"></div><div class="bar" style="height:47%"></div>
+                <div class="bar" style="height:70%"></div><div class="bar" style="height:62%"></div><div class="bar" style="height:84%"></div>
+                <div class="bar hot" style="height:96%"></div><div class="bar" style="height:52%"></div>
+              </div>
+            </div>
+            <div class="m-list">
+              <div class="m-row"><span class="av2" style="background:#0d9488">AR</span><div><b>അബ്ദുൽ റഹ്മാൻ</b><small class="t-ml">വീട് നമ്പർ 12 • വരിസംഖ്യ</small><small class="t-en">House 12 • Subscription</small></div><span class="amt num">₹1,200</span><span class="tagg ok t-ml">അടച്ചു ✓</span><span class="tagg ok t-en">Paid ✓</span></div>
+              <div class="m-row"><span class="av2" style="background:#2563eb">MA</span><div><b>മുഹമ്മദ് അഷ്റഫ്</b><small class="t-ml">വീട് നമ്പർ 27 • വരിസംഖ്യ</small><small class="t-en">House 27 • Subscription</small></div><span class="amt num">₹800</span><span class="tagg ok t-ml">അടച്ചു ✓</span><span class="tagg ok t-en">Paid ✓</span></div>
+              <div class="m-row"><span class="av2" style="background:#d9930a">SH</span><div><b>ഷംസുദ്ദീൻ ഹാജി</b><small class="t-ml">വീട് നമ്പർ 31 • വരിസംഖ്യ</small><small class="t-en">House 31 • Subscription</small></div><span class="amt num">₹1,200</span><span class="tagg due t-ml">ബാക്കി</span><span class="tagg due t-en">Pending</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="fl fl1"><span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><div><span class="t-ml">റസീറ്റ് അയച്ചു ✓</span><span class="t-en">Receipt sent ✓</span><small class="t-ml">WhatsApp • ഉടനെ</small><small class="t-en">WhatsApp • instant</small></div></div>
+      <div class="fl fl2"><span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span><div><span class="num t-ml">₹86,400 സ്വീകരിച്ചു</span><span class="num t-en">₹86,400 collected</span><small class="t-ml">ഈ മാസം • വരിസംഖ്യ</small><small class="t-en">This month • subscriptions</small></div></div>
+    </div>
+  </div>
+
+  <!-- Stats strip -->
+  <div class="wrap">
+    <div class="stats reveal">
+      <div class="stat"><b class="num">20+</b><span class="t-ml">മൊഡ്യൂളുകൾ</span><span class="t-en">Modules</span></div>
+      <div class="stat"><b>2</b><span class="t-ml">ഭാഷകൾ — മലയാളം &amp; English</span><span class="t-en">Languages — Malayalam &amp; English</span></div>
+      <div class="stat"><b>100%</b><span class="t-ml">ഓഫ്‌ലൈൻ പ്രവർത്തനം</span><span class="t-en">Offline operation</span></div>
+      <div class="stat"><b>₹0</b><span class="t-ml">വില — എന്നും സൗജന്യം</span><span class="t-en">Price — free forever</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FEATURES ================= -->
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="kicker t-ml">സവിശേഷതകൾ</span><span class="kicker t-en">Features</span>
+      <h2><span class="t-ml">മഹല്ല് ഭരണത്തിന് വേണ്ട എല്ലാം — ഒരു ആപ്പിൽ</span><span class="t-en">Everything a mahallu needs — in one app</span></h2>
+      <p class="sec-sub"><span class="t-ml">പിരിവ് മുതൽ റിപ്പോർട്ട് വരെ, ഓരോ ഘട്ടവും സൗജന്യമായി.</span><span class="t-en">From collection to reporting — every step, completely free.</span></p>
+    </div>
+    <div class="feat-grid">
+      <div class="feat reveal" style="--fc:#0d9488;--fb:#e6f6f3">
+        <div class="fic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <h3 class="t-ml">അംഗ &amp; കുടുംബ രജിസ്റ്റർ</h3><h3 class="t-en">Members &amp; Families</h3>
+        <p class="t-ml">വീട് അടിസ്ഥാനത്തിലുള്ള കുടുംബ പട്ടിക, ബന്ധങ്ങൾ കാണിക്കുന്ന അംഗ വൃക്ഷം, അച്ചടിക്കാവുന്ന സർവേ ഫോം.</p>
+        <p class="t-en">House-wise family register, relationship-aware member tree and a printable survey form.</p>
+      </div>
+      <div class="feat reveal" style="--fc:#2563eb;--fb:#e7effe">
+        <div class="fic"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/></svg></div>
+        <h3 class="t-ml">വരിസംഖ്യ പിരിവ്</h3><h3 class="t-en">Subscriptions</h3>
+        <p class="t-ml">മാസ ലെഡ്ജർ, പിന്നിട്ട തുക ട്രാക്കിംഗ്, ഭാഗിക അടവ്, ഓരോ അടവിനും കൃത്യമായ രസീത് നമ്പർ.</p>
+        <p class="t-en">Monthly ledger, arrears tracking, partial payments and a precise receipt number for every collection.</p>
+      </div>
+      <div class="feat reveal" style="--fc:#0aa2c0;--fb:#e0f5fa">
+        <div class="fic"><svg viewBox="0 0 24 24"><path d="M4 4h16v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/><path d="M8 4v16"/><path d="M16 9h-4"/><path d="M16 13h-4"/><path d="M16 17h-4"/></svg></div>
+        <h3 class="t-ml">വാട്ട്സ്ആപ്പ് റസീറ്റുകൾ</h3><h3 class="t-en">WhatsApp Receipts</h3>
+        <p class="t-ml">അടവ് കഴിഞ്ഞാൽ ഉടനെ റസീത് അംഗത്തിന്റെ വാട്ട്സ്ആപ്പിലേക്ക് — QR ഒരിക്കൽ സ്കാൻ ചെയ്താൽ മതി.</p>
+        <p class="t-en">Receipts delivered straight to members' WhatsApp right after collection — scan the QR once and you're set.</p>
+      </div>
+      <div class="feat reveal" style="--fc:#d9930a;--fb:#fdf5dd">
+        <div class="fic"><svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l8.8 8.9 8.8-8.9a5.5 5.5 0 0 0 0-7.8Z"/></svg></div>
+        <h3 class="t-ml">സംഭാവനകൾ</h3><h3 class="t-en">Donations</h3>
+        <p class="t-ml">വകതിരിവുള്ള ദാനങ്ങൾ, സ്വയമേവ രസീത് നമ്പറിംഗ്, ഇരട്ട രസീത് സംരക്ഷണം.</p>
+        <p class="t-en">Categorised donations with automatic receipt numbering and double-entry protection.</p>
+      </div>
+      <div class="feat reveal" style="--fc:#8262e8;--fb:#ede8fd">
+        <div class="fic"><svg viewBox="0 0 24 24"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+        <h3 class="t-ml">അക്കൗണ്ടിംഗ്</h3><h3 class="t-en">Accounting</h3>
+        <p class="t-ml">വരവ്-ചെലവ് കണക്ക്, എല്ലാ മൊഡ്യൂളുകിൽ നിന്നും ഏകീകൃത ലെഡ്ജർ, വൗച്ചർ നമ്പറിംഗ്, ബിൽ ഡ്യൂപ്ലിക്കേറ്റ് സംരക്ഷണം.</p>
+        <p class="t-en">Income &amp; expense tracking, a unified ledger auto-built from all modules, voucher numbering and duplicate-bill protection.</p>
+      </div>
+      <div class="feat reveal" style="--fc:#e11d48;--fb:#fdeef1">
+        <div class="fic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M8.5 13 7 22l5-3 5 3-1.5-9"/></svg></div>
+        <h3 class="t-ml">നികാഹ് &amp; മരണ രജിസ്റ്റർ</h3><h3 class="t-en">Nikah &amp; Death Registers</h3>
+        <p class="t-ml">നികാഹ്, മരണ, ഖബർ രേഖകൾ — രജിസ്റ്റർ ബുക്ക് പ്രിന്റ്-റെഡി PDF ആയി.</p>
+        <p class="t-en">Nikah, death and burial records — printable as register-book PDFs.</p>
+      </div>
+      <div class="feat reveal" style="--fc:#0891b2;--fb:#e0f5fa">
+        <div class="fic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4h8v6l-2-1.5L12 10l-2-1.5L8 10Z"/><path d="M8 15h8"/><path d="M8 17h5"/></svg></div>
+        <h3 class="t-ml">സർട്ടിഫിക്കറ്റുകൾ</h3><h3 class="t-en">Certificates</h3>
+        <p class="t-ml">5 തരം സർട്ടിഫിക്കറ്റുകൾ — ഓരോന്നിനും QR കോഡ് ഉറപ്പാക്കലോടെ; കോഡ് വെച്ച് പരിശോധിക്കാം.</p>
+        <p class="t-en">Five certificate types, each with QR-code verification — anyone can verify by code.</p>
+      </div>
+      <div class="feat reveal" style="--fc:#ea6f2d;--fb:#fdeee3">
+        <div class="fic"><svg viewBox="0 0 24 24"><path d="M3 9V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 6v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-6Z"/><path d="M13 5v2"/><path d="M13 11v2"/><path d="M13 17v2"/></svg></div>
+        <h3 class="t-ml">ടോക്കൺ സംവിധാനം</h3><h3 class="t-en">Token System</h3>
+        <p class="t-ml">കാത്തിരിപ്പ് ടോക്കണുകൾ — പ്രിന്റ് ചെയ്യാം, ദിവസത്തെ ഇവന്റ് ചരിത്രം സൂക്ഷിക്കാം.</p>
+        <p class="t-en">Queue tokens with printing and a per-day event history.</p>
+      </div>
+      <div class="feat reveal" style="--fc:#4c7ce8;--fb:#e8eefd">
+        <div class="fic"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><path d="M2 13h20"/><path d="M12 12v2.5"/></svg></div>
+        <h3 class="t-ml">കമ്മിറ്റി &amp; ജീവനക്കാർ</h3><h3 class="t-en">Committee &amp; Staff</h3>
+        <p class="t-ml">തിരഞ്ഞെടുപ്പ് കാലാവധി, ശമ്പള ട്രാക്കിംഗ്, ID നമ്പർ; കമ്മിറ്റി എഡിറ്റിംഗ് അഡ്മിൻ പാസ്‌വേഡിന് പിന്നിൽ.</p>
+        <p class="t-en">Elected terms, salary tracking and ID numbers; committee edits sit behind an admin-password gate.</p>
+      </div>
+      <div class="feat reveal" style="--fc:#14a89b;--fb:#def5f2">
+        <div class="fic"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg></div>
+        <h3 class="t-ml">ക്ഷേമ നിധി</h3><h3 class="t-en">Welfare Fund</h3>
+        <p class="t-ml">സഹായ അപേക്ഷകൾ — അംഗീകാരം മുതൽ വിതരണം വരെ വ്യക്തമായ ട്രാക്കിംഗ്.</p>
+        <p class="t-en">Assistance requests with clear approval-to-disbursement tracking.</p>
+      </div>
+      <div class="feat reveal" style="--fc:#66788f;--fb:#eaeef3">
+        <div class="fic"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><circle cx="12" cy="11" r="1.6"/><path d="M12 12.6V15"/></svg></div>
+        <h3 class="t-ml">ഓഡിറ്റ് &amp; സുരക്ഷ</h3><h3 class="t-en">Audit &amp; Security</h3>
+        <p class="t-ml">ഓരോ പ്രവർത്തനവും മാറ്റമില്ലാത്ത ചെയിനിൽ രേഖപ്പെടുത്തുന്നു; സുരക്ഷിത പ്രവർത്തനങ്ങൾക്ക് കാരണവും അഡ്മിൻ പാസ്‌വേഡും ആവശ്യം.</p>
+        <p class="t-en">Every action lands in a tamper-evident audit chain; critical actions require a reason plus admin password.</p>
+      </div>
+      <div class="feat reveal" style="--fc:#8a5c00;--fb:#fdf5dd">
+        <div class="fic"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6"/><path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"/></svg></div>
+        <h3 class="t-ml">ബാക്കപ്പ് &amp; റിപ്പോർട്ടുകൾ</h3><h3 class="t-en">Backup &amp; Reports</h3>
+        <p class="t-ml">വൺ-ക്ലിക്ക് ബാക്കപ്പ് &amp; റെസ്റ്റോർ; ഏത് മൊഡ്യൂളും CSV, Excel, പ്രിന്റ്-റെഡി PDF ആയി എക്സ്പോർട്ട് ചെയ്യാം.</p>
+        <p class="t-en">One-click backup &amp; restore; export any module to CSV, Excel or print-ready PDF.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= WHY ================= -->
+<section class="why" id="why">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="kicker t-ml">എന്തുകൊണ്ട് MMS?</span><span class="kicker t-en">Why MMS?</span>
+      <h2><span class="t-ml">സൗജന്യമാണ്, അതും നിങ്ങളുടേത് മാത്രം</span><span class="t-en">Free — and truly yours</span></h2>
+      <p class="sec-sub"><span class="t-ml">ഒരു രൂപ പോലും ചോദിക്കില്ല; ഒരു ബൈറ്റ് ഡാറ്റയും പുറത്ത് പോകില്ല.</span><span class="t-en">Not a single rupee asked; not a single byte of data leaves you.</span></p>
+    </div>
+    <div class="why-grid">
+      <div class="why-card reveal" style="--fc:#16a34a;--fb:#e9f9ef">
+        <div class="fic"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></div>
+        <h3 class="t-ml">എന്നും സൗജന്യം</h3><h3 class="t-en">Free forever</h3>
+        <p class="t-ml">സബ്സ്ക്രിപ്ഷൻ ഇല്ല, പരസ്യമില്ല, മറഞ്ഞിരിക്കുന്ന ചെലവുമില്ല. MIT ഓപ്പൺ സോഴ്സ് ലൈസൻസ്.</p>
+        <p class="t-en">No subscription, no ads, no hidden charges. MIT open-source license.</p>
+      </div>
+      <div class="why-card reveal" style="--fc:#0d9488;--fb:#e6f6f3">
+        <div class="fic"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+        <h3 class="t-ml">ഡാറ്റ നിങ്ങളുടേത് മാത്രം</h3><h3 class="t-en">Your data stays yours</h3>
+        <p class="t-ml">ക്ലൗഡ് ഇല്ല — ഡാറ്റ നിങ്ങളുടെ കമ്പ്യൂട്ടറിലെ ഡാറ്റാബേസിൽ. ബാക്കപ്പ് ഫയലായി കൈവശം വെക്കാം.</p>
+        <p class="t-en">No cloud — the database lives on your own PC. Keep a backup file in your hands.</p>
+      </div>
+      <div class="why-card reveal" style="--fc:#8262e8;--fb:#ede8fd">
+        <div class="fic"><svg viewBox="0 0 24 24"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg></div>
+        <h3 class="t-ml">മലയാളം മുൻഗണന</h3><h3 class="t-en">Malayalam first</h3>
+        <p class="t-ml">മുഴുവൻ ഇന്റർഫേസും മലയാളത്തിൽ; ആവശ്യമെങ്കിൽ ഒരു ക്ലിക്കിൽ English-ലേക്ക് മാറ്റാം.</p>
+        <p class="t-en">The whole interface in Malayalam; switch to English in one click when needed.</p>
+      </div>
+      <div class="why-card reveal" style="--fc:#ea6f2d;--fb:#fdeee3">
+        <div class="fic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <h3 class="t-ml">5 മിനിറ്റിൽ തുടങ്ങാം</h3><h3 class="t-en">Start in 5 minutes</h3>
+        <p class="t-ml">ഇൻസ്റ്റാൾ → അഡ്മിൻ അക്കൗണ്ട് → ഉടനെ തുടങ്ങാം. WhatsApp QR ഒരിക്കൽ സ്കാൻ ചെയ്താൽ മതി.</p>
+        <p class="t-en">Install → create admin → go. One QR scan connects WhatsApp.</p>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ================= DOWNLOAD ================= -->
+<section id="download">
+  <div class="wrap">
+    <div class="dl-band reveal">
+      <div class="gr"></div>
+      <div class="dl-grid">
+        <div>
+          <span class="kicker t-ml">ഡൗൺലോഡ്</span><span class="kicker t-en">Download</span>
+          <h2><span class="t-ml">ഇപ്പോൾ ഡൗൺലോഡ് ചെയ്യുക</span><span class="t-en">Get the app now</span></h2>
+          <p class="sec-sub"><span class="t-ml">എല്ലാ പ്ലാറ്റ്ഫോമുകൾക്കുമുള്ള ഏറ്റവും പുതിയ പതിപ്പ് — പൂർണ്ണമായും സൗജന്യം, ഒരു രജിസ്ട്രേഷനുമില്ല.</span><span class="t-en">Latest build for every platform — completely free, no registration.</span></p>
+          <div class="dl-meta">
+            <span class="chip"><svg viewBox="0 0 24 24"><path d="M12 2v14"/><path d="m6 10 6 6 6-6"/><path d="M4 20h16"/></svg><b class="num" id="dl-ver">v2.0.0</b><span class="t-ml">— ഏറ്റവും പുതിയത്</span><span class="t-en">— latest</span></span>
+            <span class="chip" id="dl-date-chip" hidden><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg><span class="num" id="dl-date"></span></span>
+            <span class="chip" id="dl-size-chip" hidden><svg viewBox="0 0 24 24"><path d="M21 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v3"/><path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg><span class="num" id="dl-size"></span></span>
+            <span class="chip"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg><span class="t-ml">വൈറസ്-ഫ്രീ • ഓപ്പൺ സോഴ്സ്</span><span class="t-en">Virus-free • Open source</span></span>
+          </div>
+          <div class="dl-cta">
+            <a class="btn btn-dark btn-dl" id="main-dl" href="https://github.com/kuttappu507/minzmahallu-electron/releases/download/v2.0.0/Minz.Mahallu.Management.System.Setup.2.0.0.exe" target="_blank" rel="noopener">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span class="t-ml">Windows-ന് ഡൗൺലോഡ് ചെയ്യുക (.exe)</span><span class="t-en">Download for Windows (.exe)</span>
+            </a>
+          </div>
+          <div class="alt-dl">
+            <a id="alt-portable" href="https://github.com/kuttappu507/minzmahallu-electron/releases/download/v2.0.0/MMS-React-Portable-2.0.0.exe" target="_blank" rel="noopener">Portable .exe <span id="sz-portable"></span></a>
+            <a id="alt-linux" href="https://github.com/kuttappu507/minzmahallu-electron/releases/download/v2.0.0/MMS-React-Linux-2.0.0.AppImage" target="_blank" rel="noopener">Linux .AppImage <span id="sz-linux"></span></a>
+            <a id="alt-mac" href="https://github.com/kuttappu507/minzmahallu-electron/releases/download/v2.0.0/MMS-React-macOS-2.0.0.dmg" target="_blank" rel="noopener">macOS .dmg <span id="sz-mac"></span></a>
+          </div>
+          <p class="rel-line"><span class="t-ml">എല്ലാ പതിപ്പുകളും റിലീസ് നോട്ടുകളും:</span><span class="t-en">All versions &amp; release notes:</span> <a href="https://github.com/kuttappu507/minzmahallu-electron/releases" target="_blank" rel="noopener">GitHub Releases →</a></p>
+        </div>
+        <div class="dl-panel">
+          <h3><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg><span class="t-ml">എങ്ങനെ തുടങ്ങാം?</span><span class="t-en">How to start?</span></h3>
+          <div class="step"><span class="n">1</span><p><b class="t-ml">ഇൻസ്റ്റാൾ ചെയ്യുക</b><b class="t-en">Install</b> — <span class="t-ml">ഡൗൺലോഡ് ചെയ്ത .exe ഫയൽ തുറന്ന് സ്ക്രീൻ പറയുന്നത് പോലെ Next → Install.</span><span class="t-en">Open the downloaded .exe and follow Next → Install.</span></p></div>
+          <div class="step"><span class="n">2</span><p><b class="t-ml">അഡ്മിൻ അക്കൗണ്ട് ഉണ്ടാക്കുക</b><b class="t-en">Create the admin account</b> — <span class="t-ml">ആദ്യ തുറക്കലിൽ തന്നെ അഡ്മിൻ പേരും ശക്തമായ പാസ്‌വേഡും സെറ്റ് ചെയ്യാം.</span><span class="t-en">On first launch, set the admin name and a strong password.</span></p></div>
+          <div class="step"><span class="n">3</span><p><b class="t-ml">കുടുംബങ്ങളെ ചേർക്കാൻ തുടങ്ങുക</b><b class="t-en">Start adding families</b> — <span class="t-ml">വരിസംഖ്യ പിരിക്കാം, റസീറ്റ് വാട്ട്സ്ആപ്പിലേക്ക് അയക്കാം, റിപ്പോർട്ട് എടുക്കാം.</span><span class="t-en">Collect subscriptions, send WhatsApp receipts, pull reports.</span></p></div>
+          <div class="req-line">
+            <i>Windows 10/11 (64-bit) • Linux • macOS</i><i>4 GB RAM</i><i class="t-ml">200 MB ഡിസ്ക്</i><i class="t-en">200 MB disk</i><i class="t-ml">ഇന്റർനെറ്റ് ആവശ്യമില്ല</i><i class="t-en">No internet required</i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FAQ ================= -->
+<section id="faq">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="kicker t-ml">ചോദ്യങ്ങൾ</span><span class="kicker t-en">FAQ</span>
+      <h2><span class="t-ml">സാധാരണ ചോദ്യങ്ങൾ</span><span class="t-en">Common questions</span></h2>
+    </div>
+    <div class="faq-list">
+      <details class="reveal" open>
+        <summary><span class="qi">1</span><span class="t-ml">ഈ ആപ്പ് ശരിക്കും സൗജന്യമാണോ?</span><span class="t-en">Is this app really free?</span><span class="pm">+</span></summary>
+        <div class="faq-a"><span class="t-ml">അതെ, <b>എന്നും പൂർണ്ണമായും സൗജന്യം</b>. MIT ഓപ്പൺ സോഴ്സ് ലൈസൻസ് — പരസ്യമില്ല, സബ്സ്ക്രിപ്ഷൻ ഇല്ല, ഡാറ്റ വിൽക്കുന്നുമില്ല. സോഴ്സ് കോഡ് GitHub-ൽ ആർക്കും കാണാം.</span><span class="t-en">Yes — <b>free, forever</b>. MIT open-source license: no ads, no subscription, no data selling. The source code is public on GitHub.</span></div>
+      </details>
+      <details class="reveal">
+        <summary><span class="qi">2</span><span class="t-ml">ഡാറ്റ എവിടെയാണ് സൂക്ഷിക്കപ്പെടുന്നത്?</span><span class="t-en">Where is my data stored?</span><span class="pm">+</span></summary>
+        <div class="faq-a"><span class="t-ml">നിങ്ങളുടെ കമ്പ്യൂട്ടറിൽ മാത്രം — ഓഫ്‌ലൈൻ ഡാറ്റാബേസ് ഫയലായി. ക്ലൗഡിലേക്ക് ഒന്നും അയക്കുന്നില്ല. ബാക്കപ്പ് &amp; റെസ്റ്റോർ മൊഡ്യൂളിലൂടെ ഡാറ്റ ഫയലായി സൂക്ഷിക്കാനും പുതിയ കമ്പ്യൂട്ടറിലേക്ക് മാറ്റാനും കഴിയും.</span><span class="t-en">On your own computer — an offline database file. Nothing is sent to any cloud. The Backup &amp; Restore module lets you save data as a file and move it to a new PC anytime.</span></div>
+      </details>
+      <details class="reveal">
+        <summary><span class="qi">3</span><span class="t-ml">WhatsApp റസീറ്റുകൾ എങ്ങനെ സജ്ജമാക്കും?</span><span class="t-en">How do I set up WhatsApp receipts?</span><span class="pm">+</span></summary>
+        <div class="faq-a"><span class="t-ml">ആപ്പിൽ <b>Settings → WhatsApp</b> തുറന്ന് കാണുന്ന QR കോഡ് ഫോണിൽ നിന്ന് സ്കാൻ ചെയ്യുക (WhatsApp → Linked devices → Link a device). ഒരിക്കൽ പെയർ ചെയ്താൽ ഓരോ അടവിനും റസീത് സ്വയമേവ അയയ്ക്കും; ഫോണിൽ ലിങ്ക് നീക്കിയാൽ വീണ്ടും പെയർ ചെയ്യാം.</span><span class="t-en">Open <b>Settings → WhatsApp</b> in the app and scan the QR from your phone (WhatsApp → Linked devices → Link a device). After pairing once, receipts go out automatically; re-pair anytime if the phone unlinks.</span></div>
+      </details>
+      <details class="reveal">
+        <summary><span class="qi">4</span><span class="t-ml">Mac-ലും Linux-ലും ലഭ്യമാണോ?</span><span class="t-en">Is it available on Mac and Linux?</span><span class="pm">+</span></summary>
+        <div class="faq-a"><span class="t-ml">അതെ — Windows (.exe installer + portable), macOS (.dmg), Linux (.AppImage) പതിപ്പുകൾ ഒരുപോലെ <a href="https://github.com/kuttappu507/minzmahallu-electron/releases" target="_blank" rel="noopener" style="color:var(--teal);font-weight:600">GitHub Releases</a>-ൽ ലഭ്യമാണ്.</span><span class="t-en">Yes — Windows (.exe installer + portable), macOS (.dmg) and Linux (.AppImage) builds are all available on <a href="https://github.com/kuttappu507/minzmahallu-electron/releases" target="_blank" rel="noopener" style="color:var(--teal);font-weight:600">GitHub Releases</a>.</span></div>
+      </details>
+      <details class="reveal">
+        <summary><span class="qi">5</span><span class="t-ml">സുരക്ഷിതമാണോ? Windows-ൽ മുന്നറിയിപ്പ് വരുന്നത് എന്തുകൊണ്ട്?</span><span class="t-en">Is it safe? Why does Windows show a warning?</span><span class="pm">+</span></summary>
+        <div class="faq-a"><span class="t-ml">സുരക്ഷിതമാണ് — സോഴ്സ് കോഡ് പൊതുവാണ്, ഓരോ പതിപ്പും ഓട്ടോമാറ്റിക് GitHub CI-യിൽ നിർമ്മിക്കുന്നത്. സൗജന്യമായി വിതരണം ചെയ്യുന്ന ആപ്പുകൾക്ക് code-signing സർട്ടിഫിക്കറ്റ് ഇല്ലാത്തതിനാൽ SmartScreen ഒരു മുന്നറിയിപ്പ് കാണിച്ചേക്കാം — <b>More info → Run anyway</b> ക്ലിക്ക് ചെയ്താൽ മതി.</span><span class="t-en">Yes — the source is public and every build is produced by automatic GitHub CI. Free distributed apps without a paid code-signing certificate may trigger a SmartScreen notice — just click <b>More info → Run anyway</b>.</span></div>
+      </details>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- ================= FOOTER ================= -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <span class="logo">M</span>
+        <span>Minz Mahallu Management System<small class="t-ml">മസ്ജിദ് കമ്മ്യൂണിറ്റി ഭരണം — ലളിതമായി</small><small class="t-en">Mosque community administration, simplified</small></span>
+      </div>
+      <nav class="foot-links" aria-label="Footer">
+        <a href="https://github.com/kuttappu507/minzmahallu-electron" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/kuttappu507/minzmahallu-electron/releases" target="_blank" rel="noopener"><span class="t-ml">റിലീസുകൾ</span><span class="t-en">Releases</span></a>
+        <a href="https://github.com/kuttappu507/minzmahallu-electron/blob/main/LICENSE" target="_blank" rel="noopener"><span class="t-ml">ലൈസൻസ് (MIT)</span><span class="t-en">License (MIT)</span></a>
+        <a href="#features"><span class="t-ml">സവിശേഷതകൾ</span><span class="t-en">Features</span></a>
+      </nav>
+    </div>
+    <div class="foot-base">
+      <span>© <span class="num" id="yr">2026</span> <b>Minz Mahallu Management System</b> • <span class="t-ml">മഹല്ല് കമ്മ്യൂണിറ്റിക്ക് വേണ്ടി നിർമ്മിച്ചത്</span><span class="t-en">Built for the mahallu community</span></span>
+      <span class="free-pill"><i></i><span class="t-ml">ഈ ആപ്പ് എന്നും 100% സൗജന്യമാണ്</span><span class="t-en">This app is 100% free, always</span></span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var REPO="kuttappu507/minzmahallu-electron";
+  var $=function(id){return document.getElementById(id)};
+  var REL=null;
+
+  /* ---- Language toggle (default: Malayalam) ---- */
+  var btnML=$("btn-ml"),btnEN=$("btn-en");
+  function setLang(l){
+    var r=document.documentElement;
+    if(l==="en"){r.classList.add("lang-en");r.setAttribute("lang","en");btnEN.classList.add("on");btnML.classList.remove("on");}
+    else{r.classList.remove("lang-en");r.setAttribute("lang","ml");btnML.classList.add("on");btnEN.classList.remove("on");}
+    try{localStorage.setItem("mms-lang",l);}catch(e){}
+    if(REL) paintRel();
+  }
+  btnML.addEventListener("click",function(){setLang("ml")});
+  btnEN.addEventListener("click",function(){setLang("en")});
+  try{var saved=localStorage.getItem("mms-lang");if(saved==="en")setLang("en");}catch(e){}
+
+  /* ---- Header shadow ---- */
+  var hdr=$("hdr");
+  function onScroll(){hdr.classList.toggle("scrolled",window.scrollY>8);}
+  window.addEventListener("scroll",onScroll,{passive:true});onScroll();
+
+  /* ---- Reveal on scroll ---- */
+  var io=new IntersectionObserver(function(es){
+    es.forEach(function(e){if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target);}});
+  },{threshold:.12,rootMargin:"0px 0px -40px 0px"});
+  document.querySelectorAll(".reveal").forEach(function(el){io.observe(el);});
+
+  $("yr").textContent=new Date().getFullYear();
+
+  /* ---- Latest release loader (GitHub API, graceful fallback) ---- */
+  function fmtSize(b){return (b/1048576).toFixed(1)+" MB";}
+  function fmtDate(iso){
+    var lang=document.documentElement.classList.contains("lang-en")?"en-IN":"ml-IN";
+    try{return new Date(iso).toLocaleDateString(lang,{day:"numeric",month:"long",year:"numeric"});}
+    catch(e){return new Date(iso).toISOString().slice(0,10);}
+  }
+  function paintRel(){
+    var ml=document.documentElement.classList.contains("lang-en")===false;
+    var d=REL; if(!d)return;
+    var a=d.assets||[];
+    function find(re){for(var i=0;i<a.length;i++){if(re.test(a[i].name))return a[i];}return null;}
+    var win=find(/setup.*\.exe$/i)||find(/\.exe$/i);
+    var port=find(/portable.*\.exe$/i);
+    var app=find(/\.appimage$/i),dmg=find(/\.dmg$/i);
+    var ver=(d.tag_name||"").replace(/^v/,"");
+    var vTxt="v"+ver;
+    $("ver-chip").textContent=vTxt;
+    $("dl-ver").textContent=vTxt;
+    if(win){
+      $("main-dl").href=win.browser_download_url;
+      $("hero-dl").href=win.browser_download_url;
+      var s=fmtSize(win.size);
+      $("size-chip").textContent="≈ "+s;$("size-chip-en").textContent="≈ "+s;
+      $("dl-size-chip").hidden=false;$("dl-size").textContent=ml?("ഇൻസ്റ്റാളർ • "+s):("Installer • "+s);
+    }
+    if(d.published_at){$("dl-date-chip").hidden=false;$("dl-date").textContent=fmtDate(d.published_at);}
+    if(port){$("alt-portable").href=port.browser_download_url;$("sz-portable").textContent="• "+fmtSize(port.size);}
+    if(app){$("alt-linux").href=app.browser_download_url;$("sz-linux").textContent="• "+fmtSize(app.size);}
+    if(dmg){$("alt-mac").href=dmg.browser_download_url;$("sz-mac").textContent="• "+fmtSize(dmg.size);}
+  }
+  fetch("https://api.github.com/repos/"+REPO+"/releases/latest",{headers:{Accept:"application/vnd.github+json"}})
+    .then(function(r){if(!r.ok)throw new Error("no release");return r.json();})
+    .then(function(d){if(d&&d.tag_name){REL=d;paintRel();}})
+    .catch(function(){/* keep fallback links */});
+})();
+</script>
+</body>
+</html>
