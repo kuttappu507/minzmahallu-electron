@@ -198,7 +198,9 @@ await check("mahallu name saved and persisted after remount", async () => {
   const nameInput = page.locator(".card input.inp").first();
   await nameInput.fill("E2E Masjid Mahallu");
   await page.getByRole("button", { name: "Save Changes" }).first().click();
-  await expectToast("Save Changes");
+  // Toast is the CONFIRMATION ("Settings saved successfully"), not the button
+  // label — asserting the old label re-blessed the bug it was meant to catch.
+  await expectToast("Settings saved successfully");
   await nav("#/families");
   await page.locator(".view h1").first().waitFor({ state: "visible" });
   await nav("#/settings");
