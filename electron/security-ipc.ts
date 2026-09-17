@@ -430,7 +430,16 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("committee:types", () => { actor(); return data.committee.types(); });
   register("committee:summary", () => { actor(); return data.committee.summary(); });
   register("committee:create", (d: any) => { const a = actor(); const r = data.committee.create({ ...d, createdBy: a.id }); try { data.audit.log(a.id, a.username, "ADD", "committee", r.id, `Committee ${r.committeeCode} created (${d.position || 'Committee Member'})`, ""); } catch {} return r; });
-  register("committee:update", (id: number, d: any) => { const a = actor(); const r = data.committee.update(id, d); try { data.audit.log(a.id, a.username, "EDIT", "committee", id, `Committee updated: ${d.name || ''}`, ""); } catch {} return r; });
+  // Committee records are OFFICIAL (user report: direct editing was possible).
+  // Editing now requires the administrator role, own-password re-authentication
+  // and a reason — all re-verified HERE in the main process and audited.
+  register("committee:update", (id: number, d: any, adminPassword: string, reason: string) => {
+    const a = admin();
+    if (!reason || !String(reason).trim()) throw new Error("A reason is required to edit a committee record");
+    verifyCurrentActorPassword(String(adminPassword ?? ""));
+    const r = data.committee.update(id, d);
+    try { data.audit.log(a.id, a.username, "EDIT", "committee", id, `Committee edited after administrator re-authentication: ${d.name || ''} — ${String(reason).trim()}`, String(reason).trim()); } catch {} return r;
+  });
   register("committee:archive", (id: number, reason: string) => { const a = admin(); const r = data.committee.archive(id, reason, a.id); try { data.audit.log(a.id, a.username, "ARCHIVE", "committee", id, `Committee archived: ${reason}`, ""); } catch {} return r; });
   register("committee:restore", (id: number) => { const a = admin(); const r = data.committee.restore(id, a.id); try { data.audit.log(a.id, a.username, "RESTORE", "committee", id, `Committee restored`, ""); } catch {} return r; });
   register("committee:history", (id: number) => { actor(); return data.committee.history(id); });

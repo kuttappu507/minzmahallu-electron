@@ -220,6 +220,10 @@ export function Subscriptions() {
   const sendReceipt = async (id: number, adminPassword?: string) => {
     if (sendingId != null) return; // one message at a time, per privacy rule
     setSendingId(id);
+    // IMMEDIATE feedback (user report: the button gave no sign anything was
+    // happening, so it got clicked again and again) — the result toast lands
+    // when the send actually finishes.
+    toast.info(tx("Sending receipt on WhatsApp…", "വാട്ട്സ്ആപ്പിൽ രസീറ്റ് അയയ്ക്കുന്നു…"));
     try {
       const r: any = await window.mms.whatsapp.sendSubscriptionReceipt(id, adminPassword);
       // The lock flips ONLY on confirmed delivery — a send that WhatsApp

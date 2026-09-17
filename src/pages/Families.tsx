@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Edit2, Eye, Home, Archive, RotateCcw, History, Users, MessageCircle } from "lucide-react";
+import { Plus, Edit2, Eye, Home, Archive, RotateCcw, History, Users, MessageCircle, FileDown } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
 import { Button, Dialog, Label, Input, Textarea, Select, Badge } from "@/components/ui";
@@ -7,7 +7,7 @@ import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
 import { statusVariant } from "@/lib/utils";
 
-interface Family { id:number; family_number:string; house_name:string; house_number:string; ward:string; area:string; address:string; pincode:string; phone:string; alt_phone:string; status:string; member_count:number; notes:string; whatsapp_phone:string; whatsapp_enabled:number; }
+interface Family { id:number; family_number:string; house_name:string; head_name?:string; house_number:string; ward:string; area:string; address:string; pincode:string; phone:string; alt_phone:string; status:string; member_count:number; notes:string; whatsapp_phone:string; whatsapp_enabled:number; }
 interface HistoryRow { id:number; changed_at:string; action:string; username:string; summary:string; changes_json:string; reason:string; }
 const emptyForm: Partial<Family> = { house_name:"",house_number:"",ward:"",area:"",address:"",pincode:"",phone:"",alt_phone:"",status:"Active",notes:"",whatsapp_phone:"",whatsapp_enabled:1 };
 const normalizeWhatsApp=(value:string)=>{const d=String(value||"").replace(/\D/g,"");return !d?"":d.length===10?`91${d}`:d;};
@@ -42,7 +42,7 @@ export function Families() {
   const {rows,total,totalPages,loading,refetch,setFilters,page,setPage,search,setSearch}=useList((filter)=>window.mms.families.list(filter),{pageSize:20,initialFilters:{status:"All"}});
   useEffect(()=>{ setFilters({status:statusFilter}); },[statusFilter,setFilters]);
 
-  const save=async()=>{ if(!form.house_name||!form.phone){toast.error(t("ui_house_phone_required"));return;} try{const p={houseName:form.house_name,houseNumber:form.house_number||"",ward:form.ward||"",area:form.area||"",address:form.address||"",pincode:form.pincode||"",phone:form.phone,altPhone:form.alt_phone||"",status:"Active",notes:form.notes||"",whatsappPhone:normalizeWhatsApp(form.whatsapp_phone||""),whatsappEnabled:form.whatsapp_enabled!==0?1:0}; if(editingId) await window.mms.families.update(editingId,p); else await window.mms.families.create(p); toast.success(t("ui_save_changes"));setDialogOpen(false);setEditingId(null);setForm(emptyForm);refetch();}catch(e:any){toast.error(e.message||t("ui_failed_save"));} };
+  const save=async()=>{ if(!form.house_name||!form.phone){toast.error(t("ui_house_phone_required"));return;} try{const p={houseName:form.house_name,houseNumber:form.house_number||"",ward:form.ward||"",area:form.area||"",address:form.address||"",pincode:form.pincode||"",phone:form.phone,altPhone:form.alt_phone||"",status:"Active",notes:form.notes||"",whatsappPhone:normalizeWhatsApp(form.whatsapp_phone||""),whatsappEnabled:form.whatsapp_enabled!==0?1:0}; if(editingId) await window.mms.families.update(editingId,p); else await window.mms.families.create(p); toast.success(editingId?t("ui_saved_updated"):t("ui_saved_success"));setDialogOpen(false);setEditingId(null);setForm(emptyForm);refetch();}catch(e:any){toast.error(e.message||t("ui_failed_save"));} };
   const edit=async(id:number)=>{const f=await window.mms.families.get(id);setForm(f||emptyForm);setEditingId(id);setDialogOpen(true);};
   const openPreview=async(r:Family)=>{setPreviewRow(r);setPreviewOpen(true);setMembers([]);setHistory([]);
     // Fetch members and history separately so a failure in one doesn't
@@ -50,19 +50,22 @@ export function Families() {
     try{const mem=await window.mms.members.list({familyId:r.id,pageSize:1000});setMembers(mem.rows||[]);}catch(e:any){console.warn("[families] members load failed:",e);setMembers([]);}
     try{const hist=await window.mms.families.history(r.id);setHistory(hist||[]);}catch(e:any){console.warn("[families] history load failed:",e);setHistory([]);}
   };
+  // Blank survey form (A4 PDF): printed and handed to members so the office
+  // gets exact household + member details to register families correctly.
+  const downloadSurveyForm=async()=>{try{const r:any=await window.mms.families.saveSurveyForm();if(r?.success)toast.success(tx("Family survey form saved — print it and give one sheet per family","കുടുംബ സർവേ ഫോം സേവ് ചെയ്തു — പ്രിന്റ് ചെയ്ത് ഓരോ കുടുംബത്തിനും നൽകുക"));}catch(e:any){toast.error(e.message||tx("Could not save the survey form","സർവേ ഫോം സേവ് ചെയ്യാനായില്ല"));}};
   const openSecurity=(action:"archive"|"restore")=>{setPendingAction(action);setReason("");setSecurityOpen(true);};
   const executeSecurity=async()=>{if(!previewRow||!pendingAction)return;if(pendingAction==="archive"&&!reason.trim()){toast.error(tx("A reason is required","കാരണം നൽകണം"));return;}try{if(pendingAction==="archive") await window.mms.families.archive(previewRow.id,reason); else await window.mms.families.restore(previewRow.id,reason);toast.success(pendingAction==="archive"?tx("Family archived","കുടുംബം ആർക്കൈവ് ചെയ്തു"):tx("Family restored","കുടുംബം പുനഃസ്ഥാപിച്ചു"));setSecurityOpen(false);setPreviewOpen(false);setPendingAction(null);refetch();}catch(e:any){toast.error(e.message);} };
   const columns:Column<Family>[]=[
     {header:t("family_number"),accessor:r=><span className="code-text text-primary">{r.family_number}</span>},
     {header:t("family_house_name"),accessor:r=><span className="font-medium">{r.house_name}</span>},
+    {header:tx("Family Head","കുടുംബനാഥൻ"),accessor:r=>r.head_name||<span className="text-muted">—</span>},
     {header:t("family_ward"),accessor:r=>r.ward||"—"},{header:t("family_area"),accessor:r=>r.area||"—"},{header:t("family_phone"),accessor:r=>r.phone},
-    {header:tx("WhatsApp","വാട്ട്സ്ആപ്പ്"),accessor:r=>r.whatsapp_phone?<span className="inline-flex items-center gap-1"><MessageCircle size={13} className="text-primary"/><span className="code-text-sm">{r.whatsapp_phone}</span></span>:<span className="text-muted">—</span>},
     {header:t("family_members_count"),accessor:r=><Badge variant="muted">{r.member_count}</Badge>,align:"center"},
     {header:t("family_status"),accessor:r=><Badge variant={statusVariant(r.status)}>{r.status}</Badge>},
     {header:"",accessor:r=><div className="rowact"><button className="act-btn act-edit" onClick={()=>edit(r.id)} title={t("action_edit")}><Edit2 className="h-4 w-4"/></button><button className="act-btn" onClick={()=>openPreview(r)} title={tx("Archive / view","ആർക്കൈവ് / കാണുക")}><Eye className="h-4 w-4"/></button></div>,align:"right"}
   ];
   return <div className="view view-enter">
-    <div className="vhead"><div className="modic t-em"><Home size={20}/></div><div><h1>{t("family_title")}</h1><div className="vs">{t("family_subtitle")}</div></div><div className="vr"><Button onClick={()=>{setForm(emptyForm);setEditingId(null);setDialogOpen(true)}}><Plus className="h-4 w-4"/>{t("add_family")}</Button></div></div>
+    <div className="vhead"><div className="modic t-em"><Home size={20}/></div><div><h1>{t("family_title")}</h1><div className="vs">{t("family_subtitle")}</div></div><div className="vr"><Button variant="secondary" onClick={downloadSurveyForm} title={tx("Download a blank A4 survey sheet — print one per family, members fill in exact household + member details","ഒരു ബ്ലാങ്ക് A4 സർവേ ഷീറ്റ് ഡൗൺലോഡ് ചെയ്യുക — ഓരോ കുടുംബത്തിനും ഒന്ന് പ്രിന്റ് ചെയ്ത് നൽകുക; അംഗങ്ങൾ കൃത്യമായ വിവരങ്ങൾ പൂരിപ്പിക്കുന്നു")}><FileDown className="h-4 w-4"/>{tx("Survey Form","സർവേ ഫോം")}</Button><Button onClick={()=>{setForm(emptyForm);setEditingId(null);setDialogOpen(true)}}><Plus className="h-4 w-4"/>{t("add_family")}</Button></div></div>
     <DataTable columns={columns} rows={rows as Family[]} loading={loading} total={total} page={page} pageSize={20} totalPages={totalPages} onPageChange={setPage} searchValue={search} onSearchChange={setSearch} rowKey={r=>r.id} onRowDoubleClick={openPreview} toolbar={<Select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} className="w-40"><option value="All">{tx("All","എല്ലാം")}</option><option value="Active">{tx("Active","സജീവം")}</option><option value="Inactive">{tx("Inactive","നിഷ്‌ക്രിയം")}</option><option value="Archived">{tx("Archived","ആർക്കൈവ് ചെയ്തത്")}</option></Select>}/>
 
     <Dialog open={previewOpen} onClose={()=>setPreviewOpen(false)} title={t("family_title")}>

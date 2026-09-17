@@ -16,6 +16,7 @@ import { createRequire } from "node:module";
 import { getDB } from "../db/connection.js";
 import { renderHtmlToPdf } from "../print/pdf-renderer.js";
 import { buildReceiptHtml, buildReceiptSheetHtml, type ReceiptData } from "../print/receipt.template.js";
+import { buildSurveyFormHtml } from "../print/survey-form.template.js";
 import { fmtDdMmYyyy, monthLabel } from "./ist-date.js";
 import { ensureDonationReceiptNumber, ensureSubscriptionReceiptNumber, fileNameSafe } from "./doc-number.service.js";
 import { makeVerificationCode } from "./codes.js";
@@ -425,7 +426,7 @@ export async function getSubscriptionPdf(subscriptionId: number) {
 // ---------------------------------------------------------------------------
 function todayStamp(): string { return new Date().toISOString().slice(0, 10); }
 
-async function savePdfWithDialog(opts: {
+export async function savePdfWithDialog(opts: {
   title: string; defaultPath: string; buffer: Buffer; win: import("electron").BrowserWindow | null;
 }): Promise<{ success: boolean; cancelled?: boolean; path?: string }> {
   const { dialog } = electron();
@@ -459,6 +460,18 @@ export async function saveSubscriptionPdf(subscriptionId: number, win: import("e
 }
 
 /** MANY donation receipts as ONE A4 PDF — 4 per sheet, dashed cut guides. */
+/** BLANK family survey form (A4) — the admin downloads, prints one sheet per
+ *  family and hands it out; members return the filled sheet and the office
+ *  registers the family + members exactly as surveyed. */
+export async function saveSurveyFormPdf(win: import("electron").BrowserWindow | null) {
+  const buffer = await renderHtmlToPdf(buildSurveyFormHtml());
+  return savePdfWithDialog({
+    title: "Save Family Survey Form (A4)",
+    defaultPath: "family-survey-form.pdf",
+    buffer, win,
+  });
+}
+
 export async function saveDonationBatchPdf(donationIds: number[], win: import("electron").BrowserWindow | null) {
   ensureReceiptSchema();
   const list: ReceiptData[] = [];

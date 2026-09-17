@@ -53,7 +53,7 @@ export function Users() {
     try {
       if (editingId) {
         await window.mms.users.update(editingId, { fullName: form.full_name, role: form.role, isActive: true });
-        toast.success(t("ui_save_changes"));
+        toast.success(t("ui_saved_updated"));
       } else {
         await window.mms.users.create({ username: form.username, fullName: form.full_name, role: form.role, password: form.password });
         toast.success(t("usr_add"));

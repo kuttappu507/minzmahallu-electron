@@ -18,7 +18,8 @@ export const families = {
       params.push(filter.status);
     }
     const sql = `SELECT f.*,
-      (SELECT COUNT(*) FROM members m WHERE m.family_id = f.id AND m.status != 'Inactive') AS member_count
+      (SELECT COUNT(*) FROM members m WHERE m.family_id = f.id AND m.status != 'Inactive') AS member_count,
+      (SELECT m.name FROM members m WHERE m.family_id = f.id AND m.status != 'Inactive' AND (m.is_head = 1 OR (m.is_head IS NULL AND m.relationship = 'Head')) ORDER BY m.is_head DESC LIMIT 1) AS head_name
       FROM families f WHERE ${where.join(" AND ")}
       ORDER BY f.family_number ASC`;
     if (filter.page && filter.pageSize) {

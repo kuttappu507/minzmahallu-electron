@@ -189,9 +189,11 @@ function dayKey(date = new Date()) { return `${date.getFullYear()}-${String(date
 
 // How long a send waits for the recipient's delivery receipt before
 // reporting "sent — delivery not confirmed yet". Delivery usually lands in
-// a couple of seconds; the receipt stays sendable until it does, so a slow
-// confirmation never locks the family out of their receipt.
-const DELIVERY_WAIT_MS = 15_000;
+// 1–3 seconds; the wait is intentionally SHORT (user report: receipt sending
+// felt slow — the app must hand control back quickly). A late confirmation
+// still flips the lock via the engine's delivery listener, and the receipt
+// stays sendable until then, so nobody is ever locked out of their receipt.
+const DELIVERY_WAIT_MS = 6_000;
 
 // One shared send+track routine for receipt PDFs (the privacy lock lives
 // here): gate → send → record acceptance → wait for the delivery receipt →

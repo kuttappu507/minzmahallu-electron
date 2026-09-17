@@ -92,6 +92,8 @@ function ensureRuntimeSchema(database: DB) {
     ["subscriptions","advance","REAL NOT NULL DEFAULT 0"],
     ["subscription_payments","arrears_cleared","REAL NOT NULL DEFAULT 0"],
     ["subscription_payments","advance_added","REAL NOT NULL DEFAULT 0"],
+    // V038 — staff official ID number (Aadhaar / voter ID etc.), user request
+    ["staff","id_number","TEXT"],
     // WhatsApp receipt privacy lock (V037): one send per receipt (+ one
     // admin-authorized re-send). receipt_sent_at marks the ACCEPTED send,
     // whatsapp_msg_id maps late delivery receipts back to the row, and

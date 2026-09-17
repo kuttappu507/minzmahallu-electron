@@ -52,8 +52,8 @@ export const staff = {
     );
     const { id } = run(
       `INSERT INTO staff
-        (staff_code, member_id, name, role, phone, email, address, joined_date, salary, payment_frequency, status, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (staff_code, member_id, name, role, phone, email, address, joined_date, salary, payment_frequency, status, notes, id_number)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         num,
         data.memberId ?? null,
@@ -66,14 +66,15 @@ export const staff = {
         Number(data.salary ?? 0),
         data.paymentFrequency ?? "Monthly",
         data.status ?? "Active",
-        data.notes ?? ""
+        data.notes ?? "",
+        String(data.idNumber ?? "").trim() || null
       ]
     );
     return { id, staffCode: num };
   },
   update: (id: number, data: any) =>
     run(
-      `UPDATE staff SET member_id = ?, name = ?, role = ?, phone = ?, email = ?, address = ?, joined_date = ?, salary = ?, payment_frequency = ?, status = ?, notes = ?, updated_at = datetime('now') WHERE id = ?`,
+      `UPDATE staff SET member_id = ?, name = ?, role = ?, phone = ?, email = ?, address = ?, joined_date = ?, salary = ?, payment_frequency = ?, status = ?, notes = ?, id_number = ?, updated_at = datetime('now') WHERE id = ?`,
       [
         data.memberId ?? null,
         data.name ?? "",
@@ -86,6 +87,7 @@ export const staff = {
         data.paymentFrequency ?? "Monthly",
         data.status ?? "Active",
         data.notes ?? "",
+        String(data.idNumber ?? "").trim() || null,
         id
       ]
     ),

@@ -58,6 +58,11 @@ let startPromise: Promise<void> | null = null;
 let reconnectTimer: NodeJS.Timeout | null = null;
 let reconnectAttempts = 0;
 let lastAutoAttempt = 0;
+// Latest credential saver handed to us by useMultiFileAuthState. Quit calls it
+// once more and AWAITS it — Baileys otherwise writes creds asynchronously and
+// a hard exit can drop a pending key rotation, which the next start then reads
+// as stale keys -> server 401 -> "session gone after closing" (user report).
+let credsSaver: (() => Promise<void>) | null = null;
 
 // ---------------------------------------------------------------------------
 // Delivery tracking — the privacy lock needs to know the moment a message
@@ -203,6 +208,7 @@ async function connectInternal(): Promise<void> {
     syncFullHistory: false,
   });
   sock.ev.on("creds.update", saveCreds);
+  credsSaver = saveCreds;
   sock.ev.on("connection.update", (update) => void onConnectionUpdate(update));
   // Delivery / read receipts for messages WE sent (privacy lock source).
   // `messages.update` carries { key: { id }, update: { status } } — statuses
@@ -303,12 +309,33 @@ export function maybeStartEngine(): void {
   startEngine().catch(() => { /* recorded in state */ });
 }
 
-/** Wait for Baileys' ASYNC auth writes (fs/promises under a mutex) to reach
- * the disk. Called on quit: if the app exits the instant the socket closes,
- * a pending key rotation can be lost — the next login then presents stale
- * keys, the server answers 401, and the session looks "logged out". */
-export function flushAuthWrites(ms = 600): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+/**** Graceful-quit auth flush — makes "connection gone after closing" impossible.
+ * 1. Force one FINAL creds write through Baileys' own saver (awaited, with a
+ *    timeout so a wedged socket can never block exit).
+ * 2. VERIFY the persisted creds actually parse and say `registered: true`;
+ *    if the file is mid-write/unreadable, wait briefly for the write to land.
+ * Without this, quitting right after a key rotation could leave a truncated
+ * creds.json behind and the pairing would be lost by the next start. */
+export async function flushAuthWrites(maxMs = 5000): Promise<void> {
+  const deadline = Date.now() + maxMs;
+  try {
+    if (credsSaver) {
+      await Promise.race([
+        credsSaver(),
+        new Promise((r) => setTimeout(r, 2500)),
+      ]);
+    }
+  } catch { /* best effort — verification below is the real safety net */ }
+  const dir = authDir();
+  if (!dir) return;
+  while (Date.now() < deadline) {
+    try {
+      const raw = fs.readFileSync(path.join(dir, "creds.json"), "utf-8");
+      const creds = JSON.parse(raw);
+      if (creds && creds.registered === true) return; // pairing is safely on disk
+    } catch { /* mid-write or truncated — wait and re-read */ }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
 }
 
 /** Tear the session down. WITHOUT `logout` the paired device STAYS linked on

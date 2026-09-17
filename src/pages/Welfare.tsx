@@ -145,7 +145,7 @@ export function Welfare() {
       };
       if (editingId) {
         await window.mms.welfare.update(editingId, payload);
-        toast.success(t("ui_save_changes"));
+        toast.success(t("ui_saved_updated"));
       } else {
         await window.mms.welfare.create(payload);
         toast.success(t("wel_new_request"));

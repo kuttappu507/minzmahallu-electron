@@ -41,8 +41,11 @@ export function Dialog({ open, onClose, title, description, children, className 
   // Portal to <body> so the overlay's position:fixed always measures the whole
   // viewport — an ancestor with a transform (e.g. the page view animation)
   // would otherwise trap the dialog inside the content column only.
+  // NOTE: clicking the dark backdrop intentionally does NOT close the dialog —
+  // a stray click outside the window must never silently discard a half-filled
+  // form (user report). Closing happens via the ✕ button / Cancel / actions.
   return createPortal(
-    <div className="modal-root open" onClick={onClose}>
+    <div className="modal-root open">
       <div className={cn("modal", className)} onClick={(e) => e.stopPropagation()}>
         {title && <div className="m-h"><b>{title}</b><button className="ibtn ml-auto" onClick={onClose}><X size={16} /></button></div>}
         <div className="m-b">{children}</div>

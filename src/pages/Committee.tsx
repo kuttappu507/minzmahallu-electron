@@ -3,8 +3,10 @@ import { Plus, Edit2, Eye, Archive, RotateCcw, History, Users, CalendarClock, Al
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
 import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
+import { SecureActionDialog } from "@/components/SecureActionDialog";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
+import { friendlyAuthError } from "@/lib/pwd";
 import { statusVariant, formatDate } from "@/lib/utils";
 
 interface CommitteeRow {
@@ -70,6 +72,13 @@ export function Committee() {
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveReason, setArchiveReason] = useState("");
 
+  // Committee records are OFFICIAL — direct editing is blocked (user report).
+  // Every edit first passes a reason + administrator-password gate; the main
+  // process re-verifies the password again on save (defense in depth).
+  const [editGateOpen, setEditGateOpen] = useState(false);
+  const [pendingEditId, setPendingEditId] = useState<number | null>(null);
+  const [editAuth, setEditAuth] = useState<{ password: string; reason: string } | null>(null);
+
   // listFn switches based on tab.
   const listFn = (filter: any) => window.mms.committee.list({
     ...filter,
@@ -110,16 +119,28 @@ export function Committee() {
         status: form.status || "Active",
         notes: form.notes || ""
       };
-      if (editingId) await window.mms.committee.update(editingId, payload);
-      else await window.mms.committee.create(payload);
+      if (editingId) {
+        if (!editAuth) { toast.error(tx("Administrator authorization is required to edit", "തിരുത്താൻ അഡ്മിൻ അനുമതി ആവശ്യമാണ്")); return; }
+        await window.mms.committee.update(editingId, payload, editAuth.password, editAuth.reason);
+      } else {
+        await window.mms.committee.create(payload);
+      }
       toast.success(t("committee_saved"));
       setDialogOpen(false); setEditingId(null); setForm(emptyForm); refetch(); refreshMeta();
     } catch (e: any) { toast.error(e.message || t("ui_failed_save")); }
   };
 
-  const edit = async (id: number) => {
-    const c = await window.mms.committee.get(id);
-    setForm(c || emptyForm); setEditingId(id); setDialogOpen(true);
+  // The row ✎ button OPENS THE GATE first — the dialog itself only appears
+  // after the administrator password verifies (renderer-side first gate).
+  const edit = (id: number) => { setPendingEditId(id); setEditGateOpen(true); };
+  const performEdit = async ({ password, reason }: { password: string; reason: string }) => {
+    try {
+      const c = await window.mms.committee.get(pendingEditId!);
+      if (!c) return;
+      setForm(c || emptyForm); setEditingId(pendingEditId!);
+      setEditAuth({ password, reason });
+      setDialogOpen(true);
+    } catch (e: any) { toast.error(e.message || t("ui_failed_save")); }
   };
 
   const openPreview = async (c: CommitteeRow) => {
@@ -323,6 +344,18 @@ export function Committee() {
         </div>
       </Dialog>
 
+      {/* Edit gate — committee records are official (reason + admin password) */}
+      <SecureActionDialog
+        open={editGateOpen}
+        onClose={() => { setEditGateOpen(false); setPendingEditId(null); }}
+        onConfirm={performEdit}
+        danger={false}
+        title={tx("Edit committee member", "കമ്മിറ്റി അംഗത്തെ തിരുത്തുക")}
+        description={t("committee_edit_gate")}
+        reasonPlaceholder={tx("Why is this committee record being edited?", "എന്തുകൊണ്ടാണ് ഈ കമ്മിറ്റി രേഖ തിരുത്തുന്നത്?")}
+        confirmLabel={tx("Continue to edit", "തിരുത്താൻ തുടരുക")}
+      />
+
       {/* Add/Edit dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editingId ? t("committee_edit") : t("committee_add")} className="max-w-3xl">
         <div className="p-6 space-y-4">
@@ -345,7 +378,7 @@ export function Committee() {
                 <option value="Resigned">{t("committee_resigned")}</option>
               </Select>
             </div>
-            <div><Label>{t("committee_phone")}</Label><Input value={form.phone || ""} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
+            <div><Label>{t("committee_phone")}</Label><Input value={form.phone || ""} onChange={e => setForm({ ...form, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })} maxLength={10} inputMode="numeric" placeholder="98XXXXXXXX" /></div>
             <div><Label>{t("committee_email")}</Label><Input type="email" value={form.email || ""} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
             <div><Label>{t("committee_term_start")}</Label><Input type="date" value={form.term_start || ""} onChange={e => setForm({ ...form, term_start: e.target.value })} /></div>
             <div><Label>{t("committee_term_end")}</Label><Input type="date" value={form.term_end || ""} onChange={e => setForm({ ...form, term_end: e.target.value })} /></div>

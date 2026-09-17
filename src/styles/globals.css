@@ -1370,7 +1370,14 @@ html.lang-ml .topbar, html.lang-ml .topbar button, html.lang-ml .topbar input, h
 html.lang-ml .topbar .crumb small, html.lang-ml .topbar .crumb b { line-height: 18px !important; }
 html.lang-ml .tbl th { line-height: 18px !important; min-height: 46px !important; }
 html.lang-ml .tbl td { line-height: 20px !important; min-height: 48px !important; }
-html.lang-ml input, html.lang-ml select, html.lang-ml textarea { line-height: 20px !important; }
+html.lang-ml input, html.lang-ml textarea { line-height: 20px !important; }
+/* Malayalam glyphs stack above AND below the baseline — the 20px Latin
+   line-height clips descenders/vowel signs inside <select> controls
+   (user report: "some dropdown is cut in ml language"). */
+html.lang-ml select.inp { line-height: 26px !important; min-height: 48px; padding-top: 8px; padding-bottom: 8px; }
+/* Fixed-width filter selects (w-32/40/48/56) truncate long Malayalam option
+   text — size them to their content instead, capped to the available width. */
+html.lang-ml select.inp.w-32, html.lang-ml select.inp.w-40, html.lang-ml select.inp.w-48, html.lang-ml select.inp.w-56 { width: auto !important; min-width: 11rem; max-width: 100%; }
 html.lang-ml .btn { line-height: 20px !important; }
 
 /* ===== Official records: no destructive delete affordance ===== */

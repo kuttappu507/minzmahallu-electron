@@ -22,6 +22,7 @@ interface StaffRow {
   payment_frequency: string;
   status: string;
   notes: string;
+  id_number: string | null;
   archive_state: number;
   archived_at: string | null;
   archive_reason: string | null;
@@ -52,7 +53,7 @@ interface HistoryRow { id: number; changed_at: string; action: string; username:
 const emptyForm: Partial<StaffRow> & { memberId?: number | null } = {
   name: "", role: "Imam", phone: "", email: "", address: "",
   joined_date: "", salary: 0, payment_frequency: "Monthly",
-  status: "Active", notes: "", member_id: null
+  status: "Active", notes: "", member_id: null, id_number: ""
 };
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -143,7 +144,8 @@ export function Staff() {
         salary: Number(form.salary || 0),
         paymentFrequency: form.payment_frequency || "Monthly",
         status: form.status || "Active",
-        notes: form.notes || ""
+        notes: form.notes || "",
+        idNumber: form.id_number || ""
       };
       if (editingId) await window.mms.staff.update(editingId, payload);
       else await window.mms.staff.create(payload);
@@ -363,6 +365,7 @@ export function Staff() {
                   [t("staff_name"), preview.name],
                   [t("staff_role"), preview.role],
                   [t("staff_phone"), preview.phone || "—"],
+                  [t("staff_id_number"), preview.id_number || "—"],
                   [t("staff_email"), preview.email || "—"],
                   [t("staff_joined_date"), preview.joined_date ? formatDate(preview.joined_date) : "—"],
                   [t("staff_salary"), formatCurrency(preview.salary || 0)],
@@ -454,7 +457,8 @@ export function Staff() {
                 {roles.map(r => <option key={r} value={r}>{r}</option>)}
               </Select>
             </div>
-            <div><Label>{t("staff_phone")}</Label><Input value={form.phone || ""} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
+            <div><Label>{t("staff_phone")}</Label><Input value={form.phone || ""} onChange={e => setForm({ ...form, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })} maxLength={10} inputMode="numeric" placeholder="98XXXXXXXX" /></div>
+            <div><Label>{t("staff_id_number")}</Label><Input value={form.id_number || ""} onChange={e => setForm({ ...form, id_number: e.target.value })} placeholder="XXXX-XXXX-XXXX" /><div className="text-xs text-muted mt-1.5">{t("staff_id_number_hint")}</div></div>
             <div><Label>{t("staff_email")}</Label><Input type="email" value={form.email || ""} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
             <div><Label>{t("staff_joined_date")}</Label><Input type="date" value={form.joined_date || ""} onChange={e => setForm({ ...form, joined_date: e.target.value })} /></div>
             <div><Label>{t("staff_salary")}</Label><Input type="number" value={form.salary || 0} onChange={e => setForm({ ...form, salary: Number(e.target.value) })} /></div>

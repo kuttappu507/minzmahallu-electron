@@ -9,6 +9,7 @@ import {
   getDonationPdf, getSubscriptionPdf,
   saveDonationPdf, saveSubscriptionPdf,
   saveDonationBatchPdf, saveSubscriptionBatchPdf,
+  saveSurveyFormPdf,
 } from "./services/receipt.service.js";
 import type { Actor } from "./services/security.service.js";
 
@@ -33,5 +34,8 @@ export function registerReceiptIpc(getActor: () => Actor | null, getWindow: () =
 
   // Save MANY receipts as one A4 PDF — 4 per sheet with cut guides.
   register("receipts:saveDonationBatchPdf", (ids: number[]) => { requireAuth(); return saveDonationBatchPdf(ids || [], getWindow()); });
+  // BLANK family survey form (A4) for the Families tab — printed and handed
+  // to members so the office receives exact household + member details.
+  register("families:saveSurveyForm", () => { requireAuth(); return saveSurveyFormPdf(getWindow()); });
   register("receipts:saveSubscriptionBatchPdf", (subscriptionIds: number[]) => { requireAuth(); return saveSubscriptionBatchPdf(subscriptionIds || [], getWindow()); });
 }

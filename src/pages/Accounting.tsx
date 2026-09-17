@@ -280,7 +280,7 @@ export function Accounting() {
       if (editingId) {
         // Backend re-verifies the administrator password and requires the reason.
         await window.mms.accounting.update(editingId, payload, editAuth?.password || "", editAuth?.reason || "");
-        toast.success(t("ui_save_changes"));
+        toast.success(t("ui_saved_updated"));
       } else {
         const res = await window.mms.accounting.create(payload);
         if (res?.duplicateBill) {

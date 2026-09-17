@@ -109,7 +109,7 @@ async function addMember({ familyIndex = 1, name, gender = "Male", relationship,
   if (dob) await d.locator("input[type=date]").first().fill(dob);
   if (fatherOutside) { await d.locator("#father-outside").check(); await d.locator("input.inp").nth(1).fill(fatherName); }
   await d.getByRole("button", { name: "Save", exact: true }).click();
-  await expectToast("Save Changes");
+  await expectToast("Saved successfully");
 }
 
 async function addFamily({ name, phone, ward = "1" }) {
@@ -121,7 +121,7 @@ async function addFamily({ name, phone, ward = "1" }) {
   await f.nth(2).fill(ward);
   await f.nth(4).fill(phone);
   await d.getByRole("button", { name: "Save", exact: true }).click();
-  await expectToast("Save Changes");
+  await expectToast("Saved successfully");
 }
 
 /* ---------- fresh profile + launch ---------- */
@@ -257,7 +257,7 @@ await check("family A edited (ward 5B) and persisted", async () => {
   const d = dlg();
   await d.locator("input").nth(2).fill("5B");
   await d.getByRole("button", { name: "Save", exact: true }).click();
-  await expectToast("Save Changes");
+  await expectToast("Saved successfully");
   await row("E2E House A").getByText("5B").waitFor({ state: "visible", timeout: 10_000 });
 });
 await check("search box filters families to E2E House A", async () => {
@@ -335,7 +335,7 @@ await check("member edit (occupation) saved", async () => {
   const d = dlg();
   await d.locator("input.inp").nth(4).fill("Retired Teacher");
   await d.getByRole("button", { name: "Save", exact: true }).click();
-  await expectToast("Save Changes");
+  await expectToast("Saved successfully");
 });
 await check("member preview shows relations & history tabs-data", async () => {
   await row("Muhammed Ali").locator(".act-btn:not(.act-edit)").first().click();
@@ -366,9 +366,14 @@ await check("disposable member archived (admin-password gate) and restored", asy
 await check("family list badge shows 3 members for family A", async () => {
   await nav("#/families");
   await row("E2E House A").waitFor({ state: "visible", timeout: 10_000 });
-  const txt = await row("E2E House A").textContent();
-  const m = txt.match(/(\d+)\s*(Active|Inactive|Archived)/);
-  if (!m || Number(m[1]) !== 3) throw new Error(`member count badge mismatch: ${txt.slice(0, 120)}`);
+  // Read the count from its own column (Members header) — the Family Head
+  // column joined the table, so positional/regex matching is unsafe now.
+  const headers = await page.locator("table thead th").allInnerTexts();
+  const countIdx = headers.findIndex((h) => /Members/i.test(h));
+  if (countIdx < 0) throw new Error("Members count column not found");
+  const cellTxt = await row("E2E House A").locator("td").nth(countIdx).innerText();
+  const m = cellTxt.match(/\d+/);
+  if (!m || Number(m[0]) !== 3) throw new Error(`member count badge mismatch: got "${cellTxt}"`);
 });
 
 /* ================= M05 — Marriages ================= */
@@ -409,7 +414,7 @@ await check("marriage edited (place updated)", async () => {
   const d = dlg();
   await d.locator("input.inp").nth(9).fill("E2E edited venue");
   await d.getByRole("button", { name: "Save", exact: true }).click();
-  await expectToast("Save Changes");
+  await expectToast("Saved successfully");
 });
 await check("marriage certificate issued from preview", async () => {
   await row("Yusuf Ali").dblclick();
@@ -453,7 +458,7 @@ await check("death record edited (cause of death)", async () => {
   const d = dlg();
   await d.locator("textarea").nth(1).fill("Cardiac arrest — edited by E2E");
   await d.getByRole("button", { name: "Save", exact: true }).click();
-  await expectToast("Save Changes");
+  await expectToast("Saved successfully");
 });
 await check("death certificate issued from preview", async () => {
   await row("Ibrahim Haji").dblclick();
@@ -494,7 +499,7 @@ await check("donation created — DN receipt number generated", async () => {
   await d.locator("select").nth(1).selectOption("UPI");
   await d.locator("input.inp").nth(4).fill("Mosque renovation");
   await d.getByRole("button", { name: "Save", exact: true }).click();
-  await expectToast("Add Donation");
+  await expectToast("Donation saved");  // info toast — dialog closes at once, receipt goes in the background
   await row(/DN\/26\/09\/001/).waitFor({ state: "visible", timeout: 10_000 });
 });
 await check("second donation created (for delete test)", async () => {
@@ -504,7 +509,7 @@ await check("second donation created (for delete test)", async () => {
   await d.locator("select").nth(0).selectOption({ index: 1 });
   await d.locator('input[type="number"]').first().fill("100");
   await d.getByRole("button", { name: "Save", exact: true }).click();
-  await expectToast("Add Donation");
+  await expectToast("Donation saved");
   await row("E2E Donor Two").waitFor({ state: "visible", timeout: 10_000 });
 });
 await check("donation edit gated (password + reason) then saved", async () => {
@@ -513,7 +518,7 @@ await check("donation edit gated (password + reason) then saved", async () => {
   const d = dlg();
   await d.locator("input.inp").nth(4).fill("Renovation — corrected");
   await d.getByRole("button", { name: "Save", exact: true }).click();
-  await expectToast("Save Changes");
+  await expectToast("Saved successfully");
 });
 await check("A6 receipt PDF saved for donation row", async () => {
   await row(/DN\/26\/09\/001/).locator('button[title*="A6 receipt PDF"]').click();
@@ -616,7 +621,7 @@ await check("ledger entry edit gated (password+reason) — amount 250 → 300", 
   await d.waitFor({ state: "visible", timeout: 8_000 });
   await d.locator('input[type="number"]').first().fill("300");
   await d.getByRole("button", { name: "Save", exact: true }).click();
-  await expectToast("Save Changes");
+  await expectToast("Saved successfully");
 });
 await check("void-entry button hidden by official-records policy (feature gap)", async () => {
   const v = row("Electricity").locator('button[title*="Void (keep for audit)"]');
@@ -721,11 +726,14 @@ await check("committee member added (president)", async () => {
   await expectToast("Committee record saved");
   await row("E2E Committee President").waitFor({ state: "visible", timeout: 10_000 });
 });
-await check("committee member edited (phone updated)", async () => {
+await check("committee member edited (phone updated) — behind the admin gate", async () => {
   await row("E2E Committee President").locator(".act-edit").click();
+  // SECURITY GATE: reason + administrator password, verified in the main
+  // process again on save. The edit dialog only opens after it passes.
+  await secure({ reason: "E2E committee edit", confirm: "Continue to edit" });
   const d = dlg();
   await d.waitFor({ state: "visible", timeout: 8_000 });
-  await d.locator("input.inp").nth(1).fill("9876533333");
+  await d.locator('input[placeholder="98XXXXXXXX"]').fill("9876533333");
   await d.getByRole("button", { name: "Save", exact: true }).click();
   await expectToast("Committee record saved");
 });
@@ -753,7 +761,7 @@ await check("asset edited (current value 600000 → 650000)", async () => {
   await d.waitFor({ state: "visible", timeout: 8_000 });
   await d.locator('input[type="number"]').nth(1).fill("650000");
   await d.getByRole("button", { name: "Save", exact: true }).click();
-  await expectToast("Save Changes");
+  await expectToast("Saved successfully");
 });
 await check("asset delete button hidden by official-records policy", async () => {
   const del = row("E2E Shop Building").locator(".act-del");
