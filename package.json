@@ -121,13 +121,11 @@
       "icon": "resources/icon.png",
       "category": "public.app-category.productivity",
       "hardenedRuntime": true,
-      "gatekeeperAssess": false
+      "gatekeeperAssess": false,
+      "artifactName": "MMS-React-macOS-${version}.${ext}"
     },
     "dmg": {
       "artifactName": "MMS-React-macOS-${version}.${ext}"
-    },
-    "zip": {
-      "artifactName": "MMS-React-macOS-${version}-mac.${ext}"
     },
     "linux": {
       "target": [
