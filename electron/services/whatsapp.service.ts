@@ -195,6 +195,13 @@ function dayKey(date = new Date()) { return `${date.getFullYear()}-${String(date
 // stays sendable until then, so nobody is ever locked out of their receipt.
 const DELIVERY_WAIT_MS = 6_000;
 
+// Anti-duplicate window: a receipt that LEFT the app within this period
+// (sent, delivery not confirmed yet) may not be sent again without the admin
+// password. This closes the multi-click race on the subscription save/send
+// buttons that used to push the SAME receipt to the payee several times
+// (user-reported security fault).
+const RECENT_SEND_WINDOW_MS = 90_000;
+
 // One shared send+track routine for receipt PDFs (the privacy lock lives
 // here): gate → send → record acceptance → wait for the delivery receipt →
 // flip the lock only on real delivery.
@@ -226,9 +233,24 @@ function gateReceiptSend(
   kind: "donation" | "subscription",
   rowId: number,
   adminPassword?: string
-): { ok: true; isResend: boolean } | { ok: false; reason: "delivered" | "resend-used"; message: string } {
+): { ok: true; isResend: boolean } | { ok: false; reason: "delivered" | "resend-used" | "recently-sent"; message: string } {
   const state = receiptSendState(kind, rowId);
-  if (!state.delivered) return { ok: true, isResend: false };
+  if (!state.delivered) {
+    // Sent recently but delivery not confirmed yet -> hold off. Without this,
+    // every send attempt inside the delivery-confirmation window pushed
+    // another copy of the same receipt to the recipient.
+    if (state.sent && state.sentAt) {
+      const sentTs = Date.parse(String(state.sentAt).replace(" ", "T") + "Z");
+      if (Number.isFinite(sentTs) && Date.now() - sentTs < RECENT_SEND_WINDOW_MS) {
+        return {
+          ok: false,
+          reason: "recently-sent",
+          message: "This receipt was just sent and delivery is being confirmed. It locks automatically once delivered — please wait instead of sending it again.",
+        };
+      }
+    }
+    return { ok: true, isResend: false };
+  }
   if (!adminPassword) {
     return {
       ok: false,
@@ -521,7 +543,7 @@ export const whatsapp = {
     if (paymentId) {
       const gate = gateReceiptSend("subscription", paymentId, opts.adminPassword);
       if (!gate.ok) {
-        if (soft) return { status: "already-delivered", error: gate.message, receiptSaved: true };
+        if (soft) return { status: gate.reason === "recently-sent" ? "already-sent" : "already-delivered", error: gate.message, receiptSaved: true };
         throw new Error(gate.message);
       }
     }

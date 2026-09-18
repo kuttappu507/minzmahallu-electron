@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Plus, Edit2, Trash2, Eye, Gift, UserRoundCheck, MessageCircle, FileDown, Lock, CheckCheck } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
+import { useAsyncLock } from "@/lib/use-async-lock";
 import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SecureActionDialog } from "@/components/SecureActionDialog";
@@ -40,7 +41,10 @@ export function Donations(){
   // receipts): the Save button is disabled and the dialog CLOSES as soon as
   // the record is stored — the WhatsApp receipt then goes out in the
   // background so a slow send can never invite a second click.
-  const [saving,setSaving]=useState(false);
+  // Ref-based double-submit lock: a real double-click lands two events in the
+  // same frame, both reading stale state; the hook's ref flips synchronously
+  // BEFORE the first await (state-only guards still double-fire).
+  const [saving, save] = useAsyncLock();
   const {rows,total,totalPages,loading,refetch,setFilters,page,setPage,search,setSearch}=useList((filter)=>window.mms.donations.list(filter),{pageSize:20});
   useEffect(()=>{setFilters(categoryFilter==="All"?{}:{category:categoryFilter});setPage(1);},[categoryFilter,setFilters]);
 
@@ -79,12 +83,12 @@ export function Donations(){
     }
     await refreshBalance(form.family_id||0,mid);
   };
-  const handleSave=async()=>{if(saving)return;let categoryId=Number(form.category_id||0);if(categoryId===-1){if(!otherCategory.trim())return toast.error("Enter the donation category");try{const created=await window.mms.donations.createCategory(otherCategory.trim());categoryId=created.id;await loadCategories();}catch(err:any){toast.error(err.message);return;}}if(!form.donor_name?.trim()||!form.amount||!categoryId){toast.error(t("ui_donor_cat_amount_required"));return;}const amtErr=amountError(form.amount,t);if(amtErr){toast.error(amtErr);return;}if(isMahalluMember&&!form.family_id){toast.error("Select the member's family");return;}try{setSaving(true);const payload:any={donorName:form.donor_name,donorPhone:normalizeWhatsApp(form.donor_phone||""),donorAddress:form.donor_address||"",familyId:isMahalluMember?form.family_id:null,memberId:isMahalluMember?(form.member_id||null):null,categoryId,amount:form.amount,donationDate:form.donation_date||"",receiptNumber:form.receipt_number||"",purpose:form.purpose||"",paymentMethod:form.payment_method||"Cash",transactionRef:form.transaction_ref||"",receivedBy:1,remarks:form.remarks||""};if(editingId){await window.mms.donations.update(editingId,payload,editAuth?.password||"",editAuth?.reason||"");toast.success(t("ui_saved_updated"));setDialogOpen(false);setForm(emptyForm);setEditingId(null);refetch();}else{const created:any=await window.mms.donations.create(payload);const donationId=Number(created?.id??created?.lastInsertRowid??created);
+  const handleSave=()=>save(async()=>{let categoryId=Number(form.category_id||0);if(categoryId===-1){if(!otherCategory.trim())return toast.error("Enter the donation category");try{const created=await window.mms.donations.createCategory(otherCategory.trim());categoryId=created.id;await loadCategories();}catch(err:any){toast.error(err.message);return;}}if(!form.donor_name?.trim()||!form.amount||!categoryId){toast.error(t("ui_donor_cat_amount_required"));return;}const amtErr=amountError(form.amount,t);if(amtErr){toast.error(amtErr);return;}if(isMahalluMember&&!form.family_id){toast.error("Select the member's family");return;}try{const payload:any={donorName:form.donor_name,donorPhone:normalizeWhatsApp(form.donor_phone||""),donorAddress:form.donor_address||"",familyId:isMahalluMember?form.family_id:null,memberId:isMahalluMember?(form.member_id||null):null,categoryId,amount:form.amount,donationDate:form.donation_date||"",receiptNumber:form.receipt_number||"",purpose:form.purpose||"",paymentMethod:form.payment_method||"Cash",transactionRef:form.transaction_ref||"",receivedBy:1,remarks:form.remarks||""};if(editingId){await window.mms.donations.update(editingId,payload,editAuth?.password||"",editAuth?.reason||"");toast.success(t("ui_saved_updated"));setDialogOpen(false);setForm(emptyForm);setEditingId(null);refetch();}else{const created:any=await window.mms.donations.create(payload);const donationId=Number(created?.id??created?.lastInsertRowid??created);
       // Close FIRST, then send — the record is safe, so the dialog must not
       // linger looking "not saved" while WhatsApp works (that is exactly what
       // invited the double click). The receipt send runs in the background.
       setDialogOpen(false);setForm(emptyForm);setEditingId(null);setIsMahalluMember(false);setOtherCategory("");refetch();
-      if(sendReceiptEnabled&&donationId){toast.info(tx("Donation saved — sending the receipt on WhatsApp…","സംഭാവന സേവ് ചെയ്തു — രസീറ്റ് വാട്ട്സ്ആപ്പിൽ അയയ്ക്കുന്നു…"));(async()=>{try{const sent:any=await window.mms.whatsapp.sendDonationReceipt(donationId);toast.success(sent?.delivered?tx("Receipt delivered on WhatsApp (now locked)","രസീറ്റ് വാട്ട്സ്ആപ്പിൽ എത്തി (ഇനി ലോക്ക്)"):tx("Receipt sent on WhatsApp (delivery not confirmed yet)","രസീറ്റ് വാട്ട്സ്ആപ്പിൽ അയച്ചു (ഡെലിവറി ഉറപ്പായിട്ടില്ല)"));refetch();}catch(err:any){toast.error(friendlySendError(err,t)||tx("Donation saved, but WhatsApp receipt was not sent","സംഭാവന സേവ് ചെയ്തു, പക്ഷേ വാട്ട്സ്ആപ്പ് രസീത് അയച്ചില്ല"));refetch();}})();}}}catch(err:any){toast.error(err.message||t("ui_failed_save"));}finally{setSaving(false);}};
+      if(sendReceiptEnabled&&donationId){toast.info(tx("Donation saved — sending the receipt on WhatsApp…","സംഭാവന സേവ് ചെയ്തു — രസീറ്റ് വാട്ട്സ്ആപ്പിൽ അയയ്ക്കുന്നു…"));(async()=>{try{const sent:any=await window.mms.whatsapp.sendDonationReceipt(donationId);toast.success(sent?.delivered?tx("Receipt delivered on WhatsApp (now locked)","രസീറ്റ് വാട്ട്സ്ആപ്പിൽ എത്തി (ഇനി ലോക്ക്)"):tx("Receipt sent on WhatsApp (delivery not confirmed yet)","രസീറ്റ് വാട്ട്സ്ആപ്പിൽ അയച്ചു (ഡെലിവറി ഉറപ്പായിട്ടില്ല)"));refetch();}catch(err:any){toast.error(friendlySendError(err,t)||tx("Donation saved, but WhatsApp receipt was not sent","സംഭാവന സേവ് ചെയ്തു, പക്ഷേ വാട്ട്സ്ആപ്പ് രസീത് അയച്ചില്ല"));refetch();}})();}}}catch(err:any){toast.error(err.message||t("ui_failed_save"));}});
   const sendDonationReceipt=async(id:number,row?:Donation,adminPassword?:string)=>{
     if(row&&!row.donor_phone){toast.error(tx("No WhatsApp number saved for this donor. Add the donor's phone number in the donation record first.","ഈ ദാതാവിന്റെ വാട്ട്സ്ആപ്പ് നമ്പർ സേവ് ചെയ്തിട്ടില്ല. ആദ്യം ദാതാവിന്റെ ഫോൺ നമ്പർ ചേർക്കുക."));return;}
     setSendingId(id);

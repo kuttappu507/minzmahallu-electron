@@ -270,6 +270,8 @@ export function Subscriptions() {
         toast.warning(tx("Receipt sent — delivery not confirmed yet (the phone may be offline). Not locked; you can send again after confirming it did not arrive.", "രസീറ്റ് അയച്ചു — ഡെലിവറി ഉറപ്പാക്കിയിട്ടില്ല (ഫോൺ ഓഫലൈൻ ആകാം). ലോക്ക് ചെയ്തിട്ടില്ല; വന്നെത്തിയില്ലെന്ന് ഉറപ്പായാൽ വീണ്ടും അയക്കാം."));
       } else if (r?.status === "already-delivered") {
         toast.info(tx("Already sent to the recipient — the receipt is locked for their privacy.", "സ്വീകർത്താവിന് ഇതിനകം അയച്ചു — സ്വകാര്യതയ്ക്കായി രസീറ്റ് ലോക്ക് ചെയ്തിരിക്കുന്നു."));
+      } else if (r?.status === "already-sent") {
+        toast.info(tx("Just sent — delivery is being confirmed. Please wait a moment instead of sending again.", "ഇപ്പോൾ തന്നെ അയച്ചു — ഡെലിവറി ഉറപ്പാക്കുന്നു. വീണ്ടും അയയ്ക്കുന്നതിന് പകരം അല്പനേരം കാക്കുക."));
       } else {
         toast.error(r?.error || tx("Could not send the receipt", "\u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d4d \u0d05\u0d2f\u0d2f\u0d4d\u0d15\u0d4d\u0d15\u0d3e\u0d28\u0d3e\u0d2f\u0d3f\u0d32\u0d4d\u0d32"));
       }

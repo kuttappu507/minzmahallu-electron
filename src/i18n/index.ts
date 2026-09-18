@@ -336,6 +336,7 @@ const translations: Record<string, { en: string; ml: string }> = {
   usr_username: { en: "Username", ml: "ഉപയോക്തൃനാമം" },
   usr_full_name: { en: "Full Name", ml: "പൂർണ്ണ പേര്" },
   usr_role: { en: "Role", ml: "റോൾ" },
+  usr_role_access_denied: { en: "Your account type does not allow changing this record. Ask the administrator.", ml: "ഈ രേഖ മാറ്റാൻ നിങ്ങളുടെ അക്കൗണ്ട് തരത്തിന് അനുമതിയില്ല. അഡ്മിനിസ്ട്രേറ്ററെ സമീപിക്കുക." },
   usr_add: { en: "Add User", ml: "ഉപയോക്താവ് ചേർക്കുക" },
 
   // Generic UI
@@ -646,6 +647,7 @@ const translations: Record<string, { en: string; ml: string }> = {
   staff_transaction_ref: { en: "Transaction Ref", ml: "ഇടപാട് റഫറൻസ്" },
   staff_payment_notes: { en: "Notes", ml: "കുറിപ്പുകൾ" },
   staff_cancel_payment: { en: "Cancel Payment", ml: "അടവ് റദ്ദാക്കുക" },
+  staff_payment_details: { en: "Salary Payment Details", ml: "ശമ്പള പേയ്‌മെന്റ് വിവരങ്ങൾ" },
   staff_summary_active: { en: "Active Staff", ml: "സജീവ ജീവനക്കാർ" },
   staff_summary_paid_year: { en: "Paid This Year", ml: "ഈ വർഷം നൽകിയത്" },
   staff_summary_pending_year: { en: "Pending This Year", ml: "ഈ വർഷം ബാക്കി" },

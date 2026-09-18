@@ -35,6 +35,8 @@ const POLICY_MESSAGE_MAP: Array<{ match: RegExp; key: string }> = [
   { match: /invalid username or password/i, key: "auth_invalid_credentials" },
   { match: /too many failed login attempts|account is locked/i, key: "auth_locked" },
   { match: /account is inactive/i, key: "auth_inactive" },
+  // Role bifurcation denial thrown by security-ipc's register() wrapper.
+  { match: /can view this section but cannot change|does not allow changing this record/i, key: "usr_role_access_denied" },
 ];
 
 /** Electron rejects a failed invoke with

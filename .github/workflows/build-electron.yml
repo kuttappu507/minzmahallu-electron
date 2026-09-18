@@ -72,9 +72,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Package app (Windows — NSIS installer + portable)
+      - name: Package app (Windows — NSIS installer)
         if: runner.os == 'Windows'
-        run: npx electron-builder --win nsis portable --publish never
+        run: npx electron-builder --win nsis --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"

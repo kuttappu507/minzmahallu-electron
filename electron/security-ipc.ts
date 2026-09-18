@@ -4,6 +4,7 @@ import { changePassword, createInitialAdministrator, needsInitialSetup, verifyCu
 import { security, type Actor } from "./services/security.service.js";
 import { getDB } from "./db/connection.js";
 import { todayIST } from "./services/data.service.js";
+import { canWriteChannel, accessDeniedMessage } from "./services/roleAccess.js";
 
 // Install the sender guard before main.ts registers any handlers. This makes
 // the protection apply to read, write, export and utility IPC channels alike.
@@ -17,9 +18,22 @@ ipcMain.handle = ((channel: string, listener: (event: Electron.IpcMainInvokeEven
 }) as typeof ipcMain.handle;
 
 type ActorProvider = () => Actor | null;
+let actorProvider: (() => { role: string } | null) | null = null;
 function register(name: string, handler: (...args: any[]) => any) {
   try { ipcMain.removeHandler(name); } catch {}
-  ipcMain.handle(name, async (_event, ...args) => handler(...args));
+  ipcMain.handle(name, async (_event, ...args) => {
+    // Role bifurcation (enforced HERE, not just in the Users screen): a
+    // non-admin role cannot write outside its module list. Reads stay open;
+    // secure actions still verify the admin password inside their handlers.
+    const acting = actorProvider ? actorProvider() : null;
+    if (acting && acting.role !== "Administrator" && !canWriteChannel(acting.role, name)) {
+      const msg = accessDeniedMessage(acting.role);
+      const err: any = new Error(msg.en);
+      err.mlMessage = msg.ml;
+      throw err;
+    }
+    return handler(...args);
+  });
 }
 function validatePassword(password: string) {
   if (!password || password.length < 8) throw new Error("Password must be at least 8 characters");
@@ -29,6 +43,7 @@ function validatePassword(password: string) {
 }
 
 export function registerSecurityIpc(getActor: ActorProvider) {
+  actorProvider = getActor as any;
   register("auth:setupStatus", () => ({ required: needsInitialSetup() }));
   register("auth:createInitialAdministrator", (username: string, fullName: string, password: string) => {
     const user = createInitialAdministrator(username, fullName, password);
