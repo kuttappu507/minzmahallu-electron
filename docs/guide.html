@@ -123,7 +123,23 @@ html.lang-en .t-ml{display:none}
   .backlink{display:none}
   .pdfbtn span{max-width:76px;overflow:hidden;text-overflow:ellipsis}
   .stepcard{padding:19px 17px;gap:13px}
-  .hd{height:62px}
+  .hd{height:62px;gap:8px}
+  .wrap{padding:0 16px}
+  .brand{gap:9px;font-size:15px}
+  .brand .logo{width:34px;height:34px;border-radius:10px}
+  .langseg button{font-size:12px;padding:4px 10px}
+}
+@media(max-width:560px){
+  /* icon-only PDF button (tooltip preserved) so language toggle always fits */
+  .pdfbtn span{display:none}
+  .pdfbtn{padding:9px 11px}
+  .brand>span:last-child{font-size:14.5px;max-width:52vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .langseg button{font-size:11.5px;padding:4px 8px}
+  .hd-right{gap:8px}
+}
+@media(max-width:380px){
+  /* last resort on very narrow phones: wrap to two rows instead of clipping */
+  .hd{flex-wrap:wrap;height:auto;min-height:0;padding:8px 0;row-gap:6px}
 }
 /* ---------- print / save as PDF ---------- */
 @media print{
@@ -151,7 +167,7 @@ html.lang-en .t-ml{display:none}
     </a>
     <div class="hd-right">
       <a class="backlink" href="index.html">← <span class="t-ml">ഹോമിലേക്ക്</span><span class="t-en">Back to home</span></a>
-      <button class="pdfbtn" id="pdf-btn" type="button" title="Save this guide as PDF">
+      <button class="pdfbtn" id="pdf-btn" type="button" title="Save this guide as PDF" aria-label="Save this guide as PDF">
         <svg viewBox="0 0 24 24"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
         <span class="t-ml">PDF ആയി സൂക്ഷിക്കുക</span><span class="t-en">Save as PDF</span>
       </button>
