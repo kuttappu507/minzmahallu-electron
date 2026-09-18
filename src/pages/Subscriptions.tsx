@@ -66,9 +66,12 @@ const codeFontStyle = "code-text-sm";
 
 const monthLabel = (iso: string | null | undefined) => {
   if (!iso) return "—";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  // "2026-09[[-dd]]" is a CALENDAR period — render it in UTC so a machine on
+  // another zone cannot shift it to the previous/next month.
+  const m = String(iso).match(/^(\d{4})(?:-(\d{2}))?/);
+  if (!m) return String(iso);
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2] || 1) - 1, 1));
+  return d.toLocaleDateString(undefined, { month: "short", year: "numeric", timeZone: "UTC" });
 };
 
 export function Subscriptions() {
@@ -143,6 +146,13 @@ export function Subscriptions() {
           toast.error(sent?.error || tx("Could not send the receipt", "രസീത് അയയ്ക്കാനായില്ല"));
         }
         refetch();
+        if (!(sent?.status === "delivered" || (sent?.success && sent?.delivered))) {
+          // A late WhatsApp delivery-ack flips the lock in the database —
+          // refresh again shortly so the row turns "Delivered — locked" on
+          // its own instead of sitting on "sent, not confirmed" forever.
+          setTimeout(refetch, 5_000);
+          setTimeout(refetch, 15_000);
+        }
       } catch (e: any) {
         toast.error(friendlySendError(e, t) || tx("Could not send the receipt", "രസീത് അയയ്ക്കാനായില്ല"));
         refetch();
@@ -276,6 +286,11 @@ export function Subscriptions() {
         toast.error(r?.error || tx("Could not send the receipt", "\u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d4d \u0d05\u0d2f\u0d2f\u0d4d\u0d15\u0d4d\u0d15\u0d3e\u0d28\u0d3e\u0d2f\u0d3f\u0d32\u0d4d\u0d32"));
       }
       refetch();
+      if (!(r?.status === "delivered" || (r?.success && r?.delivered))) {
+        // Late delivery-ack refresh — see backgroundSendReceipt.
+        setTimeout(refetch, 5_000);
+        setTimeout(refetch, 15_000);
+      }
     } catch (e: any) {
       toast.error(friendlySendError(e, t) || tx("Could not send the receipt", "\u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d4d \u0d05\u0d2f\u0d2f\u0d4d\u0d15\u0d4d\u0d15\u0d3e\u0d28\u0d3e\u0d2f\u0d3f\u0d32\u0d4d\u0d32"));
       refetch();
@@ -729,7 +744,7 @@ export function Subscriptions() {
                   </div>
                   <div>
                     <Label>{t("ui_transaction_ref")}</Label>
-                    <Input value={form.transaction_ref || ""} onChange={(e) => setForm({ ...form, transaction_ref: e.target.value })} />
+                    <Input data-nocap="1" value={form.transaction_ref || ""} onChange={(e) => setForm({ ...form, transaction_ref: e.target.value })} />
                   </div>
                 </div>
                 <div className="mt-3">
@@ -778,7 +793,7 @@ export function Subscriptions() {
                 </div>
                 <div>
                   <Label>{t("ui_transaction_ref")}</Label>
-                  <Input value={form.transaction_ref || ""} onChange={(e) => setForm({ ...form, transaction_ref: e.target.value })} />
+                  <Input data-nocap="1" value={form.transaction_ref || ""} onChange={(e) => setForm({ ...form, transaction_ref: e.target.value })} />
                 </div>
               </div>
               <div>

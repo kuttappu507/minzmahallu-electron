@@ -83,10 +83,11 @@ jobs:
 
       - name: Package app (macOS)
         if: runner.os == 'macOS'
-        # zip is REQUIRED alongside dmg: electron-updater's MacUpdater applies
-        # updates from the .zip listed in latest-mac.yml (dmg is only for
-        # first installs / manual download).
-        run: npx electron-builder --mac dmg zip --publish never
+        # dmg only: the app is UNSIGNED, so electron-updater's MacUpdater can
+        # never apply a zip update (Squirrel.Mac rejects unsigned apps) — the
+        # mac zip + latest-mac.yml would just clutter the release page and
+        # waste a 100+ MB download on an update that can never install.
+        run: npx electron-builder --mac dmg --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -131,6 +132,16 @@ jobs:
           pattern: MMS-React-*-installers
           path: artifacts
           merge-multiple: true
+      # Release page carries ONLY the OS installers + the two updater feed
+      # files electron-updater actually reads (latest.yml for Windows NSIS,
+      # latest-linux.yml for AppImage). Debug/blockmap/mac-zip extras are
+      # removed so the office sees a clean download list (user request).
+      - name: Remove non-installer artifacts from the release
+        run: |
+          rm -fv artifacts/builder-debug.yml artifacts/latest-mac.yml \
+                 artifacts/*.blockmap artifacts/*.zip
+          echo "--- remaining files:"
+          ls -lh artifacts/
       - uses: softprops/action-gh-release@v2
         with:
           files: artifacts/*

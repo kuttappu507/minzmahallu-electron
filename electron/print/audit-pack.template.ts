@@ -5,6 +5,7 @@
  */
 import { esc } from "./utils.js";
 import { getAnekMalayalamCss } from "./utils.js";
+import { istDateTimeDm } from "../services/ist-date.js";
 
 interface PackData {
   fyLabel: string;
@@ -50,7 +51,7 @@ function fmtDate(d: string): string {
   } catch { return String(d); }
 }
 
-export function buildAuditPackHtml(pack: PackData, lang: 'en' | 'ml' = 'en', currencySymbol: string = '\u20B9'): string {
+export function buildAuditPackHtml(pack: PackData, lang: 'en' | 'ml' = 'en', currencySymbol: string = '\u20B9', appVersion: string = ''): string {
   // Symbol-aware money formatters live inside the render function so the
   // module stays pure — Settings' currency symbol flows into every amount
   // of the printed audit pack (defaults to ₹).
@@ -98,7 +99,7 @@ export function buildAuditPackHtml(pack: PackData, lang: 'en' | 'ml' = 'en', cur
   table{width:100%;border-collapse:collapse;font-size:9pt}
   th,td{padding:1.8mm 2.5mm;border:.25mm solid #cfdfd6;text-align:left;vertical-align:top}
   th{background:#eef7f1;font-size:8pt;letter-spacing:.4px}
-  td.amt{text-align:right;font-family:'Courier New',monospace}
+  td.amt{text-align:right}
   tr.total td{font-weight:700;background:#f6faf7;border-top:.45mm solid #0e7c5b}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:5mm}
   .box{border:.3mm solid #cfdfd6;border-radius:1.5mm;padding:3mm}
@@ -187,7 +188,7 @@ export function buildAuditPackHtml(pack: PackData, lang: 'en' | 'ml' = 'en', cur
       <p>${ml
         ? `മേൽപ്പറഞ്ഞ കണക്കുകളും രേഖകളും "${esc(pack.mahalluName)}" എന്ന സ്ഥാപനത്തിന്റെ ഔദ്യോഗിക രേഖകളിൽ നിന്ന് MMS (Minz Mahallu Management System) ആപ്ലിക്കേഷനിൽ നിന്ന് സാധാരണ പ്രവർത്തന രീതിയിൽ സൃഷ്ടിച്ചതാണ്. രേഖകൾ ഒരു ഹാഷ്-പരിശോധിച്ച ഓഡിറ്റ് ട്രയിൽ ഉപയോഗിച്ച് സംരക്ഷിക്കപ്പെട്ടിരിക്കുന്നു.`
         : `The above accounts and records were generated in the ordinary course of operations from the official records of "${esc(pack.mahalluName)}" using the MMS (Minz Mahallu Management System) application. The records are protected by an append-only, hash-verified audit trail.`}</p>
-      <p>${ml ? "സൃഷ്ടിച്ച തീയതി:" : "Generated on:"} ${fmtDate(pack.generatedAt)} · MMS v2.0</p>
+      <p>${ml ? "സൃഷ്ടിച്ച തീയതി:" : "Generated on:"} ${istDateTimeDm(new Date())} IST · MMS${appVersion ? ` v${esc(appVersion)}` : ""}</p>
       <p style="margin-top:4mm">${ml ? "ഉത്തരവാദിത്തമുള്ള ഉദ്യോഗസ്ഥന്റെ ഒപ്പ്" : "Signature of the person in responsible charge"}</p>
       <div style="border-top:.3mm solid #5f7268;width:60mm;margin:16mm auto 0"></div>
     </div>

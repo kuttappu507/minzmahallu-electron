@@ -1,5 +1,6 @@
 import { esc } from './utils.js';
 import { getAnekMalayalamCss } from './utils.js';
+import { istDateTimeDm } from '../services/ist-date.js';
 import { getDB } from '../db/connection.js';
 
 interface LedgerRow {
@@ -213,7 +214,7 @@ tbody td{border-top:1px solid #e6ede7;font-size:9.5px}
   <div class="header-right">
     <div class="period">${esc(L.title)} · ${esc(periodLabel)}</div>
     <div class="range">${esc(rangeText)}</div>
-    <div class="gen">${esc(L.generated)}: ${fmtDate(new Date().toISOString())} ${new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
+    <div class="gen">${esc(L.generated)}: ${istDateTimeDm(new Date())} IST</div>
   </div>
 </div>
 

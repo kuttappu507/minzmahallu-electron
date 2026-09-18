@@ -21,14 +21,66 @@ export function formatCurrency(amount: number): string {
   return CURRENCY_SYMBOL + Number(amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 }
 
+/* -----------------------------------------------------------------------
+ * Indian Standard Time display helpers — the mahallu offices run in India
+ * only, so EVERY date/time the user reads is pinned to Asia/Kolkata,
+ * regardless of the machine's clock zone.
+ *
+ * Parsing rules (matching how the DB actually writes values):
+ *   - "yyyy-mm-dd"                       → a BUSINESS date entered by the
+ *     office (payment date, birth date…). Shown as-is — zone math must
+ *     never shift it.
+ *   - "yyyy-mm-dd HH:MM:SS" (SQLite      → written by `datetime('now')`,
+ *     `datetime('now')`, no zone)          which is UTC. Parsed as UTC and
+ *                                          rendered in IST, so the audit
+ *                                          log etc. show the real Indian
+ *                                          time on ANY machine (they used
+ *                                          to show raw UTC — user report:
+ *                                          "time shown in app is not
+ *                                          correct").
+ *   - ISO strings with Z/offset, Date,   → parsed natively, rendered in
+ *     epoch numbers                        IST.
+ * ----------------------------------------------------------------------- */
+const IST_TZ = "Asia/Kolkata";
+
+function parseDateValue(date: string | number | Date): Date | null {
+  if (date instanceof Date) return isNaN(date.getTime()) ? null : date;
+  if (typeof date === "number") {
+    const d = new Date(date);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  const s = String(date ?? "").trim();
+  if (!s) return null;
+  // SQLite naive "yyyy-mm-dd[ HH:MM[:SS[.sss]]]" — UTC when it has a time,
+  // a plain calendar date when it has not.
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?))?$/);
+  if (m) {
+    const d = new Date(m[2] ? `${m[1]}T${m[2]}Z` : `${m[1]}T00:00:00Z`);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function istParts(date: string | number | Date, opts: Intl.DateTimeFormatOptions): Record<string, string> | null {
+  const d = parseDateValue(date);
+  if (!d) return null;
+  try {
+    const map: Record<string, string> = {};
+    for (const p of new Intl.DateTimeFormat("en-GB", { timeZone: IST_TZ, ...opts }).formatToParts(d)) {
+      map[p.type] = p.value;
+    }
+    return map;
+  } catch {
+    return null;
+  }
+}
+
 export function formatDate(date: string | null | undefined): string {
   if (!date) return "—";
-  const d = new Date(date);
-  if (isNaN(d.getTime())) return date;
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  return `${dd}-${mm}-${yyyy}`;
+  const p = istParts(date, { day: "2-digit", month: "2-digit", year: "numeric" });
+  if (p === null) return String(date);
+  return `${p.day}-${p.month}-${p.year}`;
 }
 
 /** Today's date (yyyy-mm-dd) in INDIAN time (Asia/Kolkata) — the app is
@@ -36,7 +88,7 @@ export function formatDate(date: string | null | undefined): string {
  * date the office sees. Never UTC, never the machine's local zone. */
 export function todayIST(): string {
   const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Kolkata",
+    timeZone: IST_TZ,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -47,14 +99,19 @@ export function todayIST(): string {
 
 export function formatDateTime(date: string | null | undefined): string {
   if (!date) return "—";
-  const d = new Date(date);
-  if (isNaN(d.getTime())) return date;
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  const hh = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${dd}-${mm}-${yyyy} ${hh}:${min}`;
+  const p = istParts(date, {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  });
+  if (p === null) return String(date);
+  return `${p.day}-${p.month}-${p.year} ${p.hour}:${p.minute}`;
+}
+
+/** "HH:MM" in Indian Standard Time — dashboard recent-activity stamps. */
+export function formatTimeIST(date: string | null | undefined): string {
+  if (!date) return "—";
+  const p = istParts(date, { hour: "2-digit", minute: "2-digit", hour12: false });
+  return p === null ? String(date) : `${p.hour}:${p.minute}`;
 }
 
 export function statusVariant(status: string): "active" | "inactive" | "overdue" | "paid" | "pending" | "partial" {

@@ -2,7 +2,7 @@ import { lazy, Suspense } from "react";
 import { useAsync } from "@/hooks/useList";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/lib/auth";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatTimeIST } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import {
   Home, Users, UserCheck, Wallet, AlertCircle,
@@ -59,17 +59,22 @@ export function Dashboard() {
     if (!glance.nextBackup) return "—";
     const t = new Date(glance.nextBackup);
     if (t.getTime() <= Date.now()) return ml("Soon", "ഉടൻ");
-    const dd = String(t.getDate()).padStart(2, "0");
-    const mm = String(t.getMonth() + 1).padStart(2, "0");
-    const yyyy = t.getFullYear();
-    const time = t.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-    const sameDay = t.toDateString() === new Date().toDateString();
-    return sameDay ? time : `${dd}-${mm}-${yyyy} ${time}`;
+    // IST everywhere: the backup label must show the same Indian wall clock
+    // regardless of the machine's timezone.
+    const ist = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(t);
+    const p = (ty: string) => ist.find((x) => x.type === ty)?.value ?? "";
+    const time = `${p("hour")}:${p("minute")}`;
+    const istDay = (d: Date) => new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", day: "2-digit", month: "2-digit", year: "numeric" }).format(d);
+    const sameDay = istDay(t) === istDay(new Date());
+    return sameDay ? time : `${p("day")}-${p("month")}-${p("year")} ${time}`;
   })();
 
-  // Headline date is always dd-mm-yyyy (the app's display convention).
-  const today = new Date();
-  const todayLabel = `${today.toLocaleDateString(displayLocale, { weekday: "long" })}, ${String(today.getDate()).padStart(2, "0")}-${String(today.getMonth() + 1).padStart(2, "0")}-${today.getFullYear()}`;
+  // Headline date is always dd-mm-yyyy (the app's display convention),
+  // computed in INDIAN time — a machine on another zone must not shift the
+  // weekday or the date the office sees.
+  const todayParts = new Intl.DateTimeFormat(displayLocale, { timeZone: "Asia/Kolkata", weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" }).formatToParts(new Date());
+  const tp = (ty: string) => todayParts.find((x) => x.type === ty)?.value ?? "";
+  const todayLabel = `${tp("weekday")}, ${tp("day")}-${tp("month")}-${tp("year")}`;
 
   const stats = [
     { label: t("dash_total_families"), value: summary?.total_families ?? 0, icon: Home, tint: "t-em", delta: t("dash_active") },
@@ -216,7 +221,7 @@ export function Dashboard() {
                 ) : (
                   (recentActivity || []).slice(0, 6).map((a: any) => (
                     <tr key={a.id}>
-                      <td><span className="recent-time">{new Date(a.created_at).toLocaleTimeString(displayLocale, { hour: "2-digit", minute: "2-digit" })}</span></td>
+                      <td><span className="recent-time">{formatTimeIST(a.created_at)}</span></td>
                       <td>{a.username}</td>
                       <td><span className="pill t-slate">{a.action}</span></td>
                       <td><span className="recent-desc">{a.description}</span></td>

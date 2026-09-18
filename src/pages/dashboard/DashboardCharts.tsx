@@ -22,9 +22,11 @@ export default function DashboardCharts({ collections, incomeExpense, displayLoc
   const { t } = useI18n();
 
   // Beautify chart month labels: "2026-08" → "Aug 26" (locale-aware).
+  // Calendar months are rendered in UTC so the machine's timezone can never
+  // pull a month back/forward at the edges.
   const prettyMonth = (m: string) => {
-    const d = new Date(`${m}-01T00:00:00`);
-    return d.toLocaleDateString(displayLocale, { month: "short", year: "2-digit" });
+    const d = new Date(`${m}-01T00:00:00Z`);
+    return d.toLocaleDateString(displayLocale, { month: "short", year: "2-digit", timeZone: "UTC" });
   };
   const collectionsChart = (collections || []).map((r: any) => ({ ...r, label: prettyMonth(r.month) }));
   const incomeExpenseChart = (incomeExpense || []).map((r: any) => ({ ...r, label: prettyMonth(r.month) }));

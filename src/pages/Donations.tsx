@@ -88,7 +88,7 @@ export function Donations(){
       // linger looking "not saved" while WhatsApp works (that is exactly what
       // invited the double click). The receipt send runs in the background.
       setDialogOpen(false);setForm(emptyForm);setEditingId(null);setIsMahalluMember(false);setOtherCategory("");refetch();
-      if(sendReceiptEnabled&&donationId){toast.info(tx("Donation saved — sending the receipt on WhatsApp…","സംഭാവന സംരക്ഷിച്ചു — രസീത് വാട്ട്സ്ആപ്പിലേക്ക് അയയ്ക്കുന്നു…"));(async()=>{try{const sent:any=await window.mms.whatsapp.sendDonationReceipt(donationId);toast.success(sent?.delivered?tx("Receipt delivered on WhatsApp (now locked)","രസീത് വാട്ട്സ്ആപ്പിൽ എത്തി (ഇനി ലോക്ക്)"):tx("Receipt sent on WhatsApp (delivery not confirmed yet)","രസീത് വാട്ട്സ്ആപ്പിൽ അയച്ചു (ഡെലിവറി ഉറപ്പായിട്ടില്ല)"));refetch();}catch(err:any){toast.error(friendlySendError(err,t)||tx("Donation saved, but WhatsApp receipt was not sent","സംഭാവന സേവ് ചെയ്തു, പക്ഷേ വാട്ട്സ്ആപ്പ് രസീത് അയച്ചില്ല"));refetch();}})();}}}catch(err:any){toast.error(err.message||t("ui_failed_save"));}});
+      if(sendReceiptEnabled&&donationId){toast.info(tx("Donation saved — sending the receipt on WhatsApp…","സംഭാവന സംരക്ഷിച്ചു — രസീത് വാട്ട്സ്ആപ്പിലേക്ക് അയയ്ക്കുന്നു…"));(async()=>{try{const sent:any=await window.mms.whatsapp.sendDonationReceipt(donationId);toast.success(sent?.delivered?tx("Receipt delivered on WhatsApp (now locked)","രസീത് വാട്ട്സ്ആപ്പിൽ എത്തി (ഇനി ലോക്ക്)"):tx("Receipt sent on WhatsApp (delivery not confirmed yet)","രസീത് വാട്ട്സ്ആപ്പിൽ അയച്ചു (ഡെലിവറി ഉറപ്പായിട്ടില്ല)"));refetch();if(!sent?.delivered){setTimeout(refetch,5000);setTimeout(refetch,15000);}}catch(err:any){toast.error(friendlySendError(err,t)||tx("Donation saved, but WhatsApp receipt was not sent","സംഭാവന സേവ് ചെയ്തു, പക്ഷേ വാട്ട്സ്ആപ്പ് രസീത് അയച്ചില്ല"));refetch();}})();}}}catch(err:any){toast.error(err.message||t("ui_failed_save"));}});
   const sendDonationReceipt=async(id:number,row?:Donation,adminPassword?:string)=>{
     if(row&&!row.donor_phone){toast.error(tx("No WhatsApp number saved for this donor. Add the donor's phone number in the donation record first.","ഈ ദാതാവിന്റെ വാട്ട്സ്ആപ്പ് നമ്പർ സംരക്ഷിച്ചിട്ടില്ല. ആദ്യം ദാതാവിന്റെ ഫോൺ നമ്പർ ചേർക്കുക."));return;}
     setSendingId(id);
@@ -100,6 +100,7 @@ export function Donations(){
       if(r?.delivered){toast.success(tx("Receipt delivered to the recipient — it is now locked (one admin re-send remains available)","രസീത് സ്വീകർത്താവിന് ലഭിച്ചു — ഇപ്പോൾ ലോക്ക് ചെയ്തിരിക്കുന്നു (ഒരു അഡ്മിൻ റീ-സെൻഡ് ലഭ്യമാണ്)"));}
       else{toast.warning(tx("Receipt sent — delivery not confirmed yet (the phone may be offline). Not locked; you can send again after confirming it did not arrive.","രസീത് അയച്ചു — ഡെലിവറി ഉറപ്പാക്കിയിട്ടില്ല (ഫോൺ ഓഫലൈൻ ആകാം). ലോക്ക് ചെയ്തിട്ടില്ല; വന്നെത്തിയില്ലെന്ന് ഉറപ്പായാൽ വീണ്ടും അയക്കാം."));}
       refetch();
+      if(!r?.delivered){setTimeout(refetch,5000);setTimeout(refetch,15000);}
     }catch(e:any){toast.error(friendlySendError(e,t)||tx("Could not send the receipt on WhatsApp","വാട്ട്സ്ആപ്പിൽ രസീത് അയയ്ക്കാനായില്ല"));refetch();}finally{setSendingId(null);}
   };
   // A delivered receipt is LOCKED (privacy): one admin-password re-send is

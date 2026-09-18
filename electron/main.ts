@@ -546,7 +546,7 @@ app.whenReady().then(() => {
     try {
       const pack = data.accounting.auditPack(fyYear);
       const lang = await mainWindow!.webContents.executeJavaScript("document.documentElement.classList.contains('lang-ml') ? 'ml' : 'en'");
-      const html = buildAuditPackHtml(pack, lang, String((data.settings.load() as any)?.currency_symbol || "₹"));
+      const html = buildAuditPackHtml(pack, lang, String((data.settings.load() as any)?.currency_symbol || "₹"), app.getVersion());
       const defaultName = `audit-pack-${fyYear}-${(fyYear + 1).toString().slice(2)}.pdf`;
       const written = await saveExportFile({ title: "Save Annual Audit Pack", defaultName, ext: "pdf", filterName: "PDF Document" }, async () => await renderHtmlToPdf(html));
       if (written.status === "cancelled") return { success: false, cancelled: true };

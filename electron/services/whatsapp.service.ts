@@ -193,7 +193,9 @@ function dayKey(date = new Date()) { return `${date.getFullYear()}-${String(date
 // felt slow — the app must hand control back quickly). A late confirmation
 // still flips the lock via the engine's delivery listener, and the receipt
 // stays sendable until then, so nobody is ever locked out of their receipt.
-const DELIVERY_WAIT_MS = 6_000;
+// 4s (was 6s): covers the typical ack window while the UI refreshes the row
+// again a few seconds later, so a late "delivered" appears on its own.
+const DELIVERY_WAIT_MS = 4_000;
 
 // Anti-duplicate window: a receipt that LEFT the app within this period
 // (sent, delivery not confirmed yet) may not be sent again without the admin
@@ -491,16 +493,24 @@ export const whatsapp = {
     const gate = gateReceiptSend("donation", donationId, opts.adminPassword);
     if (!gate.ok) throw new Error(gate.message);
     const phone = normalizePhone(String(d.donor_phone || ""));
-    // 1. Generate and SAVE the A6 receipt in the app first — this works even
-    //    when WhatsApp is not set up yet, so the record always has its PDF.
-    const receipt = await generateDonationReceiptPdf(donationId);
-    // 2. Sending needs a number, internet and a paired session (truthful
-    //    pre-checks so the toast explains the real problem).
-    if (!phone) throw new Error("No WhatsApp number saved for this donor. Add the donor's phone number in the donation record first.");
-    await requireInternet();
     const settingsRow = getDB().prepare("SELECT mahallu_name, currency_symbol FROM settings WHERE id=1").get() as any;
     const currency = settingsRow?.currency_symbol || "₹";
     const text = `Assalamu Alaikum ${d.donor_name},\n\nYour donation receipt is attached.\n\nReceipt: ${d.receipt_number}\nAmount: ${currency}${Number(d.amount || 0).toLocaleString("en-IN")}\nCategory: ${d.category_name || "Donation"}\nDate: ${fmtDdMmYyyy(String(d.donation_date || ""))}\n${settingsRow?.mahallu_name ? `\n${settingsRow.mahallu_name}` : ""}\n\nJazakallahu Khairan.`;
+    // 1. Generate and SAVE the A6 receipt in the app — this works even when
+    //    WhatsApp is not set up yet, so the record always has its PDF.
+    //    Started IMMEDIATELY and overlapped with the internet probe below —
+    //    the hidden-window render is the slowest step of every send
+    //    (user report: receipt sending took too long).
+    const receiptP = generateDonationReceiptPdf(donationId);
+    receiptP.catch(() => { /* awaited below; keep the early-throw path quiet */ });
+    // 2. Sending needs a number, internet and a paired session (truthful
+    //    pre-checks so the toast explains the real problem).
+    if (!phone) {
+      try { await receiptP; } catch { /* surface the phone problem instead */ }
+      throw new Error("No WhatsApp number saved for this donor. Add the donor's phone number in the donation record first.");
+    }
+    await requireInternet();
+    const receipt = await receiptP;
     const result = await sendReceiptWithLock({
       kind: "donation", rowId: donationId,
       phone, text, pdf: receipt.buffer, fileName: `receipt-${fileNameSafe(receipt.receiptNumber || donationId)}.pdf`,
@@ -547,18 +557,23 @@ export const whatsapp = {
         throw new Error(gate.message);
       }
     }
-    // Always generate + store the A6 receipt (works without WhatsApp).
-    let receipt: { buffer: Buffer; receiptNumber: string; paymentId: number | null };
-    try {
-      const r = await generateSubscriptionReceiptPdf(subscriptionId);
-      receipt = { buffer: r.buffer, receiptNumber: r.receiptNumber, paymentId: r.paymentId ?? paymentId };
-    } catch (err: any) {
-      if (soft) return { status: "failed", error: String(err?.message || err) };
-      throw err;
-    }
+    // Start the A6 render IMMEDIATELY after the gate — the hidden-window
+    // render is the slowest step of every send, so it overlaps with the
+    // caption/ledger work below (user report: receipt sending took too long).
+    const receiptP = generateSubscriptionReceiptPdf(subscriptionId);
+    receiptP.catch(() => { /* awaited below; keep early-return paths quiet */ });
     const phone = normalizePhone(String(s.family_phone || ""));
     const settingsRow = getDB().prepare("SELECT mahallu_name, currency_symbol FROM settings WHERE id=1").get() as any;
     const currency = settingsRow?.currency_symbol || "₹";
+    // Always finish the A6 render + store (works without WhatsApp). On the
+    // hard path the internet probe runs IN PARALLEL with the render — the
+    // two no longer add up (user report: receipt sending took too long).
+    // Soft mode never probes the internet: the payment itself must not fail
+    // because of messaging.
+    const [receipt] = await Promise.all([
+      receiptP,
+      soft ? Promise.resolve(null) : requireInternet(),
+    ]);
     // ---- The caption tells the money story: cash in, where it went
     // (old arrears → this month → advance), and what is still due after it.
     const ledger = receipt.paymentId
@@ -598,7 +613,6 @@ export const whatsapp = {
       }
     }
     if (!phone) throw new Error("No WhatsApp number saved for this family. Add the family's phone or WhatsApp number first.");
-    await requireInternet();
     const result = await sendReceiptWithLock({
       kind: "subscription", rowId: receipt.paymentId || 0,
       phone, text, pdf: receipt.buffer, fileName: `receipt-${fileNameSafe(receipt.receiptNumber || subscriptionId)}.pdf`,

@@ -427,6 +427,7 @@ export function Certificates() {
           <span className="text-sm font-medium">{lang === "ml" ? "സർട്ടിഫിക്കറ്റ് / രസീത് പരിശോധന" : "Verify a certificate or receipt"}</span>
           <Input
             className="w-80"
+            data-nocap="1"
             value={checkInput}
             onChange={(e) => { setCheckInput(e.target.value); setCheckResult(null); setQrDataUrl(""); }}
             onKeyDown={(e) => e.key === "Enter" && runCheck()}

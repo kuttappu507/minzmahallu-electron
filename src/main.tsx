@@ -7,6 +7,10 @@ import "./styles/globals.css";
 // detection / user's animation preference). Must not wait for the lazy
 // Settings chunk, or early frames would animate on low-end machines.
 import "@/lib/fx";
+// Side-effect import: the global auto-capitalization listener for text
+// inputs (first letter of every Latin word on blur). Must install before
+// the first render so no field can ever be typed before the hook exists.
+import "@/lib/auto-capitalize";
 
 // Dev-only preview bridge so the renderer can run in a plain browser
 // (Electron IPC unavailable). Enable with: http://localhost:5174/?preview=1

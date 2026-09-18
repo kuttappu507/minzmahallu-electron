@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/i18n";
 
-/** Keep in sync with package.json "version". */
-const APP_VERSION = "2.0.0";
+/** Injected at build time from package.json "version" (vite define). */
+const APP_VERSION = typeof __APP_VERSION__ === "string" ? __APP_VERSION__ : "";
 
 type Lang = "en" | "ml";
 
