@@ -8,8 +8,10 @@
 <meta property="og:title" content="Minz Mahallu Management System — പൂർണ്ണമായും സൗജന്യം">
 <meta property="og:description" content="അംഗങ്ങൾ, കുടുംബങ്ങൾ, വരിസംഖ്യ, സംഭാവനകൾ, കണക്ക് — എല്ലാം ഒരേ ആപ്പിൽ. 100% സൗജന്യം; ഓഫ്‌ലൈനിൽ വർക്ക് ചെയ്യും; മുഴുവനായും മലയാളത്തിൽ.">
 <meta property="og:type" content="website">
+<meta property="og:image" content="https://minzmahallu.vercel.app/logo.png">
 <meta name="theme-color" content="#0d9488">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d9488'/%3E%3Ctext x='32' y='44' font-family='Arial,sans-serif' font-size='34' font-weight='bold' fill='white' text-anchor='middle'%3EM%3C/text%3E%3C/svg%3E">
+<link rel="icon" type="image/png" href="logo-small.png">
+<link rel="apple-touch-icon" href="logo-small.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anek+Malayalam:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -224,10 +226,6 @@ h2{font-size:clamp(27px,3.4vw,40px);font-weight:800;line-height:1.32;letter-spac
 .step p{font-size:13.8px;color:#cdeee8;line-height:1.65}
 .step p b{color:#fff;font-weight:600}
 .guide-cta{margin:14px 0 0;font-size:13.6px}.guide-cta a{color:#7ce8da;font-weight:600;text-decoration:none}.guide-cta a:hover{text-decoration:underline}
-.alt-dl{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px;padding-top:16px;border-top:1px dashed rgba(255,255,255,.16)}
-.alt-dl a{display:inline-flex;align-items:center;gap:7px;font-size:12.8px;font-weight:600;color:#cdeee8;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);padding:7px 14px;border-radius:999px;transition:.25s}
-.alt-dl a:hover{background:rgba(255,255,255,.16);color:#fff}
-.alt-dl a span{color:#8fd4c9;font-weight:500;font-size:11.5px}
 .req-line{display:flex;flex-wrap:wrap;gap:7px 16px;margin-top:18px;font-size:12.3px;color:#8fc9bf}
 .req-line i{font-style:normal;display:inline-flex;align-items:center;gap:6px}
 .req-line i::before{content:"";width:4px;height:4px;border-radius:50%;background:#7ce8da}
@@ -297,6 +295,52 @@ footer{background:#07211f;color:#9cc6bf;padding:52px 0 34px;margin-top:20px}
   .win-body{grid-template-columns:1fr}
   .nav{height:64px}
 }
+
+/* ============ v2.1 — logo, platform cards, motion ============ */
+.brand .logo img,.foot-brand .logo img{width:100%;height:100%;border-radius:inherit;object-fit:cover}
+.sb-logo i{overflow:hidden}
+.sb-logo i img{width:100%;height:100%;object-fit:cover}
+.fl3{bottom:12%;right:-16px;animation-delay:1.3s}
+.fl3 .ic img{width:18px;height:18px;border-radius:5px}
+h1 .grad{background-size:200% auto;animation:shine 7s linear infinite}
+@keyframes shine{to{background-position:200% center}}
+.blob.b1{animation:drift 18s ease-in-out infinite alternate}
+.blob.b2{animation:drift 22s ease-in-out infinite alternate-reverse}
+.blob.b3{animation:drift 26s ease-in-out infinite alternate}
+@keyframes drift{to{transform:translate(38px,24px) scale(1.07)}}
+@keyframes rise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+.hero-grid>div:first-child>*{animation:rise .7s cubic-bezier(.2,.7,.3,1) both}
+.hero-grid>div:first-child>*:nth-child(2){animation-delay:.07s}
+.hero-grid>div:first-child>*:nth-child(3){animation-delay:.14s}
+.hero-grid>div:first-child>*:nth-child(4){animation-delay:.21s}
+.hero-grid>div:first-child>*:nth-child(5){animation-delay:.28s}
+.mock-zone{animation:rise .8s .18s cubic-bezier(.2,.7,.3,1) both}
+.feat .fic,.why-card .fic{transition:transform .35s cubic-bezier(.34,1.56,.64,1)}
+.feat:hover .fic{transform:scale(1.1) rotate(-4deg)}
+.why-card:hover .fic{transform:scale(1.12)}
+details[open] .faq-a{animation:rise .38s ease both}
+.stat{transition:background .3s}
+.stat:hover{background:var(--teal-tint)}
+.plat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:30px}
+.plat{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:2px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:18px 18px 16px;color:#eafaf7;transition:.28s;backdrop-filter:blur(6px)}
+.plat:hover{transform:translateY(-4px);background:rgba(255,255,255,.13);border-color:rgba(124,232,218,.5);box-shadow:0 20px 44px -18px rgba(0,0,0,.55)}
+.plat .os{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);display:grid;place-items:center;margin-bottom:11px;color:#7ce8da}
+.plat .os svg{width:20px;height:20px;fill:currentColor}
+.plat .pname{font-size:16.5px;font-weight:700;color:#fff}
+.plat .ptype{font-size:12.2px;color:#9fd8cf;font-weight:500}
+.plat .ptype .num{color:#c9f3ec}
+.plat .pbtn{margin-top:14px;display:inline-flex;align-items:center;gap:8px;background:#fff;color:#06211f;font-size:13.5px;font-weight:700;padding:9px 17px;border-radius:10px;transition:.25s}
+.plat .pbtn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.plat:hover .pbtn{background:#7ce8da}
+.plat .recb{display:none;position:absolute;top:12px;right:12px;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#053b34;background:#7ce8da;padding:3px 9px;border-radius:99px}
+.plat.rec{border-color:rgba(124,232,218,.65);background:rgba(45,212,191,.14)}
+.plat.rec .recb{display:block}
+#toTop{position:fixed;right:22px;bottom:22px;z-index:60;width:46px;height:46px;border-radius:14px;border:0;background:linear-gradient(135deg,#0d9488,#0a6b63);color:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:0 14px 30px -10px rgba(13,148,136,.65);opacity:0;pointer-events:none;transform:translateY(12px);transition:.3s}
+#toTop.show{opacity:1;pointer-events:auto;transform:none}
+#toTop svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+#toTop:hover{transform:translateY(-3px)}
+@media(max-width:640px){.plat-grid{grid-template-columns:1fr}.fl3{display:none}#toTop{right:14px;bottom:14px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
@@ -305,14 +349,14 @@ footer{background:#07211f;color:#9cc6bf;padding:52px 0 34px;margin-top:20px}
 <header id="hdr">
   <div class="wrap nav">
     <a class="brand" href="#top">
-      <span class="logo">M</span>
+      <span class="logo"><img src="logo-small.png" alt="Minz Mahallu" width="38" height="38"></span>
       <span>Minz Mahallu<small class="t-ml">മഹല്ല് ഭരണം</small><small class="t-en">Mahallu Management</small></span>
     </a>
     <nav class="nav-links">
       <a href="#features"><span class="t-ml">സവിശേഷതകൾ</span><span class="t-en">Features</span></a>
       <a href="#why"><span class="t-ml">എന്തുകൊണ്ട് MMS?</span><span class="t-en">Why MMS?</span></a>
       <a href="#download"><span class="t-ml">ഡൗൺലോഡ്</span><span class="t-en">Download</span></a>
-      <a href="guide.html"><span class="t-ml">ഉപയോഗ ഗൈഡ്</span><span class="t-en">How to use</span></a>
+      <a href="guide.html"><span class="t-ml">എങ്ങനെ ഉപയോഗിക്കാം</span><span class="t-en">How to use</span></a>
       <a href="#faq"><span class="t-ml">ചോദ്യങ്ങൾ</span><span class="t-en">FAQ</span></a>
     </nav>
     <div class="nav-right">
@@ -344,8 +388,8 @@ footer{background:#07211f;color:#9cc6bf;padding:52px 0 34px;margin-top:20px}
       </div>
       <div class="hero-note">
         <b id="ver-chip" class="num">v2.0.0</b><span class="sep"></span>
-        <span>Windows 10/11</span><span class="sep"></span><span>Linux</span><span class="sep"></span><span>macOS</span><span class="sep"></span>
-        <span class="t-ml">ഫയൽ വലുപ്പം: <b class="num" id="size-chip">≈ 94.7 MB</b></span><span class="t-en">Installer size: <b class="num" id="size-chip-en">≈ 94.7 MB</b></span>
+        <span>Windows 10/11</span><span class="sep"></span><span>macOS</span><span class="sep"></span><span>Linux</span><span class="sep"></span>
+        <span class="t-ml">എല്ലാം സൗജന്യം</span><span class="t-en">All free</span>
       </div>
     </div>
 
@@ -359,7 +403,7 @@ footer{background:#07211f;color:#9cc6bf;padding:52px 0 34px;margin-top:20px}
         </div>
         <div class="win-body">
           <aside class="sb">
-            <div class="sb-logo"><i>M</i><b>MMS<small class="num">v2.0.0</small></b></div>
+            <div class="sb-logo"><i><img src="logo-small.png" alt=""></i><b>MMS<small class="num">v2.0.0</small></b></div>
             <div class="sb-sec t-ml">പ്രധാനം</div><div class="sb-sec t-en">Main</div>
             <div class="sbi act"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span class="t-ml">ഡാഷ്ബോർഡ്</span><span class="t-en">Dashboard</span></div>
             <div class="sbi"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="t-ml">അംഗങ്ങൾ</span><span class="t-en">Members</span></div>
@@ -397,6 +441,7 @@ footer{background:#07211f;color:#9cc6bf;padding:52px 0 34px;margin-top:20px}
       </div>
       <div class="fl fl1"><span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><div><span class="t-ml">രസീറ്റ് അയച്ചു ✓</span><span class="t-en">Receipt sent ✓</span><small class="t-ml">WhatsApp • ഉടനെ</small><small class="t-en">WhatsApp • instant</small></div></div>
       <div class="fl fl2"><span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span><div><span class="num t-ml">₹86,400 സ്വീകരിച്ചു</span><span class="num t-en">₹86,400 collected</span><small class="t-ml">ഈ മാസം • വരിസംഖ്യ</small><small class="t-en">This month • subscriptions</small></div></div>
+      <div class="fl fl3"><span class="ic"><img src="logo-small.png" alt=""></span><div><span class="t-ml">സമ്പൂർണ്ണമായും സൗജന്യം</span><span class="t-en">Completely free</span><small class="t-ml">ഇൻസ്റ്റാൾ ഫീസ് ഇല്ല</small><small class="t-en">No install fee</small></div></div>
     </div>
   </div>
 
@@ -459,13 +504,13 @@ footer{background:#07211f;color:#9cc6bf;padding:52px 0 34px;margin-top:20px}
       <div class="feat reveal" style="--fc:#0891b2;--fb:#e0f5fa">
         <div class="fic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4h8v6l-2-1.5L12 10l-2-1.5L8 10Z"/><path d="M8 15h8"/><path d="M8 17h5"/></svg></div>
         <h3 class="t-ml">സർട്ടിഫിക്കറ്റുകൾ</h3><h3 class="t-en">Certificates</h3>
-        <p class="t-ml">അംഗത്വം, വസതി, നികാഹ്, NOC, മരണം — 5 തരം സർട്ടിഫിക്കറ്റുകൾ; ഓരോന്നിലും QR കോഡ് അച്ചടിക്കും. ആപ്പിലെ QR പരിശോധയിൽ സ്കാൻ ചെയ്താൽ സർട്ടിഫിക്കറ്റ് യഥാർത്ഥമാണോ എന്ന് ഉടനെ അറിയാം.</p>
-        <p class="t-en">Five certificate types, each with QR-code verification — anyone can verify by code.</p>
+        <p class="t-ml">അംഗത്വം, വസതി, നികാഹ്, NOC, മരണം — അഞ്ചിനം സർട്ടിഫിക്കറ്റുകൾ. അംഗത്തിന്റെ പേര് തിരഞ്ഞെടുത്ത് വിവരങ്ങൾ നൽകിയാൽ ഉടനെ അച്ചടിക്കാവുന്ന രീതിയിൽ തയ്യാറാക്കിത്തരും.</p>
+        <p class="t-en">Membership, residence, Nikah, NOC and death — five certificate types, print-ready the moment you enter the details.</p>
       </div>
       <div class="feat reveal" style="--fc:#ea6f2d;--fb:#fdeee3">
         <div class="fic"><svg viewBox="0 0 24 24"><path d="M3 9V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 6v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-6Z"/><path d="M13 5v2"/><path d="M13 11v2"/><path d="M13 17v2"/></svg></div>
         <h3 class="t-ml">ടോക്കൺ സംവിധാനം</h3><h3 class="t-en">Token System</h3>
-        <p class="t-ml">പരിപാടികൾക്ക് കുടുംബങ്ങൾക്ക് ടോക്കൺ നൽകാം — അച്ചടിക്കാവുന്ന ടോക്കണും, ആരെല്ലാം എടുത്തു എന്ന കുറിപ്പും.</p>
+        <p class="t-ml">പരിപാടിയുടെ ദിവസം കുടുംബങ്ങൾക്ക് ടോക്കൺ തയ്യാറാക്കി നൽകാം — അച്ചടിക്കാവുന്ന ടോക്കണുകളും, ആരെല്ലാം എടുത്തു എന്ന കുറിപ്പും.</p>
         <p class="t-en">Queue tokens with printing and a per-day event history.</p>
       </div>
       <div class="feat reveal" style="--fc:#4c7ce8;--fb:#e8eefd">
@@ -541,28 +586,42 @@ footer{background:#07211f;color:#9cc6bf;padding:52px 0 34px;margin-top:20px}
         <div>
           <span class="kicker t-ml">ഡൗൺലോഡ്</span><span class="kicker t-en">Download</span>
           <h2><span class="t-ml">ഇപ്പോൾ ഡൗൺലോഡ് ചെയ്യുക</span><span class="t-en">Get the app now</span></h2>
-          <p class="sec-sub"><span class="t-ml">Windows, Mac, Linux — എല്ലാത്തിനുമുള്ള ഏറ്റവും പുതിയ പതിപ്പ്; സൗജന്യം, ഒരു രജിസ്ട്രേഷനും വേണ്ട.</span><span class="t-en">Latest build for every platform — completely free, no registration.</span></p>
+          <p class="sec-sub"><span class="t-ml">Windows, macOS, Linux — ഓരോന്നിനും വെവ്വേറെ ബട്ടൺ. വേണ്ടത് അമർത്തിയാൽ മതി; ഒരു രൂപയും കൊടുക്കേണ്ട, ഒരു രജിസ്ട്രേഷനും വേണ്ട.</span><span class="t-en">A dedicated button for each platform — Windows, macOS and Linux. Tap once; no payment, no registration.</span></p>
           <div class="dl-meta">
             <span class="chip"><svg viewBox="0 0 24 24"><path d="M12 2v14"/><path d="m6 10 6 6 6-6"/><path d="M4 20h16"/></svg><b class="num" id="dl-ver">v2.0.0</b><span class="t-ml">— ഏറ്റവും പുതിയത്</span><span class="t-en">— latest</span></span>
             <span class="chip" id="dl-date-chip" hidden><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg><span class="num" id="dl-date"></span></span>
-            <span class="chip" id="dl-size-chip" hidden><svg viewBox="0 0 24 24"><path d="M21 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v3"/><path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg><span class="num" id="dl-size"></span></span>
             <span class="chip"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg><span class="t-ml">വൈറസ്-ഫ്രീ • ഓഫ്‌ലൈൻ</span><span class="t-en">Virus-free • Offline</span></span>
           </div>
-          <div class="dl-cta">
-            <a class="btn btn-dark btn-dl" id="main-dl" href="https://github.com/kuttappu507/minzmahallu-electron/releases/download/v2.0.0/Minz.Mahallu.Management.System.Setup.2.0.0.exe" target="_blank" rel="noopener">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              <span class="t-ml">Windows-ന് ഡൗൺലോഡ് ചെയ്യുക (.exe)</span><span class="t-en">Download for Windows (.exe)</span>
+          <div class="plat-grid">
+            <a class="plat" id="plat-win" href="https://github.com/kuttappu507/minzmahallu-electron/releases/download/v2.0.0/Minz.Mahallu.Management.System.Setup.2.0.0.exe" target="_blank" rel="noopener">
+              <span class="recb"><span class="t-ml">നിങ്ങളുടെ സിസ്റ്റം</span><span class="t-en">Your system</span></span>
+              <span class="os"><svg viewBox="0 0 24 24"><path d="M0 3.449 9.75 2.1v9.451H0Zm10.949-9.602L24 0v11.4H10.949ZM0 12.6h9.75v9.451L0 20.699Zm10.949 0H24V24l-12.9-1.801Z"/></svg></span>
+              <span class="pname">Windows</span>
+              <span class="ptype">Windows 10 / 11 • 64-bit</span>
+              <span class="ptype"><span class="num" id="sz-win">≈ 94.7 MB</span><span class="t-ml"> • .exe ഇൻസ്റ്റാളർ</span><span class="t-en"> • .exe installer</span></span>
+              <span class="pbtn"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span class="t-ml">ഡൗൺലോഡ് ചെയ്യുക</span><span class="t-en">Download</span></span>
             </a>
-          </div>
-          <div class="alt-dl">
-            <a id="alt-portable" href="https://github.com/kuttappu507/minzmahallu-electron/releases/download/v2.0.0/MMS-React-Portable-2.0.0.exe" target="_blank" rel="noopener">Portable .exe <span id="sz-portable"></span></a>
-            <a id="alt-linux" href="https://github.com/kuttappu507/minzmahallu-electron/releases/download/v2.0.0/MMS-React-Linux-2.0.0.AppImage" target="_blank" rel="noopener">Linux .AppImage <span id="sz-linux"></span></a>
-            <a id="alt-mac" href="https://github.com/kuttappu507/minzmahallu-electron/releases/download/v2.0.0/MMS-React-macOS-2.0.0.dmg" target="_blank" rel="noopener">macOS .dmg <span id="sz-mac"></span></a>
+            <a class="plat" id="plat-mac" href="https://github.com/kuttappu507/minzmahallu-electron/releases/download/v2.0.0/MMS-React-macOS-2.0.0.dmg" target="_blank" rel="noopener">
+              <span class="recb"><span class="t-ml">നിങ്ങളുടെ സിസ്റ്റം</span><span class="t-en">Your system</span></span>
+              <span class="os"><svg viewBox="0 0 384 512"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg></span>
+              <span class="pname">macOS</span>
+              <span class="ptype">Apple Mac</span>
+              <span class="ptype"><span class="num" id="sz-mac">≈ 118.1 MB</span><span class="t-ml"> • .dmg ഇൻസ്റ്റാളർ</span><span class="t-en"> • .dmg installer</span></span>
+              <span class="pbtn"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span class="t-ml">ഡൗൺലോഡ് ചെയ്യുക</span><span class="t-en">Download</span></span>
+            </a>
+            <a class="plat" id="plat-linux" href="https://github.com/kuttappu507/minzmahallu-electron/releases/download/v2.0.0/MMS-React-Linux-2.0.0.AppImage" target="_blank" rel="noopener">
+              <span class="recb"><span class="t-ml">നിങ്ങളുടെ സിസ്റ്റം</span><span class="t-en">Your system</span></span>
+              <span class="os"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="16.6" rx="6.1" ry="5"/><circle cx="12" cy="8.2" r="5"/><ellipse cx="12" cy="13.6" rx="2.7" ry="1.9" fill="#0a554e"/><circle cx="10.8" cy="6.9" r=".85" fill="#0a554e"/><circle cx="13.2" cy="6.9" r=".85" fill="#0a554e"/><path d="M10.1 9.4c.7 1 3.1 1 3.8 0 .3-.5-.7-.6-1.9-.6s-2.2.1-1.9.6z" fill="#f4c245"/></svg></span>
+              <span class="pname">Linux</span>
+              <span class="ptype">Debian / Ubuntu / Fedora</span>
+              <span class="ptype"><span class="num" id="sz-linux">≈ 127.6 MB</span><span class="t-ml"> • .AppImage</span><span class="t-en"> • .AppImage</span></span>
+              <span class="pbtn"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span class="t-ml">ഡൗൺലോഡ് ചെയ്യുക</span><span class="t-en">Download</span></span>
+            </a>
           </div>
         </div>
         <div class="dl-panel">
           <h3><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg><span class="t-ml">എങ്ങനെ തുടങ്ങാം?</span><span class="t-en">How to start?</span></h3>
-          <div class="step"><span class="n">1</span><p><b class="t-ml">ഇൻസ്റ്റാൾ ചെയ്യുക</b><b class="t-en">Install</b> — <span class="t-ml">ഡൗൺലോഡ് ചെയ്ത .exe ഫയൽ തുറന്ന് കാണിക്കുന്നത് പോലെ Next → Install അമർത്തുക.</span><span class="t-en">Open the downloaded .exe and follow Next → Install.</span></p></div>
+          <div class="step"><span class="n">1</span><p><b class="t-ml">ഇൻസ്റ്റാൾ ചെയ്യുക</b><b class="t-en">Install</b> — <span class="t-ml">ഡൗൺലോഡ് ചെയ്ത ഫയൽ തുറന്നാൽ ഒരു നീല മുന്നറിയിപ്പ് വന്നേക്കാം — <b>More info → Run anyway</b> അമർത്തിയ ശേഷം Next → Install.</span><span class="t-en">If a blue SmartScreen notice appears when you open the file, click <b>More info → Run anyway</b>, then Next → Install.</span></p></div>
           <div class="step"><span class="n">2</span><p><b class="t-ml">അഡ്മിൻ അക്കൗണ്ട് ഉണ്ടാക്കുക</b><b class="t-en">Create the admin account</b> — <span class="t-ml">ആദ്യമായി തുറക്കുമ്പോൾ തന്നെ അഡ്മിന്റെ പേരും ശക്തമായ പാസ്‌വേഡും നൽകി അക്കൗണ്ട് ഉണ്ടാക്കാം.</span><span class="t-en">On first launch, set the admin name and a strong password.</span></p></div>
           <div class="step"><span class="n">3</span><p><b class="t-ml">കുടുംബങ്ങളെ ചേർക്കാൻ തുടങ്ങുക</b><b class="t-en">Start adding families</b> — <span class="t-ml">കുടുംബങ്ങളെ ചേർത്തു കഴിഞ്ഞാൽ വരിസംഖ്യ പിരിക്കാം — രസീറ്റ് നേരിട്ട് വാട്ട്സ്ആപ്പിലേക്ക്, റിപ്പോർട്ടുകൾ ഒറ്റ ക്ലിക്കിൽ.</span><span class="t-en">Collect subscriptions, send WhatsApp receipts, pull reports.</span></p></div>
           <p class="guide-cta"><a href="guide.html"><span class="t-ml">ആദ്യമായി ഉപയോഗിക്കുന്നവർക്ക് — മുഴുവൻ ഗൈഡും കാണുക →</span><span class="t-en">New to the app? Read the full beginner guide →</span></a></p>
@@ -597,7 +656,7 @@ footer{background:#07211f;color:#9cc6bf;padding:52px 0 34px;margin-top:20px}
       </details>
       <details class="reveal">
         <summary><span class="qi">4</span><span class="t-ml">Mac-ലും Linux-ലും ലഭ്യമാണോ?</span><span class="t-en">Is it available on Mac and Linux?</span><span class="pm">+</span></summary>
-        <div class="faq-a"><span class="t-ml">അതെ — Windows (.exe installer + portable), macOS (.dmg), Linux (.AppImage) പതിപ്പുകൾ മുകളിലെ <a href="#download" style="color:var(--teal);font-weight:600">ഡൗൺലോഡ് ഭാഗത്ത്</a> ലഭ്യമാണ്.</span><span class="t-en">Yes — Windows (.exe installer + portable), macOS (.dmg) and Linux (.AppImage) builds are all available in the <a href="#download" style="color:var(--teal);font-weight:600">Download section</a> above.</span></div>
+        <div class="faq-a"><span class="t-ml">അതെ — Windows, macOS, Linux എന്നിവയ്ക്ക് വെവ്വേറെ ഡൗൺലോഡ് ബട്ടണുകൾ മുകളിലെ <a href="#download" style="color:var(--teal);font-weight:600">ഡൗൺലോഡ് ഭാഗത്ത്</a> തന്നെയുണ്ട്. നിങ്ങളുടെ കമ്പ്യൂട്ടറിനു ചേരുന്നത് അമർത്തിയാൽ മതി.</span><span class="t-en">Yes — the <a href="#download" style="color:var(--teal);font-weight:600">Download section</a> above has a dedicated button each for Windows, macOS and Linux. Just tap the one that matches your computer.</span></div>
       </details>
       <details class="reveal">
         <summary><span class="qi">5</span><span class="t-ml">സുരക്ഷിതമാണോ? Windows-ൽ മുന്നറിയിപ്പ് വരുന്നത് എന്തുകൊണ്ട്?</span><span class="t-en">Is it safe? Why does Windows show a warning?</span><span class="pm">+</span></summary>
@@ -613,14 +672,14 @@ footer{background:#07211f;color:#9cc6bf;padding:52px 0 34px;margin-top:20px}
   <div class="wrap">
     <div class="foot-grid">
       <div class="foot-brand">
-        <span class="logo">M</span>
+        <span class="logo"><img src="logo-small.png" alt="Minz Mahallu" width="36" height="36"></span>
         <span>Minz Mahallu Management System<small class="t-ml">മഹല്ല് ഭരണം — എളുപ്പവും സൗജന്യവും</small><small class="t-en">Mosque community administration, simplified</small></span>
       </div>
       <nav class="foot-links" aria-label="Footer">
         <a href="#features"><span class="t-ml">സവിശേഷതകൾ</span><span class="t-en">Features</span></a>
         <a href="#download"><span class="t-ml">ഡൗൺലോഡ്</span><span class="t-en">Download</span></a>
         <a href="#why"><span class="t-ml">എന്തുകൊണ്ട് MMS?</span><span class="t-en">Why MMS?</span></a>
-        <a href="guide.html"><span class="t-ml">ഉപയോഗ ഗൈഡ്</span><span class="t-en">How to use</span></a>
+        <a href="guide.html"><span class="t-ml">എങ്ങനെ ഉപയോഗിക്കാം</span><span class="t-en">How to use</span></a>
         <a href="#faq"><span class="t-ml">ചോദ്യങ്ങൾ</span><span class="t-en">FAQ</span></a>
       </nav>
     </div>
@@ -630,6 +689,8 @@ footer{background:#07211f;color:#9cc6bf;padding:52px 0 34px;margin-top:20px}
     </div>
   </div>
 </footer>
+
+<button id="toTop" type="button" aria-label="Back to top"><svg viewBox="0 0 24 24"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></button>
 
 <script>
 (function(){
@@ -672,33 +733,40 @@ footer{background:#07211f;color:#9cc6bf;padding:52px 0 34px;margin-top:20px}
     catch(e){return new Date(iso).toISOString().slice(0,10);}
   }
   function paintRel(){
-    var ml=document.documentElement.classList.contains("lang-en")===false;
     var d=REL; if(!d)return;
     var a=d.assets||[];
     function find(re){for(var i=0;i<a.length;i++){if(re.test(a[i].name))return a[i];}return null;}
     var win=find(/setup.*\.exe$/i)||find(/\.exe$/i);
-    var port=find(/portable.*\.exe$/i);
     var app=find(/\.appimage$/i),dmg=find(/\.dmg$/i);
     var ver=(d.tag_name||"").replace(/^v/,"");
     var vTxt="v"+ver;
     $("ver-chip").textContent=vTxt;
     $("dl-ver").textContent=vTxt;
     if(win){
-      $("main-dl").href=win.browser_download_url;
-      $("hero-dl").href=win.browser_download_url;
-      var s=fmtSize(win.size);
-      $("size-chip").textContent="≈ "+s;$("size-chip-en").textContent="≈ "+s;
-      $("dl-size-chip").hidden=false;$("dl-size").textContent=ml?("ഇൻസ്റ്റാളർ • "+s):("Installer • "+s);
+      $("plat-win").href=win.browser_download_url;
+      $("sz-win").textContent="≈ "+fmtSize(win.size);
+      var h=$("hero-dl"); if(h)h.href=win.browser_download_url;
     }
     if(d.published_at){$("dl-date-chip").hidden=false;$("dl-date").textContent=fmtDate(d.published_at);}
-    if(port){$("alt-portable").href=port.browser_download_url;$("sz-portable").textContent="• "+fmtSize(port.size);}
-    if(app){$("alt-linux").href=app.browser_download_url;$("sz-linux").textContent="• "+fmtSize(app.size);}
-    if(dmg){$("alt-mac").href=dmg.browser_download_url;$("sz-mac").textContent="• "+fmtSize(dmg.size);}
+    if(app){$("plat-linux").href=app.browser_download_url;$("sz-linux").textContent="≈ "+fmtSize(app.size);}
+    if(dmg){$("plat-mac").href=dmg.browser_download_url;$("sz-mac").textContent="≈ "+fmtSize(dmg.size);}
   }
   fetch("https://api.github.com/repos/"+REPO+"/releases/latest",{headers:{Accept:"application/vnd.github+json"}})
     .then(function(r){if(!r.ok)throw new Error("no release");return r.json();})
     .then(function(d){if(d&&d.tag_name){REL=d;paintRel();}})
     .catch(function(){/* keep fallback links */});
+
+  /* ---- Back to top ---- */
+  var toTop=$("toTop");
+  window.addEventListener("scroll",function(){toTop.classList.toggle("show",window.scrollY>560);},{passive:true});
+  toTop.addEventListener("click",function(){window.scrollTo({top:0,behavior:"smooth"});});
+
+  /* ---- Highlight the platform matching this device ---- */
+  var ua=navigator.userAgent||"",platId=null;
+  if(/Windows/i.test(ua))platId="plat-win";
+  else if(/Macintosh|Mac OS X|MacIntel/i.test(ua)&&!/iPhone|iPad|iPod/i.test(ua))platId="plat-mac";
+  else if(/Linux/i.test(ua)&&!/Android/i.test(ua))platId="plat-linux";
+  if(platId){var pel=$(platId); if(pel)pel.classList.add("rec");}
 })();
 </script>
 </body>

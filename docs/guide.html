@@ -3,98 +3,158 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ഉപയോഗ ഗൈഡ് — Minz Mahallu Management System</title>
-<meta name="description" content="ആദ്യമായി ഉപയോഗിക്കുന്നവർക്കുള്ള ഗൈഡ് — ഇൻസ്റ്റാൾ മുതൽ ആദ്യ രസീറ്റ് അയക്കൽ വരെ, ഘട്ടം ഘട്ടമായി. A step-by-step beginner's guide for the free mahallu management app.">
+<title>എങ്ങനെ ഉപയോഗിക്കാം? — Minz Mahallu Management System</title>
+<meta name="description" content="ആദ്യമായി ഉപയോഗിക്കുന്നവർക്കുള്ള മുഴുവൻ ഗൈഡ് — ഡൗൺലോഡ് മുതൽ ആദ്യ രസീറ്റ് വരെ, ഘട്ടം ഘട്ടമായി. ഈ ഗൈഡ് PDF ആയി സൂക്ഷിച്ചു വയ്ക്കാം. A step-by-step beginner guide for the free mahallu management app.">
+<meta property="og:title" content="എങ്ങനെ ഉപയോഗിക്കാം? — Minz Mahallu Management System">
+<meta property="og:description" content="ഇൻസ്റ്റാൾ മുതൽ ആദ്യ രസീറ്റ് വരെ — ഘട്ടം ഘട്ടമായുള്ള ഗൈഡ്. PDF ആയി സൂക്ഷിക്കാം.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#0d9488">
+<link rel="icon" type="image/png" href="logo-small.png">
+<link rel="apple-touch-icon" href="logo-small.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anek+Malayalam:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d9488'/%3E%3Cpath d='M16 7l9 6H7z' fill='%23fff'/%3E%3Crect x='10' y='14' width='12' height='10' rx='1.5' fill='%23fff'/%3E%3C/svg%3E">
+<link href="https://fonts.googleapis.com/css2?family=Anek+Malayalam:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{
   --teal:#0d9488; --teal-deep:#0a6b63; --teal-ink:#0b4f4a; --teal-tint:#e6f6f3; --teal-line:#bdeae3;
-  --ink:#0f172a; --ink2:#31435c; --mut:#5f7186;
+  --ink:#0f172a; --ink2:#31435c; --mut:#5f7186; --faint:#8b9bb0;
   --bg:#f6f8fa; --card:#ffffff; --line:#e3eaf2;
-  --gold:#d9930a; --gold-tint:#fdf5dd; --green:#16a34a; --green-tint:#e9f9ef;
+  --sky:#2563eb; --sky-tint:#e7effe; --gold:#d9930a; --gold-tint:#fdf5dd;
+  --green:#16a34a; --green-tint:#e9f9ef;
   --r:18px;
+  --shadow:0 14px 34px -16px rgba(4,60,55,.16);
   --font:'Poppins','Anek Malayalam',system-ui,-apple-system,'Segoe UI',sans-serif;
 }
-*{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
-body{font-family:var(--font);background:var(--bg);color:var(--ink);line-height:1.65;-webkit-font-smoothing:antialiased}
-.wrap{max-width:920px;margin:0 auto;padding:0 22px}
-/* header */
-header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
-.hd{display:flex;align-items:center;justify-content:space-between;gap:12px;height:64px}
-.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
-.brand .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--teal),var(--teal-deep));display:grid;place-items:center;flex:none}
-.brand .logo svg{width:20px;height:20px;fill:#fff}
-.brand b{font-size:15px;font-weight:600}
-.brand small{display:block;font-size:11px;color:var(--mut);font-weight:500;line-height:1.2}
-.hd-right{display:flex;align-items:center;gap:14px}
-.backlink{text-decoration:none;color:var(--teal-deep);font-weight:600;font-size:13.5px}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);font-size:16px;line-height:1.75;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+img,svg{display:block}
+.wrap{max-width:960px;margin:0 auto;padding:0 22px}
+/* ---------- header (homepage style) ---------- */
+header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.9);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+header.scrolled{box-shadow:0 10px 30px -18px rgba(4,60,55,.25)}
+.hd{display:flex;align-items:center;justify-content:space-between;gap:12px;height:70px}
+.brand{display:flex;align-items:center;gap:11px;font-weight:700;font-size:16px}
+.brand .logo{width:40px;height:40px;border-radius:11px;overflow:hidden;flex:none;box-shadow:0 8px 18px -8px rgba(13,148,136,.55)}
+.brand .logo img{width:100%;height:100%;object-fit:cover}
+.brand small{display:block;font-size:10.5px;font-weight:500;color:var(--mut);letter-spacing:.4px;line-height:1.3}
+.hd-right{display:flex;align-items:center;gap:12px}
+.pdfbtn{display:inline-flex;align-items:center;gap:7px;font-family:var(--font);font-size:12.8px;font-weight:700;color:#fff;background:linear-gradient(135deg,#0d9488,#0a6b63);padding:9px 15px;border:0;border-radius:999px;cursor:pointer;box-shadow:0 8px 18px -8px rgba(13,148,136,.55);transition:.25s}
+.pdfbtn:hover{transform:translateY(-2px);box-shadow:0 14px 26px -10px rgba(13,148,136,.6)}
+.pdfbtn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.backlink{color:var(--teal-deep);font-weight:600;font-size:13.5px}
 .backlink:hover{text-decoration:underline}
 .langseg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px}
-.langseg button{border:0;background:transparent;font-family:var(--font);font-size:12.5px;font-weight:600;color:var(--mut);padding:5px 12px;border-radius:999px;cursor:pointer}
+.langseg button{border:0;background:transparent;font-family:var(--font);font-size:12.5px;font-weight:600;color:var(--mut);padding:5px 12px;border-radius:999px;cursor:pointer;transition:.2s}
 .langseg button.on{background:var(--teal);color:#fff}
-/* hero */
-.hero{padding:46px 0 6px;text-align:center}
-.kicker{display:inline-flex;align-items:center;gap:8px;background:var(--teal-tint);border:1px solid var(--teal-line);color:var(--teal-deep);font-size:12.5px;font-weight:600;padding:6px 14px;border-radius:999px;margin-bottom:16px}
-h1{font-size:clamp(26px,4.6vw,38px);line-height:1.3;font-weight:700;letter-spacing:-.4px}
-h1 .grad{background:linear-gradient(120deg,var(--teal),#2563eb);-webkit-background-clip:text;background-clip:text;color:transparent}
-.hero p.sub{max-width:640px;margin:14px auto 0;color:var(--mut);font-size:15.5px}
-/* steps */
-.steps{padding:26px 0 8px}
-.stepcard{display:flex;gap:18px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:22px 24px;margin:0 0 14px;box-shadow:0 10px 26px -18px rgba(4,60,55,.18)}
-.stepcard .n{flex:none;width:42px;height:42px;border-radius:13px;background:var(--teal-tint);border:1px solid var(--teal-line);color:var(--teal-deep);font-weight:700;font-size:17px;display:grid;place-items:center}
-.stepcard h3{font-size:16.5px;font-weight:700;margin-bottom:5px}
-.stepcard p{font-size:14.3px;color:var(--ink2)}
-.stepcard p + p{margin-top:6px}
+/* ---------- hero ---------- */
+.hero{padding:52px 0 8px;text-align:center;position:relative;overflow:hidden}
+.hero .blob{position:absolute;border-radius:50%;filter:blur(80px);opacity:.35;pointer-events:none}
+.hero .b1{width:420px;height:420px;background:#99f0e4;top:-190px;right:-110px}
+.hero .b2{width:340px;height:340px;background:#cfe0fd;bottom:-170px;left:-110px;opacity:.45}
+.pill-badge{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--teal-line);color:var(--teal-ink);font-size:13.5px;font-weight:600;padding:8px 16px;border-radius:999px;box-shadow:0 6px 16px -10px rgba(13,148,136,.4);margin-bottom:18px}
+.pill-badge .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(22,163,74,.15);animation:pulse 2.2s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 7px rgba(22,163,74,.05)}}
+h1{font-size:clamp(27px,4.6vw,40px);line-height:1.32;font-weight:800;letter-spacing:-.4px}
+h1 .grad{background:linear-gradient(120deg,#0d9488 10%,#0891b2 55%,#2563eb 110%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;background-size:200% auto;animation:shine 7s linear infinite}
+@keyframes shine{to{background-position:200% center}}
+.hero p.sub{max-width:660px;margin:16px auto 0;color:var(--mut);font-size:15.5px}
+/* ---------- sections ---------- */
+.kicker{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--teal)}
+.kicker::before,.kicker::after{content:"";width:22px;height:1.5px;background:var(--teal-line)}
+.sec-head{text-align:center;margin:64px auto 30px}
+.sec-head h2{font-size:clamp(22px,3vw,30px);font-weight:800;letter-spacing:-.3px;margin-top:10px}
+.sec-sub{color:var(--ink2);font-size:15.5px}
+/* ---------- steps ---------- */
+.steps{padding:26px 0 0}
+.stepcard{display:flex;gap:18px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:24px 26px;margin:0 0 15px;box-shadow:var(--shadow);transition:.3s}
+.stepcard:hover{transform:translateY(-3px);box-shadow:0 22px 44px -20px rgba(4,60,55,.28)}
+.stepcard .n{flex:none;width:44px;height:44px;border-radius:14px;background:var(--teal-tint);border:1px solid var(--teal-line);color:var(--teal-deep);font-weight:800;font-size:18px;display:grid;place-items:center}
+.stepcard h3{font-size:17px;font-weight:700;margin-bottom:6px;letter-spacing:-.2px}
+.stepcard p{font-size:14.5px;color:var(--ink2)}
+.stepcard p + p{margin-top:7px}
 .stepcard code{font-family:var(--font);background:var(--teal-tint);color:var(--teal-ink);border:1px solid var(--teal-line);border-radius:7px;padding:1px 7px;font-size:.92em;font-weight:600;white-space:nowrap}
-.tip{margin-top:10px;background:var(--gold-tint);border:1px solid #f2e2b8;border-radius:12px;padding:9px 13px;font-size:13.3px;color:#6b4e0f}
+.tip{margin-top:12px;background:var(--gold-tint);border:1px solid #f2e2b8;border-radius:12px;padding:11px 14px;font-size:13.4px;color:#6b4e0f;line-height:1.7}
 .tip b{color:#8a6410}
-/* tips grid */
-.tips{padding:26px 0 8px}
-.tips h2{font-size:21px;font-weight:700;margin-bottom:4px}
-.tips p.tsub{color:var(--mut);font-size:14px;margin-bottom:16px}
-.tgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.titem{display:flex;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
-.titem .ck{flex:none;width:26px;height:26px;border-radius:8px;background:var(--green-tint);color:var(--green);display:grid;place-items:center;font-weight:700;font-size:14px;margin-top:2px}
-.titem b{font-size:14px;display:block}
-.titem span{font-size:13px;color:var(--mut)}
-/* cta */
-.cta{margin:34px 0 10px;background:linear-gradient(135deg,var(--teal-ink),var(--teal-deep));border-radius:22px;padding:38px 28px;text-align:center;color:#fff}
-.cta h2{font-size:24px;font-weight:700}
-.cta p{color:#bfe8e1;font-size:14.5px;margin:8px 0 20px}
-.btn{display:inline-flex;align-items:center;gap:9px;background:#fff;color:var(--teal-ink);font-family:var(--font);font-weight:700;font-size:15px;padding:13px 26px;border-radius:13px;text-decoration:none;transition:transform .15s}
-.btn:hover{transform:translateY(-2px)}
+.note-blue{margin-top:12px;background:var(--sky-tint);border:1px solid #c7d9fb;border-radius:12px;padding:12px 14px;font-size:13.6px;color:#1e429f;line-height:1.75}
+.note-blue b{color:#173d8f}
+.note-blue .bt{display:inline-block;background:#1e429f;color:#fff;border-radius:7px;padding:1px 9px;font-weight:700;font-size:12.3px;margin:0 2px}
+/* ---------- habits ---------- */
+.tgrid{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.titem{display:flex;gap:13px;background:var(--card);border:1px solid var(--line);border-radius:15px;padding:16px 18px;box-shadow:var(--shadow);transition:.3s}
+.titem:hover{transform:translateY(-3px);box-shadow:0 18px 38px -18px rgba(4,60,55,.25)}
+.titem .ck{flex:none;width:27px;height:27px;border-radius:9px;background:var(--green-tint);color:var(--green);display:grid;place-items:center;font-weight:700;font-size:14px;margin-top:2px}
+.titem b{font-size:14.5px;display:block}
+.titem span{font-size:13.2px;color:var(--mut)}
+/* ---------- CTA band (homepage style) ---------- */
+.cta{margin:56px 0 10px;background:radial-gradient(700px 360px at 85% -10%,rgba(45,212,191,.22),transparent 62%),linear-gradient(155deg,#06201d,#073a35 58%,#0a554e);border-radius:24px;color:#eafaf7;padding:46px 30px;text-align:center;position:relative;overflow:hidden;box-shadow:0 30px 70px -28px rgba(4,60,55,.35)}
+.cta h2{font-size:clamp(22px,3vw,30px);font-weight:800;color:#fff}
+.cta p{color:#b9e6df;font-size:14.8px;margin:10px auto 22px;max-width:520px}
+.btn{display:inline-flex;align-items:center;gap:10px;background:#fff;color:#06211f;font-family:var(--font);font-weight:700;font-size:15px;padding:14px 28px;border-radius:14px;border:0;cursor:pointer;transition:.25s}
+.btn:hover{transform:translateY(-3px);box-shadow:0 18px 36px -14px rgba(0,0,0,.5)}
 .btn svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-/* footer */
-footer{border-top:1px solid var(--line);margin-top:44px;padding:26px 0 34px;text-align:center;color:var(--mut);font-size:13px}
-.free-pill{display:inline-flex;align-items:center;gap:8px;background:var(--green-tint);border:1px solid #bfe8cd;color:#166534;font-size:12.8px;font-weight:600;padding:6px 14px;border-radius:999px;margin-top:10px}
-.free-pill i{width:7px;height:7px;border-radius:50%;background:var(--green)}
-footer a{color:var(--teal-deep);font-weight:600;text-decoration:none}
-footer a:hover{text-decoration:underline}
-/* language toggle: default Malayalam */
+/* ---------- footer (homepage style) ---------- */
+footer{background:#07211f;color:#9cc6bf;padding:44px 0 32px;margin-top:40px;text-align:center}
+.foot-brand{display:flex;flex-direction:column;align-items:center;gap:10px;color:#fff;font-weight:700}
+.foot-brand .logo{width:46px;height:46px;border-radius:13px;overflow:hidden}
+.foot-brand .logo img{width:100%;height:100%;object-fit:cover}
+.foot-brand small{display:block;font-size:12px;font-weight:400;color:#7fb5ac}
+.foot-links{display:flex;flex-wrap:wrap;gap:22px;justify-content:center;font-size:14px;font-weight:500;margin:18px 0 4px}
+.foot-links a{transition:.2s}
+.foot-links a:hover{color:#7ce8da}
+.free-pill{display:inline-flex;align-items:center;gap:7px;background:rgba(22,163,74,.14);border:1px solid rgba(74,222,128,.3);color:#86efac;font-size:12.3px;font-weight:600;padding:5px 13px;border-radius:999px;margin-top:14px}
+.free-pill i{width:6px;height:6px;border-radius:50%;background:#4ade80}
+/* ---------- back to top ---------- */
+#toTop{position:fixed;right:20px;bottom:20px;z-index:60;width:46px;height:46px;border-radius:14px;border:0;background:linear-gradient(135deg,#0d9488,#0a6b63);color:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:0 14px 30px -10px rgba(13,148,136,.65);opacity:0;pointer-events:none;transform:translateY(12px);transition:.3s}
+#toTop.show{opacity:1;pointer-events:auto;transform:none}
+#toTop svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+/* ---------- language toggle: default Malayalam ---------- */
 .t-en{display:none}
 html.lang-en .t-en{display:revert}
 html.lang-en .t-ml{display:none}
-@media(max-width:640px){
+/* ---------- reveal ---------- */
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .65s ease,transform .65s ease}
+.reveal.in{opacity:1;transform:none}
+/* ---------- responsive ---------- */
+@media(max-width:720px){
   .tgrid{grid-template-columns:1fr}
   .brand small{display:none}
-  .stepcard{padding:18px 16px;gap:13px}
   .backlink{display:none}
+  .pdfbtn span{max-width:76px;overflow:hidden;text-overflow:ellipsis}
+  .stepcard{padding:19px 17px;gap:13px}
+  .hd{height:62px}
 }
+/* ---------- print / save as PDF ---------- */
+@media print{
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  header,#toTop,.cta,footer,.hero .blob{display:none!important}
+  body{background:#fff;font-size:12.5pt}
+  .wrap{max-width:100%;padding:0}
+  .hero{padding:10mm 0 6mm}
+  .sec-head{margin:9mm auto 5mm}
+  .stepcard{break-inside:avoid;page-break-inside:avoid;box-shadow:none;border:1px solid #d5dde5;margin-bottom:5mm}
+  .stepcard:hover{transform:none}
+  .titem{box-shadow:none;border:1px solid #d5dde5;break-inside:avoid}
+  .reveal{opacity:1;transform:none}
+  a{color:inherit}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
-<header>
+<header id="hdr">
   <div class="wrap hd">
     <a class="brand" href="index.html">
-      <span class="logo"><svg viewBox="0 0 32 32"><path d="M16 5l11 7H5z"/><rect x="9" y="14" width="14" height="12" rx="1.5"/></svg></span>
-      <span><b>Minz Mahallu</b><small class="t-ml">ഉപയോഗ ഗൈഡ്</small><small class="t-en">User guide</small></span>
+      <span class="logo"><img src="logo-small.png" alt="Minz Mahallu" width="40" height="40"></span>
+      <span>Minz Mahallu<small class="t-ml">ഉപയോഗ ഗൈഡ്</small><small class="t-en">User guide</small></span>
     </a>
     <div class="hd-right">
       <a class="backlink" href="index.html">← <span class="t-ml">ഹോമിലേക്ക്</span><span class="t-en">Back to home</span></a>
+      <button class="pdfbtn" id="pdf-btn" type="button" title="Save this guide as PDF">
+        <svg viewBox="0 0 24 24"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+        <span class="t-ml">PDF ആയി സൂക്ഷിക്കുക</span><span class="t-en">Save as PDF</span>
+      </button>
       <div class="langseg" role="group" aria-label="Language / ഭാഷ">
         <button id="btn-ml" class="on" type="button">മലയാളം</button>
         <button id="btn-en" type="button">English</button>
@@ -103,89 +163,133 @@ html.lang-en .t-ml{display:none}
   </div>
 </header>
 
-<main class="wrap">
+<main>
   <section class="hero">
-    <span class="kicker t-ml">ആദ്യമായി ഉപയോഗിക്കുന്നവർക്ക്</span><span class="kicker t-en">For first-time users</span>
-    <h1><span class="t-ml">ഇൻസ്റ്റാൾ മുതൽ ആദ്യ രസീറ്റ് വരെ —<br><span class="grad">ഘട്ടം ഘട്ടമായി പറയാം</span></span><span class="t-en">From install to your first receipt —<br><span class="grad">step by step</span></span></h1>
-    <p class="sub"><span class="t-ml">പത്ത് ചെറിയ ഘട്ടങ്ങൾ — ഓരോന്നിനും രണ്ട്-മൂന്ന് മിനിറ്റ് മതി. കമ്പ്യൂട്ടറിൽ അധികം പരിചയമില്ലാത്തവർക്കും പറ്റുന്ന വിധം എളുപ്പവാക്കിൽ.</span><span class="t-en">Ten small steps — two or three minutes each. Written in plain words, so anyone can follow along on a computer.</span></p>
+    <div class="blob b1"></div><div class="blob b2"></div>
+    <div class="wrap">
+      <span class="pill-badge"><span class="dot"></span><span class="t-ml">ആദ്യമായി ഉപയോഗിക്കുന്നവർക്ക്</span><span class="t-en">For first-time users</span></span>
+      <h1><span class="t-ml">ഇൻസ്റ്റാൾ മുതൽ ആദ്യ രസീറ്റ് വരെ —<br><span class="grad">ഘട്ടം ഘട്ടമായി പറയാം</span></span><span class="t-en">From install to your first receipt —<br><span class="grad">step by step</span></span></h1>
+      <p class="sub"><span class="t-ml">പത്ത് ചെറിയ ഘട്ടങ്ങൾ — ഓരോന്നിനും രണ്ടു-മൂന്നു മിനിറ്റ് മതി. കമ്പ്യൂട്ടറിൽ അധികം പരിചയമില്ലാത്തവർക്കും എളുപ്പം പിന്തുടരാവുന്ന വിധം, എന്തു കാണും എന്തു ചെയ്യണം എന്നെല്ലാം വിശദമായി. കൂടെ വായിക്കുമ്പോൾ ഓരോ ഘട്ടവും പൂർത്തിയാക്കി മുന്നോട്ടു പോകുക. പിന്നീട് ഓർക്കാൻ <b>PDF ആയി സൂക്ഷിക്കാം</b> — മുകളിലെ ബട്ടൺ അമർത്തിയാൽ മതി.</span><span class="t-en">Ten small steps — two or three minutes each. Written so that anyone can follow along, with what you will see and what to type at every stage. Keep this page open while you work through it, and <b>save it as PDF</b> for later — the button above does that.</span></p>
+    </div>
   </section>
-  <section class="steps">
-    <div class="stepcard"><span class="n">1</span><div>
-      <h3 class="t-ml">ഡൗൺലോഡ് ചെയ്യുക</h3><h3 class="t-en">Download the app</h3>
-      <p><span class="t-ml"><code>minzmahallu.vercel.app</code> തുറന്ന് Windows-നുള്ള <code>.exe</code> ഫയൽ ഡൗൺലോഡ് ചെയ്യുക. സൗജന്യം — ഒരു രജിസ്ട്രേഷനും വേണ്ട, ഒരു രൂപയും കൊടുക്കേണ്ട.</span><span class="t-en">Open <code>minzmahallu.vercel.app</code> and download the <code>.exe</code> file for Windows. It's free — no registration, no payment.</span></p>
+<!-- ================= STEPS ================= -->
+  <section class="steps wrap">
+    <div class="sec-head reveal">
+      <span class="kicker t-ml">ഘട്ടങ്ങൾ</span><span class="kicker t-en">Steps</span>
+      <h2 class="t-ml">ഇങ്ങനെയാണ് തുടങ്ങേണ്ടത്</h2><h2 class="t-en">Here is how to begin</h2>
+      <p class="sec-sub t-ml">ഒന്നാം ഘട്ടം മുതൽ പത്താം ഘട്ടം വരെ ക്രമത്തിൽ — ഓരോന്നും പൂർത്തിയാക്കി അടുത്തതിലേക്കു പോകുക.</p>
+      <p class="sec-sub t-en">From step one to step ten, in order — finish each one and move to the next.</p>
+    </div>
+
+    <div class="stepcard reveal"><span class="n">1</span><div>
+      <h3 class="t-ml">ആപ്പ് ഡൗൺലോഡ് ചെയ്യുക</h3><h3 class="t-en">Download the app</h3>
+      <p><span class="t-ml">വെബ്സൈറ്റിന്റെ ഡൗൺലോഡ് ഭാഗത്ത് മൂന്നു ബട്ടണുകൾ കാണാം — Windows-ന് <code>.exe</code>, Mac-ന് <code>.dmg</code>, Linux-ന് <code>.AppImage</code>. നിങ്ങളുടെ കമ്പ്യൂട്ടറിനു ചേരുന്ന ബട്ടൺ അമർത്തുക; വലുപ്പവും അതിന്റെ കൂടെ കാണിച്ചിട്ടുണ്ട്. പിന്നെ ഫയൽ ഡൗൺലോഡ് ആകുന്നതു വരെ കാത്തിരിക്കുക — അതു കഴിഞ്ഞാൽ ഫയൽ <code>Downloads</code> ഫോൾഡറിൽ കാണാം.</span><span class="t-en">The Download section of the website shows three buttons — <code>.exe</code> for Windows, <code>.dmg</code> for Mac, <code>.AppImage</code> for Linux. Press the one that matches your computer; the file size is shown next to it. Wait for the download to finish — the file lands in your <code>Downloads</code> folder.</span></p>
+      <div class="tip"><b class="t-ml">ഓർക്കുക:</b><b class="t-en">Remember:</b> <span class="t-ml">ഇതു പൂർണ്ണമായും സൗജന്യമാണ് — ഒരു രൂപയും കൊടുക്കേണ്ട, ഒരു രജിസ്ട്രേഷനും വേണ്ട. ആരെങ്കിലും പണം ചോദിച്ചാൽ അത് ഈ ആപ്പ് അല്ല.</span><span class="t-en">The app is completely free — no payment, no registration. If anyone asks you to pay, it is not this app.</span></div>
     </div></div>
-    <div class="stepcard"><span class="n">2</span><div>
-      <h3 class="t-ml">ഇൻസ്റ്റാൾ ചെയ്യുക</h3><h3 class="t-en">Install it</h3>
-      <p><span class="t-ml">ഡൗൺലോഡ് ചെയ്ത ഫയൽ തുറന്ന് കാണിക്കുന്നത് പോലെ <code>Next → Install</code> അമർത്തുക. ഇടയ്ക്ക് Windows-ന്റെ നീല മുന്നറിയിപ്പ് വന്നാൽ പേടിക്കേണ്ട — <code>More info → Run anyway</code> അമർത്തിയാൽ മതി.</span><span class="t-en">Open the downloaded file and click <code>Next → Install</code>. If Windows shows a blue warning, don't worry — just click <code>More info → Run anyway</code>.</span></p>
-      <div class="tip"><b class="t-ml">കുറിപ്പ്:</b><b class="t-en">Why this warning:</b> <span class="t-ml">ഈ മുന്നറിയിപ്പ് വരുന്നത് ആപ്പിൽ എന്തെങ്കിലും തകരാറുണ്ട് എന്നല്ല — സൗജന്യമായി കൊടുക്കുന്ന ആപ്പുകൾക്ക് code-signing സർട്ടിഫിക്കറ്റ് ഇല്ല എന്നതുകൊണ്ട് മാത്രമാണ്.</span><span class="t-en">The warning appears only because free apps don't carry a paid code-signing certificate — not because something is wrong.</span></div>
+
+    <div class="stepcard reveal"><span class="n">2</span><div>
+      <h3 class="t-ml">ഇൻസ്റ്റാൾ ചെയ്യുക — നീല മുന്നറിയിപ്പ് വന്നാൽ പേടിക്കേണ്ട</h3><h3 class="t-en">Install it — don't worry about the blue warning</h3>
+      <p><span class="t-ml"><code>Downloads</code> ഫോൾഡറിലെ ഫയലിൽ രണ്ടുതവണ ക്ലിക്ക് ചെയ്യുക. അപ്പോൾ Windows ഒരു <b>നീല നിറത്തിലുള്ള ജാലകം</b> കാണിച്ചേക്കാം — മുകളിൽ "Windows protected your PC" എന്ന് എഴുതിയത്. അത് കണ്ടാൽ ഞെട്ടേണ്ട; ആപ്പിൽ എന്തെങ്കിലും തകരാറുണ്ട് എന്നല്ല അത്.</span><span class="t-en">Double-click the file in your <code>Downloads</code> folder. Windows may show a <b>blue window</b> saying "Windows protected your PC". Don't be alarmed — it does not mean anything is wrong with the app.</span></p>
+      <div class="note-blue"><span class="t-ml"><b>ചെയ്യേണ്ടത് ഇങ്ങനെ:</b> ആ നീല ജാലകത്തിൽ തന്നെ <span class="bt">More info</span> എന്ന വരിയിൽ ക്ലിക്ക് ചെയ്യുക. പിന്നെ താഴെ <span class="bt">Run anyway</span> എന്ന ബട്ടൺ വന്നാൽ അത് അമർത്തുക. അതു കഴിഞ്ഞാൽ സാധാരണ ഇൻസ്റ്റാൾ ജാലകം വരും — അവിടെ <b>Next → Install</b> അമർത്തിയാൽ ഇൻസ്റ്റാൾ പൂർത്തിയാകും; കഴിഞ്ഞാൽ <b>Finish</b> അമർത്തി ആപ്പ് തുറക്കാം.</span><span class="t-en"><b>What to do:</b> In that blue window, click <span class="bt">More info</span>. Then a <span class="bt">Run anyway</span> button appears below — click it. The normal installer opens next; press <b>Next → Install</b>, and <b>Finish</b> when done to open the app.</span></div>
+      <div class="tip"><b class="t-ml">എന്തുകൊണ്ട് ഈ മുന്നറിയിപ്പ്?</b><b class="t-en">Why the warning?</b> <span class="t-ml">Windows-ൽ പുതിയ ആപ്പുകൾക്ക് അംഗീകാര സർട്ടിഫിക്കറ്റ് (code-signing) ഉണ്ടോ എന്നു നോക്കും; അത്തരം സർട്ടിഫിക്കറ്റുകൾക്ക് വർഷം തോറും പണം കൊടുക്കണം. സൗജന്യമായി കൊടുക്കുന്ന ആപ്പുകൾക്ക് അതുണ്ടാകില്ല — അതുകൊണ്ട് മാത്രമാണ് ഈ മുന്നറിയിപ്പ് കാണിക്കുന്നത്.</span><span class="t-en">Windows checks whether new apps carry a code-signing certificate; those certificates cost money every year. Free apps don't carry one — that is the only reason for the notice.</span></div>
     </div></div>
-    <div class="stepcard"><span class="n">3</span><div>
+
+    <div class="stepcard reveal"><span class="n">3</span><div>
       <h3 class="t-ml">അഡ്മിൻ അക്കൗണ്ട് ഉണ്ടാക്കുക</h3><h3 class="t-en">Create the admin account</h3>
-      <p><span class="t-ml">ആദ്യമായി തുറക്കുമ്പോൾ തന്നെ അഡ്മിന്റെ പേരും ഒരു ശക്തമായ പാസ്‌വേഡും നൽകി അക്കൗണ്ട് ഉണ്ടാക്കാം. നിങ്ങൾ ഉണ്ടാക്കുന്ന ആദ്യ അക്കൗണ്ട് തന്നെ അഡ്മിൻ ആകും.</span><span class="t-en">On first launch, set the admin name and a strong password. The first account you create becomes the admin.</span></p>
-      <div class="tip"><b class="t-ml">കുറിപ്പ്:</b><b class="t-en">Important:</b> <span class="t-ml">പാസ്‌വേഡ് സൂക്ഷിച്ചു വയ്ക്കുക — മറന്നാൽ തിരികെ കിട്ടില്ല. ഒരു കടലാസിൽ എഴുതി സൂക്ഷിക്കുന്നതാണ് നല്ലത്.</span><span class="t-en">Keep the password safe — it cannot be recovered. Writing it down somewhere private is a good idea.</span></div>
+      <p><span class="t-ml">ആപ്പ് ആദ്യമായി തുറക്കുമ്പോൾ അഡ്മിന്റെ പേരും ഒരു പാസ്‌വേഡും ചോദിച്ചേക്കും. ഇവിടെ നൽകുന്ന ആദ്യ അക്കൗണ്ടാണ് മഹല്ലിന്റെ പ്രധാന അഡ്മിൻ ആകുന്നത് — പിന്നീട് മറ്റു ജീവനക്കാർക്ക് പ്രത്യേക അക്കൗണ്ടുകൾ ഉണ്ടാക്കിക്കൊടുക്കാം. പാസ്‌വേഡ് എഴുതുമ്പോൾ പേര്, ജനനത്തീയതി പോലെ ഊഹിക്കാവുന്നത് ഒഴിവാക്കുക; അക്കങ്ങളും അക്ഷരങ്ങളും ചേർത്ത നീണ്ട പാസ്‌വേഡാകുന്നതാണ് നല്ലത്.</span><span class="t-en">When the app opens for the first time, it asks for an admin name and a password. The first account created becomes the mahallu's main admin — separate accounts for other staff can be added later. Avoid guessable passwords like names or birthdates; a long mix of letters and numbers is best.</span></p>
+      <div class="tip"><b class="t-ml">ഏറ്റവും പ്രധാനം:</b><b class="t-en">Most important:</b> <span class="t-ml">പാസ്‌വേഡ് മറന്നാൽ തിരിച്ചു കിട്ടില്ല. ഒരു കടലാസിൽ എഴുതി സുരക്ഷിതമായിടത്ത് സൂക്ഷിക്കുക — ആപ്പിന്റെ താക്കോൽ അതാണ്.</span><span class="t-en">A forgotten password cannot be recovered. Write it down and keep it somewhere safe — it is the key to the app.</span></div>
     </div></div>
-    <div class="stepcard"><span class="n">4</span><div>
+
+    <div class="stepcard reveal"><span class="n">4</span><div>
       <h3 class="t-ml">മഹല്ലിന്റെ വിവരങ്ങൾ നൽകുക</h3><h3 class="t-en">Fill in the mahallu details</h3>
-      <p><span class="t-ml">Settings പേജിൽ മഹല്ലിന്റെ പേരും വിലാസവും സ്ഥലത്തിന്റെ വിവരങ്ങളും നൽകുക. ഇവയാണ് രസീറ്റുകളിലും സർട്ടിഫിക്കറ്റുകളിലും അച്ചടിക്കുന്നത് — ഒന്നും കാലിയായി വയ്ക്കരുത്.</span><span class="t-en">In the Settings page, enter the mahallu name, address and location details. These print on every receipt and certificate — fill them in fully.</span></p>
+      <p><span class="t-ml">Settings പേജിൽ മഹല്ലിന്റെ പേര്, വിലാസം, സ്ഥലം, ഫോൺ നമ്പർ എന്നിവ നൽകുക. ഇനി വരുന്ന ഓരോ രസീറ്റിലും ഓരോ സർട്ടിഫിക്കറ്റിലും ഈ വിവരങ്ങളാണ് അച്ചടിക്കപ്പെടുന്നത് — അതുകൊണ്ട് ഒന്നും കാലിയായി വയ്ക്കരുത്. പിന്നീട് തിരുത്താമെങ്കിലും തുടക്കത്തിൽ തന്നെ ശരിയായി വയ്ക്കുന്നതാണ് നല്ലത്; രണ്ടു നിമിഷം മതി.</span><span class="t-en">In the Settings page, enter the mahallu name, address, place and phone number. Every receipt and certificate printed from now on carries these details — so leave nothing blank. It can be edited later, but getting it right at the start takes only a couple of minutes.</span></p>
     </div></div>
-    <div class="stepcard"><span class="n">5</span><div>
+
+    <div class="stepcard reveal"><span class="n">5</span><div>
       <h3 class="t-ml">കുടുംബങ്ങളെ ചേർക്കുക</h3><h3 class="t-en">Add the families</h3>
-      <p><span class="t-ml">Families പേജിൽ വീടുകൾ ചേർക്കുക — വീടിന്റെ പേര്/നമ്പർ, വാർഡ്, ഫോൺ നമ്പർ. ഒരു വീട് എന്നാൽ ഒരു കുടുംബ രേഖ.</span><span class="t-en">In the Families page, add each house — house name/number, ward and phone number. One house means one family record.</span></p>
-      <div class="tip"><b class="t-ml">കുറിപ്പ്:</b><b class="t-en">Tip:</b> <span class="t-ml">ഫോൺ നമ്പർ ശരിയായി നൽകുക — WhatsApp രസീറ്റ് പോകുന്നത് ആ നമ്പറിലേക്കാണ്.</span><span class="t-en">Enter the phone number correctly — that's where the WhatsApp receipt is sent.</span></div>
+      <p><span class="t-ml">Families പേജിൽ വീടുവീടനും രേഖ തുടങ്ങുക — വീടിന്റെ പേരോ നമ്പറോ, വാർഡ്, കുടുംബനിരപതിയുടെ ഫോൺ നമ്പർ. ഒരു വീട് എന്നാൽ ഒരു കുടുംബം. ജുമുഅത്തിനു ശേഷം ഒരു മണിക്കൂർ സമയം കണ്ടാൽ ആദ്യ വാരത്തിൽ തന്നെ ഭൂരിഭാഗം വീടുകളും ചേർക്കാം.</span><span class="t-en">In the Families page, create a record per house — house name or number, ward, and the family head's phone number. One house means one family. An hour after Jumu'ah is usually enough to add most houses in the first week itself.</span></p>
+      <div class="tip"><b class="t-ml">കുറിപ്പ്:</b><b class="t-en">Tip:</b> <span class="t-ml">ഫോൺ നമ്പർ ചേർക്കുമ്പോൾ തന്നെ ഒന്നു വായിച്ചു നോക്കുക — WhatsApp രസീറ്റ് പോകുന്നത് ആ നമ്പറിലേക്കാണ്; തെറ്റിയാൽ രസീറ്റ് എത്തില്ല.</span><span class="t-en">Read the phone number back once while adding it — the WhatsApp receipt goes to that number; if it is wrong, no receipt arrives.</span></div>
     </div></div>
-    <div class="stepcard"><span class="n">6</span><div>
+
+    <div class="stepcard reveal"><span class="n">6</span><div>
       <h3 class="t-ml">അംഗങ്ങളെ ചേർക്കുക</h3><h3 class="t-en">Add the members</h3>
-      <p><span class="t-ml">ഓരോ കുടുംബത്തിലും അംഗങ്ങളെ ചേർക്കുക — പേരും ബന്ധവും (ഭാര്യ, മകൻ, മകൾ…). ബന്ധങ്ങൾ ചേർത്തു കഴിഞ്ഞാൽ ഫാമിലി ട്രീ തനിയെ തയ്യാറാകും; സർവേ ഫോം അച്ചടിക്കാനും പറ്റും.</span><span class="t-en">Add members to each family with their relation (wife, son, daughter…). Once relations are set, the family tree builds itself, and you can print the survey form too.</span></p>
+      <p><span class="t-ml">ഓരോ കുടുംബത്തിനു കീഴിൽ അംഗങ്ങളെ ചേർക്കുക — പേരും ആ വീട്ടിലെ ബന്ധവും (ഭാര്യ, മകൻ, മകൾ…). ബന്ധങ്ങൾ ശരിയായി ചേർത്തു കഴിഞ്ഞാൽ ഫാമിലി ട്രീ ആപ്പ് തനിയെ തയ്യാറാക്കും — ആരുടെ മകൻ, ആരുടെ ഭാര്യ എന്ന് ഒറ്റനോട്ടത്തിൽ കാണാം. അച്ചടിക്കാവുന്ന സർവേ ഫോം എടുത്തു വീടുവീടനും കൊണ്ടുപോയി വിവരങ്ങൾ കുറിച്ച്, പിന്നെ ഒറ്റയടിക്കം ടൈപ്പ് ചെയ്യുന്നതാണ് ഏറ്റവും എളുപ്പം.</span><span class="t-en">Add members under each family — name and relation in that house (wife, son, daughter…). Once relations are set, the family tree builds itself — who is whose son or wife, visible at a glance. The easiest route: print the survey form, fill it house by house, then type it all in one go.</span></p>
     </div></div>
-    <div class="stepcard"><span class="n">7</span><div>
+
+    <div class="stepcard reveal"><span class="n">7</span><div>
       <h3 class="t-ml">വരിസംഖ്യ പിരിക്കുക</h3><h3 class="t-en">Collect the subscriptions</h3>
-      <p><span class="t-ml">Subscriptions പേജിൽ മാസം തിരഞ്ഞെടുത്ത് അടവ് രേഖപ്പെടുത്തുക. പാതി തുക അടച്ചാലും കുറിക്കാം; ആരുടെ ബാക്കി എത്രയെന്ന് ആപ്പ് കാണിച്ചു തരും. ഓരോ അടവിനും അതിന്റേതായ രസീറ്റ് നമ്പർ തനിയെ വരും.</span><span class="t-en">In the Subscriptions page, pick the month and record each payment. Partial payments are fine, and the app shows who still has a balance. Every payment gets its own receipt number automatically.</span></p>
+      <p><span class="t-ml">Subscriptions പേജിൽ മാസം തിരഞ്ഞെടുത്ത് ഓരോ വീട്ടിൽ നിന്നും കൈപറ്റിയ തുക രേഖപ്പെടുത്തുക. പാതി തുക അടച്ചാലും കുറിക്കാം — ബാക്കി ആപ്പ് തനിയെ കണക്കാക്കി വയ്ക്കും. ആരുടെ ബാക്കി എത്രയെന്നറിയണമെങ്കിൽ പട്ടിക തുറന്നാൽ മതി. ഓരോ അടവിനും അതിന്റേതായ രസീറ്റ് നമ്പർ തനിയെ വരും; ഒരേ നമ്പർ രണ്ടുതവണ വരില്ല.</span><span class="t-en">In the Subscriptions page, pick the month and record the amount collected from each house. Partial payments are fine — the balance is calculated and kept by the app. To see who owes how much, just open the list. Every payment gets its own receipt number automatically; no number is ever repeated.</span></p>
     </div></div>
-    <div class="stepcard"><span class="n">8</span><div>
+
+    <div class="stepcard reveal"><span class="n">8</span><div>
       <h3 class="t-ml">WhatsApp രസീറ്റ് ഓണാക്കുക</h3><h3 class="t-en">Turn on WhatsApp receipts</h3>
-      <p><span class="t-ml">സൈഡ്ബാറിലെ വാട്ട്സ്ആപ്പ് പേജ് തുറന്ന് കാണിക്കുന്ന QR കോഡ് ഫോണിലൂടെ ഒരിക്കൽ സ്കാൻ ചെയ്യുക (WhatsApp → Linked devices → Link a device). പിന്നീട് ഓരോ അടവിനും രസീറ്റ് തനിയെ അംഗത്തിന്റെ വാട്ട്സ്ആപ്പിൽ എത്തും.</span><span class="t-en">Open the WhatsApp page in the app's sidebar and scan the QR once with your phone (WhatsApp → Linked devices → Link a device). After that, every payment sends its receipt to the member's WhatsApp automatically.</span></p>
-      <div class="tip"><b class="t-ml">കുറിപ്പ്:</b><b class="t-en">Note:</b> <span class="t-ml">ഇന്റർനെറ്റ് വേണ്ടത് ഇതിനു മാത്രം — കണക്കുകൾ സൂക്ഷിക്കുന്നതിന് ഇന്റർനെറ്റ് വേണ്ട.</span><span class="t-en">Internet is needed only for this — storing your records never needs it.</span></div>
+      <p><span class="t-ml">സൈഡ്ബാറിലെ <b>വാട്ട്സ്ആപ്പ്</b> പേജ് തുറക്കുക; കാണിക്കുന്ന QR കോഡ് ഫോണിലൂടെ ഒരിക്കൽ സ്കാൻ ചെയ്യുക — ഫോണിൽ WhatsApp തുറന്ന് <b>Settings → Linked devices → Link a device</b>. ഒരിക്കൽ പെയർ ചെയ്തു കഴിഞ്ഞാൽ ഓരോ അടവിനും രസീറ്റ് അംഗത്തിന്റെ വാട്ട്സ്ആപ്പിൽ തനിയെ എത്തും. ഫോൺ മാറിയാലോ ലിങ്ക് പോയാലോ ഇതേ വിധം വീണ്ടും പെയർ ചെയ്യാം.</span><span class="t-en">Open the <b>WhatsApp</b> page in the app's sidebar and scan the QR shown there once from your phone — open WhatsApp and go to <b>Settings → Linked devices → Link a device</b>. After pairing once, each payment sends its receipt to the member's WhatsApp automatically. If the phone changes or unlinks, just pair the same way again.</span></p>
+      <div class="tip"><b class="t-ml">ഇന്റർനെറ്റ് വേണ്ടത് ഇവിടെ മാത്രം:</b><b class="t-en">Internet is needed only for this:</b> <span class="t-ml">രസീറ്റ് അയക്കാനും WhatsApp പെയർ ചെയ്യാനും മാത്രം ഇന്റർനെറ്റ് വേണം; കണക്കുകൾ സൂക്ഷിക്കുന്നതിന് ഇന്റർനെറ്റ് വേണ്ട — എല്ലാം നിങ്ങളുടെ കമ്പ്യൂട്ടറിൽ തന്നെ.</span><span class="t-en">Only sending receipts and pairing WhatsApp needs the internet. Storing your records never does — everything stays on your own computer.</span></div>
     </div></div>
-    <div class="stepcard"><span class="n">9</span><div>
+
+    <div class="stepcard reveal"><span class="n">9</span><div>
       <h3 class="t-ml">ദാനങ്ങളും സർട്ടിഫിക്കറ്റുകളും</h3><h3 class="t-en">Donations and certificates</h3>
-      <p><span class="t-ml">ദാനങ്ങൾ വിഭാഗം തിരിച്ച് രേഖപ്പെടുത്തുക — രസീറ്റ് നമ്പർ തനിയെ ക്രമമായി വരും, ഒരേ നമ്പർ രണ്ടുതവണ വരില്ല.</span><span class="t-en">Record donations under their categories — receipt numbers come out in order automatically, never repeated.</span></p>
-      <p><span class="t-ml">സർട്ടിഫിക്കറ്റുകൾ പേജിൽ 5 തരം സർട്ടിഫിക്കറ്റുകൾ ഉണ്ടാക്കാം — അംഗത്വം, വസതി, നികാഹ്, NOC, മരണം. അച്ചടിച്ച ഓരോ സർട്ടിഫിക്കറ്റിലും <b>QR കോഡ്</b> ഉണ്ടാകും; ആപ്പിലെ QR പരിശോധയിൽ സ്കാൻ ചെയ്താൽ സർട്ടിഫിക്കറ്റ് യഥാർത്ഥമാണോ എന്ന് ഉടനെ അറിയാം.</span><span class="t-en">The Certificates page issues five types — membership, residence, Nikah, NOC and death. Every printed certificate carries a <b>QR code</b>; scan it in the app's QR check to confirm the certificate is genuine.</span></p>
+      <p><span class="t-ml">ദാനങ്ങൾ വിഭാഗം തിരിച്ച് രേഖപ്പെടുത്തുക — രസീറ്റ് നമ്പറും തീയതിയും ആപ്പ് തനിയെ ക്രമപ്പെടുത്തും; പിന്നീട് വിഭാഗം അടിസ്ഥാനത്തിൽ റിപ്പോർട്ടും എടുക്കാം.</span><span class="t-en">Record donations under their categories — receipt number and date are set by the app itself; category-wise reports can be pulled later too.</span></p>
+      <p><span class="t-ml">Certificates പേജിൽ അഞ്ചിനം സർട്ടിഫിക്കറ്റുകൾ തയ്യാറാക്കാം — അംഗത്വം, വസതി, നികാഹ്, NOC, മരണം. അംഗത്തിന്റെ പേര് തിരഞ്ഞെടുത്ത് ആവശ്യമുള്ള വിവരങ്ങൾ നൽകിയാൽ ഉടനെ അച്ചടിക്കാവുന്ന രീതിയിൽ സർട്ടിഫിക്കറ്റ് തയ്യാറാക്കിത്തരും — മഹല്ലിന്റെ പേരും വിലാസവും സ്വയമേവ ഉൾപ്പെടും.</span><span class="t-en">The Certificates page prepares five types — membership, residence, Nikah, NOC and death. Choose the member, enter the needed details, and the certificate comes out print-ready at once — the mahallu name and address appear on their own.</span></p>
     </div></div>
-    <div class="stepcard"><span class="n">10</span><div>
-      <h3 class="t-ml">കണക്കും ബാക്കപ്പും</h3><h3 class="t-en">Accounts and backup</h3>
-      <p><span class="t-ml">Accounting-ൽ വരവ്-ചെലവ് കണക്കുകൾ ഒറ്റ പുസ്തകത്തിൽ കാണാം; Reports-ൽ ഏത് പട്ടികയും Excel, CSV, PDF ആയി എടുക്കാം.</span><span class="t-en">Accounting shows income and expense in one book; Reports exports any list as Excel, CSV or PDF.</span></p>
-      <p><span class="t-ml">എല്ലാ ആഴ്ചയും <b>Backup</b> എടുത്തു പെൻഡ്രൈവിൽ സൂക്ഷിക്കുക — കമ്പ്യൂട്ടർ മാറിയാലും പുതിയതിൽ <b>Restore</b> ചെയ്താൽ എല്ലാം അതേപടി കിട്ടും.</span><span class="t-en">Take a <b>Backup</b> every week and keep it on a pendrive — on a new computer, one <b>Restore</b> brings everything back exactly as it was.</span></p>
+
+    <div class="stepcard reveal"><span class="n">10</span><div>
+      <h3 class="t-ml">കണക്കും ബാക്കപ്പും — ഏറ്റവും പ്രധാനം</h3><h3 class="t-en">Accounts and backup — the most important</h3>
+      <p><span class="t-ml">Accounting-ൽ വരവും ചെലവും ഒറ്റ കണക്ക് പുസ്തകത്തിൽ കാണാം — വരിസംഖ്യയും ദാനങ്ങളും അടക്കം എല്ലാ കാശ് കാര്യങ്ങളും അവിടെ എത്തും. Reports ഭാഗത്തു നിന്ന് ഏത് പട്ടികയും Excel, CSV അല്ലെങ്കിൽ PDF ആയി എടുക്കാം — കമ്മിറ്റി യോഗത്തിൽ കാണിക്കാൻ ഇതു തന്നെ വേണം.</span><span class="t-en">Accounting shows income and expense in one book — subscriptions, donations and every other money matter flows in there. From the Reports section, any list can be exported as Excel, CSV or PDF — exactly what you need to present at committee meetings.</span></p>
+      <p><span class="t-ml">ഏറ്റവും പ്രധാന ശീലം: <b>എല്ലാ ആഴ്ചയും Backup</b> എടുത്ത് പെൻഡ്രൈവിൽ സൂക്ഷിക്കുക. കമ്പ്യൂട്ടർ മാറിയാലോ തകരാറുണ്ടായാലോ പുതിയതിൽ ആപ്പ് ഇൻസ്റ്റാൾ ചെയ്ത് <b>Restore</b> അമർത്തി ബാക്കപ്പ് ഫയൽ തിരഞ്ഞെടുത്താൽ എല്ലാം അതേപടി തിരിച്ചു വരും.</span><span class="t-en">The most important habit: take a <b>Backup every week</b> and keep it on a pendrive. If the computer changes or fails, install the app on the new one, press <b>Restore</b>, pick the backup file — and everything comes back exactly as it was.</span></p>
     </div></div>
   </section>
 
-  <section class="tips">
-    <h2 class="t-ml">നല്ല രീതികൾ — ചെറിയ കാര്യങ്ങൾ, വലിയ പ്രയോജനം</h2><h2 class="t-en">Good habits — small things that help a lot</h2>
-    <p class="tsub t-ml">ഇവ ഒന്നും നിർബന്ധമല്ല; പക്ഷേ ശീലമാക്കിയാൽ പിന്നെ ഒരു കുഴപ്പവും വരില്ല.</p><p class="tsub t-en">None of these are compulsory — but as habits, they save you from every common problem.</p>
+<!-- ================= HABITS ================= -->
+  <section class="wrap">
+    <div class="sec-head reveal">
+      <span class="kicker t-ml">നല്ല രീതികൾ</span><span class="kicker t-en">Good habits</span>
+      <h2 class="t-ml">ചെറിയ കാര്യങ്ങൾ — വലിയ പ്രയോജനം</h2><h2 class="t-en">Small things that help a lot</h2>
+      <p class="sec-sub t-ml">ഇവ ഒന്നും നിർബന്ധമല്ല; പക്ഷേ ശീലമാക്കിയാൽ പിന്നെ സാധാരണ ഒന്നും കുഴപ്പം പറ്റില്ല.</p>
+      <p class="sec-sub t-en">None of these are compulsory — but as habits, they keep every common problem away.</p>
+    </div>
     <div class="tgrid">
-      <div class="titem"><span class="ck">✓</span><div><b class="t-ml">ആഴ്ചയിലൊരിക്കൽ ബാക്കപ്പ്</b><b class="t-en">Backup once a week</b><span class="t-ml">വെള്ളിയാഴ്ച ജോലി കഴിഞ്ഞാൽ ബാക്കപ്പ് — എളുപ്പത്തിൽ ഓർക്കാം.</span><span class="t-en">Take it after Friday's work — easy to remember.</span></div></div>
-      <div class="titem"><span class="ck">✓</span><div><b class="t-ml">പാസ്‌വേഡ് സൂക്ഷിക്കുക</b><b class="t-en">Keep the password safe</b><span class="t-ml">അഡ്മിൻ പാസ്‌വേഡ് മാത്രമാണ് ആപ്പിന്റെ താക്കോൽ.</span><span class="t-en">The admin password is the only key to the app.</span></div></div>
-      <div class="titem"><span class="ck">✓</span><div><b class="t-ml">ഫോൺ നമ്പർ ശരിയായി</b><b class="t-en">Correct phone numbers</b><span class="t-ml">തെറ്റായ നമ്പറിൽ രസീറ്റ് എത്തില്ല; ചേർക്കുമ്പോൾ തന്നെ പരിശോധിക്കുക.</span><span class="t-en">Receipts fail on wrong numbers — double-check while adding families.</span></div></div>
-      <div class="titem"><span class="ck">✓</span><div><b class="t-ml">അടവ് ഉടനെ രേഖപ്പെടുത്തുക</b><b class="t-en">Record payments on the spot</b><span class="t-ml">പണം കൈപിടിച്ച ഉടനെ തന്നെ അടവ് ചേർക്കുക — മറവി പിന്നെ വരില്ല.</span><span class="t-en">Enter the payment as soon as money is received — nothing slips through.</span></div></div>
+      <div class="titem reveal"><span class="ck">✓</span><div><b class="t-ml">ആഴ്ചയിലൊരിക്കൽ ബാക്കപ്പ്</b><b class="t-en">Backup once a week</b><span class="t-ml">വെള്ളിയാഴ്ച ജോലി കഴിഞ്ഞാൽ ബാക്കപ്പ് — എളുപ്പത്തിൽ ഓർക്കാം.</span><span class="t-en">After Friday's work, take the backup — easy to remember.</span></div></div>
+      <div class="titem reveal"><span class="ck">✓</span><div><b class="t-ml">പാസ്‌വേഡ് സൂക്ഷിക്കുക</b><b class="t-en">Keep the password safe</b><span class="t-ml">അഡ്മിൻ പാസ്‌വേഡ് മാത്രമാണ് ആപ്പിന്റെ താക്കോൽ; അതു നഷ്ടപ്പെട്ടാൽ തിരിച്ചു കിട്ടില്ല.</span><span class="t-en">The admin password is the only key to the app — once lost, it is gone.</span></div></div>
+      <div class="titem reveal"><span class="ck">✓</span><div><b class="t-ml">അടവ് ഉടനെ രേഖപ്പെടുത്തുക</b><b class="t-en">Record payments on the spot</b><span class="t-ml">പണം കൈപിടിച്ച ഉടനെ തന്നെ അടവ് ചേർക്കുക — മറവിയും കണക്കു തെറ്റും ഉണ്ടാവില്ല.</span><span class="t-en">Enter the payment the moment money is received — nothing is forgotten or miscounted.</span></div></div>
+      <div class="titem reveal"><span class="ck">✓</span><div><b class="t-ml">ഫോൺ നമ്പർ ശരിയായി</b><b class="t-en">Correct phone numbers</b><span class="t-ml">തെറ്റായ നമ്പറിൽ രസീറ്റ് എത്തില്ല; നമ്പർ മാറിയാൽ Settings-ൽ ഉടനെ തിരുത്തുക.</span><span class="t-en">Receipts never reach a wrong number; update changed numbers in Settings right away.</span></div></div>
     </div>
   </section>
 
-  <section class="cta">
-    <h2 class="t-ml">തയ്യാറാണോ? തുടങ്ങിക്കോളൂ</h2><h2 class="t-en">Ready? Get started</h2>
-    <p class="t-ml">ഡൗൺലോഡ് മുതൽ ആദ്യ രസീറ്റ് വരെ — ഇന്നു തന്നെ പറ്റിക്കാം. എന്നും സൗജന്യം.</p><p class="t-en">From download to first receipt — you can do it today. Free, always.</p>
-    <a class="btn" href="index.html#download"><svg viewBox="0 0 24 24"><path d="M12 2v14"/><path d="m6 10 6 6 6-6"/><path d="M4 20h16"/></svg><span class="t-ml">ഇപ്പോൾ ഡൗൺലോഡ് ചെയ്യുക</span><span class="t-en">Download now</span></a>
+<!-- ================= CTA ================= -->
+  <section class="wrap">
+    <div class="cta reveal">
+      <h2 class="t-ml">തയ്യാറാണോ? ഇന്നു തന്നെ തുടങ്ങിക്കോളൂ</h2><h2 class="t-en">Ready? Start today</h2>
+      <p class="t-ml">ഡൗൺലോഡ് മുതൽ ആദ്യ രസീറ്റ് വരെ ഒരു ദിവസം കൊണ്ടു പറ്റാം. ഇതിനൊന്നും ഒരു രൂപയും കൊടുക്കേണ്ട — എന്നും സൗജന്യം.</p>
+      <p class="t-en">From download to first receipt in a single day. It costs nothing — free, always.</p>
+      <a class="btn" href="index.html#download"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span class="t-ml">ഇപ്പോൾ ഡൗൺലോഡ് ചെയ്യുക</span><span class="t-en">Download now</span></a>
+    </div>
   </section>
 </main>
 
+<!-- ================= FOOTER ================= -->
 <footer>
   <div class="wrap">
-    <p><b>Minz Mahallu Management System</b> — <span class="t-ml">മഹല്ല് ഭരണം ഇനി എളുപ്പം</span><span class="t-en">Mahallu management, made easy</span></p>
-    <p style="margin-top:4px"><a href="index.html">← <span class="t-ml">ഹോം പേജിലേക്ക്</span><span class="t-en">Back to home page</span></a></p>
+    <div class="foot-brand">
+      <span class="logo"><img src="logo-small.png" alt="Minz Mahallu" width="46" height="46"></span>
+      <span>Minz Mahallu Management System<small class="t-ml">മഹല്ല് ഭരണം ഇനി എളുപ്പം</small><small class="t-en">Mahallu management, made easy</small></span>
+    </div>
+    <nav class="foot-links" aria-label="Footer">
+      <a href="index.html"><span class="t-ml">ഹോം</span><span class="t-en">Home</span></a>
+      <a href="index.html#features"><span class="t-ml">സവിശേഷതകൾ</span><span class="t-en">Features</span></a>
+      <a href="index.html#download"><span class="t-ml">ഡൗൺലോഡ്</span><span class="t-en">Download</span></a>
+      <a href="index.html#faq"><span class="t-ml">ചോദ്യങ്ങൾ</span><span class="t-en">FAQ</span></a>
+    </nav>
     <span class="free-pill"><i></i><span class="t-ml">ഈ ആപ്പ് എന്നും 100% സൗജന്യമാണ്</span><span class="t-en">This app is 100% free, always</span></span>
   </div>
 </footer>
 
+<button id="toTop" type="button" aria-label="Back to top"><svg viewBox="0 0 24 24"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></button>
+
 <script>
 (function(){
+  "use strict";
+  /* ---- Language toggle (default: Malayalam) ---- */
   var btnML=document.getElementById("btn-ml"),btnEN=document.getElementById("btn-en");
   function setLang(l){
     var r=document.documentElement;
@@ -196,6 +300,24 @@ html.lang-en .t-ml{display:none}
   btnML.addEventListener("click",function(){setLang("ml")});
   btnEN.addEventListener("click",function(){setLang("en")});
   try{if(localStorage.getItem("mms-lang")==="en")setLang("en");}catch(e){}
+
+  /* ---- Header shadow + back to top ---- */
+  var hdr=document.getElementById("hdr"),toTop=document.getElementById("toTop");
+  function onScroll(){
+    hdr.classList.toggle("scrolled",window.scrollY>8);
+    toTop.classList.toggle("show",window.scrollY>480);
+  }
+  window.addEventListener("scroll",onScroll,{passive:true});onScroll();
+  toTop.addEventListener("click",function(){window.scrollTo({top:0,behavior:"smooth"});});
+
+  /* ---- Save as PDF ---- */
+  document.getElementById("pdf-btn").addEventListener("click",function(){window.print();});
+
+  /* ---- Reveal on scroll ---- */
+  var io=new IntersectionObserver(function(es){
+    es.forEach(function(e){if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target);}});
+  },{threshold:.1,rootMargin:"0px 0px -36px 0px"});
+  document.querySelectorAll(".reveal").forEach(function(el){io.observe(el);});
 })();
 </script>
 </body>
