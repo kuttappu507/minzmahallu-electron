@@ -90,6 +90,7 @@ export function Subscriptions() {
   const [resendOpen, setResendOpen] = useState(false);
   const [resendTarget, setResendTarget] = useState<Subscription | null>(null);
   const [sendingId, setSendingId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false); // blocks double-click duplicate payments (user report)
 
   const { rows, total, totalPages, loading, refetch, setFilters, search, setSearch } = useList(
     (filter) => window.mms.subscriptions.list(filter),
@@ -121,9 +122,38 @@ export function Subscriptions() {
     setDialogOpen(true);
   };
 
+  // Background WhatsApp receipt send — the SAME pattern the Donations page
+  // uses (user report: donation WhatsApp was quick and correct). The dialog
+  // closes FIRST, the receipt goes out in the background, and the delivery
+  // toast lands when the send finishes. One send per save — no duplicates.
+  const backgroundSendReceipt = (id: number) => {
+    toast.info(tx("Sending receipt on WhatsApp…", "വാട്ട്സ്ആപ്പിൽ രസീറ്റ് അയയ്ക്കുന്നു…"));
+    (async () => {
+      try {
+        const sent: any = await window.mms.whatsapp.sendSubscriptionReceipt(id);
+        if (sent?.status === "delivered" || (sent?.success && sent?.delivered)) {
+          toast.success(tx("Receipt delivered to the recipient — it is now locked", "രസീറ്റ് സ്വീകർത്താവിന് ലഭിച്ചു — ഇനി ലോക്ക് ചെയ്തിരിക്കുന്നു"));
+        } else if (sent?.status === "sent" || sent?.success) {
+          toast.warning(tx("Receipt sent — delivery not confirmed yet (the phone may be offline). Not locked; you can send again after confirming it did not arrive.", "രസീറ്റ് അയച്ചു — ഡെലിവറി ഉറപ്പാക്കിയിട്ടില്ല (ഫോൺ ഓഫലൈൻ ആകാം). വന്നെത്തിയില്ലെന്ന് ഉറപ്പായാൽ വീണ്ടും അയക്കാം."));
+        } else if (sent?.status === "already-delivered") {
+          toast.info(tx("Already sent to the recipient — the receipt is locked for their privacy.", "സ്വീകർത്താവിന് ഇതിനകം അയച്ചു — സ്വകാര്യതയ്ക്കായി രസീറ്റ് ലോക്ക് ചെയ്തിരിക്കുന്നു."));
+        } else if (sent?.status === "no-phone" || sent?.status === "not-connected" || sent?.status === "skipped") {
+          toast.info(tx("Receipt saved in the app (WhatsApp send skipped — no number or not connected).", "രസീറ്റ് ആപ്പിൽ സേവ് ചെയ്തു (വാട്ട്സ്ആപ്പ് അയച്ചില്ല — നമ്പറില്ല അല്ലെങ്കിൽ കണക്റ്റ് അല്ല)."));
+        } else {
+          toast.error(sent?.error || tx("Could not send the receipt", "രസീറ്റ് അയയ്ക്കാനായില്ല"));
+        }
+        refetch();
+      } catch (e: any) {
+        toast.error(friendlySendError(e, t) || tx("Could not send the receipt", "രസീറ്റ് അയയ്ക്കാനായില്ല"));
+        refetch();
+      }
+    })();
+  };
+
   // Payment recording: only the payment fields are editable — family, head,
   // period and the monthly rate are fixed by the recurring account.
   const handleSave = async () => {
+    if (saving) return; // one save at a time — repeated clicks used to queue duplicate payments + receipts
     if (!editingId) {
       // Creating a NEW subscription account (only for families without one).
       if (!form.family_id || !form.amount) {
@@ -131,7 +161,8 @@ export function Subscriptions() {
         return;
       }
       try {
-        await window.mms.subscriptions.create({
+        setSaving(true);
+        const created: any = await window.mms.subscriptions.create({
           familyId: form.family_id,
           memberId: form.member_id || null,
           planId: form.plan_id || 1,
@@ -147,8 +178,14 @@ export function Subscriptions() {
         setForm(emptyForm);
         setEditingId(null);
         refetch();
+        refreshCollected();
+        refreshPending();
+        // Close FIRST, then send — the receipt goes out in the background.
+        if (Number(form.amount_paid ?? 0) > 0 && created?.id) backgroundSendReceipt(Number(created.id));
       } catch (err: any) {
         toast.error(err.message || t("ui_failed_save"));
+      } finally {
+        setSaving(false);
       }
       return;
     }
@@ -156,27 +193,20 @@ export function Subscriptions() {
       toast.error(tx("Enter how much was given", "എത്ര നൽകി എന്ന് നൽകുക"));
       return;
     }
+    const payingId = editingId;
+    const paidNow = Number(form.amount_paid);
     try {
-      const r: any = await window.mms.subscriptions.update(editingId, {
-        amountPaid: Number(form.amount_paid),
+      setSaving(true);
+      const r: any = await window.mms.subscriptions.update(payingId, {
+        amountPaid: paidNow,
         paymentDate: form.payment_date,
         paymentMethod: form.payment_method,
         transactionRef: form.transaction_ref || "",
         remarks: form.remarks || "",
       });
-      // The receipt (A6) is generated and saved in the app automatically;
-      // WhatsApp delivery depends on pairing + the family's number.
-      const waNote: string =
-        r?.receiptWhatsApp === "delivered" ? tx(" — receipt DELIVERED on WhatsApp (now locked)", " — രസീറ്റ് വാട്ട്സ്ആപ്പിൽ എത്തി (ഇനി ലോക്ക്)")
-        : r?.receiptWhatsApp === "already-delivered" ? tx(" — this month's receipt was already delivered (locked for privacy)", " — ഈ മാസത്തെ രസീറ്റ് ഇതിനകം എത്തിയിട്ടുണ്ട് (സ്വകാര്യതയ്ക്കായി ലോക്ക്)")
-        : r?.receiptWhatsApp === "sent" ? tx(" — receipt sent on WhatsApp (delivery not confirmed yet)", " — രസീറ്റ് വാട്ട്സ്ആപ്പിൽ അയച്ചു (ഡെലിവറി ഉറപ്പായിട്ടില്ല)")
-        : r?.receiptWhatsApp === "no-phone" ? tx(" — receipt saved (no WhatsApp number for this family)", " — രസീറ്റ് സേവ് ചെയ്തു (ഈ കുടുംബത്തിന് വാട്ട്സ്ആപ്പ് നമ്പർ ഇല്ല)")
-        : r?.receiptWhatsApp === "not-connected" ? tx(" — receipt saved (WhatsApp not connected)", " — രസീറ്റ് സേവ് ചെയ്തു (വാട്ട്സ്ആപ്പ് കണക്റ്റ് അല്ല)")
-        : r?.receiptWhatsApp === "failed" ? tx(` — receipt not sent: ${r.receiptError || "failed"}`, ` — രസീറ്റ് അയച്ചില്ല: ${r.receiptError || "പരാജയം"}`)
-        : "";
       toast.success(tx(
-        `Payment saved — ${r.status}${r.receiptNumber ? ` (receipt ${r.receiptNumber})` : ""}${waNote}`,
-        `പേയ്‌മെന്റ് സേവ് ചെയ്തു — ${r.status}${r.receiptNumber ? ` (രസീറ്റ് ${r.receiptNumber})` : ""}${waNote}`
+        `Payment saved — ${r.status}${r.receiptNumber ? ` (receipt ${r.receiptNumber})` : ""}`,
+        `പേയ്‌മെന്റ് സേവ് ചെയ്തു — ${r.status}${r.receiptNumber ? ` (രസീറ്റ് ${r.receiptNumber})` : ""}`
       ));
       setDialogOpen(false);
       setForm(emptyForm);
@@ -184,8 +214,12 @@ export function Subscriptions() {
       refetch();
       refreshCollected();
       refreshPending();
+      // Close FIRST, then send — no more waiting inside the dialog.
+      if (paidNow > 0 && r?.receiptNumber) backgroundSendReceipt(Number(payingId));
     } catch (err: any) {
       toast.error(err.message || t("ui_failed_save"));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -753,7 +787,7 @@ export function Subscriptions() {
           )}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setDialogOpen(false)}>{t("action_cancel")}</Button>
-            <Button onClick={handleSave}>{editingId ? tx("Save payment", "പേയ്‌മെന്റ് സേവ് ചെയ്യുക") : t("action_save")}</Button>
+            <Button onClick={handleSave} disabled={saving}>{saving ? t("ui_saving") : (editingId ? tx("Save payment", "പേയ്‌മെന്റ് സേവ് ചെയ്യുക") : t("action_save"))}</Button>
           </div>
         </div>
       </Dialog>

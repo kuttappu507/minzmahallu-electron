@@ -15,9 +15,18 @@ export const members = {
       where.push("m.family_id = ?");
       params.push(filter.familyId);
     }
+    // Archived members keep status "Active" — archive_state is the real flag.
+    // Map the UI dropdown (All / Active / Archived) onto it so the Archived
+    // list actually shows archived members and Active hides them.
     if (filter.status && filter.status !== "All") {
-      where.push("m.status = ?");
-      params.push(filter.status);
+      if (filter.status === "Archived") {
+        where.push("m.archive_state = 1");
+      } else if (filter.status === "Active") {
+        where.push("m.archive_state = 0");
+      } else {
+        where.push("m.status = ?");
+        params.push(filter.status);
+      }
     }
     const sql = `SELECT m.*, f.family_number, f.house_name AS family_house_name
       FROM members m LEFT JOIN families f ON f.id = m.family_id

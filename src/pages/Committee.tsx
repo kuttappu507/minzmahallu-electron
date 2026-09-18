@@ -9,7 +9,8 @@ import { clampPhone10 } from "@/lib/phone";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
 import { friendlyAuthError } from "@/lib/pwd";
-import { statusVariant, formatDate } from "@/lib/utils";
+import { statusVariant, formatDate, capitalizeWords } from "@/lib/utils";
+import { friendlyAction, formatHistoryChanges } from "@/lib/history-format";
 
 interface CommitteeRow {
   id: number;
@@ -72,7 +73,16 @@ export function Committee() {
   const [history, setHistory] = useState<HistoryRow[]>([]);
 
   const [archiveOpen, setArchiveOpen] = useState(false);
-  const [archiveReason, setArchiveReason] = useState("");
+  const [restoreOpen, setRestoreOpen] = useState(false);
+
+  // Member-link options for the add dialog: pick an existing mahallu member
+  // and the name/phone/address are filled in automatically.
+  const [memberOptions, setMemberOptions] = useState<any[]>([]);
+  useEffect(() => { if (!dialogOpen) return; window.mms.members.list({ page: 1, pageSize: 10000 }).then(r => setMemberOptions((r.rows || []).filter((m: any) => !m.archive_state))).catch(() => setMemberOptions([])); }, [dialogOpen]);
+  const onMemberPick = (v: string) => {
+    const m = memberOptions.find(x => String(x.id) === v);
+    setForm(f => ({ ...f, member_id: v ? Number(v) : null, name: m ? m.name : f.name, phone: m && m.mobile ? m.mobile : (f.phone || ""), address: m && m.address ? m.address : (f.address || "") }));
+  };
 
   // Committee records are OFFICIAL — direct editing is blocked (user report).
   // Every edit first passes a reason + administrator-password gate; the main
@@ -151,25 +161,20 @@ export function Committee() {
     try { setHistory(await window.mms.committee.history(c.id)); } catch { setHistory([]); }
   };
 
-  const openArchive = () => { setArchiveReason(""); setArchiveOpen(true); };
+  const openArchive = () => { setArchiveOpen(true); };
 
-  const executeArchive = async () => {
+  const executeArchive = async ({ reason, password }: { reason: string; password: string }) => {
     if (!preview) return;
-    if (!archiveReason.trim()) { toast.error(t("committee_archive_reason_req")); return; }
-    try {
-      await window.mms.committee.archive(preview.id, archiveReason.trim());
-      toast.success(t("committee_archived_toast"));
-      setArchiveOpen(false); setPreviewOpen(false); refetch(); refreshMeta();
-    } catch (e: any) { toast.error(e.message); }
+    await window.mms.committee.archive(preview.id, reason.trim(), password);
+    toast.success(t("committee_archived_toast"));
+    setArchiveOpen(false); setPreviewOpen(false); refetch(); refreshMeta();
   };
 
-  const executeRestore = async () => {
+  const executeRestore = async ({ password }: { password: string }) => {
     if (!preview) return;
-    try {
-      await window.mms.committee.restore(preview.id);
-      toast.success(t("committee_restored_toast"));
-      setPreviewOpen(false); refetch(); refreshMeta();
-    } catch (e: any) { toast.error(e.message); }
+    await window.mms.committee.restore(preview.id, password);
+    toast.success(t("committee_restored_toast"));
+    setPreviewOpen(false); refetch(); refreshMeta();
   };
 
   const displayStatus = (r: CommitteeRow) => {
@@ -310,8 +315,14 @@ export function Committee() {
                   {history.length ? history.map(h => (
                     <div key={h.id} className="p-3 rounded-lg border border-border">
                       <div className="flex justify-between gap-3"><b>{h.summary}</b><span className="text-xs text-muted">{h.changed_at}</span></div>
-                      <div className="text-xs text-muted mt-1">{h.username} · {h.action}{h.reason ? ` · ${h.reason}` : ""}</div>
-                      {h.changes_json && <pre className="text-xs mt-2 whitespace-pre-wrap">{h.changes_json}</pre>}
+                      <div className="text-xs text-muted mt-1">{h.username} · {friendlyAction(h.action, ml ? "ml" : "en")}{h.reason ? ` · ${h.reason}` : ""}</div>
+                      {h.changes_json && formatHistoryChanges(h.changes_json, ml ? "ml" : "en").length > 0 && (
+                        <div className="mt-2 space-y-0.5">
+                          {formatHistoryChanges(h.changes_json, ml ? "ml" : "en").map((c, ci) => (
+                            <div key={ci} className="text-xs"><span className="font-medium">{c.label}:</span> <span className="text-muted">{c.from}</span> <span className="text-muted">→</span> <span className="font-medium">{c.to}</span></div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )) : <div className="text-sm text-muted">{t("committee_no_history")}</div>}
                 </div>
@@ -321,7 +332,7 @@ export function Committee() {
           <div className="dlg-actions">
             <Button variant="secondary" onClick={() => setPreviewOpen(false)}>{t("ui_close")}</Button>
             {preview?.archive_state ? (
-              <Button onClick={executeRestore}><RotateCcw size={14} />{t("committee_restore")}</Button>
+              <Button onClick={() => setRestoreOpen(true)}><RotateCcw size={14} />{t("committee_restore")}</Button>
             ) : (
               <>
                 <Button onClick={() => edit(preview!.id)}><Edit2 size={14} />{t("action_edit")}</Button>
@@ -332,20 +343,29 @@ export function Committee() {
         </div>
       </Dialog>
 
-      {/* Archive dialog */}
-      <Dialog open={archiveOpen} onClose={() => setArchiveOpen(false)} title={t("committee_archive")} className="modal-sm">
-        <div className="p-6 space-y-4">
-          <p>{tx("The committee member will be archived. Term history will be preserved.", "കമ്മിറ്റി അംഗത്തെ ആർക്കൈവ് ചെയ്യും. കാലാവധി ചരിത്രം സംരക്ഷിക്കും.")}</p>
-          <div>
-            <Label>{t("committee_archive_reason")} *</Label>
-            <Textarea rows={3} value={archiveReason} onChange={e => setArchiveReason(e.target.value)} placeholder={tx("Why is this committee member being archived?", "ഈ കമ്മിറ്റി അംഗത്തെ ആർക്കൈവ് ചെയ്യാനുള്ള കാരണം?")} />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setArchiveOpen(false)}>{t("action_cancel")}</Button>
-            <Button onClick={executeArchive}>{t("committee_archive")}</Button>
-          </div>
-        </div>
-      </Dialog>
+      {/* Archive gate — archived committee records need a reason + admin password */}
+      <SecureActionDialog
+        open={archiveOpen}
+        onClose={() => setArchiveOpen(false)}
+        onConfirm={executeArchive}
+        danger
+        title={t("committee_archive")}
+        description={tx("The committee member will be archived. Term history will be preserved.", "കമ്മിറ്റി അംഗത്തെ ആർക്കൈവ് ചെയ്യും. കാലാവധി ചരിത്രം സംരക്ഷിക്കും.")}
+        reasonPlaceholder={tx("Why is this committee member being archived?", "ഈ കമ്മിറ്റി അംഗത്തെ ആർക്കൈവ് ചെയ്യാനുള്ള കാരണം?")}
+        confirmLabel={t("committee_archive")}
+      />
+
+      {/* Restore gate — restoring also needs the administrator password */}
+      <SecureActionDialog
+        open={restoreOpen}
+        onClose={() => setRestoreOpen(false)}
+        onConfirm={executeRestore}
+        danger={false}
+        title={t("committee_restore")}
+        description={tx("This committee record will be restored to its previous state.", "ഈ കമ്മിറ്റി രേഖ പഴയ അവസ്ഥയിലേക്ക് പുനഃസ്ഥാപിക്കും.")}
+        requireReason={false}
+        confirmLabel={t("committee_restore")}
+      />
 
       {/* Edit gate — committee records are official (reason + admin password) */}
       <SecureActionDialog
@@ -362,8 +382,18 @@ export function Committee() {
       {/* Add/Edit dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editingId ? t("committee_edit") : t("committee_add")} className="max-w-3xl">
         <div className="p-6 space-y-4">
+          {!editingId && (
+            <div className="rounded-lg border border-border-subtle bg-surface-hover/40 p-3">
+              <Label>{tx("Link an existing mahallu member — details fill in automatically", "നിലവിലുള്ള അംഗത്തെ ബന്ധിപ്പിക്കുക — വിവരങ്ങൾ തനിയെ നിറയും")}</Label>
+              <Select value={form.member_id ? String(form.member_id) : ""} onChange={e => onMemberPick(e.target.value)}>
+                <option value="">{tx("— new entry (no member link)", "— പുതിയ വിവരം (അംഗ ലിങ്ക് ഇല്ല)")}</option>
+                {memberOptions.map(m => <option key={m.id} value={String(m.id)}>{m.name} ({m.member_code})</option>)}
+              </Select>
+              <div className="text-xs text-muted mt-1.5">{tx("Name, phone and address are taken from the member record; you can still adjust them.", "പേര്, ഫോൺ, വിലാസം എന്നിവ അംഗ രേഖയിൽ നിന്ന് എടുക്കും; ആവശ്യമെങ്കിൽ മാറ്റാവുന്നതാണ്.")}</div>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
-            <div><Label>{t("committee_name")} *</Label><Input value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
+            <div><Label>{t("committee_name")} *</Label><Input value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} onBlur={e => setForm(f => ({ ...f, name: capitalizeWords(e.target.value) }))} /></div>
             <div><Label>{t("committee_role")}</Label>
               <Select value={form.position || "Committee Member"} onChange={e => setForm({ ...form, position: e.target.value })}>
                 {positions.map(p => <option key={p} value={p}>{p}</option>)}

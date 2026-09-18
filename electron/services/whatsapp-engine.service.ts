@@ -159,8 +159,21 @@ export function hasPersistedSession(): boolean {
     }
     return false;
   } catch {
-    // Unreadable/corrupt file (possibly mid-write) — do NOT wipe; the next
-    // successful write will heal it.
+    // Live creds.json is UNREADABLE (truncated by a hard exit, antivirus
+    // lock, …). The phone still lists the device, so restore the last
+    // verified backup — the keys in it are what the server knows.
+    const bak = path.join(dir, "creds.json.bak");
+    if (fs.existsSync(bak)) {
+      try {
+        const raw = fs.readFileSync(bak, "utf-8");
+        const creds = JSON.parse(raw);
+        if (creds?.registered === true) {
+          fs.writeFileSync(path.join(dir, "creds.json"), raw);
+          console.log("[whatsapp] Restored WhatsApp session from creds.json.bak (live file was unreadable)");
+          return true;
+        }
+      } catch { /* unusable backup */ }
+    }
     return false;
   }
 }
@@ -207,8 +220,15 @@ async function connectInternal(): Promise<void> {
     generateHighQualityLinkPreview: false,
     syncFullHistory: false,
   });
-  sock.ev.on("creds.update", saveCreds);
-  credsSaver = saveCreds;
+  const queuedSaveCreds = () => {
+    credsSaveQueue = credsSaveQueue
+      .then(() => saveCreds())
+      .then(() => backupCreds(dir))
+      .catch(() => { /* verification loop in flushAuthWrites is the safety net */ });
+    return credsSaveQueue;
+  };
+  sock.ev.on("creds.update", queuedSaveCreds);
+  credsSaver = queuedSaveCreds;
   sock.ev.on("connection.update", (update) => void onConnectionUpdate(update));
   // Delivery / read receipts for messages WE sent (privacy lock source).
   // `messages.update` carries { key: { id }, update: { status } } — statuses
@@ -283,6 +303,27 @@ function resetAuth() {
   try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* best effort */ }
 }
 
+// ---- Creds write safety (user report: after quitting, the app came back
+// "logged out" while the PHONE still listed the device — a truncated
+// creds.json from a mid-write exit is the classic cause). ----
+// 1) All Baileys creds writes run through ONE serialized queue: rapid
+//    creds.update events used to interleave and cut each other off.
+// 2) Every completed write is JSON-verified and only then copied to
+//    creds.json.bak — a complete backup therefore always exists on disk.
+// 3) hasPersistedSession() restores the .bak automatically if the live file
+//    is ever found unreadable (heals already-broken installs too).
+let credsSaveQueue: Promise<void> = Promise.resolve();
+function backupCreds(dir: string): void {
+  try {
+    const live = path.join(dir, "creds.json");
+    const raw = fs.readFileSync(live, "utf-8");
+    const parsed = JSON.parse(raw); // only back up a COMPLETE file
+    if (parsed && parsed.registered === true) {
+      fs.writeFileSync(path.join(dir, "creds.json.bak"), raw);
+    }
+  } catch { /* live file mid-write or absent — skip this round */ }
+}
+
 /** Start the engine (creates the socket; QR/login follows asynchronously).
  *  Single-flight: concurrent callers share one attempt. */
 export async function startEngine(): Promise<void> {
@@ -332,7 +373,12 @@ export async function flushAuthWrites(maxMs = 5000): Promise<void> {
     try {
       const raw = fs.readFileSync(path.join(dir, "creds.json"), "utf-8");
       const creds = JSON.parse(raw);
-      if (creds && creds.registered === true) return; // pairing is safely on disk
+      if (creds && creds.registered === true) {
+        // Final verified backup — the next start can always restore a
+        // complete pairing even if the very last write was cut off.
+        backupCreds(dir);
+        return; // pairing is safely on disk
+      }
     } catch { /* mid-write or truncated — wait and re-read */ }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }

@@ -4,7 +4,6 @@ import { changePassword, createInitialAdministrator, needsInitialSetup, verifyCu
 import { security, type Actor } from "./services/security.service.js";
 import { getDB } from "./db/connection.js";
 import { todayIST } from "./services/data.service.js";
-import { whatsapp } from "./services/whatsapp.service.js";
 
 // Install the sender guard before main.ts registers any handlers. This makes
 // the protection apply to read, write, export and utility IPC channels alike.
@@ -104,34 +103,28 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("certificates:remove", () => { throw new Error("Issued certificates cannot be permanently deleted. Revoke the certificate instead."); });
   register("families:create", (d: any) => { actor(); return data.families.create(d); });
   register("members:create", (d: any) => { actor(); return data.members.create(d); });
-  register("subscriptions:create", async (d: any) => { const a = actor(); const r = data.subscriptions.create({ ...d, collectedBy: a.id }); try { data.audit.log(a.id, a.username, "ADD", "subscriptions", r.id, `Subscription account created for family #${d.familyId}`, ""); } catch {}
-    // First payment (if any) gets the A6 receipt treatment: generated + saved
-    // in the app, and sent on WhatsApp when the engine + family number allow.
-    let receipt: any = { status: "skipped" };
-    if (Number(d?.amountPaid ?? 0) > 0 && r?.id) {
-      try { receipt = await whatsapp.sendSubscriptionReceipt(Number(r.id), { soft: true }); }
-      catch (err: any) { receipt = { status: "failed", error: String(err?.message || err) }; }
-    }
-    return { ...r, receiptWhatsApp: receipt.status, receiptError: receipt.error || "" };
+  register("subscriptions:create", (d: any) => { const a = actor(); const r = data.subscriptions.create({ ...d, collectedBy: a.id }); try { data.audit.log(a.id, a.username, "ADD", "subscriptions", r.id, `Subscription account created for family #${d.familyId}`, ""); } catch {}
+    // The WhatsApp receipt is sent by the UI right AFTER the dialog closes
+    // (background send, Donations-style). Awaiting PDF + delivery here made
+    // every save hang for seconds — users clicked Save again and again and
+    // the payee's WhatsApp received duplicate receipts (user report).
+    const receiptWhatsApp = Number(d?.amountPaid ?? 0) > 0 && r?.id ? "queued" : "skipped";
+    return { ...r, receiptWhatsApp };
   });
   // Payment edits are restricted to "how much was given" (plus date/method/
   // ref/remarks) — family, member, period and rate are locked server-side in
   // data.subscriptions.applyPayment.
-  register("subscriptions:update", async (id: number, d: any) => {
+  register("subscriptions:update", (id: number, d: any) => {
     const a = actor();
     const before = data.subscriptions.get(id) as any;
     const r = data.subscriptions.applyPayment(id, { ...d, collectedBy: a.id });
     try { data.audit.log(a.id, a.username, "PAY", "subscriptions", id, `Payment recorded: ${d.amountPaid} of ${before?.amount} (${r.status})${r.receiptNumber ? ` receipt ${r.receiptNumber}` : ""}`, ""); } catch {}
-    // Recording a payment also generates the A6 receipt (saved in the app)
-    // and — when WhatsApp is paired and the family has a number — sends it
-    // automatically. The payment NEVER fails because of messaging; the send
-    // result rides along as receiptWhatsApp on the response.
-    let receipt: any = { status: "skipped" };
-    if (Number(d?.amountPaid ?? 0) > 0 && r?.receiptNumber) {
-      try { receipt = await whatsapp.sendSubscriptionReceipt(id, { soft: true }); }
-      catch (err: any) { receipt = { status: "failed", error: String(err?.message || err) }; }
-    }
-    return { ...r, receiptWhatsApp: receipt.status, receiptError: receipt.error || "" };
+    // Save returns IMMEDIATELY after the DB write — receipt generation and
+    // WhatsApp delivery happen in the background from the UI (Donations
+    // pattern). The 6-second inline delivery wait caused duplicate payments
+    // and duplicate receipts (user report).
+    const receiptWhatsApp = Number(d?.amountPaid ?? 0) > 0 && r?.receiptNumber ? "queued" : "skipped";
+    return { ...r, receiptWhatsApp };
   });
   // Cancelling a payment is a SECURE action: reason + admin password,
   // RE-VERIFIED IN THE MAIN PROCESS (a tampered renderer can no longer skip
@@ -405,7 +398,8 @@ export function registerSecurityIpc(getActor: ActorProvider) {
     try { data.audit.log(a.id, a.username, status === "Expelled" ? "EXPEL" : "RESIGN", "staff", id, `Staff ${status === "Expelled" ? "expelled" : "resigned"} effective ${effectiveDate || "today"}: ${String(reason).trim()}`, String(reason).trim()); } catch {}
     return r;
   });
-  register("staff:restore", (id: number) => { const a = admin(); const r = data.staff.restore(id, a.id); try { data.audit.log(a.id, a.username, "RESTORE", "staff", id, `Staff restored`, ""); } catch {} return r; });
+  // Restoring an archived staff member is also a SECURE action (admin password).
+  register("staff:restore", (id: number, adminPassword: string) => { const a = admin(); verifyCurrentActorPassword(String(adminPassword ?? "")); const r = data.staff.restore(id, a.id); try { data.audit.log(a.id, a.username, "RESTORE", "staff", id, `Staff restored after administrator re-authentication`, ""); } catch {} return r; });
   register("staff:history", (id: number) => { actor(); return data.staff.history(id); });
   register("staff:listPayments", (filter: any) => { actor(); return data.staff.listPayments(filter || {}); });
   register("staff:paySalary", (d: any) => { const a = admin(); const r = data.staff.paySalary(d, a.id); try { data.audit.log(a.id, a.username, "PAY_SALARY", "staff", d.staffId, `Salary paid: ${d.amount} for ${d.periodMonth}/${d.periodYear}`, ""); } catch {} return r; });
@@ -440,7 +434,9 @@ export function registerSecurityIpc(getActor: ActorProvider) {
     const r = data.committee.update(id, d);
     try { data.audit.log(a.id, a.username, "EDIT", "committee", id, `Committee edited after administrator re-authentication: ${d.name || ''} — ${String(reason).trim()}`, String(reason).trim()); } catch {} return r;
   });
-  register("committee:archive", (id: number, reason: string) => { const a = admin(); const r = data.committee.archive(id, reason, a.id); try { data.audit.log(a.id, a.username, "ARCHIVE", "committee", id, `Committee archived: ${reason}`, ""); } catch {} return r; });
-  register("committee:restore", (id: number) => { const a = admin(); const r = data.committee.restore(id, a.id); try { data.audit.log(a.id, a.username, "RESTORE", "committee", id, `Committee restored`, ""); } catch {} return r; });
+  // Archive/restore are also SECURE actions (user report): reason + admin
+  // password, re-verified in the main process.
+  register("committee:archive", (id: number, reason: string, adminPassword: string) => { const a = admin(); if (!reason || !String(reason).trim()) throw new Error("An archive reason is required"); verifyCurrentActorPassword(String(adminPassword ?? "")); const r = data.committee.archive(id, String(reason).trim(), a.id); try { data.audit.log(a.id, a.username, "ARCHIVE", "committee", id, `Committee archived: ${reason}`, String(reason).trim()); } catch {} return r; });
+  register("committee:restore", (id: number, adminPassword: string) => { const a = admin(); verifyCurrentActorPassword(String(adminPassword ?? "")); const r = data.committee.restore(id, a.id); try { data.audit.log(a.id, a.username, "RESTORE", "committee", id, `Committee restored after administrator re-authentication`, ""); } catch {} return r; });
   register("committee:history", (id: number) => { actor(); return data.committee.history(id); });
 }

@@ -45,14 +45,16 @@ export function SecureActionDialog({
   const [password, setPassword] = useState("");
   const [date, setDate] = useState(dateDefault || "");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   if (!open) return null;
 
-  const reset = () => { setReason(""); setPassword(""); setDate(dateDefault || ""); };
+  const reset = () => { setReason(""); setPassword(""); setDate(dateDefault || ""); setError(""); };
 
   const close = () => { reset(); onClose(); };
 
   const submit = async () => {
+    setError("");
     if (requireReason && !reason.trim()) {
       toast.error(tx("A reason is required", "കാരണം നൽകണം"));
       return;
@@ -77,7 +79,12 @@ export function SecureActionDialog({
       // friendlyAuthError strips Electron's "Error invoking remote method…"
       // wrapper and localizes known password/auth failures (e.g. the
       // administrator re-auth rejection) in both en and ml.
-      toast.error(friendlyAuthError(err, t) || tx("Action failed", "പ്രവർത്തനം പരാജയപ്പെട്ടു"));
+      const msg = friendlyAuthError(err, t) || tx("Action failed", "പ്രവർത്തനം പരാജയപ്പെട്ടു");
+      // Show INSIDE the dialog as well — toasts were hidden behind the modal
+      // backdrop before the z-index fix, and an inline red line at the password
+      // field is where the eye is while re-typing.
+      setError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
@@ -113,11 +120,13 @@ export function SecureActionDialog({
           <Input
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => { setPassword(e.target.value); setError(""); }}
             placeholder="••••••••"
             onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
           />
-          <div className="text-xs text-muted mt-1.5">{tx("Verified by the system — never stored.", "സിസ്റ്റം പരിശോധിക്കുന്നു — എവിടെയും സൂക്ഷിക്കുന്നില്ല.")}</div>
+          {error
+            ? <div className="text-xs mt-1.5 font-medium" style={{ color: "var(--c-rose, #e11d48)" }}>⚠ {error}</div>
+            : <div className="text-xs text-muted mt-1.5">{tx("Verified by the system — never stored.", "സിസ്റ്റം പരിശോധിക്കുന്നു — എവിടെയും സൂക്ഷിക്കുന്നില്ല.")}</div>}
         </div>
         <div className="dlg-actions">
           <Button variant="secondary" onClick={close} disabled={busy}>{t("action_cancel")}</Button>

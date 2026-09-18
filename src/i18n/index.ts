@@ -117,8 +117,8 @@ const translations: Record<string, { en: string; ml: string }> = {
   add_family: { en: "Add Family", ml: "കുടുംബം ചേർക്കുക" },
 
   // Members
-  member_title: { en: "Member Management", ml: "അംഗ ഭരണം" },
-  member_subtitle: { en: "Manage all registered members in the mahallu", ml: "മഹല്ലിലെ എല്ലാ രജിസ്റ്റർ ചെയ്ത അംഗങ്ങളെ കൈകാര്യം ചെയ്യുക" },
+  member_title: { en: "Members", ml: "അംഗങ്ങൾ" },
+  member_subtitle: { en: "Manage all registered members in the mahallu", ml: "മഹല്ലിലെ എല്ലാ രജിസ്റ്റർ ചെയ്ത അംഗങ്ങളുടെയും വിവരങ്ങൾ ഇവിടെ" },
   member_code: { en: "Code", ml: "കോഡ്" },
   member_name: { en: "Name", ml: "പേര്" },
   member_gender: { en: "Gender", ml: "ലിംഗം" },

@@ -66,3 +66,12 @@ export function statusVariant(status: string): "active" | "inactive" | "overdue"
   if (s === "inactive" || s === "rejected" || s === "archived") return "inactive";
   return "pending";
 }
+
+/** Auto-capitalization: upper-case the first letter of every word (Latin
+ *  letters only — Malayalam text is untouched). Used as an onBlur helper on
+ *  name/title inputs so "muhammed ali" becomes "Muhammed Ali". */
+export function capitalizeWords(input: string): string {
+  const s = String(input ?? "");
+  if (!s) return s;
+  return s.replace(/(^|[\s\-.'()])([a-z])/g, (_m, pre: string, ch: string) => pre + ch.toUpperCase());
+}

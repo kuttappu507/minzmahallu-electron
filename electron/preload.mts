@@ -53,7 +53,7 @@ const api = {
     update: (id: number, d: any) => invoke("staff:update", id, d),
     archive: (id: number, reason: string) => invoke("staff:archive", id, reason),
     setStatus: (id: number, status: "Resigned" | "Expelled", effectiveDate: string, reason: string, adminPassword: string) => invoke("staff:setStatus", id, status, effectiveDate, reason, adminPassword),
-    restore: (id: number) => invoke("staff:restore", id),
+    restore: (id: number, adminPassword?: string) => invoke("staff:restore", id, adminPassword),
     history: (id: number) => invoke("staff:history", id),
     listPayments: (f?: any) => invoke("staff:listPayments", f),
     paySalary: (d: any) => invoke("staff:paySalary", d),
@@ -68,8 +68,8 @@ const api = {
     summary: () => invoke("committee:summary"),
     create: (d: any) => invoke("committee:create", d),
     update: (id: number, d: any, adminPassword?: string, reason?: string) => invoke("committee:update", id, d, adminPassword, reason),
-    archive: (id: number, reason: string) => invoke("committee:archive", id, reason),
-    restore: (id: number) => invoke("committee:restore", id),
+    archive: (id: number, reason: string, adminPassword?: string) => invoke("committee:archive", id, reason, adminPassword),
+    restore: (id: number, adminPassword?: string) => invoke("committee:restore", id, adminPassword),
     history: (id: number) => invoke("committee:history", id)
   },
   events: { onDownloadFailed: (cb: (name: string) => void) => { const h = (_e: unknown, name: string) => cb(String(name)); ipcRenderer.on("download:failed", h); return () => { ipcRenderer.removeListener("download:failed", h); }; }, onUpdateAvailable: (cb: (info: { latestVersion: string; url: string; downloadUrl?: string | null; currentVersion: string }) => void) => { const h = (_e: unknown, info: any) => cb(info); ipcRenderer.on("update:available", h); return () => { ipcRenderer.removeListener("update:available", h); }; } }

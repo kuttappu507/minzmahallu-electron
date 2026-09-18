@@ -9,7 +9,8 @@ import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/compone
 import { SecureActionDialog } from "@/components/SecureActionDialog";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
-import { statusVariant, formatDate, formatCurrency, todayIST } from "@/lib/utils";
+import { statusVariant, formatDate, formatCurrency, todayIST, capitalizeWords } from "@/lib/utils";
+import { friendlyAction, formatHistoryChanges } from "@/lib/history-format";
 
 interface StaffRow {
   id: number;
@@ -186,13 +187,12 @@ export function Staff() {
     setPreviewOpen(false); refetch(); refreshSummary();
   };
 
-  const executeRestore = async () => {
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const executeRestore = async ({ password }: { password: string }) => {
     if (!preview) return;
-    try {
-      await window.mms.staff.restore(preview.id);
-      toast.success(t("staff_restored_toast"));
-      setPreviewOpen(false); refetch();
-    } catch (e: any) { toast.error(e.message); }
+    await window.mms.staff.restore(preview.id, password);
+    toast.success(t("staff_restored_toast"));
+    setPreviewOpen(false); refetch(); refreshSummary();
   };
 
   const openPay = (s?: StaffRow) => {
@@ -213,7 +213,7 @@ export function Staff() {
     setPayOpen(true);
   };
 
-  const executePay = async () => {
+  const executePay = () => runLocked(async () => {
     if (!payForm.staffId || !payForm.periodMonth || !payForm.periodYear) return;
     const payAmtErr = amountError(payForm.amount, t);
     if (payAmtErr) { toast.error(payAmtErr); return; }
@@ -234,7 +234,12 @@ export function Staff() {
       if (tab === "salary") refreshPayments();
       refreshSummary();
     } catch (e: any) { toast.error(e.message); }
-  };
+  });
+
+  // Salary payment preview — double-click a row in the Salary tab.
+  const [payPreview, setPayPreview] = useState<PaymentRow | null>(null);
+  const [payPreviewOpen, setPayPreviewOpen] = useState(false);
+  const openPaymentPreview = (p: PaymentRow) => { setPayPreview(p); setPayPreviewOpen(true); };
 
   const openCancelPayment = (p: PaymentRow) => { setCancelPayTarget(p); };
 
@@ -350,6 +355,7 @@ export function Staff() {
             totalPages={paymentsTotalPages}
             onPageChange={setPaymentsPage}
             rowKey={r => r.id}
+            onRowDoubleClick={openPaymentPreview}
           />
         )}
       </div>
@@ -390,8 +396,14 @@ export function Staff() {
                   {history.length ? history.map(h => (
                     <div key={h.id} className="p-3 rounded-lg border border-border">
                       <div className="flex justify-between gap-3"><b>{h.summary}</b><span className="text-xs text-muted">{h.changed_at}</span></div>
-                      <div className="text-xs text-muted mt-1">{h.username} · {h.action}{h.reason ? ` · ${h.reason}` : ""}</div>
-                      {h.changes_json && <pre className="text-xs mt-2 whitespace-pre-wrap">{h.changes_json}</pre>}
+                      <div className="text-xs text-muted mt-1">{h.username} · {friendlyAction(h.action, ml ? "ml" : "en")}{h.reason ? ` · ${h.reason}` : ""}</div>
+                      {h.changes_json && formatHistoryChanges(h.changes_json, ml ? "ml" : "en").length > 0 && (
+                        <div className="mt-2 space-y-0.5">
+                          {formatHistoryChanges(h.changes_json, ml ? "ml" : "en").map((c, ci) => (
+                            <div key={ci} className="text-xs"><span className="font-medium">{c.label}:</span> <span className="text-muted">{c.from}</span> <span className="text-muted">→</span> <span className="font-medium">{c.to}</span></div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )) : <div className="text-sm text-muted">{t("staff_no_history")}</div>}
                 </div>
@@ -401,7 +413,7 @@ export function Staff() {
           <div className="dlg-actions">
             <Button variant="secondary" onClick={() => setPreviewOpen(false)}>{t("ui_close")}</Button>
             {preview?.archive_state ? (
-              <Button onClick={executeRestore}><RotateCcw size={14} />{t("staff_restore")}</Button>
+              <Button onClick={() => setRestoreOpen(true)}><RotateCcw size={14} />{t("staff_restore")}</Button>
             ) : (
               <>
                 <Button onClick={() => edit(preview!.id)}><Edit2 size={14} />{t("action_edit")}</Button>
@@ -455,11 +467,23 @@ export function Staff() {
         confirmLabel={t("staff_cancel_payment")}
       />
 
+      {/* Restore gate — restoring an archived staff member needs the admin password */}
+      <SecureActionDialog
+        open={restoreOpen}
+        onClose={() => setRestoreOpen(false)}
+        onConfirm={executeRestore}
+        danger={false}
+        title={t("staff_restore")}
+        description={preview ? tx(`Restore ${preview.name} (${preview.staff_code}) to the active staff list?`, `${preview.name} (${preview.staff_code}) വീണ്ടും സജീവ ജീവനക്കാരുടെ പട്ടികയിൽ ചേർക്കണോ?`) : ""}
+        requireReason={false}
+        confirmLabel={t("staff_restore")}
+      />
+
       {/* Add/Edit dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editingId ? t("staff_edit") : t("staff_add")} className="max-w-3xl">
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div><Label>{t("staff_name")} *</Label><Input value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
+            <div><Label>{t("staff_name")} *</Label><Input value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} onBlur={e => setForm(f => ({ ...f, name: capitalizeWords(e.target.value) }))} /></div>
             <div><Label>{t("staff_role")}</Label>
               <Select value={form.role || "Staff"} onChange={e => setForm({ ...form, role: e.target.value })}>
                 {roles.map(r => <option key={r} value={r}>{r}</option>)}
@@ -526,7 +550,41 @@ export function Staff() {
           <div><Label>{t("staff_payment_notes")}</Label><Textarea rows={2} value={payForm.notes} onChange={e => setPayForm({ ...payForm, notes: e.target.value })} /></div>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setPayOpen(false)}>{t("action_cancel")}</Button>
-            <Button onClick={executePay}><Wallet size={14} />{t("staff_pay_salary")}</Button>
+            <Button onClick={executePay} disabled={busy}>{busy ? t("ui_saving") : <><Wallet size={14} className="inline" /> {t("staff_pay_salary")}</>}</Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Salary payment preview — opened by double-clicking a row in the Salary tab */}
+      <Dialog open={payPreviewOpen} onClose={() => setPayPreviewOpen(false)} title={t("staff_pay_salary_title")} className="modal-sm">
+        <div className="dlg-pad">
+          {payPreview && (
+            <>
+              <div className="dlg-hero t-gold">
+                <div className="dlg-hero-ic"><Wallet size={18} /></div>
+                <div className="dlg-hero-body">
+                  <div className="dlg-hero-title">{formatCurrency(payPreview.amount)}</div>
+                  <div className="dlg-hero-sub">{payPreview.staff_name} · {payPreview.staff_code} · {MONTH_NAMES[payPreview.period_month - 1]} {payPreview.period_year}</div>
+                </div>
+                <Badge variant={payPreview.status === "Paid" ? statusVariant("Active") : statusVariant("Pending")}>{payPreview.status}</Badge>
+              </div>
+              <div className="det-grid">
+                {[
+                  [t("staff_name"), payPreview.staff_name],
+                  [t("staff_role"), payPreview.staff_role || "—"],
+                  [tx("Period", "കാലയളവ്"), `${MONTH_NAMES[payPreview.period_month - 1]} ${payPreview.period_year}`],
+                  [t("staff_amount"), formatCurrency(payPreview.amount)],
+                  [t("staff_payment_date"), formatDate(payPreview.payment_date)],
+                  [t("staff_payment_method"), payPreview.payment_method || "—"],
+                  [t("staff_transaction_ref"), payPreview.transaction_ref || "—"],
+                  [t("staff_payment_notes"), payPreview.notes || "—"]
+                ].map(([k, v], i) => <div className="det" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>)}
+              </div>
+            </>
+          )}
+          <div className="dlg-actions">
+            <Button variant="secondary" onClick={() => setPayPreviewOpen(false)}>{t("ui_close")}</Button>
+            {payPreview?.status === "Paid" && <Button variant="danger" onClick={() => { setPayPreviewOpen(false); openCancelPayment(payPreview); }}><XCircle size={14} />{t("staff_cancel_payment")}</Button>}
           </div>
         </div>
       </Dialog>
