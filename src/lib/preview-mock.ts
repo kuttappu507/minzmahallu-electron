@@ -466,13 +466,33 @@ export function installPreviewMock() {
       : { ok: true, updateAvailable: false, latestVersion: "dev-preview", currentVersion: "dev-preview", url: "https://github.com/kuttappu507/minzmahallu-electron/releases/latest", downloadUrl: null }),
     openReleasePage: () => Promise.resolve({ success: true }),
     openDownload: () => Promise.resolve({ success: updSimulated }),
+    // In-app self-update simulation (?upd=1): progress ticks → downloaded,
+    // so the banner's new states can be QA'd in the plain browser preview.
+    downloadUpdate: () => {
+      if (!updSimulated) return Promise.resolve({ success: false, reason: "no-update" });
+      [25, 55, 85, 100].forEach((pct, i) => {
+        setTimeout(() => {
+          updProgressCbs.forEach((cb) => cb({ percent: pct, transferred: pct * 1000, total: 100000, bytesPerSecond: 500000 }));
+          if (pct === 100) updDownloadedCbs.forEach((cb) => cb({ version: "9.9.9" }));
+        }, 400 * (i + 1));
+      });
+      return Promise.resolve({ success: true });
+    },
+    installUpdate: () => Promise.resolve({ success: updSimulated }),
   };
 
   // Push-event surface (real app: ipcRenderer.on). Subscribers return an
-  // unsubscribe function — the UpdateBanner cleanup calls it.
+  // unsubscribe function — the UpdateBanner cleanup calls it. The updater
+  // callbacks are kept so the ?upd=1 simulation can drive the new states.
+  const updProgressCbs: Array<(p: any) => void> = [];
+  const updDownloadedCbs: Array<(v: any) => void> = [];
+  const updFailedCbs: Array<(r: any) => void> = [];
   const events = {
     onDownloadFailed: (_cb: (name: string) => void) => () => {},
     onUpdateAvailable: (_cb: (info: { latestVersion: string; url: string; downloadUrl?: string | null; currentVersion: string }) => void) => () => {},
+    onUpdateProgress: (cb: (p: any) => void) => { updProgressCbs.push(cb); return () => { const i = updProgressCbs.indexOf(cb); if (i >= 0) updProgressCbs.splice(i, 1); }; },
+    onUpdateDownloaded: (cb: (v: any) => void) => { updDownloadedCbs.push(cb); return () => { const i = updDownloadedCbs.indexOf(cb); if (i >= 0) updDownloadedCbs.splice(i, 1); }; },
+    onUpdateDownloadFailed: (cb: (r: any) => void) => { updFailedCbs.push(cb); return () => { const i = updFailedCbs.indexOf(cb); if (i >= 0) updFailedCbs.splice(i, 1); }; },
   };
 
   // Donations module used by Settings (category manager) — the Proxy fallback

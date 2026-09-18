@@ -307,8 +307,12 @@ const translations: Record<string, { en: string; ml: string }> = {
 
   // Update check (monthly GitHub release check)
   upd_title: { en: "Update available", ml: "പുതിയ പതിപ്പ് ലഭ്യമാണ്" },
-  upd_body: { en: "A new version of Minz Mahallu Management has been published on GitHub. Download the new installer directly below.", ml: "Minz Mahallu Management-ന്റെ പുതിയ പതിപ്പ് GitHub-ൽ പ്രസിദ്ധീകരിച്ചിട്ടുണ്ട്. പുതിയ ഇൻസ്റ്റോളർ താഴെ നിന്ന് നേരിട്ട് ഡൗൺലോഡ് ചെയ്യാം." },
-  upd_download: { en: "Download update", ml: "അപ്ഡേറ്റ് ഡൗൺലോഡ്" },
+  upd_body: { en: "A new version has been published. The app can download and install it itself — no browser needed.", ml: "പുതിയ പതിപ്പ് പുറത്തിറങ്ങിയിട്ടുണ്ട്. താഴെ ക്ലിക്ക് ചെയ്താൽ ആപ്പ് തന്നെ ഡൗൺലോഡ് ചെയ്ത് ഇൻസ്റ്റാൾ ചെയ്യും — ബ്രൗസർ തുറക്കേണ്ടതില്ല." },
+  upd_download: { en: "Download update", ml: "അപ്ഡേറ്റ് ഡൗൺലോഡ് ചെയ്യുക" },
+  upd_downloading: { en: "Downloading update…", ml: "അപ്ഡേറ്റ് ഡൗൺലോഡ് ചെയ്യുന്നു…" },
+  upd_downloaded: { en: "New version downloaded. Restart the app to install it.", ml: "പുതിയ പതിപ്പ് ഡൗൺലോഡ് ചെയ്തു. ഇൻസ്റ്റാൾ ചെയ്യാൻ ആപ്പ് വീണ്ടും തുടങ്ങണം." },
+  upd_restart: { en: "Restart & install", ml: "വീണ്ടും തുടങ്ങി ഇൻസ്റ്റാൾ ചെയ്യുക" },
+  upd_failed: { en: "Download failed — the installer can still be downloaded from the release page.", ml: "ഡൗൺലോഡ് ചെയ്യാനായില്ല — റിലീസ് താളിൽ നിന്ന് ഇൻസ്റ്റോളർ എടുക്കാം." },
   upd_release_page: { en: "Release page", ml: "റിലീസ് താൾ" },
   upd_open: { en: "Open release page", ml: "റിലീസ് താൾ തുറക്കുക" },
   upd_later: { en: "Later", ml: "പിന്നീട്" },

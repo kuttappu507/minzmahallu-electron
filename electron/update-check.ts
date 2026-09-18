@@ -16,10 +16,11 @@
  *    offline machine must not skip a whole month because of one timeout.
  *  - `updates:checkNow` (Settings → About) bypasses the monthly gate.
  *
- * No auto-download/auto-install: the banner carries a DIRECT link to the
- * release's installer asset (.exe) so the office gets the file in one click,
- * plus the release page for release notes. Silent self-update would need
- * code-signing plumbing that this project does not have.
+ * Download/install is handled by electron-updater (see auto-update.ts): the
+ * banner's accept action pulls the same release's latest*.yml feed and the
+ * app installs itself — no browser, no Mark-of-the-Web SmartScreen block.
+ * The browser asset link (openDownload) stays as the fallback for machines
+ * where the in-app updater cannot run.
  */
 import { app, ipcMain, shell } from "electron";
 import fs from "node:fs";
@@ -229,10 +230,17 @@ export function registerUpdateIpc(getWindow: GetWindow): void {
   // What the renderer needs to (re)draw the banner after a reload.
   ipcMain.handle("updates:status", () => {
     const state = readState();
+    const current = app.getVersion();
+    // Guard the stale-banner hole: the state file survives reinstallation
+    // (userData is kept), so after the office upgrades through ANY path the
+    // stored flag still says "update available" until the next monthly
+    // check. Only claim an update when the recorded latest really IS newer
+    // than the running build.
+    const stillNewer = !!state.latest_version && isNewerVersion(current, state.latest_version);
     return {
-      currentVersion: app.getVersion(),
+      currentVersion: current,
       lastCheckAt: state.last_check_at,
-      updateAvailable: state.update_available,
+      updateAvailable: state.update_available && stillNewer,
       latestVersion: state.latest_version ? state.latest_version.replace(/^[vV]/, "") : null,
       url: state.latest_url || RELEASES_PAGE_URL,
       downloadUrl: state.latest_download_url,
@@ -257,10 +265,11 @@ export function registerUpdateIpc(getWindow: GetWindow): void {
     return result;
   });
 
-  // Direct-download: open the release ASSET (installer file) itself, so the
-  // user gets the .exe with one click instead of hunting through the GitHub
-  // release page. State-based (not renderer-supplied) so a tampered renderer
-  // cannot open arbitrary URLs.
+  // FALLBACK download path: hand the installer asset to the system browser.
+  // Only used when the in-app updater (auto-update.ts) cannot run — the
+  // browser route is what used to trigger the SmartScreen "untrusted file"
+  // block, so it stays secondary. State-based (not renderer-supplied) so a
+  // tampered renderer cannot open arbitrary URLs.
   ipcMain.handle("updates:openDownload", async () => {
     const url = readState().latest_download_url;
     if (typeof url === "string" && url.startsWith("https://github.com/")) {

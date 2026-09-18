@@ -83,7 +83,10 @@ jobs:
 
       - name: Package app (macOS)
         if: runner.os == 'macOS'
-        run: npx electron-builder --mac dmg --publish never
+        # zip is REQUIRED alongside dmg: electron-updater's MacUpdater applies
+        # updates from the .zip listed in latest-mac.yml (dmg is only for
+        # first installs / manual download).
+        run: npx electron-builder --mac dmg zip --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -96,6 +99,9 @@ jobs:
             release/*.exe
             release/*.AppImage
             release/*.dmg
+            release/*.zip
+            release/*.yml
+            release/*.blockmap
           if-no-files-found: warn
 
       - name: List release folder (debug)

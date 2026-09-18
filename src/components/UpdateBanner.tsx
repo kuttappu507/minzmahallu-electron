@@ -6,15 +6,18 @@
  * window was reloaded (status pull). Dismissing hides the notice for the
  * SAME version permanently (localStorage) — a newer version re-shows it.
  *
- * "Download update" opens the release's installer ASSET directly (one click
- * → the .exe download starts) so the office never has to find the right file
- * on the GitHub release page. "Release page" is kept as the secondary path
- * for release notes / manual download. No auto-install: the user stays in
- * control of when the new version is actually run.
+ * Accepting the update is now a fully in-app flow (electron-updater, see
+ * electron/auto-update.ts): the app downloads the installer itself — no
+ * browser, no Edge, no SmartScreen "untrusted file" block — shows live
+ * progress, then offers "Restart & install". If the in-app download cannot
+ * run (blocked updater feed, exotic environment), the banner falls back to
+ * the old browser-asset link. A download that finishes while the banner is
+ * dismissed force-reopens it, so the office never misses the restart step.
  */
 import { useEffect, useState } from "react";
 import { DownloadCloud, X } from "lucide-react";
 import { useI18n } from "@/i18n";
+import { useUpdaterDownload } from "@/lib/use-updater-download";
 
 type UpdateInfo = { latestVersion: string; url: string; downloadUrl?: string | null; currentVersion: string };
 
@@ -24,6 +27,13 @@ export default function UpdateBanner() {
   const { t } = useI18n();
   const [info, setInfo] = useState<UpdateInfo | null>(null);
   const [hidden, setHidden] = useState(false);
+  const upd = useUpdaterDownload();
+
+  // A finished download must be seen: reopen the banner even if the user had
+  // dismissed it, so "Restart & install" is always one click away.
+  useEffect(() => {
+    if (upd.state === "downloaded") { setHidden(false); setInfo((i) => i); }
+  }, [upd.state]);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,7 +84,11 @@ export default function UpdateBanner() {
     try { localStorage.setItem(DISMISS_KEY, info.latestVersion); } catch { /* ignore */ }
   };
   const openRelease = () => { window.mms?.updates?.openReleasePage?.().catch(() => {}); };
-  const hasDownload = !!info.downloadUrl;
+  const browserDownload = () => { window.mms?.updates?.openDownload?.().catch(() => {}); };
+
+  const downloading = upd.state === "downloading";
+  const downloaded = upd.state === "downloaded";
+  const failed = upd.state === "failed";
 
   return (
     <div className="upd-banner" role="status" data-testid="update-banner">
@@ -84,15 +98,32 @@ export default function UpdateBanner() {
           {t("upd_title")}
           <span className="upd-ver">v{info.latestVersion}</span>
         </div>
-        <div className="upd-body">{t("upd_body")}</div>
+        <div className="upd-body">
+          {downloaded ? t("upd_downloaded") : downloading ? t("upd_downloading") : failed ? t("upd_failed") : t("upd_body")}
+          {downloading && <span className="upd-pct">&nbsp;{upd.percent}%</span>}
+        </div>
+        {downloading && (
+          <div className="upd-progress" aria-hidden="true">
+            <div className="upd-progress-bar" style={{ width: `${upd.percent}%` }} />
+          </div>
+        )}
       </div>
       <div className="upd-actions">
-        {hasDownload && (
-          <button className="upd-btn" onClick={() => { window.mms?.updates?.openDownload?.().catch(() => {}); }}>{t("upd_download")}</button>
+        {downloaded ? (
+          <button className="upd-btn" onClick={upd.install}>{t("upd_restart")}</button>
+        ) : downloading ? null : failed ? (
+          <>
+            {info.downloadUrl && <button className="upd-btn" onClick={browserDownload}>{t("upd_download")}</button>}
+            <button className={`upd-btn${info.downloadUrl ? " upd-btn-ghost" : ""}`} onClick={openRelease}>
+              {info.downloadUrl ? t("upd_release_page") : t("upd_open")}
+            </button>
+          </>
+        ) : (
+          <>
+            <button className="upd-btn" onClick={upd.start}>{t("upd_download")}</button>
+            <button className="upd-btn upd-btn-ghost" onClick={openRelease}>{t("upd_release_page")}</button>
+          </>
         )}
-        <button className={`upd-btn${hasDownload ? " upd-btn-ghost" : ""}`} onClick={openRelease}>
-          {hasDownload ? t("upd_release_page") : t("upd_open")}
-        </button>
         <button className="upd-btn upd-btn-ghost" onClick={dismiss}>{t("upd_later")}</button>
       </div>
       <button className="upd-x" onClick={dismiss} aria-label="Dismiss" title={t("upd_later")}>

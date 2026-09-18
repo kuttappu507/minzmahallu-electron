@@ -1,6 +1,6 @@
 {
   "name": "minz-mahallu-management",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Minz Mahallu Management System - Modern React + Electron Edition",
   "author": "MMS",
   "license": "MIT",
@@ -28,6 +28,7 @@
     "@whiskeysockets/baileys": "^7.0.0-rc14",
     "better-sqlite3": "^11.3.0",
     "clsx": "^2.1.0",
+    "electron-updater": "^6.3.9",
     "exceljs": "^4.4.0",
     "framer-motion": "^13.1.0",
     "lucide-react": "^0.454.0",
@@ -80,6 +81,11 @@
       }
     ],
     "asar": true,
+    "publish": {
+      "provider": "github",
+      "owner": "kuttappu507",
+      "repo": "minzmahallu-electron"
+    },
     "asarUnpack": [
       "**/*.node",
       "node_modules/better-sqlite3/**",
