@@ -211,7 +211,7 @@ export function Welfare() {
   const handleApprove = async () => {
     if (!editingId) return;
     if (!approveMinutesDate) {
-      toast.error(tx("Date of the committee minutes approving this amount is required", "തുക അംഗീകരിച്ച കമ്മിറ്റി മിനിറ്റ്‌സിന്റെ തീയതി ആവശ്യമാണ്"));
+      toast.error(tx("Date of the committee minutes approving this amount is required", "ഈ തുക അംഗീകരിച്ച കമ്മിറ്റി യോഗ തീരുമാനത്തിന്റെ തീയതി ആവശ്യമാണ്"));
       return;
     }
     try {
@@ -540,7 +540,7 @@ export function Welfare() {
                     <Input type="number" value={approveAmount || ""} onChange={(e) => setApproveAmount(Number(e.target.value))} />
                   </div>
                   <div>
-                    <Label>{tx("Minutes date", "മിനിറ്റ്‌സ് തീയതി")} *</Label>
+                    <Label>{tx("Minutes date", "തീരുമാന തീയതി")} *</Label>
                     <Input type="date" value={approveMinutesDate || ""} onChange={(e) => setApproveMinutesDate(e.target.value)} />
                   </div>
                   <div>
@@ -548,7 +548,7 @@ export function Welfare() {
                     <Input value={approveRemarks} onChange={(e) => setApproveRemarks(e.target.value)} />
                   </div>
                 </div>
-                <div className="text-xs text-muted mt-1.5">{tx("Date of the committee minutes in which this amount was agreed", "ഈ തുക അംഗീകരിച്ച കമ്മിറ്റി മിനിറ്റ്‌സിന്റെ തീയതി")}</div>
+                <div className="text-xs text-muted mt-1.5">{tx("Date of the committee minutes in which this amount was agreed", "ഈ തുക അംഗീകരിച്ച കമ്മിറ്റി യോഗത്തിന്റെ തീയതി")}</div>
                 <div className="flex gap-2 mt-3">
                   <Button onClick={handleApprove}>
                     <Check className="h-4 w-4" />
@@ -578,7 +578,7 @@ export function Welfare() {
               <div className="text-sm text-muted mb-2">
                 {tx(
                   `Disbursement requires a reason and the administrator password. Minutes recorded: ${form.minutes_date ? formatDate(form.minutes_date) : "—"}`,
-                  `വിതരണത്തിന് കാരണവും അഡ്മിൻ പാസ്‌വേഡും ആവശ്യമാണ്. രേഖപ്പെടുത്തിയ മിനിറ്റ്‌സ്: ${form.minutes_date ? formatDate(form.minutes_date) : "—"}`
+                  `തുക നൽകാൻ കാരണവും അഡ്മിൻ പാസ്‌വേഡും ആവശ്യമാണ്. തീരുമാന തീയതി: ${form.minutes_date ? formatDate(form.minutes_date) : "—"}`
                 )}
               </div>
               <Button onClick={() => editingId && openDisburse(form as Welfare)}>
@@ -605,7 +605,7 @@ export function Welfare() {
           disburseTarget
             ? tx(
                 `Disburse ${formatCurrency(disburseTarget.amount_approved)} to ${disburseTarget.applicant_name}? Minutes: ${disburseTarget.minutes_date ? formatDate(disburseTarget.minutes_date) : "—"}`,
-                `${disburseTarget.applicant_name} ന് ${formatCurrency(disburseTarget.amount_approved)} വിതരണം ചെയ്യണോ? മിനിറ്റ്‌സ്: ${disburseTarget.minutes_date ? formatDate(disburseTarget.minutes_date) : "—"}`
+                `${disburseTarget.applicant_name} ന് ${formatCurrency(disburseTarget.amount_approved)} തുക നൽകണോ? തീരുമാന തീയതി: ${disburseTarget.minutes_date ? formatDate(disburseTarget.minutes_date) : "—"}`
               )
             : ""
         }

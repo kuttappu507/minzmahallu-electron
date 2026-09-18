@@ -101,7 +101,7 @@ export function Dashboard() {
           <div className="gchips">
             <span className="gchip t-gold"><Clock size={13} /> {t("dash_week")} {Math.ceil((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000))} · {t("dash_day")} {Math.ceil((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (24 * 60 * 60 * 1000))}</span>
             <span className="gchip t-sky"><Wallet size={13} /> {t("dash_fy")} {new Date().getFullYear()}-{String(new Date().getFullYear() + 1).slice(-2)} · Q{Math.floor(new Date().getMonth() / 3) + 1}</span>
-            <span className={`gchip ${backupHealthy === false ? "t-rose" : "t-em"}`}><Database size={13} /> {backupHealthy === null ? t("dash_backup_ok") : backupHealthy ? t("dash_backup_ok") : ml("Backup attention needed", "ബാക്കപ്പ് ശ്രദ്ധ ആവശ്യമുണ്ട്")}</span>
+            <span className={`gchip ${backupHealthy === false ? "t-rose" : "t-em"}`}><Database size={13} /> {backupHealthy === null ? t("dash_backup_ok") : backupHealthy ? t("dash_backup_ok") : ml("Backup attention needed", "ബാക്കപ്പ് എടുക്കേണ്ടതുണ്ട്")}</span>
           </div>
         </div>
         <div className="hero-side">
@@ -122,7 +122,7 @@ export function Dashboard() {
           <div className="card dash-mini t-em">
             <div className="dm-row"><span>{t("dash_income")}</span><b>{formatCurrency(thisMonthIncome)}</b></div>
             <div className="dm-row"><span>{t("dash_expense")}</span><b>{formatCurrency(thisMonthExpense)}</b></div>
-            <div className="dm-row dm-net"><span>{ml("Net this month", "ഈ മാസം അറ്റാദായം")}</span><b>{formatCurrency(netThisMonth)}</b></div>
+            <div className="dm-row dm-net"><span>{ml("Net this month", "ഈ മാസത്തെ മിച്ചം")}</span><b>{formatCurrency(netThisMonth)}</b></div>
           </div>
         </div>
       </div>
@@ -239,7 +239,7 @@ export function Dashboard() {
             <span className="db-backup-ic"><ShieldCheck size={17} /></span>
             <div>
               <b>{ml("Data protection", "ഡാറ്റ സംരക്ഷണം")}</b>
-              <small>{backupHealthy === null ? ml("Backup status unknown", "ബാക്കപ്പ് നില അറിയില്ല") : backupHealthy ? ml("Auto-backup active", "ഓട്ടോ ബാക്കപ്പ് സജീവം") : ml("Backup attention needed", "ബാക്കപ്പ് ശ്രദ്ധ ആവശ്യമുണ്ട്")}</small>
+              <small>{backupHealthy === null ? ml("Backup status unknown", "ബാക്കപ്പ് നില അറിയില്ല") : backupHealthy ? ml("Auto-backup active", "ഓട്ടോ ബാക്കപ്പ് സജീവം") : ml("Backup attention needed", "ബാക്കപ്പ് എടുക്കേണ്ടതുണ്ട്")}</small>
             </div>
           </div>
         </div>

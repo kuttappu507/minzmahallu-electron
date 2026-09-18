@@ -30,27 +30,27 @@ const ROLE_GROUPS: Array<{ id: string; en: string; ml: string; roles: string[] }
 const ROLE_INFO: Record<string, { en: string; ml: string }> = {
   Administrator: {
     en: "Full control — creates user accounts, changes settings and passwords, approves secure (password-gated) actions, and can access the audit log and backup.",
-    ml: "പൂർണ്ണ നിയന്ത്രണം — ഉപയോക്തൃ അക്കൗണ്ടുകൾ സൃഷ്ടിക്കും, സെറ്റിംഗ്സും പാസ്‌വേഡുകളും മാറ്റും, പാസ്‌വേഡ് ആവശ്യപ്പെടുന്ന സുരക്ഷിത പ്രവർത്തനങ്ങൾ അംഗീകരിക്കും, ഓഡിറ്റ് ലോഗും ബാക്കപ്പും കൈകാര്യം ചെയ്യും.",
+    ml: "പൂർണ്ണ നിയന്ത്രണം — ഉപയോക്തൃ അക്കൗണ്ടുകൾ ഉണ്ടാക്കും, സെറ്റിംഗ്സും പാസ്‌വേഡുകളും മാറ്റും, പാസ്‌വേഡ് ആവശ്യപ്പെടുന്ന സുരക്ഷിത പ്രവർത്തനങ്ങൾ അംഗീകരിക്കും, ഓഡിറ്റ് ലോഗും ബാക്കപ്പും കൈകാര്യം ചെയ്യും.",
   },
   President: {
     en: "Management role — can review and manage mahallu records and reports. Money-changing or record-deleting secure actions still require the administrator password.",
-    ml: "നിർവ്വാഹക റോൾ — മഹല്ലിലെ രേഖകളും റിപ്പോർട്ടുകളും കാണും നടത്തും. പണവുമായി ബന്ധപ്പെട്ട സുരക്ഷിത പ്രവർത്തനങ്ങൾക്ക് അഡ്മിൻ പാസ്‌വേഡ് ആവശ്യമാണ്.",
+    ml: "നിർവ്വാഹക ചുമതല — മഹല്ലിലെ രേഖകളും റിപ്പോർട്ടുകളും കാണും നടത്തും. പണവുമായി ബന്ധപ്പെട്ട സുരക്ഷിത പ്രവർത്തനങ്ങൾക്ക് അഡ്മിൻ പാസ്‌വേഡ് ആവശ്യമാണ്.",
   },
   Secretary: {
     en: "Management role — keeps families, members and registers up to date. Cannot create user accounts or change settings.",
-    ml: "നിർവ്വാഹക റോൾ — കുടുംബങ്ങൾ, അംഗങ്ങൾ, രജിസ്റ്ററുകൾ എന്നിവ കൃത്യമായി സൂക്ഷിക്കും. ഉപയോക്തൃ അക്കൗണ്ടുകൾ സൃഷ്ടിക്കാനോ സെറ്റിംഗ്സ് മാറ്റാനോ കഴിയില്ല.",
+    ml: "നിർവ്വാഹക ചുമതല — കുടുംബങ്ങൾ, അംഗങ്ങൾ, രജിസ്റ്ററുകൾ എന്നിവ കൃത്യമായി സൂക്ഷിക്കും. ഉപയോക്തൃ അക്കൗണ്ടുകൾ ഉണ്ടാക്കാനോ സെറ്റിംഗ്സ് മാറ്റാനോ കഴിയില്ല.",
   },
   Treasurer: {
     en: "Management role — records collections, payments and accounts. Cancelling payments or altering money records requires the administrator password.",
-    ml: "നിർവ്വാഹക റോൾ — വരവുകൾ, പേയ്‌മെന്റുകൾ, കണക്കുകൾ രേഖപ്പെടുത്തും. പേയ്‌മെന്റ് റദ്ദാക്കാനോ കണക്ക് മാറ്റാനോ അഡ്മിൻ പാസ്‌വേഡ് ആവശ്യമാണ്.",
+    ml: "നിർവ്വാഹക ചുമതല — വരവുകൾ, അടവുകൾ, കണക്കുകൾ രേഖപ്പെടുത്തും. അടവ് റദ്ദാക്കാനോ കണക്ക് മാറ്റാനോ അഡ്മിൻ പാസ്‌വേഡ് ആവശ്യമാണ്.",
   },
   Imam: {
     en: "Management role — handles religious registers (marriages, deaths, certificates) and welfare requests. Cannot change users or settings.",
-    ml: "നിർവ്വാഹക റോൾ — മതപരമായ രജിസ്റ്ററുകൾ (വിവാഹം, മരണം, സർട്ടിഫിക്കറ്റുകൾ), ക്ഷേമ അപേക്ഷകൾ എന്നിവ കൈകാര്യം ചെയ്യും. ഉപയോക്താക്കളെയോ സെറ്റിംഗ്സുകളോ മാറ്റാനാവില്ല.",
+    ml: "നിർവ്വാഹക ചുമതല — മതപരമായ രജിസ്റ്ററുകൾ (വിവാഹം, മരണം, സർട്ടിഫിക്കറ്റുകൾ), ക്ഷേമ അപേക്ഷകൾ എന്നിവ കൈകാര്യം ചെയ്യും. ഉപയോക്താക്കളെയോ സെറ്റിംഗ്സുകളോ മാറ്റാനാവില്ല.",
   },
   Staff: {
     en: "Office role — enters daily records (families, members, subscriptions, donations). Cannot manage user accounts or settings.",
-    ml: "ഓഫീസ് റോൾ — ദൈനംദിന വിവരങ്ങൾ (കുടുംബം, അംഗങ്ങൾ, വരിസംഖ്യ, ദാനങ്ങൾ) രേഖപ്പെടുത്തും. ഉപയോക്തൃ അക്കൗണ്ടുകളോ സെറ്റിംഗ്സുകളോ കൈകാര്യം ചെയ്യാനാവില്ല.",
+    ml: "ഓഫീസ് ചുമതല — ദൈനംദിന വിവരങ്ങൾ (കുടുംബം, അംഗങ്ങൾ, വരിസംഖ്യ, സംഭാവനകൾ) രേഖപ്പെടുത്തും. ഉപയോക്തൃ അക്കൗണ്ടുകളോ സെറ്റിംഗ്സുകളോ കൈകാര്യം ചെയ്യാനാവില്ല.",
   },
   Auditor: {
     en: "View-only — can read records, open reports and export them for checking. Cannot add, edit or delete anything.",
@@ -61,7 +61,7 @@ const ROLE_INFO: Record<string, { en: string; ml: string }> = {
 export function Users() {
   const { t, lang } = useI18n();
   const ml = lang === "ml";
-  const roleLabel = (role: string) => ml ? ({ Administrator: "അഡ്മിനിസ്ട്രേറ്റർ", President: "പ്രസിഡന്റ്", Secretary: "സെക്രട്ടറി", Treasurer: "ട്രഷറർ", Imam: "ഇമാം", Staff: "സ്റ്റാഫ്", Auditor: "ഓഡിറ്റർ" } as Record<string, string>)[role] || role : role;
+  const roleLabel = (role: string) => ml ? ({ Administrator: "അഡ്മിൻ", President: "പ്രസിഡന്റ്", Secretary: "സെക്രട്ടറി", Treasurer: "ട്രഷറർ", Imam: "ഇമാം", Staff: "ജീവനക്കാൻ", Auditor: "ഓഡിറ്റർ" } as Record<string, string>)[role] || role : role;
   const activeLabel = ml ? "സജീവം" : "Active";
   const lockedLabel = ml ? "ലോക്ക് ചെയ്തു" : "Locked";
   const yesNo = (v: boolean | number) => v ? (ml ? "അതെ" : "Yes") : (ml ? "ഇല്ല" : "No");
@@ -154,7 +154,7 @@ export function Users() {
             {grp && <Badge variant="info">{ml ? grp.ml : grp.en}</Badge>}
           </div>
           <div className="text-sm mt-2">{ml ? ROLE_INFO[form.role].ml : ROLE_INFO[form.role].en}</div>
-          <div className="text-xs text-muted mt-1.5">{ml ? "കൂടാതെ, സുരക്ഷിത പ്രവർത്തനങ്ങൾക്കെല്ലാം (ആർക്കൈവ്, പേയ്‌മെന്റ് റദ്ദാക്കൽ, തിരുത്തൽ തുടങ്ങിയവ) അഡ്മിൻ പാസ്‌വേഡ് പിന്നെയും നിർബന്ധമാണ്." : "On top of this, every secure action (archive, cancel payment, gated edits…) still requires the administrator password."}</div>
+          <div className="text-xs text-muted mt-1.5">{ml ? "കൂടാതെ, സുരക്ഷിത പ്രവർത്തനങ്ങൾക്കെല്ലാം (ആർക്കൈവ്, അടവ് റദ്ദാക്കൽ, തിരുത്തൽ തുടങ്ങിയവ) അഡ്മിൻ പാസ്‌വേഡ് പിന്നെയും നിർബന്ധമാണ്." : "On top of this, every secure action (archive, cancel payment, gated edits…) still requires the administrator password."}</div>
         </div>
       ); })()}</div><div className="m-f"><Button variant="secondary" onClick={() => setDialogOpen(false)}>{t("action_cancel")}</Button><Button onClick={save} disabled={busy}>{busy ? t("ui_saving") : t("action_save")}</Button></div>
     </Dialog>

@@ -32,7 +32,7 @@ export function TokensWithPrint() {
       event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
       const select = document.querySelector(".vhead select") as HTMLSelectElement | null;
       const eventId = Number(select?.value || 0) || lastEventId.current;
-      if (!eventId) { toast.error(ml ? "ആദ്യം ഒരു ഇവന്റ് തിരഞ്ഞെടുക്കുക" : "Please select an event first"); return; }
+      if (!eventId) { toast.error(ml ? "ആദ്യം ഒരു പരിപാടി തിരഞ്ഞെടുക്കുക" : "Please select an event first"); return; }
       setPrinting(true);
       try {
         const [tokenList, eventData, loadedSettings] = await Promise.all([
@@ -40,7 +40,7 @@ export function TokensWithPrint() {
           window.mms.tokens.getEvent(eventId),
           window.mms.settings.load(),
         ]);
-        if (!tokenList?.length) { toast.error(ml ? "ഈ ഇവന്റിന് ടോക്കണുകളൊന്നുമില്ല" : "No tokens found for this event"); return; }
+        if (!tokenList?.length) { toast.error(ml ? "ഈ പരിപാടിക്ക് ടോക്കണുകളൊന്നുമില്ല" : "No tokens found for this event"); return; }
         const settings = { ...(loadedSettings || {}), language: lang };
         const html = await buildTokenSheetHtml(tokenList, eventData, settings, mode);
         const safeName = String(eventData?.event_name || eventId).replace(/[^a-z0-9_-]+/gi, "-").replace(/^-|-$/g, "") || String(eventId);

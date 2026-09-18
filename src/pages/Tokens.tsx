@@ -30,7 +30,7 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
   const ml = lang === "ml";
   const text = {
     title: ml ? "ടോക്കണുകൾ" : "Tokens",
-    subtitle: ml ? "ടോക്കൺ വിതരണം, ശേഖരണം എന്നിവ കൈകാര്യം ചെയ്യുക" : "Token distribution & collection management",
+    subtitle: ml ? "ടോക്കൺ വിതരണവും പിരിവും നടത്താം" : "Token distribution & collection management",
     selectFamilies: ml ? "കുടുംബങ്ങൾ തിരഞ്ഞെടുക്കുക" : "Select Families",
     selected: ml ? "തിരഞ്ഞെടുത്തത്" : "selected",
     new: ml ? "പുതിയത്" : "new",
@@ -46,23 +46,23 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
     status: t("family_status"), hasToken: ml ? "ടോക്കൺ ഉണ്ട്" : "Has Token",
     newToken: "",
     deleteToken: ml ? "ടോക്കൺ ഇല്ലാതാക്കുക" : "Delete Token",
-    deleteAfterEvent: ml ? "ഇവന്റ് കഴിഞ്ഞതിനാൽ ഈ താൽക്കാലിക ടോക്കൺ ഇല്ലാതാക്കാം. ഈ പ്രവർത്തനം തിരിച്ചെടുക്കാനാകില്ല." : "This temporary token can be deleted because the event has ended. This action cannot be undone.",
+    deleteAfterEvent: ml ? "പരിപാടി കഴിഞ്ഞതിനാൽ ഈ താൽക്കാലിക ടോക്കൺ ഇല്ലാതാക്കാം. ഈ പ്രവർത്തനം തിരിച്ചെടുക്കാനാകില്ല." : "This temporary token can be deleted because the event has ended. This action cannot be undone.",
     reviewSelection: ml ? "തിരഞ്ഞെടുപ്പ് പരിശോധിക്കുക" : "Review Selection",
     selectedFamilies: ml ? "തിരഞ്ഞെടുത്ത കുടുംബങ്ങൾ" : "Selected Families",
     newTokens: ml ? "പുതിയ ടോക്കണുകൾ" : "New Tokens",
     existingTokens: ml ? "നിലവിലുള്ള ടോക്കണുകൾ" : "Already Have Tokens",
     wardDistribution: ml ? "വാർഡ് വിതരണം" : "Ward Distribution",
-    skipWarning: ml ? "ചില കുടുംബങ്ങൾക്ക് ഈ ഇവന്റിൽ ടോക്കൺ നിലവിലുണ്ട്. അവ ഒഴിവാക്കും." : "Some families already have tokens for this event. They will be skipped.",
-    generateNew: ml ? "പുതിയ ടോക്കണുകൾ സൃഷ്ടിക്കുക" : "Generate New Tokens",
-    generatedSuccess: ml ? "ടോക്കണുകൾ വിജയകരമായി സൃഷ്ടിച്ചു" : "Tokens Generated Successfully",
+    skipWarning: ml ? "ചില കുടുംബങ്ങൾക്ക് ഈ പരിപാടിയിൽ ടോക്കൺ നിലവിലുണ്ട്. അവ ഒഴിവാക്കും." : "Some families already have tokens for this event. They will be skipped.",
+    generateNew: ml ? "പുതിയ ടോക്കണുകൾ തയ്യാറാക്കുക" : "Generate New Tokens",
+    generatedSuccess: ml ? "ടോക്കണുകൾ വിജയകരമായി തയ്യാറാക്കി" : "Tokens Generated Successfully",
     totalFor: ml ? "ടോക്കണുകൾ" : "tokens",
-    total: ml ? "മൊത്തം ടോക്കണുകൾ" : "Total Tokens",
-    collected: ml ? "ശേഖരിച്ചത്" : "Collected",
+    total: ml ? "ആകെ ടോക്കണുകൾ" : "Total Tokens",
+    collected: ml ? "പിരിച്ചത്" : "Collected",
     remaining: ml ? "ശേഷിക്കുന്നത്" : "Remaining",
-    rate: ml ? "ശേഖരണ നിരക്ക്" : "Collection Rate",
-    generate: ml ? "ടോക്കണുകൾ സൃഷ്ടിക്കുക" : "Generate Tokens",
+    rate: ml ? "പിരിവ് നിരക്ക്" : "Collection Rate",
+    generate: ml ? "ടോക്കണുകൾ തയ്യാറാക്കുക" : "Generate Tokens",
     tokenPdf: ml ? "ടോക്കൺ PDF" : "Token PDF",
-    collectionSheet: ml ? "ശേഖരണ ഷീറ്റ്" : "Collection Sheet",
+    collectionSheet: ml ? "പിരിവ് ഷീറ്റ്" : "Collection Sheet",
     searchToken: ml ? "ടോക്കൺ/കുടുംബം തിരയുക..." : "Search token/family...",
     all: t("ui_all"), loading: t("ui_loading"),
     noTokens: ml ? "ടോക്കണുകളൊന്നുമില്ല. സജീവ കുടുംബങ്ങൾക്കായി ടോക്കൺ സൃഷ്ടിക്കുക." : "No tokens yet. Generate tokens for active families.",
@@ -71,16 +71,16 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
     markCollected: ml ? "ശേഖരിച്ചതായി അടയാളപ്പെടുത്തുക" : "Mark Collected",
     cancelToken: ml ? "ടോക്കൺ റദ്ദാക്കുക" : "Cancel Token",
     replaceToken: ml ? "ടോക്കൺ മാറ്റിസ്ഥാപിക്കുക" : "Replace Token",
-    noEvent: ml ? "ഇവന്റ് തിരഞ്ഞെടുത്തിട്ടില്ല" : "No Event Selected",
-    selectOrCreate: ml ? "ഇവന്റ് തിരഞ്ഞെടുക്കുക അല്ലെങ്കിൽ പുതിയത് സൃഷ്ടിക്കുക." : "Select an event or create a new one to manage tokens.",
-    selectEvent: ml ? "— ഇവന്റ് തിരഞ്ഞെടുക്കുക —" : "— Select Event —",
-    newEvent: ml ? "പുതിയ ഇവന്റ്" : "New Event", editEvent: ml ? "ഇവന്റ് തിരുത്തുക" : "Edit Event",
-    eventName: ml ? "ഇവന്റ് പേര്" : "Event Name", eventType: ml ? "ഇവന്റ് തരം" : "Event Type",
+    noEvent: ml ? "പരിപാടി തിരഞ്ഞെടുത്തിട്ടില്ല" : "No Event Selected",
+    selectOrCreate: ml ? "പരിപാടി തിരഞ്ഞെടുക്കുക അല്ലെങ്കിൽ പുതിയത് സൃഷ്ടിക്കുക." : "Select an event or create a new one to manage tokens.",
+    selectEvent: ml ? "— പരിപാടി തിരഞ്ഞെടുക്കുക —" : "— Select Event —",
+    newEvent: ml ? "പുതിയ പരിപാടി" : "New Event", editEvent: ml ? "പരിപാടി തിരുത്തുക" : "Edit Event",
+    eventName: ml ? "പരിപാടി പേര്" : "Event Name", eventType: ml ? "പരിപാടി തരം" : "Event Type",
     date: ml ? "തീയതി" : "Date", time: ml ? "സമയം" : "Time", venue: ml ? "സ്ഥലം" : "Venue",
-    description: ml ? "വിവരണം" : "Description", saveEvent: ml ? "ഇവന്റ് സേവ് ചെയ്യുക" : "Save Event",
+    description: ml ? "വിവരണം" : "Description", saveEvent: ml ? "പരിപാടി സേവ് ചെയ്യുക" : "Save Event",
     general: ml ? "പൊതുവായത്" : "General", eid: ml ? "ഈദ്" : "Eid", ramadan: ml ? "റമദാൻ" : "Ramadan", welfare: ml ? "ക്ഷേമം" : "Welfare",
     reason: ml ? "കാരണം" : "Reason", lostToken: ml ? "നഷ്ടപ്പെട്ട ടോക്കൺ" : "Lost token",
-    replacement: ml ? "പകരം ടോക്കൺ സൃഷ്ടിക്കുക" : "Generate Replacement",
+    replacement: ml ? "പകരം ടോക്കൺ തയ്യാറാക്കുക" : "Generate Replacement",
   };
 
   const [events, setEvents] = useState<TokenEvent[]>([]);
@@ -175,11 +175,11 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
     try {
       const result = await window.mms.tokens.removeEvent(
         selectedEventId!,
-        actionReason.trim() || (ml ? "തെറ്റായി സൃഷ്ടിച്ച ഇവന്റ്" : "Event created by mistake")
+        actionReason.trim() || (ml ? "തെറ്റായി സൃഷ്ടിച്ച പരിപാടി" : "Event created by mistake")
       );
       toast.success(
         ml
-          ? `ഇവന്റ് ഇല്ലാതാക്കി (${result?.deletedTokens ?? 0} ടോക്കണുകളും)`
+          ? `പരിപാടി ഇല്ലാതാക്കി (${result?.deletedTokens ?? 0} ടോക്കണുകളും)`
           : `Event deleted (with ${result?.deletedTokens ?? 0} tokens)`
       );
       setSelectedEventId(null);
@@ -189,7 +189,7 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
       setActionDialog({ type: null, token: null });
       setActionReason("");
     } catch (e: any) {
-      toast.error(e.message || (ml ? "ഇവന്റ് ഇല്ലാതാക്കാനായില്ല" : "Failed to delete event"));
+      toast.error(e.message || (ml ? "പരിപാടി ഇല്ലാതാക്കാനായില്ല" : "Failed to delete event"));
     } finally {
       setDeleteEventBusy(false);
     }
@@ -273,22 +273,22 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
 
   const saveEvent = async () => {
     if (!eventForm.event_name.trim() || !eventForm.event_date) {
-      toast.error(ml ? "ഇവന്റ് പേരും തീയതിയും ആവശ്യമാണ്" : "Event name and date are required"); return;
+      toast.error(ml ? "പരിപാടി പേരും തീയതിയും ആവശ്യമാണ്" : "Event name and date are required"); return;
     }
     try {
       const payload = { ...eventForm, eventName: eventForm.event_name, eventType: eventForm.event_type, eventDate: eventForm.event_date, eventTime: eventForm.event_time };
       if (editingEventId) {
         await window.mms.tokens.updateEvent(editingEventId, payload);
-        toast.success(ml ? "ഇവന്റ് അപ്ഡേറ്റ് ചെയ്തു" : "Event updated");
+        toast.success(ml ? "പരിപാടി അപ്ഡേറ്റ് ചെയ്തു" : "Event updated");
       } else {
         const result = await window.mms.tokens.createEvent(payload);
         setSelectedEventId(result.id);
-        toast.success(ml ? "ഇവന്റ് സൃഷ്ടിച്ചു" : "Event created");
+        toast.success(ml ? "പരിപാടി തയ്യാറാക്കി" : "Event created");
       }
       setEventDialogOpen(false); setEditingEventId(null);
       setEventForm({ event_name: "", event_type: "general", event_date: "", event_time: "", venue: "", description: "" });
       await loadEvents();
-    } catch (e: any) { toast.error(e.message || (ml ? "ഇവന്റ് സേവ് ചെയ്യാൻ കഴിഞ്ഞില്ല" : "Failed to save event")); }
+    } catch (e: any) { toast.error(e.message || (ml ? "പരിപാടി സേവ് ചെയ്യാൻ കഴിഞ്ഞില്ല" : "Failed to save event")); }
   };
 
   const editEvent = async (id: number) => {
@@ -301,7 +301,7 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
   };
 
   const startSelection = async () => {
-    if (!selectedEventId) { toast.error(ml ? "ആദ്യം ഒരു ഇവന്റ് തിരഞ്ഞെടുക്കുക" : "Please select an event first"); return; }
+    if (!selectedEventId) { toast.error(ml ? "ആദ്യം ഒരു പരിപാടി തിരഞ്ഞെടുക്കുക" : "Please select an event first"); return; }
     try {
       const result = await window.mms.families.list({ status: "Active", pageSize: 10000 });
       setFamilies(result.rows || []);
@@ -361,7 +361,7 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
   const deleteToken = async () => {
     if (!actionDialog.token || !canDeleteTokens) return;
     try {
-      await window.mms.tokens.remove(actionDialog.token.id, actionReason || (ml ? "ഇവന്റ് കഴിഞ്ഞതിന് ശേഷം താൽക്കാലിക ടോക്കൺ നീക്കം ചെയ്തു" : "Temporary token removed after event"));
+      await window.mms.tokens.remove(actionDialog.token.id, actionReason || (ml ? "പരിപാടി കഴിഞ്ഞതിന് ശേഷം താൽക്കാലിക ടോക്കൺ നീക്കം ചെയ്തു" : "Temporary token removed after event"));
       toast.success(ml ? "ടോക്കൺ ഇല്ലാതാക്കി" : "Token deleted");
       setActionDialog({ type: null, token: null }); setActionReason(""); await loadTokens();
     } catch (e: any) { toast.error(e.message || (ml ? "ടോക്കൺ ഇല്ലാതാക്കാൻ കഴിഞ്ഞില്ല" : "Failed to delete token")); }
@@ -407,12 +407,12 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
 
   return (
     <div className="view view-enter">
-      <div className="vhead"><span className="modic t-pink"><Ticket size={22} /></span><div><h1>{text.title}</h1><div className="vs">{text.subtitle}</div></div><div className="vr"><Select value={selectedEventId || ""} onChange={e => setSelectedEventId(Number(e.target.value))} className="w-48"><option value="">{text.selectEvent}</option>{events.map(ev => <option key={ev.id} value={ev.id}>{ev.event_name} ({formatDate(ev.event_date)})</option>)}</Select><Button variant="secondary" onClick={() => { setEditingEventId(null); setEventForm({ event_name: "", event_type: "general", event_date: "", event_time: "", venue: "", description: "" }); setEventDialogOpen(true); }}><Plus size={14} /> {text.newEvent}</Button>{selectedEventId && <><Button variant="secondary" onClick={() => editEvent(selectedEventId)}>{text.editEvent}</Button><Button variant={canDeleteEvent ? "danger" : "secondary"} onClick={deleteEvent} disabled={deleteEventBusy || !canDeleteEvent} title={canDeleteEvent ? undefined : (ml ? "ഇവന്റിന്റെ തീയതി ഇതുവരെ കഴിഞ്ഞിട്ടില്ല — ഇവന്റ് കഴിഞ്ഞ ശേഷം മാത്രമേ ഇത് ഇല്ലാതാക്കാനാകൂ" : "This event's date has not yet passed — it can be deleted only after the event is over")}><Trash2 size={14} /> {ml ? "ഇവന്റ് ഇല്ലാതാക്കുക" : "Delete Event"}</Button></>}</div></div>
+      <div className="vhead"><span className="modic t-pink"><Ticket size={22} /></span><div><h1>{text.title}</h1><div className="vs">{text.subtitle}</div></div><div className="vr"><Select value={selectedEventId || ""} onChange={e => setSelectedEventId(Number(e.target.value))} className="w-48"><option value="">{text.selectEvent}</option>{events.map(ev => <option key={ev.id} value={ev.id}>{ev.event_name} ({formatDate(ev.event_date)})</option>)}</Select><Button variant="secondary" onClick={() => { setEditingEventId(null); setEventForm({ event_name: "", event_type: "general", event_date: "", event_time: "", venue: "", description: "" }); setEventDialogOpen(true); }}><Plus size={14} /> {text.newEvent}</Button>{selectedEventId && <><Button variant="secondary" onClick={() => editEvent(selectedEventId)}>{text.editEvent}</Button><Button variant={canDeleteEvent ? "danger" : "secondary"} onClick={deleteEvent} disabled={deleteEventBusy || !canDeleteEvent} title={canDeleteEvent ? undefined : (ml ? "പരിപാടിയുടെ തീയതി ഇതുവരെ കഴിഞ്ഞിട്ടില്ല — പരിപാടി കഴിഞ്ഞ ശേഷം മാത്രമേ ഇത് ഇല്ലാതാക്കാനാകൂ" : "This event's date has not yet passed — it can be deleted only after the event is over")}><Trash2 size={14} /> {ml ? "പരിപാടി ഇല്ലാതാക്കുക" : "Delete Event"}</Button></>}</div></div>
       {selectedEventId ? <>
         <div className="stat-grid token-stat-grid"><div className="stat t-em"><div className="srow"><span className="sic"><Ticket size={18} /></span><span className="delta">{stats.rate}%</span></div><div className="val">{stats.total}</div><div className="slab">{text.total}</div></div><div className="stat t-teal"><div className="srow"><span className="sic"><CheckCircle2 size={18} /></span></div><div className="val">{stats.collected}</div><div className="slab">{text.collected}</div></div><div className="stat t-gold"><div className="srow"><span className="sic"><Users size={18} /></span></div><div className="val">{stats.remaining}</div><div className="slab">{text.remaining}</div></div><div className="stat t-sky"><div className="srow"><span className="sic"><RefreshCw size={18} /></span></div><div className="val">{stats.rate}%</div><div className="slab">{text.rate}</div></div></div>
-        <div className="toolbar"><Button onClick={startSelection}><Plus size={14} /> {text.generate}</Button><Button variant="secondary" onClick={() => generatePdf(false)} disabled={pdfLoading || !stats.total}>{pdfLoading ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}{text.tokenPdf}</Button><Button variant="secondary" onClick={() => generatePdf(true)} disabled={collectionSheetLoading || !stats.total}>{collectionSheetLoading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}{text.collectionSheet}</Button>{printModeControl}<span className="toolbar-spacer" /><Input className="w-48" placeholder={text.searchToken} value={search} onChange={e => setSearch(e.target.value)} /><Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-32"><option value="All">{text.all}</option><option value="GENERATED">{ml ? "സൃഷ്ടിച്ചത്" : "GENERATED"}</option><option value="COLLECTED">{ml ? "ശേഖരിച്ചത്" : "COLLECTED"}</option><option value="CANCELLED">{ml ? "റദ്ദാക്കിയത്" : "CANCELLED"}</option></Select><Button variant="ghost" onClick={loadTokens} title={t("action_refresh")}><RefreshCw size={14} /></Button></div>
+        <div className="toolbar"><Button onClick={startSelection}><Plus size={14} /> {text.generate}</Button><Button variant="secondary" onClick={() => generatePdf(false)} disabled={pdfLoading || !stats.total}>{pdfLoading ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}{text.tokenPdf}</Button><Button variant="secondary" onClick={() => generatePdf(true)} disabled={collectionSheetLoading || !stats.total}>{collectionSheetLoading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}{text.collectionSheet}</Button>{printModeControl}<span className="toolbar-spacer" /><Input className="w-48" placeholder={text.searchToken} value={search} onChange={e => setSearch(e.target.value)} /><Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-32"><option value="All">{text.all}</option><option value="GENERATED">{ml ? "സൃഷ്ടിച്ചത്" : "GENERATED"}</option><option value="COLLECTED">{ml ? "പിരിച്ചത്" : "COLLECTED"}</option><option value="CANCELLED">{ml ? "റദ്ദാക്കിയത്" : "CANCELLED"}</option></Select><Button variant="ghost" onClick={loadTokens} title={t("action_refresh")}><RefreshCw size={14} /></Button></div>
         <div className="tbl"><table><thead><tr><th>{text.token}</th><th>{text.familyNo}</th><th>{text.house}</th><th>{text.ward}</th><th>{text.status}</th><th>{text.generated}</th><th>{text.collected}</th><th>{text.actions}</th></tr></thead><tbody>
-          {loading ? <tr><td colSpan={8} className="tempty">{text.loading}</td></tr> : !tokens.length ? <tr><td colSpan={8} className="tempty">{text.noTokens}</td></tr> : tokens.map(tk => <tr key={tk.id}><td className="token-code">{tk.token_code}</td><td>{tk.family_number}</td><td>{tk.house_name || tk.house_number || "—"}</td><td>{tk.ward || "—"}</td><td><Badge variant={tk.status === "COLLECTED" ? "success" : tk.status === "CANCELLED" ? "danger" : "warning"}>{ml ? ({ GENERATED: "സൃഷ്ടിച്ചത്", COLLECTED: "ശേഖരിച്ചത്", CANCELLED: "റദ്ദാക്കിയത്", ISSUED: "നൽകിയത്" } as Record<string, string>)[tk.status] || tk.status : tk.status}</Badge></td><td>{formatDate(tk.created_at)}</td><td>{tk.collected_at ? formatDate(tk.collected_at) : "—"}</td><td><div className="rowact">{tk.status === "GENERATED" && <button className="act-btn act-edit" onClick={() => collect(tk.id)} title={text.markCollected}><Check size={14} /></button>}{tk.status !== "CANCELLED" && <><button className="act-btn act-del" onClick={() => setActionDialog({ type: "cancel", token: tk })} title={text.cancelToken}><Ban size={14} /></button><button className="act-btn act-view" onClick={() => setActionDialog({ type: "replace", token: tk })} title={text.replaceToken}><RotateCcw size={14} /></button></>}{canDeleteTokens && <button className="act-btn act-del" onClick={() => setActionDialog({ type: "delete", token: tk })} title={text.deleteToken}><Trash2 size={14} /></button>}</div></td></tr>)}
+          {loading ? <tr><td colSpan={8} className="tempty">{text.loading}</td></tr> : !tokens.length ? <tr><td colSpan={8} className="tempty">{text.noTokens}</td></tr> : tokens.map(tk => <tr key={tk.id}><td className="token-code">{tk.token_code}</td><td>{tk.family_number}</td><td>{tk.house_name || tk.house_number || "—"}</td><td>{tk.ward || "—"}</td><td><Badge variant={tk.status === "COLLECTED" ? "success" : tk.status === "CANCELLED" ? "danger" : "warning"}>{ml ? ({ GENERATED: "സൃഷ്ടിച്ചത്", COLLECTED: "പിരിച്ചത്", CANCELLED: "റദ്ദാക്കിയത്", ISSUED: "നൽകിയത്" } as Record<string, string>)[tk.status] || tk.status : tk.status}</Badge></td><td>{formatDate(tk.created_at)}</td><td>{tk.collected_at ? formatDate(tk.collected_at) : "—"}</td><td><div className="rowact">{tk.status === "GENERATED" && <button className="act-btn act-edit" onClick={() => collect(tk.id)} title={text.markCollected}><Check size={14} /></button>}{tk.status !== "CANCELLED" && <><button className="act-btn act-del" onClick={() => setActionDialog({ type: "cancel", token: tk })} title={text.cancelToken}><Ban size={14} /></button><button className="act-btn act-view" onClick={() => setActionDialog({ type: "replace", token: tk })} title={text.replaceToken}><RotateCcw size={14} /></button></>}{canDeleteTokens && <button className="act-btn act-del" onClick={() => setActionDialog({ type: "delete", token: tk })} title={text.deleteToken}><Trash2 size={14} /></button>}</div></td></tr>)}
         </tbody></table></div>
       </> : <div className="card token-empty"><Ticket size={40} /><h3>{text.noEvent}</h3><p>{text.selectOrCreate}</p></div>}
 
@@ -420,8 +420,8 @@ export function Tokens({ printModeControl }: { printModeControl?: ReactNode } = 
         <div className="m-b"><div className="grid-2"><div><Label>{text.eventName} *</Label><Input value={eventForm.event_name} onChange={e => setEventForm({ ...eventForm, event_name: e.target.value })} /></div><div><Label>{text.eventType}</Label><Select value={eventForm.event_type} onChange={e => setEventForm({ ...eventForm, event_type: e.target.value })}><option value="general">{text.general}</option><option value="eid">{text.eid}</option><option value="ramadan">{text.ramadan}</option><option value="welfare">{text.welfare}</option></Select></div><div><Label>{text.date} *</Label><Input type="date" value={eventForm.event_date} onChange={e => setEventForm({ ...eventForm, event_date: e.target.value })} /></div><div><Label>{text.time}</Label><Input type="time" value={eventForm.event_time} onChange={e => setEventForm({ ...eventForm, event_time: e.target.value })} /></div></div><div className="token-form-row"><Label>{text.venue}</Label><Input value={eventForm.venue} onChange={e => setEventForm({ ...eventForm, venue: e.target.value })} /></div><div className="token-form-row"><Label>{text.description}</Label><Input value={eventForm.description} onChange={e => setEventForm({ ...eventForm, description: e.target.value })} /></div></div><div className="m-f"><Button variant="secondary" onClick={() => setEventDialogOpen(false)}>{t("action_cancel")}</Button><Button onClick={saveEvent}>{text.saveEvent}</Button></div>
       </Dialog>
 
-      <Dialog open={actionDialog.type !== null} onClose={() => { setActionDialog({ type: null, token: null }); setActionReason(""); }} title={actionDialog.type === "cancel" ? text.cancelToken : actionDialog.type === "delete" ? text.deleteToken : actionDialog.type === "deleteEvent" ? (ml ? "ഇവന്റ് ഇല്ലാതാക്കുക" : "Delete Event") : text.replaceToken} className="modal-sm">
-        <div className="m-b">{actionDialog.token && <div className="token-action-summary"><div>{text.token}: <b className="token-code">{actionDialog.token.token_code}</b></div><div>{text.house}: {actionDialog.token.house_name}</div></div>}{actionDialog.type === "deleteEvent" ? <p className="token-help">{ml ? "ഇവന്റിന്റെ തീയതി കഴിഞ്ഞതിനാലാണ് ഇത് ഇല്ലാതാക്കാനാകുന്നത്. ഈ ഇവന്റും അതിലെ എല്ലാ ടോക്കണുകളും എന്നേക്കുമായി ഇല്ലാതാക്കപ്പെടും. ഇത് തിരിച്ചെടുക്കാനാകില്ല." : "This event can be deleted because its date is over — there is no need to keep it. The event and all its tokens will be permanently deleted. This cannot be undone."}</p> : actionDialog.type === "cancel" ? <p className="token-help">{ml ? "ഈ ടോക്കൺ റദ്ദാക്കിയതായി അടയാളപ്പെടുത്തും; ഡാറ്റാബേസിൽ നിന്ന് ഇല്ലാതാക്കില്ല." : "This token will be marked as cancelled; it will not be deleted."}</p> : actionDialog.type === "delete" ? <p className="token-help">{text.deleteAfterEvent}</p> : <p className="token-help">{ml ? "പഴയ ടോക്കൺ റദ്ദാക്കി ഈ കുടുംബത്തിന് പുതിയ കോഡ് സൃഷ്ടിക്കും." : "The old token will be cancelled and a new unique code will be generated for this family."}</p>}<><Label>{text.reason}</Label><Input value={actionReason} onChange={e => setActionReason(e.target.value)} placeholder={actionDialog.type === "deleteEvent" ? (ml ? "തെറ്റായി സൃഷ്ടിച്ച ഇവന്റ്" : "Created by mistake") : text.lostToken} /></></div><div className="m-f"><Button variant="secondary" onClick={() => { setActionDialog({ type: null, token: null }); setActionReason(""); }}>{t("action_cancel")}</Button><Button variant={actionDialog.type === "cancel" || actionDialog.type === "delete" || actionDialog.type === "deleteEvent" ? "danger" : "primary"} onClick={actionDialog.type === "cancel" ? cancelToken : actionDialog.type === "delete" ? deleteToken : actionDialog.type === "deleteEvent" ? confirmDeleteEvent : replaceToken}>{actionDialog.type === "cancel" ? text.cancelToken : actionDialog.type === "delete" ? text.deleteToken : actionDialog.type === "deleteEvent" ? (ml ? "ഇല്ലാതാക്കുക" : "Delete") : text.replacement}</Button></div>
+      <Dialog open={actionDialog.type !== null} onClose={() => { setActionDialog({ type: null, token: null }); setActionReason(""); }} title={actionDialog.type === "cancel" ? text.cancelToken : actionDialog.type === "delete" ? text.deleteToken : actionDialog.type === "deleteEvent" ? (ml ? "പരിപാടി ഇല്ലാതാക്കുക" : "Delete Event") : text.replaceToken} className="modal-sm">
+        <div className="m-b">{actionDialog.token && <div className="token-action-summary"><div>{text.token}: <b className="token-code">{actionDialog.token.token_code}</b></div><div>{text.house}: {actionDialog.token.house_name}</div></div>}{actionDialog.type === "deleteEvent" ? <p className="token-help">{ml ? "പരിപാടിയുടെ തീയതി കഴിഞ്ഞതിനാലാണ് ഇത് ഇല്ലാതാക്കാനാകുന്നത്. ഈ പരിപാടിയും അതിലെ എല്ലാ ടോക്കണുകളും എന്നേക്കുമായി ഇല്ലാതാക്കപ്പെടും. ഇത് തിരിച്ചെടുക്കാനാകില്ല." : "This event can be deleted because its date is over — there is no need to keep it. The event and all its tokens will be permanently deleted. This cannot be undone."}</p> : actionDialog.type === "cancel" ? <p className="token-help">{ml ? "ഈ ടോക്കൺ റദ്ദാക്കിയതായി അടയാളപ്പെടുത്തും; ഡാറ്റാബേസിൽ നിന്ന് ഇല്ലാതാക്കില്ല." : "This token will be marked as cancelled; it will not be deleted."}</p> : actionDialog.type === "delete" ? <p className="token-help">{text.deleteAfterEvent}</p> : <p className="token-help">{ml ? "പഴയ ടോക്കൺ റദ്ദാക്കി ഈ കുടുംബത്തിന് പുതിയ കോഡ് സൃഷ്ടിക്കും." : "The old token will be cancelled and a new unique code will be generated for this family."}</p>}<><Label>{text.reason}</Label><Input value={actionReason} onChange={e => setActionReason(e.target.value)} placeholder={actionDialog.type === "deleteEvent" ? (ml ? "തെറ്റായി സൃഷ്ടിച്ച പരിപാടി" : "Created by mistake") : text.lostToken} /></></div><div className="m-f"><Button variant="secondary" onClick={() => { setActionDialog({ type: null, token: null }); setActionReason(""); }}>{t("action_cancel")}</Button><Button variant={actionDialog.type === "cancel" || actionDialog.type === "delete" || actionDialog.type === "deleteEvent" ? "danger" : "primary"} onClick={actionDialog.type === "cancel" ? cancelToken : actionDialog.type === "delete" ? deleteToken : actionDialog.type === "deleteEvent" ? confirmDeleteEvent : replaceToken}>{actionDialog.type === "cancel" ? text.cancelToken : actionDialog.type === "delete" ? text.deleteToken : actionDialog.type === "deleteEvent" ? (ml ? "ഇല്ലാതാക്കുക" : "Delete") : text.replacement}</Button></div>
       </Dialog>
     </div>
   );

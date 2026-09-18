@@ -338,7 +338,7 @@ export function Staff() {
             toolbar={
               <div className="flex gap-2">
                 <Select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className="w-40">
-                  <option value="All">{tx("All Roles", "എല്ലാ റോളുകളും")}</option>
+                  <option value="All">{tx("All Roles", "എല്ലാ ചുമതലകളും")}</option>
                   {roles.map(r => <option key={r} value={r}>{r}</option>)}
                 </Select>
               </div>
@@ -437,7 +437,7 @@ export function Staff() {
             ? (statusAction === "Expelled"
                 ? tx(
                     `End the service of ${statusTarget.name} (${statusTarget.staff_code}) as EXPELLED. Salary history is preserved.`,
-                    `${statusTarget.name} (${statusTarget.staff_code}) ന്റെ സേവനം പുറത്താക്കി അവസാനിപ്പിക്കുന്നു. ശമ്പള ചരിത്രം സംരക്ഷിക്കും.`
+                    `${statusTarget.name} (${statusTarget.staff_code}) നെ പുറത്താക്കി സേവനം അവസാനിപ്പിക്കുന്നു. ഇതുവരെയുള്ള ശമ്പള ചരിത്രം സൂക്ഷിക്കും.`
                   )
                 : tx(
                     `Record the resignation of ${statusTarget.name} (${statusTarget.staff_code}). Salary history is preserved.`,
@@ -460,7 +460,7 @@ export function Staff() {
           cancelPayTarget
             ? tx(
                 `Cancel the ${MONTH_NAMES[cancelPayTarget.period_month - 1]} ${cancelPayTarget.period_year} salary payment of ${formatCurrency(cancelPayTarget.amount)} to ${cancelPayTarget.staff_name}?`,
-                `${cancelPayTarget.staff_name} ന് നൽകിയ ${MONTH_NAMES[cancelPayTarget.period_month - 1]} ${cancelPayTarget.period_year} ശമ്പള പേയ്‌മെന്റ് (${formatCurrency(cancelPayTarget.amount)}) റദ്ദാക്കണോ?`
+                `${cancelPayTarget.staff_name} ന് നൽകിയ ${MONTH_NAMES[cancelPayTarget.period_month - 1]} ${cancelPayTarget.period_year} ശമ്പള നൽകൽ (${formatCurrency(cancelPayTarget.amount)}) റദ്ദാക്കണോ?`
               )
             : ""
         }
@@ -542,7 +542,7 @@ export function Staff() {
                 <option value="Bank Transfer">{tx("Bank Transfer", "ബാങ്ക് ട്രാൻസ്ഫർ")}</option>
                 <option value="UPI">UPI</option>
                 <option value="Cheque">{tx("Cheque", "ചെക്ക്")}</option>
-                <option value="Other">{tx("Other", "മറ്റ്")}</option>
+                <option value="Other">{tx("Other", "മറ്റുള്ളത്")}</option>
               </Select>
             </div>
             <div><Label>{t("staff_transaction_ref")}</Label><Input value={payForm.transactionRef} onChange={e => setPayForm({ ...payForm, transactionRef: e.target.value })} /></div>

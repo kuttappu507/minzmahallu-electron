@@ -62,15 +62,15 @@ export function buildAuditPackHtml(pack: PackData, lang: 'en' | 'ml' = 'en', cur
     `<tr class="total"><td class="lbl">${esc(label)}</td><td class="amt">${money(amount)}</td></tr>`;
   const ml = lang === 'ml';
   const L = {
-    title: ml ? 'വാർഷിക ഓഡിറ്റ് പായ്ക്ക്' : 'ANNUAL AUDIT PACK',
+    title: ml ? 'വാർഷിക ഓഡിറ്റ് രേഖകൾ' : 'ANNUAL AUDIT PACK',
     fy: ml ? 'സാമ്പത്തിക വർഷം' : 'Financial Year',
-    rp: ml ? 'രസീതുകളും പേയ്മെന്റുകളും' : 'RECEIPTS & PAYMENTS',
+    rp: ml ? 'രസീതുകളും പണമടവുകളും' : 'RECEIPTS & PAYMENTS',
     ie: ml ? 'വരവ് ചെലവ് കണക്ക്' : 'INCOME & EXPENDITURE',
     opening: ml ? 'ആരംഭ ബാലൻസ്' : 'Opening Balance',
     closing: ml ? 'അവസാന ബാലൻസ്' : 'Closing Balance',
     donations: ml ? 'സംഭാവനകൾ' : 'Donations',
     subscriptions: ml ? 'വരിസംഖ്യ' : 'Subscriptions',
-    manualIncome: ml ? 'മറ്റ് വരുമാനം' : 'Other Income',
+    manualIncome: ml ? 'മറ്റു വരവുകൾ' : 'Other Income',
     welfare: ml ? 'ക്ഷേമ വിതരണം' : 'Welfare Disbursed',
     salary: ml ? 'ശമ്പളം' : 'Salaries',
     manualExpense: ml ? 'മറ്റ് ചെലവുകൾ' : 'Other Expenses',
@@ -157,7 +157,7 @@ export function buildAuditPackHtml(pack: PackData, lang: 'en' | 'ml' = 'en', cur
         ${totalRow(L.total, pack.totalPayments)}
       </table></div>
     </div>
-    <table style="margin-top:3mm">${totalRow(net >= 0 ? (ml ? 'മിച്ചം (വരുമാനം − ചെലവ്)' : 'Surplus (Income − Expense)') : (ml ? 'കമ്മി (വരുമാനം − ചെലവ്)' : 'Deficit (Income − Expense)'), net)}</table>
+    <table style="margin-top:3mm">${totalRow(net >= 0 ? (ml ? 'മിച്ചം (വരവ് − ചെലവ്)' : 'Surplus (Income − Expense)') : (ml ? 'കമ്മി (വരവ് − ചെലവ്)' : 'Deficit (Income − Expense)'), net)}</table>
     <div class="sign-row">
       <div class="sign"><div class="line">${L.president} · ${L.signed}</div></div>
       <div class="sign"><div class="line">${L.secretary} · ${L.signed}</div></div>

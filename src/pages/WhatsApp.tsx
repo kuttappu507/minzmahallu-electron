@@ -128,9 +128,9 @@ export function WhatsApp() {
     setLoading(true);
     try {
       await window.mms.whatsapp.unlink();
-      toast.success(tx("Device unlinked — scan the QR code to reconnect", "ഡിവൈസ് വിച്ഛേദിച്ചു — വീണ്ടും കണക്റ്റ് ചെയ്യാൻ QR സ്കാൻ ചെയ്യുക"));
+      toast.success(tx("Device unlinked — scan the QR code to reconnect", "ഫോൺ ലിങ്ക് മാറ്റി — വീണ്ടും കണക്റ്റ് ചെയ്യാൻ QR സ്കാൻ ചെയ്യുക"));
       await refresh();
-    } catch (e: any) { toast.error(e?.message || tx("Could not unlink the device", "ഡിവൈസ് വിച്ഛേദിക്കാനായില്ല")); }
+    } catch (e: any) { toast.error(e?.message || tx("Could not unlink the device", "ഫോണിന്റെ ലിങ്ക് മാറ്റാനായില്ല")); }
     finally { setLoading(false); setUnlinkOpen(false); }
   };
 
@@ -169,7 +169,7 @@ export function WhatsApp() {
       const r = await window.mms.whatsapp.retryFailed(id);
       toast.success(tx(`Retry complete: ${r.sent} sent`, `വീണ്ടും ശ്രമം പൂർത്തിയായി: ${r.sent} അയച്ചു`));
       await refreshLists();
-    } catch (e: any) { toast.error(e?.message || tx("Retry failed", "വീണ്ടും ശ്രമം പരാജയപ്പെട്ടു")); }
+    } catch (e: any) { toast.error(e?.message || tx("Retry failed", "വീണ്ടും അയയ്ക്കാനായില്ല")); }
   };
 
   const connected = status.status === "CONNECTED";
@@ -183,10 +183,10 @@ export function WhatsApp() {
         <div className="modic t-em"><MessageCircle size={20} /></div>
         <div>
           <h1>{tx("WhatsApp", "വാട്ട്സ്ആപ്പ്")}</h1>
-          <div className="vs">{tx("Receipts and family-head communication", "രസീതുകളും കുടുംബനാഥനുള്ള സന്ദേശങ്ങളും")}</div>
+          <div className="vs">{tx("Receipts and family-head communication", "രസീതുകളും കുടുംബനാഥന്മാർക്കുള്ള സന്ദേശങ്ങളും")}</div>
         </div>
         <div className="vr">
-          <Button variant="secondary" onClick={() => { refresh(); refreshLists(); }}><RefreshCw className="h-4 w-4" />{tx("Refresh", "പുതുക്കുക")}</Button>
+          <Button variant="secondary" onClick={() => { refresh(); refreshLists(); }}><RefreshCw className="h-4 w-4" />{tx("Refresh", "റിഫ്രഷ് ചെയ്യുക")}</Button>
         </div>
       </div>
 
@@ -212,7 +212,7 @@ export function WhatsApp() {
               {qr
                 ? <img src={qr} alt={tx("WhatsApp QR code", "വാട്ട്സ്ആപ്പ് QR കോഡ്")} className="wa-qr-img" />
                 : <div className="wa-qr-empty">{tx("QR code will appear here", "QR കോഡ് ഇവിടെ കാണും")}</div>}
-              <Button variant="secondary" size="sm" onClick={loadQr}><RefreshCw className="h-4 w-4" />{tx("Refresh QR", "QR പുതുക്കുക")}</Button>
+              <Button variant="secondary" size="sm" onClick={loadQr}><RefreshCw className="h-4 w-4" />{tx("Refresh QR", "പുതിയ QR എടുക്കുക")}</Button>
             </div>
           )}
 
@@ -240,7 +240,7 @@ export function WhatsApp() {
             {connected
               ? <>
                   <Button variant="secondary" onClick={pause} disabled={loading}><Power className="h-4 w-4" />{tx("Pause (keeps pairing)", "താൽക്കാലിക നിർത്തുക (പെയറിംഗ് നിലനിൽക്കും)")}</Button>
-                  <Button variant="danger" onClick={() => setUnlinkOpen(true)} disabled={loading}><Unlink className="h-4 w-4" />{tx("Unlink phone", "ഫോൺ വിച്ഛേദിക്കുക")}</Button>
+                  <Button variant="danger" onClick={() => setUnlinkOpen(true)} disabled={loading}><Unlink className="h-4 w-4" />{tx("Unlink phone", "ഫോൺ ലിങ്ക് മാറ്റുക")}</Button>
                 </>
               : <Button onClick={connect} disabled={loading || !status.internet || (needsTosAck && !tosCheck)} data-testid="wa-connect"><Smartphone className="h-4 w-4" />{tx("Connect WhatsApp", "വാട്ട്സ്ആപ്പ് കണക്റ്റ് ചെയ്യുക")}</Button>}
           </div>
@@ -266,7 +266,7 @@ export function WhatsApp() {
             <li>✓ <span>{tx("Announcement: one campaign per day", "അറിയിപ്പ്: ദിവസത്തിൽ ഒരു ക്യാമ്പയിൻ")}</span></li>
             <li>✓ <span>{tx("Messages spaced 5–10 s apart with a rest every 20", "സന്ദേശങ്ങൾക്കിടയിൽ 5–10 സെക്കൻഡ് ഇടവേള; ഓരോ 20-നും ദീർഘ ഇടവേള")}</span></li>
             <li>✓ <span>{tx("Campaigns pause automatically if WhatsApp signals a rate limit", "WhatsApp റേറ്റ് ലിമിറ്റ് സൂചിപ്പിച്ചാൽ ക്യാമ്പയിൻ സ്വയം നിർത്തും")}</span></li>
-            <li>✓ <span>{tx("Families can opt out — opted-out heads are never messaged", "കുടുംബങ്ങൾക്ക് ഒഴിവാക്കാം — ഒഴിവാക്കിയവർക്ക് അയയ്ക്കില്ല")}</span></li>
+            <li>✓ <span>{tx("Families can opt out — opted-out heads are never messaged", "കുടുംബങ്ങൾക്ക് വേണ്ടെന്നു വയ്ക്കാം — വേണ്ടെന്നു വച്ചവർക്ക് അയയ്ക്കില്ല")}</span></li>
             <li>✓ <span>{tx("Missing or invalid numbers are skipped and reported", "നമ്പർ ഇല്ലാത്തത് / തെറ്റായത് അയയ്ക്കില്ല")}</span></li>
             <li>✓ <span>{tx("Archived families are excluded", "ആർക്കൈവ് ചെയ്ത കുടുംബങ്ങൾ ഒഴിവാക്കും")}</span></li>
           </ul>
@@ -283,7 +283,7 @@ export function WhatsApp() {
           </div>
           {subStats && (
             <div className="wa-stats">
-              <span><b>{subStats.eligible ?? 0}</b> {tx("due families", "കുടിശ്ശിക കുടുംബങ്ങൾ")}</span>
+              <span><b>{subStats.eligible ?? 0}</b> {tx("due families", "ബാക്കിയുള്ള കുടുംബങ്ങൾ")}</span>
               <span><b>{subStats.willSend ?? 0}</b> {tx("will be messaged", "സന്ദേശം ലഭിക്കും")}</span>
               <span className={subStats.missingWhatsApp ? "wa-stats-warn" : ""}><b>{subStats.missingWhatsApp ?? 0}</b> {tx("missing number", "നമ്പർ ഇല്ല")}</span>
             </div>
@@ -326,13 +326,13 @@ export function WhatsApp() {
               <div key={c.id} className="wa-row">
                 <div className="wa-row-main">
                   <b>{c.campaign_type === "SUBSCRIPTION_REMINDER" ? tx("Subscription reminder", "വരിസംഖ്യ റിമൈൻഡർ") : tx("Announcement", "അറിയിപ്പ്")}</b>
-                  <small>{formatDateTime(c.created_at)} · {c.total_recipients} {tx("recipients", "സ്വീകർത്താക്കൾ")} · {c.sent_count} {tx("sent", "അയച്ചു")}{c.failed_count ? ` · ${c.failed_count} ${tx("failed", "പരാജയം")}` : ""}</small>
+                  <small>{formatDateTime(c.created_at)} · {c.total_recipients} {tx("recipients", "സ്വീകർത്താക്കൾ")} · {c.sent_count} {tx("sent", "അയച്ചു")}{c.failed_count ? ` · ${c.failed_count} ${tx("failed", "അയയ്ക്കാനായില്ല")}` : ""}</small>
                 </div>
                 <div className="wa-row-side">
                   <Badge variant={campaignBadge(c.status)}>{c.status}</Badge>
                   {c.status === "PAUSED" && c.pause_reason && <small className="wa-pause-reason" title={c.pause_reason}>{c.pause_reason}</small>}
                   {c.failed_count > 0 && c.status !== "RUNNING" && c.status !== "PENDING" && (
-                    <button className="ibtn" title={tx("Retry failed", "പരാജയപ്പെട്ടവ വീണ്ടും ശ്രമിക്കുക")} onClick={() => retryFailed(c.id)}><RotateCcw size={13} /></button>
+                    <button className="ibtn" title={tx("Retry failed", "അയയ്ക്കാനാകാത്തവ വീണ്ടും അയയ്ക്കുക")} onClick={() => retryFailed(c.id)}><RotateCcw size={13} /></button>
                   )}
                 </div>
               </div>
@@ -371,12 +371,12 @@ export function WhatsApp() {
         open={unlinkOpen}
         onClose={() => setUnlinkOpen(false)}
         onConfirm={unlink}
-        title={tx("Unlink phone", "ഫോൺ വിച്ഛേദിക്കുക")}
+        title={tx("Unlink phone", "ഫോൺ ലിങ്ക് മാറ്റുക")}
         description={tx(
           "Remove this device from the phone's Linked Devices? A new QR scan will be needed to reconnect. If you only want to stop it for now, use Pause instead — that keeps the pairing.",
           "ഫോണിലെ Linked Devices-ൽ നിന്ന് ഈ ഡിവൈസ് നീക്കം ചെയ്യണോ? വീണ്ടും കണക്റ്റ് ചെയ്യാൻ പുതിയ QR സ്കാൻ വേണം. താൽക്കാലികമായി നിർത്താൻ മാത്രമാണെങ്കിൽ Pause ഉപയോഗിക്കുക — അത് പെയറിംഗ് നിലനിർത്തും."
         )}
-        confirmLabel={tx("Unlink device", "ഡിവൈസ് വിച്ഛേദിക്കുക")}
+        confirmLabel={tx("Unlink device", "ഫോൺ ലിങ്ക് മാറ്റുക")}
       />
     </div>
   );

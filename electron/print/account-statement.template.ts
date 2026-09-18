@@ -67,7 +67,7 @@ const SOURCE_LABELS: Record<string, { en: string; ml: string }> = {
   transactions: { en: 'Manual Entry', ml: 'മാനുവൽ' },
   donations: { en: 'Donation', ml: 'സംഭാവന' },
   subscriptions: { en: 'Subscription', ml: 'വരിസംഖ്യ' },
-  welfare: { en: 'Welfare', ml: 'ക്ഷേമം' },
+  welfare: { en: 'Welfare', ml: 'ക്ഷേമനിധി' },
   salary: { en: 'Salary', ml: 'ശമ്പളം' },
 };
 
@@ -95,7 +95,7 @@ export function buildAccountStatementHtml(rows: LedgerRow[], summary: Summary, f
     : (periodKey === 'all' ? (ml ? 'എല്ലാ കാലവും' : 'All Time') : '');
 
   const L = ml ? {
-    title: 'അക്കൗണ്ടിംഗ് സ്റ്റേറ്റ്മെന്റ്',
+    title: 'അക്കൗണ്ട് സ്റ്റേറ്റ്മെന്റ്',
     date: 'തീയതി',
     source: 'ഉറവിടം',
     type: 'തരം',
@@ -104,13 +104,13 @@ export function buildAccountStatementHtml(rows: LedgerRow[], summary: Summary, f
     method: 'അടവ് രീതി',
     status: 'നില',
     amount: 'തുക',
-    income: 'വരുമാനം',
+    income: 'വരവ്',
     expense: 'ചെലവ്',
     balance: 'ബാലൻസ്',
-    breakdown: 'ഉറവിട വിവരണം',
+    breakdown: 'ഉറവിടം തിരിച്ച കണക്ക്',
     incomeDonations: 'സംഭാവനകളിൽ നിന്ന്',
     incomeSubscriptions: 'വരിസംഖ്യകളിൽ നിന്ന്',
-    incomeManual: 'മാനുവൽ വരുമാനം',
+    incomeManual: 'മാനുവൽ വരവ്',
     expenseWelfare: 'ക്ഷേമ വിതരണം',
     expenseSalary: 'ശമ്പളം നൽകിയത്',
     expenseManual: 'മാനുവൽ ചെലവ്',

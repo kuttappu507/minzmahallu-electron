@@ -78,9 +78,9 @@ describe("A6 receipt — security-code footer replaces the signature (no QR)", (
   it("renders the same footer bilingually", () => {
     const ml = buildReceiptHtml(base, "ml");
     expect(ml).toContain("\u0d38\u0d41\u0d30\u0d15\u0d4d\u0d37\u0d3e \u0d15\u0d4b\u0d21\u0d4d"); // സുരക്ഷാ കോഡ്
-    expect(ml).toContain("കമ്പ്യൂട്ടർ ജനറേറ്റ് ചെയ്ത രസീറ്റ് — ഒപ്പ് ആവശ്യമില്ല.");
+    expect(ml).toContain("കമ്പ്യൂട്ടറിൽ തയ്യാറാക്കിയ രസീത് — ഒപ്പ് ആവശ്യമില്ല.");
     expect(ml).toContain("WK4M-8Q7Z-T3HD");
-    expect(ml).toContain("\u0d38\u0d02\u0d2d\u0d3e\u0d35\u0d28 \u0d30\u0d38\u0d40\u0d31\u0d4d\u0d31\u0d4d"); // സംഭാവന രസീറ്റ്
+    expect(ml).toContain("\u0d38\u0d02\u0d2d\u0d3e\u0d35\u0d28 \u0d30\u0d38\u0d40\u0d24\u0d4d"); // സംഭാവന രസീത്
     expect(ml).not.toContain("rc-sign");
   });
 

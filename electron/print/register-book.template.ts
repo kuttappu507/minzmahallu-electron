@@ -27,7 +27,7 @@ export function mapRegisterRow(type: "marriage" | "death", r: RegisterRow, ml: b
     return {
       register_number: r.marriage_number || "—",
       cols: [
-        { label: ml ? "നിക്കാഹ് തീയതി" : "Nikah Date", value: fmtDate(r.nikah_date) },
+        { label: ml ? "നികാഹ് തീയതി" : "Nikah Date", value: fmtDate(r.nikah_date) },
         { label: ml ? "വധു" : "Bride", value: `${r.bride_name || ""}${r.bride_father ? ` (${ml ? "പിതാവ്" : "d/o"} ${r.bride_father})` : ""}` },
         { label: ml ? "വരൻ" : "Groom", value: `${r.groom_name || ""}${r.groom_father ? ` (${ml ? "പിതാവ്" : "s/o"} ${r.groom_father})` : ""}` },
         { label: ml ? "സ്ഥലം" : "Place", value: r.place || "—" },
@@ -44,7 +44,7 @@ export function mapRegisterRow(type: "marriage" | "death", r: RegisterRow, ml: b
       { label: ml ? "വയസ്സ്" : "Age", value: r.age != null ? String(r.age) : "—" },
       { label: ml ? "മരണ തീയതി" : "Date of Death", value: fmtDate(r.date_of_death) },
       { label: ml ? "സ്ഥലം" : "Place", value: r.place_of_death || "—" },
-      { label: ml ? "ദഫനം" : "Burial", value: `${fmtDate(r.burial_date)}${r.burial_place ? ` (${r.burial_place})` : ""}` },
+      { label: ml ? "കബറടക്കം" : "Burial", value: `${fmtDate(r.burial_date)}${r.burial_place ? ` (${r.burial_place})` : ""}` },
     ],
   };
 }

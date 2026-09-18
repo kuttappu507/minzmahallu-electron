@@ -72,7 +72,7 @@ export function Certificates() {
 
   const runCheck = async () => {
     const raw = checkInput.trim();
-    if (!raw) { toast.error(lang === "ml" ? "സുരക്ഷാ കോഡ്, രസീറ്റ് നമ്പർ അല്ലെങ്കിൽ QR ടെക്സ്റ്റ് നൽകുക" : "Enter a security code, receipt number, or QR text"); return; }
+    if (!raw) { toast.error(lang === "ml" ? "സുരക്ഷാ കോഡ്, രസീത് നമ്പർ അല്ലെങ്കിൽ QR ടെക്സ്റ്റ് നൽകുക" : "Enter a security code, receipt number, or QR text"); return; }
     setCheckBusy(true);
     setCheckResult(null);
     setQrDataUrl("");
@@ -97,7 +97,7 @@ export function Certificates() {
           .then(setQrDataUrl)
           .catch(() => setQrDataUrl(""));
       }
-      if (!res?.valid) toast.warning(lang === "ml" ? "കണ്ടെത്തിയില്ല — ഈ വിവരവുമായി പൊരുത്തപ്പെടുന്ന സർട്ടിഫിക്കറ്റ് അല്ലെങ്കിൽ രസീറ്റ് ഇല്ല" : "Not found — this does not match any issued certificate or receipt");
+      if (!res?.valid) toast.warning(lang === "ml" ? "കണ്ടെത്തിയില്ല — ഈ വിവരവുമായി പൊരുത്തപ്പെടുന്ന സർട്ടിഫിക്കറ്റ് അല്ലെങ്കിൽ രസീത് ഇല്ല" : "Not found — this does not match any issued certificate or receipt");
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -424,13 +424,13 @@ export function Certificates() {
       <div className="mb-3 rounded-lg border border-border px-3 py-2.5 bg-surface-hover/30 space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
           <ShieldCheck size={16} className="text-primary flex-shrink-0" />
-          <span className="text-sm font-medium">{lang === "ml" ? "സർട്ടിഫിക്കറ്റ് / രസീറ്റ് പരിശോധന" : "Verify a certificate or receipt"}</span>
+          <span className="text-sm font-medium">{lang === "ml" ? "സർട്ടിഫിക്കറ്റ് / രസീത് പരിശോധന" : "Verify a certificate or receipt"}</span>
           <Input
             className="w-80"
             value={checkInput}
             onChange={(e) => { setCheckInput(e.target.value); setCheckResult(null); setQrDataUrl(""); }}
             onKeyDown={(e) => e.key === "Enter" && runCheck()}
-            placeholder={lang === "ml" ? "സുരക്ഷാ കോഡ് (ABCD-2345-WXYZ), രസീറ്റ് നമ്പർ, അല്ലെങ്കിൽ QR സ്കാൻ ടെക്സ്റ്റ്" : "Security code (ABCD-2345-WXYZ), receipt no, or scanned QR text"}
+            placeholder={lang === "ml" ? "സുരക്ഷാ കോഡ് (ABCD-2345-WXYZ), രസീത് നമ്പർ, അല്ലെങ്കിൽ QR സ്കാൻ ടെക്സ്റ്റ്" : "Security code (ABCD-2345-WXYZ), receipt no, or scanned QR text"}
           />
           <Button variant="secondary" onClick={runCheck} disabled={checkBusy}>
             {checkBusy ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
@@ -446,18 +446,18 @@ export function Certificates() {
             {qrDataUrl && <img src={qrDataUrl} alt="QR" className="w-20 h-20 rounded-md border border-border bg-white" />}
             <div className="text-sm min-w-0 flex-1">
               <div className="text-emerald-700 font-medium">
-                ✓ {lang === "ml" ? "രസീറ്റ്" : "Receipt"} {checkResult.receipt?.receipt_number} · {checkResult.receipt?.kind === "SUBSCRIPTION" ? (lang === "ml" ? "വരിസംഖ്യ" : "subscription") : (lang === "ml" ? "സംഭാവന" : "donation")} · {lang === "ml" ? "ഇവരിൽ നിന്ന്" : "from"} {checkResult.receipt?.payer} · {formatDate(checkResult.receipt?.date)} · {getCurrencySymbol()}{Number(checkResult.receipt?.amount || 0).toLocaleString("en-IN")}
+                ✓ {lang === "ml" ? "രസീത്" : "Receipt"} {checkResult.receipt?.receipt_number} · {checkResult.receipt?.kind === "SUBSCRIPTION" ? (lang === "ml" ? "വരിസംഖ്യ" : "subscription") : (lang === "ml" ? "സംഭാവന" : "donation")} · {lang === "ml" ? "ഇവരിൽ നിന്ന്" : "from"} {checkResult.receipt?.payer} · {formatDate(checkResult.receipt?.date)} · {getCurrencySymbol()}{Number(checkResult.receipt?.amount || 0).toLocaleString("en-IN")}
               </div>
               {checkResult.deviceFingerprint && (
                 <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted flex-wrap">
                   <MonitorCheck size={13} className="text-primary" />
-                  {lang === "ml" ? "ഈ രസീറ്റ് ഈ കമ്പ്യൂട്ടറിന്റെ ഫിംഗർപ്രിന്റുമായി ബന്ധിപ്പിച്ചിരിക്കുന്നു" : "This receipt is bound to this computer's fingerprint"}: <b className="code-text-sm text-primary">{checkResult.deviceFingerprint}</b>
+                  {lang === "ml" ? "ഈ രസീത് ഈ കമ്പ്യൂട്ടറിന്റെ ഫിംഗർപ്രിന്റുമായി ബന്ധിപ്പിച്ചിരിക്കുന്നു" : "This receipt is bound to this computer's fingerprint"}: <b className="code-text-sm text-primary">{checkResult.deviceFingerprint}</b>
                 </div>
               )}
               {checkResult.issuedOnThisDevice === false && (
                 <div className="mt-1 flex items-center gap-1.5 text-xs font-medium text-amber-700 flex-wrap">
                   <AlertTriangle size={13} />
-                  {lang === "ml" ? "മറ്റൊരു കമ്പ്യൂട്ടറിൽ ഇഷ്യൂ ചെയ്തത് — പരിശോധിക്കുക" : "Issued on a different computer — verify carefully"}
+                  {lang === "ml" ? "മറ്റൊരു കമ്പ്യൂട്ടറിൽ നിന്നാണ് നൽകിയത് — ശ്രദ്ധിച്ച് പരിശോധിക്കുക" : "Issued on a different computer — verify carefully"}
                 </div>
               )}
               {checkResult.receiptMatchesRegister === false && (
@@ -479,7 +479,7 @@ export function Certificates() {
             {qrDataUrl && <img src={qrDataUrl} alt="QR" className="w-20 h-20 rounded-md border border-border bg-white" />}
             <div className="text-sm min-w-0 flex-1">
               <div className="text-emerald-700 font-medium">
-                ✓ {checkResult.certificate.type} · {checkResult.certificate.certificate_number} · {lang === "ml" ? "നൽകിയിട്ടുള്ളത്" : "issued to"} {checkResult.certificate.issued_to} · {formatDate(checkResult.certificate.issued_date)} · {checkResult.certificate.status}{checkResult.certificate.reprint_count > 0 ? ` · ${lang === "ml" ? "പുനഃമുദ്രണം" : "reprint"} #${checkResult.certificate.reprint_count}` : ""}
+                ✓ {checkResult.certificate.type} · {checkResult.certificate.certificate_number} · {lang === "ml" ? "ആർക്ക് നൽകി" : "issued to"} {checkResult.certificate.issued_to} · {formatDate(checkResult.certificate.issued_date)} · {checkResult.certificate.status}{checkResult.certificate.reprint_count > 0 ? ` · ${lang === "ml" ? "പുനഃമുദ്രണം" : "reprint"} #${checkResult.certificate.reprint_count}` : ""}
               </div>
               {checkResult.deviceFingerprint && (
                 <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted flex-wrap">
@@ -490,7 +490,7 @@ export function Certificates() {
               {checkResult.issuedOnThisDevice === false && (
                 <div className="mt-1 flex items-center gap-1.5 text-xs font-medium text-amber-700 flex-wrap">
                   <AlertTriangle size={13} />
-                  {lang === "ml" ? "മറ്റൊരു കമ്പ്യൂട്ടറിൽ ഇഷ്യൂ ചെയ്തത് — പരിശോധിക്കുക" : "Issued on a different computer — verify carefully"}
+                  {lang === "ml" ? "മറ്റൊരു കമ്പ്യൂട്ടറിൽ നിന്നാണ് നൽകിയത് — ശ്രദ്ധിച്ച് പരിശോധിക്കുക" : "Issued on a different computer — verify carefully"}
                 </div>
               )}
               {checkResult.certificateMatchesRegister === false && (

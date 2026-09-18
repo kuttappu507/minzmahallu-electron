@@ -72,7 +72,7 @@ export function buildTokenSheetHtml(tokenList: any[], event: any): string {
         <div class="family"><h2>${esc(headName)}</h2><h3>${esc(houseName)}</h3>${areaName ? `<h4>${esc(areaName)}</h4>` : ''}</div>
         <div class="regs"><div class="r1"><small>${labels.family}</small><b>${esc(t.family_number || '—')}</b></div></div>
       </div>
-      <footer class="event"><h4>${esc(event?.event_name || (ml ? 'ഇവന്റ്' : 'Event'))}</h4><p>${timeLabel ? `<b>${esc(timeLabel)}</b>` : ''}${timeLabel && event?.venue ? `<span class="sep">◆</span>` : ''}${event?.venue ? `${labels.venue}: ${esc(event.venue)}` : ''}</p></footer>
+      <footer class="event"><h4>${esc(event?.event_name || (ml ? 'പരിപാടി' : 'Event'))}</h4><p>${timeLabel ? `<b>${esc(timeLabel)}</b>` : ''}${timeLabel && event?.venue ? `<span class="sep">◆</span>` : ''}${event?.venue ? `${labels.venue}: ${esc(event.venue)}` : ''}</p></footer>
     </article>`;
   };
   const pages: string[] = [];

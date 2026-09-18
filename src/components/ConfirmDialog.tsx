@@ -22,7 +22,7 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, description, co
   const { t, lang } = useI18n();
   const ml = lang === "ml";
   const resolvedTitle = title ?? t("ui_confirm_delete");
-  const resolvedDescription = description ?? (ml ? "ഈ രേഖ ഇല്ലാതാക്കണമെന്ന് ഉറപ്പാണോ?" : "Are you sure you want to delete this record?");
+  const resolvedDescription = description ?? (ml ? "ഈ രേഖ ഇല്ലാതാക്കണോ?" : "Are you sure you want to delete this record?");
   const resolvedConfirm = confirmLabel ?? t("action_delete");
   const resolvedCancel = cancelLabel ?? t("action_cancel");
 

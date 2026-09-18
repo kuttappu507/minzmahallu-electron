@@ -223,7 +223,7 @@ async function subscriptionReceiptData(subscriptionId: number): Promise<ReceiptD
   if (monthPart > 0) appliedBits.push(ml ? `${inr(monthPart)} ഈ മാസം` : `${inr(monthPart)} this month`);
   if (advanceAdded > 0) appliedBits.push(ml ? `${inr(advanceAdded)} അഡ്വാൻസ്` : `${inr(advanceAdded)} advance`);
   const appliedNote = appliedBits.length
-    ? (ml ? "തുക വിഭജനം: " : "Amount applied: ") + appliedBits.join(" · ")
+    ? (ml ? "തുക കണക്കാക്കിയത്: " : "Amount applied: ") + appliedBits.join(" · ")
     : "";
   const balanceNote = dueAfter > 0
     ? (ml
@@ -233,7 +233,7 @@ async function subscriptionReceiptData(subscriptionId: number): Promise<ReceiptD
       ? (ml
           ? `പൂർണമായി അടച്ചു — ${inr(advanceAfter)} അഡ്വാൻസ് അടുത്ത മാസം കുറയ്ക്കും`
           : `Fully paid — ${inr(advanceAfter)} advance reduces next month's due`)
-      : (ml ? "ഈ മാസത്തെ വരിസംഖ്യ പൂർണമായി അടയ്ക്കപ്പെട്ടു" : "This month's subscription is fully paid");
+      : (ml ? "ഈ മാസത്തെ വരിസംഖ്യ പൂർണമായി അടച്ചു കഴിഞ്ഞു" : "This month's subscription is fully paid");
   const footNote = appliedNote ? `${appliedNote}. ${balanceNote}` : balanceNote;
   const identity = mahalluIdentity();
   return {

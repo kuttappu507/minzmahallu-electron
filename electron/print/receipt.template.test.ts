@@ -86,7 +86,7 @@ describe("A6 receipt template", () => {
 
   it("renders Malayalam labels for ml", () => {
     const html = buildReceiptHtml(donation, "ml");
-    expect(html).toContain("\u0d30\u0d38\u0d40\u0d31\u0d4d\u0d31\u0d4d"); // രസീറ്റ്
+    expect(html).toContain("\u0d30\u0d38\u0d40\u0d24\u0d4d"); // രസീത്
     expect(html).toContain("\u0d24\u0d40\u0d2f\u0d24\u0d3f"); // തീയതി
   });
 

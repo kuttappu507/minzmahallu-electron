@@ -153,12 +153,12 @@ export function Assets() {
     "Furniture": tx("Furniture", "ഫർണിച്ചർ"), "Equipment": tx("Equipment", "ഉപകരണങ്ങൾ"), "Other": tx("Other", "മറ്റുള്ളവ"),
   } as Record<string, string>)[c] || c;
   const statusLabel = (s: string) => ({
-    "In use": tx("In use", "ഉപയോഗത്തിൽ"), "Given rent": tx("Given rent", "വാടാക്കയ്ക്ക് നൽകിയത്"),
-    "Vacant": tx("Vacant", "ശൂന്യം"), "Under construction": tx("Under construction", "നിർമ്മാണത്തിൽ"),
+    "In use": tx("In use", "ഉപയോഗത്തിൽ"), "Given rent": tx("Given rent", "വാടകയ്ക്ക് നൽകിയത്"),
+    "Vacant": tx("Vacant", "ഒഴിഞ്ഞു കിടക്കുന്നു"), "Under construction": tx("Under construction", "നിർമ്മാണത്തിൽ"),
     "Sold": tx("Sold", "വിറ്റു"), "Demolished": tx("Demolished", "പൊളിച്ചു"), "Transferred": tx("Transferred", "കൈമാറി"),
   } as Record<string, string>)[s] || s;
   const condLabel = (c: string) => ({
-    "Good": tx("Good", "നല്ല അവസ്ഥ"), "Needs repair": tx("Needs repair", "അറ്റകുറ്റി വേണം"), "Dilapidated": tx("Dilapidated", "തകർന്ന അവസ്ഥ"),
+    "Good": tx("Good", "നല്ല അവസ്ഥ"), "Needs repair": tx("Needs repair", "അറ്റകുറ്റപ്പണി വേണം"), "Dilapidated": tx("Dilapidated", "തകർന്ന അവസ്ഥ"),
   } as Record<string, string>)[c] || c;
 
   const columns: Column<Asset>[] = [
@@ -193,10 +193,10 @@ export function Assets() {
         <div className="modic t-teal"><Landmark size={20} /></div>
         <div>
           <h1>{tx("Asset Register", "ആസ്തി രജിസ്റ്റർ")}</h1>
-          <div className="vs">{tx("Buildings, lands and rentable goods of the mahallu — with their income linked to Accounting", "മഹല്ലിന്റെ കെട്ടിടങ്ങൾ, ഭൂമി, വാടാക്കക്ക് നൽകുന്ന സാധനങ്ങൾ — വരുമാനം അക്കൗണ്ടിംഗുമായി ബന്ധിപ്പിച്ചിരിക്കുന്നു")}</div>
+          <div className="vs">{tx("Buildings, lands and rentable goods of the mahallu — with their income linked to Accounting", "മഹല്ലിന്റെ കെട്ടിടങ്ങൾ, ഭൂമി, വാടകക്ക് നൽകുന്ന സാധനങ്ങൾ — വരവ് അക്കൗണ്ടിംഗുമായി ബന്ധിപ്പിച്ചിരിക്കുന്നു")}</div>
         </div>
         <div className="vr">
-          <Button variant="secondary" onClick={() => { refetch(); fetchSummary(); }}><RefreshCw className="h-4 w-4" />{tx("Refresh", "പുതുക്കുക")}</Button>
+          <Button variant="secondary" onClick={() => { refetch(); fetchSummary(); }}><RefreshCw className="h-4 w-4" />{tx("Refresh", "റിഫ്രഷ് ചെയ്യുക")}</Button>
           <Button onClick={openAdd}><Plus className="h-4 w-4" />{tx("Add Asset", "ആസ്തി ചേർക്കുക")}</Button>
         </div>
       </div>
@@ -206,15 +206,15 @@ export function Assets() {
         <div className="stat t-em">
           <div className="srow"><span className="sic"><Home size={18} /></span><span className="delta">{tx("Register", "രജിസ്റ്റർ")}</span></div>
           <div className="val">{summary?.count ?? 0}</div>
-          <div className="slab">{tx("assets recorded", "ആസ്തികൾ രേഖപ്പെടുത്തിയിട്ടുണ്ട്")} · {summary?.incomeGenerating ?? 0} {tx("generate income", "വരുമാനമുണ്ടാക്കുന്നു")}</div>
+          <div className="slab">{tx("assets recorded", "ആസ്തികൾ രേഖപ്പെടുത്തിയിട്ടുണ്ട്")} · {summary?.incomeGenerating ?? 0} {tx("generate income", "വരവുണ്ടാക്കുന്നു")}</div>
         </div>
         <div className="stat t-gold">
-          <div className="srow"><span className="sic"><TrendingUp size={18} /></span><span className="delta">{tx("Rent potential", "വാടാക്ക സാധ്യത")}</span></div>
+          <div className="srow"><span className="sic"><TrendingUp size={18} /></span><span className="delta">{tx("Rent potential", "വാടക സാധ്യത")}</span></div>
           <div className="val">{formatCurrency(summary?.monthlyRentPotential ?? 0)}</div>
           <div className="slab">{tx("expected per month", "പ്രതീക്ഷിക്കുന്നത് ഓരോ മാസവും")}</div>
         </div>
         <div className="stat t-sky">
-          <div className="srow"><span className="sic"><Wallet size={18} /></span><span className="delta">{tx("Current value", "നിലবിഹിത മൂല്യം")}</span></div>
+          <div className="srow"><span className="sic"><Wallet size={18} /></span><span className="delta">{tx("Current value", "നിലബിഹിത മൂല്യം")}</span></div>
           <div className="val">{formatCurrency(summary?.totalCurrentValue ?? 0)}</div>
           <div className="slab">{tx("all assets together", "എല്ലാ ആസ്തികളും കൂടി")}</div>
         </div>
@@ -243,7 +243,7 @@ export function Assets() {
         total={total}
         rowKey={r => r.id}
         emptyTitle={tx("No assets yet", "ആസ്തികളില്ല")}
-        emptyDescription={tx("Add the first building, land or rentable good of the mahallu", "മഹല്ലിന്റെ ആദ്യത്തെ കെട്ടിടം, ഭൂമി അല്ലെങ്കിൽ വാടാക്കയ്ക്കുള്ള സാധനം ചേർക്കൂ")}
+        emptyDescription={tx("Add the first building, land or rentable good of the mahallu", "മഹല്ലിന്റെ ആദ്യത്തെ കെട്ടിടം, ഭൂമി അല്ലെങ്കിൽ വാടകയ്ക്കുള്ള സാധനം ചേർക്കുക")}
       />
 
       {/* Add/Edit Asset dialog */}
@@ -301,16 +301,16 @@ export function Assets() {
           <div className="rounded-lg border border-border bg-surface-muted p-4 space-y-3">
             <label className="flex items-center gap-2 text-sm font-medium">
               <input type="checkbox" checked={!!form.income_generating} onChange={e => setForm({ ...form, income_generating: e.target.checked ? 1 : 0 })} data-testid="asset-income-check" />
-              {tx("This asset brings income to the mahallu (rent etc.)", "ഈ ആസ്തി മഹല്ലിന് വരുമാനം നൽകുന്നു (വാടാക്ക മുതലായവ)")}
+              {tx("This asset brings income to the mahallu (rent etc.)", "ഈ ആസ്തി മഹല്ലിന് വരവ് നൽകുന്നു (വാടക മുതലായവ)")}
             </label>
             {!!form.income_generating && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>{tx("Tenant", "വാടാക്കക്കാരൻ")}</Label>
+                  <Label>{tx("Tenant", "വാടകക്കാരൻ")}</Label>
                   <Input value={form.tenant_name || ""} onChange={e => setForm({ ...form, tenant_name: e.target.value })} />
                 </div>
                 <div>
-                  <Label>{tx("Monthly rent (₹)", "പ്രതിമാസ വാടാക്ക (₹)")}</Label>
+                  <Label>{tx("Monthly rent (₹)", "പ്രതിമാസ വാടക (₹)")}</Label>
                   <Input type="number" value={form.monthly_rent || ""} onChange={e => setForm({ ...form, monthly_rent: Number(e.target.value) })} />
                 </div>
                 <div>
@@ -322,7 +322,7 @@ export function Assets() {
                   <Input type="date" value={form.agreement_end || ""} onChange={e => setForm({ ...form, agreement_end: e.target.value })} />
                 </div>
                 <p className="col-span-2 text-xs text-muted">
-                  {tx("Record each rent collection in Accounting (Add Income) and pick this asset there — its income and upkeep then total up here automatically.", "ഓരോ വാടാക്ക വാങ്ങലും അക്കൗണ്ടിംഗിൽ രേഖപ്പെടുത്തുക (വരവ് ചേർക്കുക) — അവിടെ ഈ ആസ്തിയെ വിഭാഗമായി തിരഞ്ഞെടുക്കുക. അതോടെ വരവും ചെലവും ഇവിടെ സ്വയം കൂട്ടിക്കാണിക്കും.")}
+                  {tx("Record each rent collection in Accounting (Add Income) and pick this asset there — its income and upkeep then total up here automatically.", "ഓരോ വാടക വാങ്ങലും അക്കൗണ്ടിംഗിൽ രേഖപ്പെടുത്തുക (വരവ് ചേർക്കുക) — അവിടെ ഈ ആസ്തിയെ വിഭാഗമായി തിരഞ്ഞെടുക്കുക. അതോടെ വരവും ചെലവും ഇവിടെ സ്വയം കൂട്ടിക്കാണിക്കും.")}
                 </p>
               </div>
             )}
@@ -355,19 +355,19 @@ export function Assets() {
                   <div className="text-rose-600 font-semibold">−{formatCurrency(statement.expense)}</div>
                 </div>
                 <div className="rounded-lg border border-border p-3">
-                  <div className="text-xs text-muted">{tx("Net for the mahallu", "മഹല്ലിനുള്ള ശുദ്ധം")}</div>
+                  <div className="text-xs text-muted">{tx("Net for the mahallu", "മഹല്ലിനുള്ള മിച്ചം")}</div>
                   <div className={`font-semibold ${statement.net >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{formatCurrency(statement.net)}</div>
                 </div>
               </div>
               {statementAsset && (statementAsset.tenant_name || statementAsset.monthly_rent) && (
                 <div className="text-sm text-muted">
-                  {statementAsset.tenant_name ? <>{tx("Tenant", "വാടാക്കക്കാരൻ")}: <b className="text-foreground">{statementAsset.tenant_name}</b> · </> : null}
-                  {statementAsset.monthly_rent ? <>{tx("Monthly rent", "പ്രതിമാസ വാടാക്ക")}: <b className="text-foreground">{formatCurrency(statementAsset.monthly_rent)}</b></> : null}
+                  {statementAsset.tenant_name ? <>{tx("Tenant", "വാടകക്കാരൻ")}: <b className="text-foreground">{statementAsset.tenant_name}</b> · </> : null}
+                  {statementAsset.monthly_rent ? <>{tx("Monthly rent", "പ്രതിമാസ വാടക")}: <b className="text-foreground">{formatCurrency(statementAsset.monthly_rent)}</b></> : null}
                 </div>
               )}
               <div className="space-y-1.5 max-h-72 overflow-auto">
                 {statement.entries.length === 0 && (
-                  <div className="text-sm text-muted text-center py-6">{tx("No accounting entries tagged to this asset yet — tag rent collections and repair bills in Accounting.", "ഈ ആസ്തിയുമായി ബന്ധിപ്പിച്ച അക്കൗണ്ടിംഗ് എൻട്രികളില്ല — വാടാക്ക വാങ്ങലുകളും അറ്റകുറ്റി ബില്ലുകളും അക്കൗണ്ടിംഗിൽ ഈ ആസ്തിയുമായി ബന്ധിപ്പിക്കൂ.")}</div>
+                  <div className="text-sm text-muted text-center py-6">{tx("No accounting entries tagged to this asset yet — tag rent collections and repair bills in Accounting.", "ഈ ആസ്തിയുമായി ബന്ധിപ്പിച്ച അക്കൗണ്ടിംഗ് എൻട്രികളില്ല — വാടക വാങ്ങലുകളും അറ്റകുറ്റി ബില്ലുകളും അക്കൗണ്ടിംഗിൽ ഈ ആസ്തിയുമായി ബന്ധിപ്പിക്കുക.")}</div>
                 )}
                 {statement.entries.map(en => (
                   <div key={en.id} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">

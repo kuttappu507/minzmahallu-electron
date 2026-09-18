@@ -91,13 +91,13 @@ type Lang = 'en' | 'ml';
 const APP_BRAND = 'Minz Mahallu Management System';
 function labels(lang: Lang) {
   return lang === 'ml' ? {
-    titleDonation: 'സംഭാവന രസീറ്റ്',
-    titleSubscription: 'വരിസംഖ്യ രസീറ്റ്',
-    no: 'രസീറ്റ് നമ്പർ',
+    titleDonation: 'സംഭാവന രസീത്',
+    titleSubscription: 'വരിസംഖ്യ രസീത്',
+    no: 'രസീത് നമ്പർ',
     date: 'തീയതി',
     received: 'ഇവരിൽ നിന്നും സ്വീകരിച്ചത്',
     amount: 'തുക',
-    method: 'പേയ്‌മെന്റ് രീതി',
+    method: 'അടവ് രീതി',
     ref: 'റഫറൻസ്',
     forMahallu: 'മഹല്ലിന് വേണ്ടി',
     thanks: 'ജസാക്കല്ലാഹു ഖൈറൻ.',
@@ -106,7 +106,7 @@ function labels(lang: Lang) {
     page: 'ഷീറ്റ്',
     securityCode: 'സുരക്ഷാ കോഡ്',
     verifyHint: 'ഈ സുരക്ഷാ കോഡ് മഹല്ല് ഓഫീസിലോ Minz Mahallu ആപ്പിലോ പരിശോധിക്കുക.',
-    computerGenerated: 'കമ്പ്യൂട്ടർ ജനറേറ്റ് ചെയ്ത രസീറ്റ് — ഒപ്പ് ആവശ്യമില്ല.',
+    computerGenerated: 'കമ്പ്യൂട്ടറിൽ തയ്യാറാക്കിയ രസീത് — ഒപ്പ് ആവശ്യമില്ല.',
   } : {
     titleDonation: 'DONATION RECEIPT',
     titleSubscription: 'SUBSCRIPTION RECEIPT',
@@ -239,7 +239,7 @@ export function buildReceiptSheetHtml(list: ReceiptData[], lang: Lang): string {
   for (let i = 0; i < cells.length; i += 4) {
     const four = cells.slice(i, i + 4);
     while (four.length < 4) four.push('');
-    pages.push(`<section class="sheet">${four.map((c) => `<div class="cell">${c || ''}</div>`).join('')}<div class="sheet-foot">${esc(L.page)} ${pages.length + 1} · ${esc(String(list.length))} ${lang === 'ml' ? 'രസീറ്റുകൾ' : 'receipts'} · 4 / A4</div></section>`);
+    pages.push(`<section class="sheet">${four.map((c) => `<div class="cell">${c || ''}</div>`).join('')}<div class="sheet-foot">${esc(L.page)} ${pages.length + 1} · ${esc(String(list.length))} ${lang === 'ml' ? 'രസീതുകൾ' : 'receipts'} · 4 / A4</div></section>`);
   }
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><style>
     @page{size:A4 portrait;margin:0}${font}${baseCss()}

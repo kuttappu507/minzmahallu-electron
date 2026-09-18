@@ -42,7 +42,7 @@ export async function buildTokenSheetHtml(tokenList: any[], event: any, settings
     head:"#111", line:"#111", tokenBg:"#f3f3f3", tokenLine:"#999", tokenNum:"#111", eventBg:"#f4f4f4", eventLine:"#999", eventName:"#111", eventTime:"#333", sep:"#555", chipBg:"#f1f1f1", acc1:"#333", acc2:"#666"
   } : base;
   const labels = ml ? {
-    card:"കാർഡ് നമ്പർ", familyNo:"കുടുംബ നമ്പർ", venue:"സ്ഥലം", event:"ഇവന്റ്", time:"സമയം"
+    card:"കാർഡ് നമ്പർ", familyNo:"കുടുംബ നമ്പർ", venue:"സ്ഥലം", event:"പരിപാടി", time:"സമയം"
   } : {
     card:"CARD NO", familyNo:"FAMILY NO", venue:"VENUE", event:"Event", time:"Time"
   };

@@ -127,24 +127,24 @@ export function Subscriptions() {
   // closes FIRST, the receipt goes out in the background, and the delivery
   // toast lands when the send finishes. One send per save — no duplicates.
   const backgroundSendReceipt = (id: number) => {
-    toast.info(tx("Sending receipt on WhatsApp…", "വാട്ട്സ്ആപ്പിൽ രസീറ്റ് അയയ്ക്കുന്നു…"));
+    toast.info(tx("Sending receipt on WhatsApp…", "വാട്ട്സ്ആപ്പിൽ രസീത് അയയ്ക്കുന്നു…"));
     (async () => {
       try {
         const sent: any = await window.mms.whatsapp.sendSubscriptionReceipt(id);
         if (sent?.status === "delivered" || (sent?.success && sent?.delivered)) {
-          toast.success(tx("Receipt delivered to the recipient — it is now locked", "രസീറ്റ് സ്വീകർത്താവിന് ലഭിച്ചു — ഇനി ലോക്ക് ചെയ്തിരിക്കുന്നു"));
+          toast.success(tx("Receipt delivered to the recipient — it is now locked", "രസീത് സ്വീകർത്താവിന് ലഭിച്ചു — ഇപ്പോൾ ലോക്ക് ചെയ്തിരിക്കുന്നു"));
         } else if (sent?.status === "sent" || sent?.success) {
-          toast.warning(tx("Receipt sent — delivery not confirmed yet (the phone may be offline). Not locked; you can send again after confirming it did not arrive.", "രസീറ്റ് അയച്ചു — ഡെലിവറി ഉറപ്പാക്കിയിട്ടില്ല (ഫോൺ ഓഫലൈൻ ആകാം). വന്നെത്തിയില്ലെന്ന് ഉറപ്പായാൽ വീണ്ടും അയക്കാം."));
+          toast.warning(tx("Receipt sent — delivery not confirmed yet (the phone may be offline). Not locked; you can send again after confirming it did not arrive.", "രസീത് അയച്ചു — ഡെലിവറി ഉറപ്പാക്കിയിട്ടില്ല (ഫോൺ ഓഫലൈൻ ആകാം). വന്നെത്തിയില്ലെന്ന് ഉറപ്പായാൽ വീണ്ടും അയക്കാം."));
         } else if (sent?.status === "already-delivered") {
-          toast.info(tx("Already sent to the recipient — the receipt is locked for their privacy.", "സ്വീകർത്താവിന് ഇതിനകം അയച്ചു — സ്വകാര്യതയ്ക്കായി രസീറ്റ് ലോക്ക് ചെയ്തിരിക്കുന്നു."));
+          toast.info(tx("Already sent to the recipient — the receipt is locked for their privacy.", "സ്വീകർത്താവിന് ഇതിനകം അയച്ചു — സ്വകാര്യതയ്ക്കായി രസീത് ലോക്ക് ചെയ്തിരിക്കുന്നു."));
         } else if (sent?.status === "no-phone" || sent?.status === "not-connected" || sent?.status === "skipped") {
-          toast.info(tx("Receipt saved in the app (WhatsApp send skipped — no number or not connected).", "രസീറ്റ് ആപ്പിൽ സേവ് ചെയ്തു (വാട്ട്സ്ആപ്പ് അയച്ചില്ല — നമ്പറില്ല അല്ലെങ്കിൽ കണക്റ്റ് അല്ല)."));
+          toast.info(tx("Receipt saved in the app (WhatsApp send skipped — no number or not connected).", "രസീത് ആപ്പിൽ സേവ് ചെയ്തു (വാട്ട്സ്ആപ്പ് അയച്ചില്ല — നമ്പറില്ല അല്ലെങ്കിൽ കണക്റ്റ് അല്ല)."));
         } else {
-          toast.error(sent?.error || tx("Could not send the receipt", "രസീറ്റ് അയയ്ക്കാനായില്ല"));
+          toast.error(sent?.error || tx("Could not send the receipt", "രസീത് അയയ്ക്കാനായില്ല"));
         }
         refetch();
       } catch (e: any) {
-        toast.error(friendlySendError(e, t) || tx("Could not send the receipt", "രസീറ്റ് അയയ്ക്കാനായില്ല"));
+        toast.error(friendlySendError(e, t) || tx("Could not send the receipt", "രസീത് അയയ്ക്കാനായില്ല"));
         refetch();
       }
     })();
@@ -206,7 +206,7 @@ export function Subscriptions() {
       });
       toast.success(tx(
         `Payment saved — ${r.status}${r.receiptNumber ? ` (receipt ${r.receiptNumber})` : ""}`,
-        `പേയ്‌മെന്റ് സേവ് ചെയ്തു — ${r.status}${r.receiptNumber ? ` (രസീറ്റ് ${r.receiptNumber})` : ""}`
+        `അടവ് സംരക്ഷിച്ചു — ${r.status}${r.receiptNumber ? ` (രസീത് ${r.receiptNumber})` : ""}`
       ));
       setDialogOpen(false);
       setForm(emptyForm);
@@ -238,7 +238,7 @@ export function Subscriptions() {
   const executeCancel = async ({ reason, password }: { reason: string; password: string }) => {
     if (!cancelTarget) return;
     await window.mms.subscriptions.cancelPayment(cancelTarget.id, reason, password);
-    toast.success(tx("Payment cancelled — the subscription stays with the family", "പേയ്‌മെന്റ് റദ്ദാക്കി — വരിസംഖ്യ കുടുംബത്തിനൊപ്പം തുടരും"));
+    toast.success(tx("Payment cancelled — the subscription stays with the family", "അടവ് റദ്ദാക്കി — വരിസംഖ്യ കുടുംബത്തിനൊപ്പം തുടരും"));
     refetch();
     refreshCollected();
     refreshPending();
@@ -258,18 +258,18 @@ export function Subscriptions() {
     // IMMEDIATE feedback (user report: the button gave no sign anything was
     // happening, so it got clicked again and again) — the result toast lands
     // when the send actually finishes.
-    toast.info(tx("Sending receipt on WhatsApp…", "വാട്ട്സ്ആപ്പിൽ രസീറ്റ് അയയ്ക്കുന്നു…"));
+    toast.info(tx("Sending receipt on WhatsApp…", "വാട്ട്സ്ആപ്പിൽ രസീത് അയയ്ക്കുന്നു…"));
     try {
       const r: any = await window.mms.whatsapp.sendSubscriptionReceipt(id, adminPassword);
       // The lock flips ONLY on confirmed delivery — a send that WhatsApp
       // accepted but the phone never confirmed stays open, exactly as the
       // mahallu asked (no false "already sent").
       if (r?.status === "delivered" || (r?.success && r?.delivered)) {
-        toast.success(tx("Receipt delivered to the recipient — it is now locked (one admin re-send remains available)", "രസീറ്റ് സ്വീകർത്താവിന് ലഭിച്ചു — ഇനി ലോക്ക് ചെയ്തിരിക്കുന്നു (ഒരു അഡ്മിൻ റീ-സെൻഡ് ലഭ്യമാണ്)"));
+        toast.success(tx("Receipt delivered to the recipient — it is now locked (one admin re-send remains available)", "രസീത് സ്വീകർത്താവിന് ലഭിച്ചു — ഇപ്പോൾ ലോക്ക് ചെയ്തിരിക്കുന്നു (ഒരു അഡ്മിൻ റീ-സെൻഡ് ലഭ്യമാണ്)"));
       } else if (r?.status === "sent" || r?.success) {
-        toast.warning(tx("Receipt sent — delivery not confirmed yet (the phone may be offline). Not locked; you can send again after confirming it did not arrive.", "രസീറ്റ് അയച്ചു — ഡെലിവറി ഉറപ്പാക്കിയിട്ടില്ല (ഫോൺ ഓഫലൈൻ ആകാം). ലോക്ക് ചെയ്തിട്ടില്ല; വന്നെത്തിയില്ലെന്ന് ഉറപ്പായാൽ വീണ്ടും അയക്കാം."));
+        toast.warning(tx("Receipt sent — delivery not confirmed yet (the phone may be offline). Not locked; you can send again after confirming it did not arrive.", "രസീത് അയച്ചു — ഡെലിവറി ഉറപ്പാക്കിയിട്ടില്ല (ഫോൺ ഓഫലൈൻ ആകാം). ലോക്ക് ചെയ്തിട്ടില്ല; വന്നെത്തിയില്ലെന്ന് ഉറപ്പായാൽ വീണ്ടും അയക്കാം."));
       } else if (r?.status === "already-delivered") {
-        toast.info(tx("Already sent to the recipient — the receipt is locked for their privacy.", "സ്വീകർത്താവിന് ഇതിനകം അയച്ചു — സ്വകാര്യതയ്ക്കായി രസീറ്റ് ലോക്ക് ചെയ്തിരിക്കുന്നു."));
+        toast.info(tx("Already sent to the recipient — the receipt is locked for their privacy.", "സ്വീകർത്താവിന് ഇതിനകം അയച്ചു — സ്വകാര്യതയ്ക്കായി രസീത് ലോക്ക് ചെയ്തിരിക്കുന്നു."));
       } else if (r?.status === "already-sent") {
         toast.info(tx("Just sent — delivery is being confirmed. Please wait a moment instead of sending again.", "ഇപ്പോൾ തന്നെ അയച്ചു — ഡെലിവറി ഉറപ്പാക്കുന്നു. വീണ്ടും അയയ്ക്കുന്നതിന് പകരം അല്പനേരം കാക്കുക."));
       } else {
@@ -335,7 +335,7 @@ export function Subscriptions() {
   const handleMarkOverdue = async () => {
     try {
       const count = await window.mms.subscriptions.markOverdue();
-      toast.success(`${count} ${tx("subscriptions marked overdue", "വരിസംഖ്യകൾ കാലാവധി കഴിഞ്ഞതായി")}`);
+      toast.success(`${count} ${tx("subscriptions marked overdue", "വരിസംഖ്യകൾ കാലം കഴിഞ്ഞതായി")}`);
       refetch();
       refreshCollected();
       refreshPending();
@@ -349,7 +349,7 @@ export function Subscriptions() {
       header: t("member_family"),
       accessor: (r) => <span className="font-medium">{r.house_name || r.family_number || "—"}</span>,
     },
-    { header: tx("Head", "തലവൻ"), accessor: (r) => r.member_name || "—" },
+    { header: tx("Head", "കുടുംബനാഥൻ"), accessor: (r) => r.member_name || "—" },
     { header: tx("Month", "മാസം"), accessor: (r) => monthLabel(r.period_start) },
     { header: t("sub_amount"), accessor: (r) => formatCurrency(r.amount) },
     {
@@ -422,12 +422,12 @@ export function Subscriptions() {
               </button>
             )}
           </>}
-          <button className="act-btn act-edit" title={tx("Record payment", "പേയ്‌മെന്റ് രേഖപ്പെടുത്തുക")} onClick={() => handleEdit(r.id)}>
+          <button className="act-btn act-edit" title={tx("Record payment", "അടവ് രേഖപ്പെടുത്തുക")} onClick={() => handleEdit(r.id)}>
             <Edit2 className="h-4 w-4" />
           </button>
           <button
             className="act-btn act-del"
-            title={tx("Cancel this month's payment", "ഈ മാസത്തെ പേയ്‌മെന്റ് റദ്ദാക്കുക")}
+            title={tx("Cancel this month's payment", "ഈ മാസത്തെ അടവ് റദ്ദാക്കുക")}
             disabled={!r.amount_paid}
             style={{ opacity: r.amount_paid ? 1 : 0.35, cursor: r.amount_paid ? "pointer" : "not-allowed" }}
             onClick={() => r.amount_paid && openCancel(r)}
@@ -450,11 +450,11 @@ export function Subscriptions() {
         { k: tx("Old arrears (previous months)", "പഴയ കുടിശ്ശിക (മുൻ മാസങ്ങൾ)"), v: formatCurrency(Number(previewRow.arrears || 0)) },
         { k: tx("Advance credit", "അഡ്വാൻസ് ക്രെഡിറ്റ്"), v: formatCurrency(Number(previewRow.advance || 0)) },
         {
-          k: tx("Total due now", "ഇപ്പോഴത്തെ മൊത്തം ബാക്കി"),
+          k: tx("Total due now", "ഇപ്പോഴത്തെ ആകെ ബാക്കി"),
           v: formatCurrency(Math.max(0, Number(previewRow.arrears || 0) + Math.max(0, Number(previewRow.amount || 0) - Number(previewRow.amount_paid || 0)) - Number(previewRow.advance || 0))),
         },
         { k: t("sub_receipt"), v: previewRow.receipt_number || "—" },
-        { k: tx("Receipt on WhatsApp", "വാട്ട്സ്ആപ്പിലെ രസീറ്റ്"), v: previewRow.wa_delivered_at ? tx("Delivered — locked (privacy)", "എത്തിഞ്ഞു — ലോക്ക് ചെയ്തിരിക്കുന്നു (സ്വകാര്യത)") : previewRow.wa_sent_at ? tx("Sent — delivery not confirmed", "അയച്ചു — ഡെലിവറി ഉറപ്പായിട്ടില്ല") : tx("Not sent", "അയച്ചിട്ടില്ല") },
+        { k: tx("Receipt on WhatsApp", "വാട്ട്സ്ആപ്പിലെ രസീത്"), v: previewRow.wa_delivered_at ? tx("Delivered — locked (privacy)", "എത്തിഞ്ഞു — ലോക്ക് ചെയ്തിരിക്കുന്നു (സ്വകാര്യത)") : previewRow.wa_sent_at ? tx("Sent — delivery not confirmed", "അയച്ചു — ഡെലിവറി ഉറപ്പായിട്ടില്ല") : tx("Not sent", "അയച്ചിട്ടില്ല") },
         { k: t("sub_payment_date"), v: formatDate(previewRow.payment_date) },
         { k: t("sub_method"), v: previewRow.payment_method || "—" },
         { k: t("ui_transaction_ref"), v: previewRow.transaction_ref || "—" },
@@ -473,7 +473,7 @@ export function Subscriptions() {
           <h1>{t("sub_title")}</h1>
           <div className="vs">{tx(
             "Recurring monthly subscription — one row per family (head), rolled over each month",
-            "മാസിക വരിസംഖ്യ — ഓരോ കുടുംബത്തിനും (തലവന്) ഒരു വരി, ഓരോ മാസവും അതേ വരിയിൽ തന്നെ"
+            "മാസിക വരിസംഖ്യ — ഓരോ കുടുംബത്തിനും (കുടുംബനാഥന്) ഒരു വരി, ഓരോ മാസവും അതേ വരിയിൽ തന്നെ"
           )}</div>
         </div>
         <div className="vr">
@@ -504,7 +504,7 @@ export function Subscriptions() {
             <span className="delta">{t("sub_collected")}</span>
           </div>
           <div className="val">{formatCurrency(totalCollected ?? 0)}</div>
-          <div className="slab">{tx("Total collected (all months)", "മൊത്തം ശേഖരിച്ചത് (എല്ലാ മാസങ്ങളും)")}</div>
+          <div className="slab">{tx("Total collected (all months)", "ആകെ പിരിച്ചത് (എല്ലാ മാസങ്ങളും)")}</div>
         </div>
         <div className="stat t-rose">
           <div className="srow">
@@ -512,7 +512,7 @@ export function Subscriptions() {
             <span className="delta">{t("sub_dues")}</span>
           </div>
           <div className="val">{formatCurrency(totalPending ?? 0)}</div>
-          <div className="slab">{tx("Total dues — old arrears + this month − advance", "മൊത്തം ബാക്കി — പഴയ കുടിശ്ശിക + ഈ മാസം − അഡ്വാൻസ്")}</div>
+          <div className="slab">{tx("Total dues — old arrears + this month − advance", "ആകെ ബാക്കി — പഴയ കുടിശ്ശിക + ഈ മാസം − അഡ്വാൻസ്")}</div>
         </div>
       </div>
 
@@ -573,7 +573,7 @@ export function Subscriptions() {
                   </div>
                 ))}
               </div>
-              <div className="dlg-sec"><b>{tx("Payment & status", "പേയ്മെന്റും അവസ്ഥയും")}</b></div>
+              <div className="dlg-sec"><b>{tx("Payment & status", "അടവും അവസ്ഥയും")}</b></div>
               <div className="det-grid">
                 {previewDetails.slice(6).map((d, i) => (
                   <div key={i} className={`det${d.full ? " full" : ""}`}>
@@ -585,7 +585,7 @@ export function Subscriptions() {
               <div className="mt-5">
                 <div className="flex items-center gap-2 mb-3">
                   <History size={16} />
-                  <strong>{tx("Payment history", "പേയ്‌മെന്റ് ചരിത്രം")}</strong>
+                  <strong>{tx("Payment history", "അടവ് ചരിത്രം")}</strong>
                 </div>
                 <div className="space-y-2 max-h-56 overflow-auto">
                   {historyRows.length ? historyRows.map((h) => (
@@ -602,13 +602,13 @@ export function Subscriptions() {
                         </div>
                         <div className="text-xs text-muted">
                           {h.receipt_number || "—"} · {formatDate(h.payment_date)} · {h.payment_method}
-                          {h.receipt_delivered_at ? ` · ${tx("receipt delivered", "രസീറ്റ് എത്തി")}` : ""}
+                          {h.receipt_delivered_at ? ` · ${tx("receipt delivered", "രസീത് എത്തി")}` : ""}
                         </div>
                       </div>
                       <Badge variant={h.status === "Cancelled" ? "danger" : "success"}>{h.status}</Badge>
                     </div>
                   )) : (
-                    <div className="text-sm text-muted">{tx("No payments recorded yet", "ഇതുവരെ പേയ്‌മെന്റുകളില്ല")}</div>
+                    <div className="text-sm text-muted">{tx("No payments recorded yet", "ഇതുവരെ അടവില്ല")}</div>
                   )}
                 </div>
               </div>
@@ -634,7 +634,7 @@ export function Subscriptions() {
             </>}
             <Button onClick={switchToEdit}>
               <Edit2 size={14} />
-              {tx("Record payment", "പേയ്‌മെന്റ് രേഖപ്പെടുത്തുക")}
+              {tx("Record payment", "അടവ് രേഖപ്പെടുത്തുക")}
             </Button>
           </div>
         </div>
@@ -644,7 +644,7 @@ export function Subscriptions() {
       <Dialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        title={editingId ? tx("Record payment", "പേയ്‌മെന്റ് രേഖപ്പെടുത്തുക") : tx("New subscription account", "പുതിയ വരിസംഖ്യ അക്കൗണ്ട്")}
+        title={editingId ? tx("Record payment", "അടവ് രേഖപ്പെടുത്തുക") : tx("New subscription account", "പുതിയ വരിസംഖ്യ അക്കൗണ്ട്")}
         className="max-w-2xl"
       >
         <div className="p-6 space-y-4">
@@ -667,7 +667,7 @@ export function Subscriptions() {
                   <Input value={formatCurrency(form.amount || 0)} readOnly className="bg-surface-muted" />
                 </div>
                 <div>
-                  <Label>{tx("Total due now", "മൊത്തം ബാക്കി")}</Label>
+                  <Label>{tx("Total due now", "ആകെ ബാക്കി")}</Label>
                   <Input value={formatCurrency(Math.max(0, Number(form.arrears || 0) + Math.max(0, Number(form.amount || 0) - Number(form.amount_paid || 0)) - Number(form.advance || 0)))} readOnly className="bg-surface-muted" />
                   <div className="text-xs text-muted mt-1.5">
                     {Number(form.arrears || 0) > 0 && tx(`includes ${formatCurrency(Number(form.arrears || 0))} from previous months`, `മുൻ മാസങ്ങളിൽ നിന്ന് ${formatCurrency(Number(form.arrears || 0))} ഉൾപ്പെടുന്നു`)}
@@ -692,25 +692,25 @@ export function Subscriptions() {
                 if (cash <= 0) return null;
                 return (
                   <div className="rounded-lg border border-border-subtle bg-surface-hover/40 px-4 py-3 text-xs text-muted leading-relaxed">
-                    <b className="text-text-primary">{tx("How this payment will be applied", "ഈ പേയ്‌മെന്റ് എങ്ങനെ കണക്കാക്കും")}</b>
+                    <b className="text-text-primary">{tx("How this payment will be applied", "ഈ അടവ് എങ്ങനെ കണക്കാക്കും")}</b>
                     <div className="mt-1">
                       {arrearsTake > 0 && <div>· {tx(`${formatCurrency(arrearsTake)} clears previous months' balance`, `${formatCurrency(arrearsTake)} പഴയ മാസങ്ങളുടെ ബാക്കി അടയ്ക്കും`)}</div>}
                       <div>· {tx(`${formatCurrency(monthTake)} for this month`, `${formatCurrency(monthTake)} ഈ മാസത്തേക്ക്`)}</div>
                       {advanceAdded > 0 && <div>· {tx(`${formatCurrency(advanceAdded)} becomes advance — next month's due will be ${formatCurrency(Math.max(0, rate - advanceAdded))}`, `${formatCurrency(advanceAdded)} അഡ്വാൻസ് ആകും — അടുത്ത മാസത്തെ ബാക്കി ${formatCurrency(Math.max(0, rate - advanceAdded))} ആകും`)}</div>}
                       <div className="mt-1">{remaining > 0
-                        ? tx(`Balance after this payment: ${formatCurrency(remaining)}`, `ഈ പേയ്‌മെന്റിന് ശേഷം ബാക്കി: ${formatCurrency(remaining)}`)
+                        ? tx(`Balance after this payment: ${formatCurrency(remaining)}`, `ഈ അടവിന് ശേഷം ബാക്കി: ${formatCurrency(remaining)}`)
                         : tx("Fully settled after this payment", "ഇതിനു ശേഷം പൂർണമായി തീരും")}</div>
                     </div>
                   </div>
                 );
               })()}
               <div className="sec-divider">
-                <SectionLabel>{tx("Payment details (editable)", "പേയ്‌മെന്റ് വിവരങ്ങൾ (തിരുത്താവുന്നത്)")}</SectionLabel>
+                <SectionLabel>{tx("Payment details (editable)", "അടവ് വിവരങ്ങൾ (തിരുത്താവുന്നത്)")}</SectionLabel>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>{tx("How much was given", "എത്ര നൽകി")} *</Label>
                     <Input type="number" min="0" value={form.amount_paid ?? 0} onChange={(e) => setForm({ ...form, amount_paid: Number(e.target.value) })} />
-                    <div className="text-xs text-muted mt-1.5">{tx("Family, head, month and rate are fixed — only this can be edited.", "കുടുംബം, തലവൻ, മാസം, നിരക്ക് എന്നിവ മാറ്റാനാവില്ല — ഇത് മാത്രം തിരുത്താം.")}</div>
+                    <div className="text-xs text-muted mt-1.5">{tx("Family, head, month and rate are fixed — only this can be edited.", "കുടുംബം, കുടുംബനാഥൻ, മാസം, നിരക്ക് എന്നിവ മാറ്റാനാവില്ല — ഇത് മാത്രം തിരുത്താം.")}</div>
                   </div>
                   <div>
                     <Label>{t("sub_payment_date")}</Label>
@@ -758,7 +758,7 @@ export function Subscriptions() {
                   <Input type="number" value={form.amount || ""} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} />
                 </div>
                 <div>
-                  <Label>{tx("First payment (optional)", "ആദ്യ പേയ്‌മെന്റ് (ഓപ്ഷണൽ)")}</Label>
+                  <Label>{tx("First payment (optional)", "ആദ്യ അടവ് (ഓപ്ഷണൽ)")}</Label>
                   <Input type="number" min="0" value={form.amount_paid ?? 0} onChange={(e) => setForm({ ...form, amount_paid: Number(e.target.value) })} />
                 </div>
                 <div>
@@ -789,7 +789,7 @@ export function Subscriptions() {
           )}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setDialogOpen(false)}>{t("action_cancel")}</Button>
-            <Button onClick={handleSave} disabled={saving}>{saving ? t("ui_saving") : (editingId ? tx("Save payment", "പേയ്‌മെന്റ് സേവ് ചെയ്യുക") : t("action_save"))}</Button>
+            <Button onClick={handleSave} disabled={saving}>{saving ? t("ui_saving") : (editingId ? tx("Save payment", "അടവ് സംരക്ഷിക്കുക") : t("action_save"))}</Button>
           </div>
         </div>
       </Dialog>
@@ -799,16 +799,16 @@ export function Subscriptions() {
         open={cancelOpen}
         onClose={() => { setCancelOpen(false); setCancelTarget(null); }}
         onConfirm={executeCancel}
-        title={tx("Cancel payment", "പേയ്‌മെന്റ് റദ്ദാക്കുക")}
+        title={tx("Cancel payment", "അടവ് റദ്ദാക്കുക")}
         description={
           cancelTarget
             ? tx(
                 `Cancel the ${monthLabel(cancelTarget.period_start)} payment of ${formatCurrency(cancelTarget.amount_paid)} for ${cancelTarget.house_name || cancelTarget.family_number}?`,
-                `${cancelTarget.house_name || cancelTarget.family_number} ന്റെ ${monthLabel(cancelTarget.period_start)} പേയ്‌മെന്റ് (${formatCurrency(cancelTarget.amount_paid)}) റദ്ദാക്കണോ?`
+                `${cancelTarget.house_name || cancelTarget.family_number} ന്റെ ${monthLabel(cancelTarget.period_start)} അടവ് (${formatCurrency(cancelTarget.amount_paid)}) റദ്ദാക്കണോ?`
               )
             : ""
         }
-        confirmLabel={tx("Cancel payment", "പേയ്‌മെന്റ് റദ്ദാക്കുക")}
+        confirmLabel={tx("Cancel payment", "അടവ് റദ്ദാക്കുക")}
       />
 
       {/* WhatsApp receipt privacy lock — the ONE admin-authorized re-send for
@@ -818,12 +818,12 @@ export function Subscriptions() {
         open={resendOpen}
         onClose={() => { setResendOpen(false); setResendTarget(null); }}
         onConfirm={executeAdminResend}
-        title={tx("Re-send receipt (administrator)", "രസീറ്റ് വീണ്ടും അയക്കുക (അഡ്മിനിസ്ട്രേറ്റർ)")}
+        title={tx("Re-send receipt (administrator)", "രസീത് വീണ്ടും അയക്കുക (അഡ്മിൻ)")}
         description={
           resendTarget
             ? tx(
                 `This month's receipt for ${resendTarget.house_name || resendTarget.family_number} was already DELIVERED on WhatsApp and is locked for their privacy. Re-send it once more? This is the only re-send this receipt ever gets.`,
-                `${resendTarget.house_name || resendTarget.family_number} ന്റെ ഈ മാസത്തെ രസീറ്റ് വാട്ട്സ്ആപ്പിൽ എത്തിയിട്ടുണ്ട്; സ്വകാര്യതയ്ക്കായി അത് ലോക്ക് ചെയ്തിരിക്കുന്നു. ഒരിക്കൽ കൂടി അയക്കണോ? ഇതാണ് ഈ രസീറ്റിന് ലഭിക്കുന്ന ഒരേയൊരു റീ-സെൻഡ്.`
+                `${resendTarget.house_name || resendTarget.family_number} ന്റെ ഈ മാസത്തെ രസീത് വാട്ട്സ്ആപ്പിൽ എത്തിയിട്ടുണ്ട്; സ്വകാര്യതയ്ക്കായി അത് ലോക്ക് ചെയ്തിരിക്കുന്നു. ഒരിക്കൽ കൂടി അയക്കണോ? ഇതാണ് ഈ രസീതിന് ലഭിക്കുന്ന ഒരേയൊരു റീ-സെൻഡ്.`
               )
             : ""
         }

@@ -76,7 +76,7 @@ export function AuditLog() {
       const res = await window.mms.audit.verify();
       setVerifyResult(res);
       if (res?.intact) {
-        toast.success(tx(`Audit chain intact — ${res.verified} events verified`, `ഓഡിറ്റ് ശൃംഖല സുരക്ഷിതം — ${res.verified} ഇവന്റുകൾ പരിശോധിച്ചു`));
+        toast.success(tx(`Audit chain intact — ${res.verified} events verified`, `ഓഡിറ്റ് ശൃംഖല സുരക്ഷിതം — ${res.verified} പരിപാടികൾ പരിശോധിച്ചു`));
       } else {
         toast.error(tx("Audit chain BROKEN — a record was modified or deleted!", "ഓഡിറ്റ് ശൃംഖല തകർന്നു — ഒരു രേഖ മാറ്റുകയോ ഇല്ലാതാക്കുകയോ ചെയ്തിട്ടുണ്ട്!"));
       }
@@ -171,7 +171,7 @@ export function AuditLog() {
               <b>{tx("Audit chain BROKEN", "ഓഡിറ്റ് ശൃംഖല തകർന്നു")} — {tx("tampering detected", "കൃത്രിമം കണ്ടെത്തി")}!</b>
             )}
             <div className="opacity-80">
-              {tx("Events verified", "പരിശോധിച്ച ഇവന്റുകൾ")}: {verifyResult.verified}
+              {tx("Events verified", "പരിശോധിച്ച പരിപാടികൾ")}: {verifyResult.verified}
               {verifyResult.legacyRows > 0 && <> · {tx("legacy (pre-hash) rows", "പഴയ രേഖകൾ")}: {verifyResult.legacyRows}</>}
               {verifyResult.brokenAtId != null && <> · {tx("first broken record id", "ആദ്യം തകർന്ന രേഖ ഐഡി")}: {verifyResult.brokenAtId}</>
               } · {tx("checked at", "പരിശോധിച്ച സമയം")}: {formatDateTime(verifyResult.verifiedAt)}

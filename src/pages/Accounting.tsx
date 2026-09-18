@@ -292,7 +292,7 @@ export function Accounting() {
           toast.warning(
             tx(
               `Bill no. "${form.bill_no}" was already used on ${formatDate(res.duplicateBill.txn_date)} (${formatCurrency(res.duplicateBill.amount)}). Please verify this is not a duplicate payment.`,
-              `ബിൽ നമ്പർ "${form.bill_no}" ${formatDate(res.duplicateBill.txn_date)}-ന് ഇതിനകം ഉപയോഗിച്ചിട്ടുണ്ട് (${formatCurrency(res.duplicateBill.amount)}). ഇത് തനിപ്പകർപ്പ് പേയ്മെന്റ് അല്ലെന്ന് ഉറപ്പാക്കുക.`
+              `ബിൽ നമ്പർ "${form.bill_no}" ${formatDate(res.duplicateBill.txn_date)}-ന് ഇതിനകം ഉപയോഗിച്ചിട്ടുണ്ട് (${formatCurrency(res.duplicateBill.amount)}). ഇതേ ബില്ലിന്റെ രണ്ടാമത്തെ എൻട്രിയല്ലെന്ന് ഉറപ്പാക്കുക.`
             )
           );
         }
@@ -717,7 +717,7 @@ export function Accounting() {
                 <option value="">{tx("— Not linked to an asset —", "— ആസ്തിയുമായി ബന്ധമില്ല —")}</option>
                 {assetOptions.map(a => <option key={a.id} value={a.id}>{a.asset_code} · {a.name}</option>)}
               </Select>
-              <div className="text-xs text-muted mt-1">{tx("Tag rent collections and repair bills with the building/land they belong to.", "വാടാക്ക വാങ്ങലുകളും അറ്റകുറ്റി ബില്ലുകളും അതത് കെട്ടിടത്തുമായി / ഭൂമിയുമായി ബന്ധിപ്പിക്കുക.")}</div>
+              <div className="text-xs text-muted mt-1">{tx("Tag rent collections and repair bills with the building/land they belong to.", "വാടക വാങ്ങലുകളും അറ്റകുറ്റപ്പണി ബില്ലുകളും അതത് കെട്ടിടത്തിന്റേയോ ഭൂമിയുടേയോ കൂടെ രേഖപ്പെടുത്തുക.")}</div>
             </div>
             <div>
               <Label>{t("ui_transaction_ref")}</Label>
@@ -727,7 +727,7 @@ export function Accounting() {
               <>
                 <div>
                   <Label>{tx("Voucher No.", "വൗച്ചർ നമ്പർ")}</Label>
-                  <Input value={form.voucher_no || ""} onChange={(e) => setForm({ ...form, voucher_no: e.target.value })} placeholder={tx("auto-filled if empty", "ശൂന്യമാണെങ്കിൽ സ്വയം നൽകും")} />
+                  <Input value={form.voucher_no || ""} onChange={(e) => setForm({ ...form, voucher_no: e.target.value })} placeholder={tx("auto-filled if empty", "കാലിയായി വയ്ക്കുക — നമ്പർ സ്വയമേവ വരും")} />
                 </div>
                 <div>
                   <Label>{tx("Bill / Invoice No.", "ബിൽ / ഇൻവോയ്സ് നമ്പർ")}</Label>
@@ -790,7 +790,7 @@ export function Accounting() {
         onConfirm={performEdit}
         danger={false}
         title={tx("Edit ledger entry", "ലെഡ്ജർ എൻട്രി തിരുത്തുക")}
-        description={tx("Editing recorded income/expense is restricted to administrators. Your password and reason are written to the audit log.", "രേഖപ്പെടുത്തിയ വരവ്/ചെലവ് തിരുത്ത് അഡ്മിനിസ്ട്രേറ്റർമാർക്ക് മാത്രമാണ്. നിങ്ങളുടെ പാസ്‌വേഡും കാരണവും ഓഡിറ്റ് ലോഗിൽ രേഖപ്പെടുത്തും.")}
+        description={tx("Editing recorded income/expense is restricted to administrators. Your password and reason are written to the audit log.", "രേഖപ്പെടുത്തിയ വരവ്/ചെലവ് തിരുത്ത് അഡ്മിൻമാർക്ക് മാത്രമാണ്. നിങ്ങളുടെ പാസ്‌വേഡും കാരണവും ഓഡിറ്റ് ലോഗിൽ രേഖപ്പെടുത്തും.")}
         reasonPlaceholder={tx("Why is this entry being edited?", "എന്തുകൊണ്ടാണ് ഈ എൻട്രി തിരുത്തുന്നത്?")}
         confirmLabel={tx("Continue to edit", "തിരുത്താൻ തുടരുക")}
       />
@@ -840,7 +840,7 @@ export function Accounting() {
               [tx("Paid to (Payee)", "സ്വീകർത്താവ് (Payee)"), previewRow.payee || "—"],
               [t("ui_transaction_ref"), previewRow.transaction_ref || "—"],
             ];
-            if (isTxn && rec.created_by_name) detailRows.push([tx("Created by", "സൃഷ്ടിച്ചത്"), rec.created_by_name]);
+            if (isTxn && rec.created_by_name) detailRows.push([tx("Created by", "ചേർത്തത്"), rec.created_by_name]);
             if (previewRow.source === "donations" && rec.donor_name) detailRows.push([tx("Donor", "ദാതാവ്"), rec.donor_name]);
             if (previewRow.source === "donations" && (rec.purpose || previewRow.description)) detailRows.push([tx("Purpose", "ആവശ്യം"), rec.purpose || String(previewRow.description || "").replace(/^[^—]*—\s*/, "")]);
             if (previewRow.source === "subscriptions" && rec.house_name) detailRows.push([tx("Family", "കുടുംബം"), `${rec.house_name || ""}${rec.family_number ? ` (${rec.family_number})` : ""}`]);
@@ -898,7 +898,7 @@ export function Accounting() {
         <div className="p-6 space-y-4">
           {receiptsData?.missing?.length > 0 && (
             <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              {tx("Missing receipt numbers", "കാണാത്ത രസീത് നമ്പറുകൾ")}: {receiptsData.missing.join(", ")} — {tx("permanent deletion is disabled, so gaps mean manual editing of the database.", "സ്ഥിരം ഇല്ലാതാക്കൽ നിർജ്ജീവമാക്കിയതിനാൽ, വിടവുകൾ ഡാറ്റാബേസ് കൈകാര്യം ചെയ്തതിന്റെ സൂചനയാണ്.")}
+              {tx("Missing receipt numbers", "കാണാത്ത രസീത് നമ്പറുകൾ")}: {receiptsData.missing.join(", ")} — {tx("permanent deletion is disabled, so gaps mean manual editing of the database.", "സ്ഥിരം ഇല്ലാതാക്കൽ ഇല്ലാതെയാണ് സംവിധാനം; വിടവുണ്ടെങ്കിൽ അത് ഡാറ്റാബേസ് നേരിട്ട് മാറ്റിയതിന്റെ സൂചനയാണ്.")}
             </div>
           )}
           {(!receiptsData?.missing || receiptsData.missing.length === 0) && (
