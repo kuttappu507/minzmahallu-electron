@@ -107,7 +107,8 @@
       "allowToChangeInstallationDirectory": true,
       "perMachine": true,
       "include": "build/installer.nsh",
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "Minz-Mahallu-Setup-${version}.${ext}"
     },
     "portable": {
       "artifactName": "MMS-React-Portable-${version}.exe"
@@ -124,6 +125,9 @@
     },
     "dmg": {
       "artifactName": "MMS-React-macOS-${version}.${ext}"
+    },
+    "zip": {
+      "artifactName": "MMS-React-macOS-${version}-mac.${ext}"
     },
     "linux": {
       "target": [
