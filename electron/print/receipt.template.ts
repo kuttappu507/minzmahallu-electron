@@ -95,7 +95,7 @@ function labels(lang: Lang) {
     titleSubscription: 'വരിസംഖ്യ രസീത്',
     no: 'രസീത് നമ്പർ',
     date: 'തീയതി',
-    received: 'ഇവരിൽ നിന്നും സ്വീകരിച്ചത്',
+    received: 'ഇവരിൽ നിന്ന് സ്വീകരിച്ചത്',
     amount: 'തുക',
     method: 'അടവ് രീതി',
     ref: 'റഫറൻസ്',

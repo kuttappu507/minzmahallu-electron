@@ -182,7 +182,7 @@ export function Staff() {
     if (!statusTarget || !statusAction) return;
     await window.mms.staff.setStatus(statusTarget.id, statusAction, date || "", reason, password);
     toast.success(statusAction === "Expelled"
-      ? tx(`Expelled effective ${date || "today"} — recorded in the audit log`, `പുറത്താക്കി — ഓഡിറ്റ് ലോഗിൽ രേഖപ്പെടുത്തി`)
+      ? tx(`Expelled effective ${date || "today"} — recorded in the audit log`, `സേവനത്തിൽ നിന്ന് ഒഴിവാക്കി — ഓഡിറ്റ് ലോഗിൽ രേഖപ്പെടുത്തി`)
       : tx(`Resignation recorded effective ${date || "today"}`, `രാജി രേഖപ്പെടുത്തി — ${date || "ഇന്ന്"} മുതൽ`));
     setPreviewOpen(false); refetch(); refreshSummary();
   };
@@ -250,7 +250,7 @@ export function Staff() {
     refreshPayments(); refreshSummary();
   };
 
-  const displayStatus = (r: StaffRow) => r.archive_state ? (r.status === "Expelled" ? tx("Expelled", "പുറത്താക്കി") : r.status === "Resigned" ? t("staff_resigned") : t("staff_archived")) : (r.status === "Active" ? t("staff_active") : r.status === "Inactive" ? t("staff_inactive") : r.status === "Expelled" ? tx("Expelled", "പുറത്താക്കി") : t("staff_resigned"));
+  const displayStatus = (r: StaffRow) => r.archive_state ? (r.status === "Expelled" ? tx("Expelled", "സേവനം അവസാനിപ്പിച്ചു") : r.status === "Resigned" ? t("staff_resigned") : t("staff_archived")) : (r.status === "Active" ? t("staff_active") : r.status === "Inactive" ? t("staff_inactive") : r.status === "Expelled" ? tx("Expelled", "സേവനം അവസാനിപ്പിച്ചു") : t("staff_resigned"));
 
   const columns: Column<StaffRow>[] = useMemo(() => [
     { header: t("staff_code"), accessor: r => <span className="code-text-sm text-primary">{r.staff_code}</span>, width: "110px" },
@@ -437,7 +437,7 @@ export function Staff() {
             ? (statusAction === "Expelled"
                 ? tx(
                     `End the service of ${statusTarget.name} (${statusTarget.staff_code}) as EXPELLED. Salary history is preserved.`,
-                    `${statusTarget.name} (${statusTarget.staff_code}) നെ പുറത്താക്കി സേവനം അവസാനിപ്പിക്കുന്നു. ഇതുവരെയുള്ള ശമ്പള ചരിത്രം സൂക്ഷിക്കും.`
+                    `${statusTarget.name} (${statusTarget.staff_code}) എന്ന ജീവനക്കാരെ സേവനത്തിൽ നിന്ന് ഒഴിവാക്കുന്നു. ഇതുവരെയുള്ള ശമ്പള ചരിത്രം സംരക്ഷിക്കും.`
                   )
                 : tx(
                     `Record the resignation of ${statusTarget.name} (${statusTarget.staff_code}). Salary history is preserved.`,
@@ -497,7 +497,7 @@ export function Staff() {
             <div><Label>{t("staff_payment_frequency")}</Label>
               <Select value={form.payment_frequency || "Monthly"} onChange={e => setForm({ ...form, payment_frequency: e.target.value })}>
                 <option value="Monthly">{tx("Monthly", "പ്രതിമാസം")}</option>
-                <option value="Quarterly">{tx("Quarterly", "ത്രൈമാസികം")}</option>
+                <option value="Quarterly">{tx("Quarterly", "ത്രൈമാസം")}</option>
                 <option value="Annually">{tx("Annually", "വാർഷികം")}</option>
                 <option value="OnDemand">{tx("On demand", "ആവശ്യാനുസരണം")}</option>
               </Select>
@@ -507,7 +507,7 @@ export function Staff() {
                 <option value="Active">{t("staff_active")}</option>
                 <option value="Inactive">{t("staff_inactive")}</option>
               </Select>
-              <div className="text-xs text-muted mt-1.5">{tx("Resignation / expulsion is executed from the member's view with date, reason and admin password.", "രാജി / പുറത്താക്കൽ അംഗത്തിന്റെ വിവരങ്ങൾ തുറന്ന്, തീയതി, കാരണം, അഡ്മിൻ പാസ്‌വേഡ് എന്നിവയോടെ നടത്തുന്നു.")}</div>
+              <div className="text-xs text-muted mt-1.5">{tx("Resignation / expulsion is executed from the member's view with date, reason and admin password.", "രാജിയോ സേവനത്തിൽ നിന്നുള്ള ഒഴിവാക്കലോ രേഖപ്പെടുത്താൻ അംഗത്തിന്റെ വിവരങ്ങൾ തുറന്ന് തീയതി, കാരണം, അഡ്മിൻ പാസ്‌വേഡ് എന്നിവ നൽകുക.")}</div>
             </div>
           </div>
           <div><Label>{t("staff_address")}</Label><Textarea rows={2} value={form.address || ""} onChange={e => setForm({ ...form, address: e.target.value })} /></div>

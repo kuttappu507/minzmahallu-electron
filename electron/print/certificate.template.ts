@@ -492,7 +492,7 @@ function buildMarriageCert(c: CertData, ml: boolean): string {
     bride: 'വധുവിന്റെ പേര്', brideFather: 'വധുവിന്റെ പിതാവ്', brideAddr: 'വധുവിന്റെ വിലാസം',
     mahar: 'മഹർ', nikahDate: 'നികാഹ് തീയതി', place: 'സ്ഥലം', regDate: 'രജിസ്ട്രേഷൻ തീയതി',
     witnesses: 'സാക്ഷികൾ', witness: 'സാക്ഷി',
-    certifyText: 'മേല്പറഞ്ഞ നികാഹ് മഹല്ല് രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയതായി സാക്ഷ്യപ്പെടുത്തുന്നു.',
+    certifyText: 'മേൽപ്പറഞ്ഞ നികാഹ് മഹല്ല് രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയതായി സാക്ഷ്യപ്പെടുത്തുന്നു.',
   } : {
     title: 'MARRIAGE CERTIFICATE', subtitle: 'Registered in the Mahallu Marriage Register',
     groom: 'Name of Bridegroom', groomFather: 'Son of', groomAddr: 'Address',
@@ -537,8 +537,8 @@ function buildDeathCert(c: CertData, ml: boolean): string {
     pincode: 'പിൻകോഡ്', state: 'സംസ്ഥാനം',
     name: 'പേര്', sex: 'ലിംഗം', age: 'വയസ്സ്',
     kin: 'പിതാവിന്റെ / മാതാവിന്റെ / ഭർത്താവിന്റെ / ഭാര്യയുടെ പേര്',
-    address: 'മൃതന്റെ സ്ഥിര വിലാസം',
-    dod: 'മരണ തീയതി', pod: 'മരണ സ്ഥലം',
+    address: 'മരണപ്പെട്ട വ്യക്തിയുടെ സ്ഥിര വിലാസം',
+    dod: 'മരണ തീയതി', pod: 'മരണസ്ഥലം',
     regNo: 'രജിസ്ട്രേഷൻ നമ്പർ', regDate: 'രജിസ്ട്രേഷൻ തീയതി',
     secretary: 'മഹല്ല് സെക്രട്ടറി',
     male: 'പുരുഷൻ', female: 'സ്ത്രീ',
@@ -607,7 +607,7 @@ function buildMembershipCert(c: CertData, ml: boolean): string {
     name: 'അംഗത്തിന്റെ പേര്', memberCode: 'അംഗ നമ്പർ', dob: 'ജനന തീയതി',
     blood: 'രക്ത ഗ്രൂപ്പ്', occupation: 'തൊഴിൽ', mobile: 'മൊബൈൽ',
     familyNo: 'കുടുംബ നമ്പർ', houseName: 'വീട്ടുപേര്', area: 'പ്രദേശം',
-    certifyText: 'മേല്പറഞ്ഞ വ്യക്തി ഈ മഹല്ലിലെ രജിസ്റ്റർ ചെയ്ത അംഗമാണെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.',
+    certifyText: 'മേൽപ്പറഞ്ഞ വ്യക്തി ഈ മഹല്ലിലെ രജിസ്റ്റർ ചെയ്ത അംഗമാണെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.',
   } : {
     title: 'MEMBERSHIP CERTIFICATE', subtitle: 'Registered in the Mahallu Membership Register',
     name: 'Name of Member', memberCode: 'Member No.', dob: 'Date of Birth',
@@ -638,17 +638,17 @@ function buildMembershipCert(c: CertData, ml: boolean): string {
 
 function buildResidenceCert(c: CertData, ml: boolean): string {
   const L = ml ? {
-    title: 'വസതി സർട്ടിഫിക്കറ്റ്', subtitle: 'മഹല്ല് കുടുംബ രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയത്',
+    title: 'താമസ സർട്ടിഫിക്കറ്റ്', subtitle: 'മഹല്ല് കുടുംബ രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയത്',
     familyHead: 'കുടുംബനാഥൻ', familyNo: 'കുടുംബ നമ്പർ', houseName: 'വീട്ടുപേര്',
-    houseNo: 'വീട്ടുനമ്പർ', ward: 'വാർഡ്', area: 'പ്രദേശം',
+    houseNo: 'വീട്ടു നമ്പർ', ward: 'വാർഡ്', area: 'പ്രദേശം',
     address: 'വിലാസം', pincode: 'പിൻകോഡ്', phone: 'ഫോൺ',
-    certifyText: 'മേല്പറഞ്ഞ കുടുംബം ഈ മഹല്ലിലെ രജിസ്റ്റർ ചെയ്ത വസതിയാണെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.',
+    certifyText: 'മേൽപ്പറഞ്ഞ കുടുംബം ഈ മഹല്ലിൽ താമസിക്കുന്നുവെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.',
   } : {
     title: 'RESIDENCE CERTIFICATE', subtitle: 'Registered in the Mahallu Family Register',
     familyHead: 'Family Head', familyNo: 'Family No.', houseName: 'House Name',
     houseNo: 'House No.', ward: 'Ward', area: 'Area',
     address: 'Address', pincode: 'Pincode', phone: 'Phone',
-    certifyText: 'This is to certify that the above family is a registered residence of this Mahallu.',
+    certifyText: 'This is to certify that the above family resides within this Mahallu.',
   };
   return `<main class="cert">
   <div class="frame-outer"></div><div class="frame-inner"></div>
@@ -678,7 +678,7 @@ function buildNocCert(c: CertData, ml: boolean): string {
     title: 'നികാഹിനുള്ള എതിർപ്പില്ലാ സർട്ടിഫിക്കറ്റ്', subtitle: 'No Objection Certificate for Marriage',
     groom: 'വരൻ', groomFather: 'വരന്റെ പിതാവ്', bride: 'വധു', brideFather: 'വധുവിന്റെ പിതാവ്',
     nikahDate: 'നികാഹ് തീയതി', place: 'സ്ഥലം',
-    certifyText: 'മേല്പറഞ്ഞ നികാഹിന് ഈ മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിക്ക് യാതൊരു എതിർപ്പുമില്ലെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.',
+    certifyText: 'മേൽപ്പറഞ്ഞ നികാഹിന് ഈ മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റിക്ക് യാതൊരു എതിർപ്പുമില്ലെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.',
   } : {
     title: 'NO OBJECTION CERTIFICATE FOR MARRIAGE', subtitle: 'Mahallu Committee Clearance',
     groom: 'Bridegroom', groomFather: "Groom's Father", bride: 'Bride', brideFather: "Bride's Father",

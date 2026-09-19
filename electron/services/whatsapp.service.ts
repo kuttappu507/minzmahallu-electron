@@ -507,7 +507,7 @@ export const whatsapp = {
     //    pre-checks so the toast explains the real problem).
     if (!phone) {
       try { await receiptP; } catch { /* surface the phone problem instead */ }
-      throw new Error("No WhatsApp number saved for this donor. Add the donor's phone number in the donation record first.");
+      throw new Error("ഈ ദാതാവിന്റെ വാട്ട്സ്ആപ്പ് നമ്പർ ചേർത്തിട്ടില്ല. ആദ്യം ദാതാവിന്റെ ഫോൺ നമ്പർ ചേർക്കുക.");
     }
     await requireInternet();
     const receipt = await receiptP;
@@ -612,7 +612,7 @@ export const whatsapp = {
         return { status: "failed", error: String(err?.message || err), receiptSaved: true, receiptNumber: receipt.receiptNumber };
       }
     }
-    if (!phone) throw new Error("No WhatsApp number saved for this family. Add the family's phone or WhatsApp number first.");
+    if (!phone) throw new Error("ഈ കുടുംബത്തിന്റെ ഫോൺ / വാട്ട്സ്ആപ്പ് നമ്പർ ചേർത്തിട്ടില്ല.");
     const result = await sendReceiptWithLock({
       kind: "subscription", rowId: receipt.paymentId || 0,
       phone, text, pdf: receipt.buffer, fileName: `receipt-${fileNameSafe(receipt.receiptNumber || subscriptionId)}.pdf`,

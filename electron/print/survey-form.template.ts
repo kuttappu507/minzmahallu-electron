@@ -41,9 +41,9 @@ export function buildSurveyFormHtml(): string {
       'This form is for ONE family. Fill every field clearly in BLOCK letters and hand it back to the mahallu office. The member table holds up to 10 members — the head in row 1, then everyone else including children. Larger families: use an extra sheet. Where an English name is required, use CAPITAL letters.',
       'ഈ ഫോം ഒരു കുടുംബത്തിനുള്ളതാണ്. എല്ലാ വിവരങ്ങളും വ്യക്തമായി, വലിയ അക്ഷരത്തിൽ പൂരിപ്പിച്ച് മഹല്ല് ഓഫീസിൽ എത്തിക്കുക. അംഗപട്ടികയിൽ 10 പേരെഴുതാം — ഒന്നാം വരി കുടുംബനാഥൻ, പിന്നീട് കുട്ടികൾ അടക്കം എല്ലാവരും; 10-ന് മുകളിലാണെങ്കിൽ ഒരു കൂടി ഷീറ്റ് ഉപയോഗിക്കുക. ഇംഗ്ലീഷ് പേരുകൾ CAPITAL അക്ഷരത്തിൽ എഴുതുക.',
     ],
-    house: ['House / Family Details', 'വീടിന്റെ / കുടുംബത്തിന്റെ വിവരങ്ങൾ'],
+    house: ['House / Family Details', 'വീട്ടുവിവരങ്ങൾ / കുടുംബവിവരങ്ങൾ'],
     houseName: ['House Name', 'വീട്ടുപേര്'],
-    houseNumber: ['House Number', 'വീട്ടുനമ്പർ'],
+    houseNumber: ['House Number', 'വീട്ടു നമ്പർ'],
     ward: ['Ward', 'വാർഡ്'],
     area: ['Area / Locality', 'പ്രദേശം'],
     pincode: ['Pincode', 'പിൻകോഡ്'],
@@ -51,8 +51,9 @@ export function buildSurveyFormHtml(): string {
     address: ['Full Address', 'മുഴുവൻ വിലാസം'],
     headSec: ['Details of the Family Head', 'കുടുംബനാഥന്റെ വിവരങ്ങൾ'],
     headSecNote: [
-      'The head is the person who represents the family; his/her row must also appear as row 1 of the member table below.',
-      'കുടുംബത്തെ പ്രതിനിധീകരിക്കുന്ന വ്യക്തിയാണ് കുടുംബനാഥൻ; താഴെയുള്ള പട്ടികയിലെ ഒന്നാം വരിയും ഇദ്ദേഹത്തിന്റേതായിരിക്കണം.',
+      'The head is the person who represents the family. His/her details must appear as row 1 of the member table below.',
+      'കുടുംബത്തെ പ്രതിനിധീകരിക്കുന്ന വ്യക്തിയാണ് കുടുംബനാഥൻ. താഴെയുള്ള പട്ടികയിൽ കുടുംബനാഥന്റെ വിവരങ്ങൾ ഒന്നാമതായി രേഖപ്പെടുത്തുക.',
+
     ],
     headName: ['Full Name of Head', 'കുടുംബനാഥന്റെ പേര്'],
     headDob: ['Date of Birth', 'ജനനത്തീയതി'],
@@ -61,7 +62,8 @@ export function buildSurveyFormHtml(): string {
     headMobile: ['Mobile (10 digits)', 'മൊബൈൽ (10 അക്കം)'],
     headWhatsapp: ['WhatsApp Number (10 digits)', 'വാട്ട്സ്ആപ്പ് നമ്പർ (10 അക്കം)'],
     members: ['Family Members (max 10)', 'കുടുംബാംഗങ്ങൾ (പരമാവധി 10)'],
-    membersSub: ['One row per person — head first, then all others including children', 'ഓരോ അംഗവും ഓരോ വരിയിൽ — ആദ്യം കുടുംബനാഥൻ, പിന്നീട് കുട്ടികൾ അടക്കം എല്ലാവരും'],
+    membersSub: ['One row per person — head first, then all others including children', 'ഓരോ അംഗത്തിന്റെയും വിവരങ്ങൾ ഓരോ വരിയിൽ രേഖപ്പെടുത്തുക. ആദ്യം കുടുംബനാഥന്റെയും തുടർന്ന് കുട്ടികൾ ഉൾപ്പെടെയുള്ള മറ്റ് അംഗങ്ങളുടെയും വിവരങ്ങൾ നൽകുക'],
+
     cols: {
       no: ['No.', 'നമ്പർ'],
       name: ['Full Name', 'പേര്'],

@@ -14,7 +14,7 @@ const STATUS_LABELS: Record<string, { en: string; ml: string }> = {
   QR_REQUIRED: { en: "Scan QR code", ml: "QR കോഡ് സ്കാൻ ചെയ്യുക" },
   STARTING: { en: "Starting…", ml: "ആരംഭിക്കുന്നു…" },
   OFFLINE: { en: "No internet", ml: "ഇന്റർനെറ്റ് ഇല്ല" },
-  DISCONNECTED: { en: "Not connected yet", ml: "ഇതുവരെ കണക്റ്റ് ആയിട്ടില്ല" },
+  DISCONNECTED: { en: "Not connected yet", ml: "ഇതുവരെ കണക്റ്റ് ചെയ്തിട്ടില്ല" },
   UNAVAILABLE: { en: "Service unavailable", ml: "സേവനം ലഭ്യമല്ല" },
   ERROR: { en: "Error", ml: "പിശക്" },
 };
@@ -128,9 +128,9 @@ export function WhatsApp() {
     setLoading(true);
     try {
       await window.mms.whatsapp.unlink();
-      toast.success(tx("Device unlinked — scan the QR code to reconnect", "ഫോൺ ലിങ്ക് മാറ്റി — വീണ്ടും കണക്റ്റ് ചെയ്യാൻ QR സ്കാൻ ചെയ്യുക"));
+      toast.success(tx("Device unlinked — scan the QR code to reconnect", "ഫോൺ ലിങ്ക് നീക്കം ചെയ്തു — വീണ്ടും കണക്റ്റ് ചെയ്യാൻ QR സ്കാൻ ചെയ്യുക"));
       await refresh();
-    } catch (e: any) { toast.error(e?.message || tx("Could not unlink the device", "ഫോണിന്റെ ലിങ്ക് മാറ്റാനായില്ല")); }
+    } catch (e: any) { toast.error(e?.message || tx("Could not unlink the device", "ഫോൺ ലിങ്ക് നീക്കം ചെയ്യാനായില്ല")); }
     finally { setLoading(false); setUnlinkOpen(false); }
   };
 
@@ -221,7 +221,7 @@ export function WhatsApp() {
               knowingly before the first pairing. */}
           {needsTosAck && (
             <div className="wa-tos" data-testid="wa-tos">
-              <div className="wa-tos-head"><AlertTriangle size={14} />{tx("Read before connecting", "കണക്റ്റ് ചെയ്യും മുമ്പ് വായിക്കുക")}</div>
+              <div className="wa-tos-head"><AlertTriangle size={14} />{tx("Read before connecting", "കണക്റ്റ് ചെയ്യുന്നതിന് മുമ്പ് വായിക്കുക")}</div>
               <p>{tx(
                 "This app connects to WhatsApp through an unofficial link. WhatsApp does not allow automation like this and may permanently ban the number you pair — use a secondary mahallu number if possible.",
                 "ഈ ആപ്പ് WhatsApp-മായി അനൗദ്യോഗികമായ വഴിയിലൂടെയാണ് കണക്റ്റ് ചെയ്യുന്നത്. WhatsApp ഇത്തരം ഓട്ടോമേഷൻ അനുവദിക്കാത്തതിനാൽ പെയർ ചെയ്യുന്ന നമ്പർ ശാശ്വതമായി നിരോധിക്കപ്പെടാം — സാധ്യമെങ്കിൽ മഹല്ലിന്റെ രണ്ടാമത്തെ നമ്പർ ഉപയോഗിക്കുക."
@@ -240,7 +240,7 @@ export function WhatsApp() {
             {connected
               ? <>
                   <Button variant="secondary" onClick={pause} disabled={loading}><Power className="h-4 w-4" />{tx("Pause (keeps pairing)", "താൽക്കാലിക നിർത്തുക (പെയറിംഗ് നിലനിൽക്കും)")}</Button>
-                  <Button variant="danger" onClick={() => setUnlinkOpen(true)} disabled={loading}><Unlink className="h-4 w-4" />{tx("Unlink phone", "ഫോൺ ലിങ്ക് മാറ്റുക")}</Button>
+                  <Button variant="danger" onClick={() => setUnlinkOpen(true)} disabled={loading}><Unlink className="h-4 w-4" />{tx("Unlink phone", "ഫോൺ ലിങ്ക് നീക്കം ചെയ്യുക")}</Button>
                 </>
               : <Button onClick={connect} disabled={loading || !status.internet || (needsTosAck && !tosCheck)} data-testid="wa-connect"><Smartphone className="h-4 w-4" />{tx("Connect WhatsApp", "വാട്ട്സ്ആപ്പ് കണക്റ്റ് ചെയ്യുക")}</Button>}
           </div>
@@ -256,7 +256,7 @@ export function WhatsApp() {
           <div className="ch-head">
             <div>
               <div className="ch-title">{tx("Built-in safeguards", "സുരക്ഷാ നിയന്ത്രണങ്ങൾ")}</div>
-              <div className="ch-sub">{tx("Messaging stays safe and respectful", "സന്ദേശങ്ങൾ സുരക്ഷിതവും ഉചിതവുമായി നിലനിൽക്കുന്നു")}</div>
+              <div className="ch-sub">{tx("Messaging stays safe and respectful", "സന്ദേശങ്ങൾ സുരക്ഷിതമായ രീതിയിൽ അയയ്ക്കുന്നു")}</div>
             </div>
             <span className="sic"><ShieldCheck size={16} /></span>
           </div>
@@ -266,8 +266,8 @@ export function WhatsApp() {
             <li>✓ <span>{tx("Announcement: one campaign per day", "അറിയിപ്പ്: ദിവസത്തിൽ ഒരു ക്യാമ്പയിൻ")}</span></li>
             <li>✓ <span>{tx("Messages spaced 5–10 s apart with a rest every 20", "സന്ദേശങ്ങൾക്കിടയിൽ 5–10 സെക്കൻഡ് ഇടവേള; ഓരോ 20-നും ദീർഘ ഇടവേള")}</span></li>
             <li>✓ <span>{tx("Campaigns pause automatically if WhatsApp signals a rate limit", "WhatsApp റേറ്റ് ലിമിറ്റ് സൂചിപ്പിച്ചാൽ ക്യാമ്പയിൻ സ്വയം നിർത്തും")}</span></li>
-            <li>✓ <span>{tx("Families can opt out — opted-out heads are never messaged", "കുടുംബങ്ങൾക്ക് വേണ്ടെന്നു വയ്ക്കാം — വേണ്ടെന്നു വച്ചവർക്ക് അയയ്ക്കില്ല")}</span></li>
-            <li>✓ <span>{tx("Missing or invalid numbers are skipped and reported", "നമ്പർ ഇല്ലാത്തത് / തെറ്റായത് അയയ്ക്കില്ല")}</span></li>
+            <li>✓ <span>{tx("Families can opt out — opted-out heads are never messaged", "കുടുംബങ്ങൾക്ക് സന്ദേശങ്ങൾ ഒഴിവാക്കാൻ തിരഞ്ഞെടുക്കാം — ഒഴിവാക്കിയ കുടുംബങ്ങൾക്ക് സന്ദേശം അയയ്ക്കില്ല")}</span></li>
+            <li>✓ <span>{tx("Missing or invalid numbers are skipped and reported", "ഫോൺ നമ്പർ ഇല്ലാത്തവർക്കോ തെറ്റായ നമ്പറുകളിലേക്കോ സന്ദേശം അയയ്ക്കില്ല")}</span></li>
             <li>✓ <span>{tx("Archived families are excluded", "ആർക്കൈവ് ചെയ്ത കുടുംബങ്ങൾ ഒഴിവാക്കും")}</span></li>
           </ul>
         </div>
@@ -278,14 +278,14 @@ export function WhatsApp() {
           <div className="ch-head">
             <div>
               <div className="ch-title"><Clock3 size={15} className="wa-tit-ic" />{tx("Subscription reminder", "വരിസംഖ്യ റിമൈൻഡർ")}</div>
-              <div className="ch-sub">{tx("Sends the pending amount to eligible family heads. Uses the family's WhatsApp number, or the family phone when no WhatsApp number is set. Limited to once per family each calendar month.", "യോഗ്യരായ കുടുംബനാഥന്മാർക്ക് ബാക്കി തുക അയയ്ക്കും. കുടുംബത്തിന്റെ വാട്ട്സ്ആപ്പ് നമ്പർ ഉപയോഗിക്കും; ഇല്ലെങ്കിൽ കുടുംബ ഫോൺ നമ്പർ. ഒരു കലണ്ടർ മാസത്തിൽ കുടുംബത്തിന് ഒരിക്കൽ മാത്രം.")}</div>
+              <div className="ch-sub">{tx("Sends the pending amount to eligible family heads. Uses the family's WhatsApp number, or the family phone when no WhatsApp number is set. Limited to once per family each calendar month.", "യോഗ്യരായ കുടുംബനാഥന്മാർക്ക് കുടിശ്ശിക അയയ്ക്കും. കുടുംബത്തിന്റെ വാട്ട്സ്ആപ്പ് നമ്പർ ഉപയോഗിക്കും; ഇല്ലെങ്കിൽ കുടുംബ ഫോൺ നമ്പർ. ഒരു കലണ്ടർ മാസത്തിൽ കുടുംബത്തിന് ഒരിക്കൽ മാത്രം.")}</div>
             </div>
           </div>
           {subStats && (
             <div className="wa-stats">
-              <span><b>{subStats.eligible ?? 0}</b> {tx("due families", "ബാക്കിയുള്ള കുടുംബങ്ങൾ")}</span>
+              <span><b>{subStats.eligible ?? 0}</b> {tx("due families", "കുടിശ്ശികയുള്ള കുടുംബങ്ങൾ")}</span>
               <span><b>{subStats.willSend ?? 0}</b> {tx("will be messaged", "സന്ദേശം ലഭിക്കും")}</span>
-              <span className={subStats.missingWhatsApp ? "wa-stats-warn" : ""}><b>{subStats.missingWhatsApp ?? 0}</b> {tx("missing number", "നമ്പർ ഇല്ല")}</span>
+              <span className={subStats.missingWhatsApp ? "wa-stats-warn" : ""}><b>{subStats.missingWhatsApp ?? 0}</b> {tx("missing number", "നമ്പർ ലഭ്യമല്ല")}</span>
             </div>
           )}
           <div className="wa-actions">
@@ -304,7 +304,7 @@ export function WhatsApp() {
           {annStats && (
             <div className="wa-stats">
               <span><b>{annStats.willSend ?? 0}</b> {tx("family heads will receive it", "കുടുംബനാഥന്മാർക്ക് ലഭിക്കും")}</span>
-              <span className={annStats.missingWhatsApp ? "wa-stats-warn" : ""}><b>{annStats.missingWhatsApp ?? 0}</b> {tx("missing number", "നമ്പർ ഇല്ല")}</span>
+              <span className={annStats.missingWhatsApp ? "wa-stats-warn" : ""}><b>{annStats.missingWhatsApp ?? 0}</b> {tx("missing number", "നമ്പർ ലഭ്യമല്ല")}</span>
             </div>
           )}
           <div className="wa-actions">
@@ -332,7 +332,7 @@ export function WhatsApp() {
                   <Badge variant={campaignBadge(c.status)}>{c.status}</Badge>
                   {c.status === "PAUSED" && c.pause_reason && <small className="wa-pause-reason" title={c.pause_reason}>{c.pause_reason}</small>}
                   {c.failed_count > 0 && c.status !== "RUNNING" && c.status !== "PENDING" && (
-                    <button className="ibtn" title={tx("Retry failed", "അയയ്ക്കാനാകാത്തവ വീണ്ടും അയയ്ക്കുക")} onClick={() => retryFailed(c.id)}><RotateCcw size={13} /></button>
+                    <button className="ibtn" title={tx("Retry failed", "അയയ്ക്കാനാകാതെ പോയവ വീണ്ടും അയയ്ക്കുക")} onClick={() => retryFailed(c.id)}><RotateCcw size={13} /></button>
                   )}
                 </div>
               </div>
@@ -346,7 +346,7 @@ export function WhatsApp() {
           <div className="ch-head">
             <div>
               <div className="ch-title"><MessageCircle size={15} className="wa-tit-ic" />{tx("Recent messages", "സമീപകാല സന്ദേശങ്ങൾ")}</div>
-              <div className="ch-sub">{tx("Individual sends and campaign deliveries", "വ്യക്തിഗത സന്ദേശങ്ങളും ക്യാമ്പയിൻ ഡെലിവറികളും")}</div>
+              <div className="ch-sub">{tx("Individual sends and campaign deliveries", "വ്യക്തിഗത സന്ദേശങ്ങളും ക്യാമ്പയിൻ ഡെലിവറി വിവരങ്ങളും")}</div>
             </div>
           </div>
           <div className="wa-list">
@@ -371,12 +371,12 @@ export function WhatsApp() {
         open={unlinkOpen}
         onClose={() => setUnlinkOpen(false)}
         onConfirm={unlink}
-        title={tx("Unlink phone", "ഫോൺ ലിങ്ക് മാറ്റുക")}
+        title={tx("Unlink phone", "ഫോൺ ലിങ്ക് നീക്കം ചെയ്യുക")}
         description={tx(
           "Remove this device from the phone's Linked Devices? A new QR scan will be needed to reconnect. If you only want to stop it for now, use Pause instead — that keeps the pairing.",
           "ഫോണിലെ Linked Devices-ൽ നിന്ന് ഈ ഡിവൈസ് നീക്കം ചെയ്യണോ? വീണ്ടും കണക്റ്റ് ചെയ്യാൻ പുതിയ QR സ്കാൻ വേണം. താൽക്കാലികമായി നിർത്താൻ മാത്രമാണെങ്കിൽ Pause ഉപയോഗിക്കുക — അത് പെയറിംഗ് നിലനിർത്തും."
         )}
-        confirmLabel={tx("Unlink device", "ഫോൺ ലിങ്ക് മാറ്റുക")}
+        confirmLabel={tx("Unlink device", "ഫോൺ ലിങ്ക് നീക്കം ചെയ്യുക")}
       />
     </div>
   );

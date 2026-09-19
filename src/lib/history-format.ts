@@ -33,13 +33,13 @@ const FIELD_LABELS: Record<string, [string, string]> = {
   area: ["Area / Locality", "പ്രദേശം"],
   pincode: ["Pincode", "പിൻകോഡ്"],
   phone: ["Phone", "ഫോൺ"],
-  alt_phone: ["Alternate phone", "ബദൽ ഫോൺ"],
+  alt_phone: ["Alternate phone", "ബദൽ ഫോൺ നമ്പർ"],
   notes: ["Notes", "കുറിപ്പുകൾ"],
   position: ["Position", "സ്ഥാനം"],
   committee_type: ["Committee type", "കമ്മിറ്റി തരം"],
   designation: ["Designation", "തസ്തിക"],
   term_start: ["Term start", "കാലാവധി തുടക്കം"],
-  term_end: ["Term end", "കാലാവധി അവസാനം"],
+  term_end: ["Term end", "കാലാവധി അവസാനിക്കുന്നത്"],
   salary: ["Salary", "ശമ്പളം"],
   joined_on: ["Joined on", "ചേർന്ന തീയതി"],
   role: ["Role", "റോൾ"],
@@ -72,7 +72,7 @@ const ACTION_LABELS: Record<string, [string, string]> = {
   REMOVE: ["Removed", "നീക്കി"],
   FAMILY_MOVE: ["Family moved", "കുടുംബം മാറ്റി"],
   RESIGN: ["Resigned", "രാജി വച്ചു"],
-  EXPEL: ["Expelled", "പുറത്താക്കി"],
+  EXPEL: ["Expelled", "സേവനത്തിൽ നിന്ന് ഒഴിവാക്കി"],
 };
 
 const val = (v: any): string => {

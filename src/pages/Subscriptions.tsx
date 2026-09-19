@@ -137,7 +137,7 @@ export function Subscriptions() {
         if (sent?.status === "delivered" || (sent?.success && sent?.delivered)) {
           toast.success(tx("Receipt delivered to the recipient — it is now locked", "രസീത് സ്വീകർത്താവിന് ലഭിച്ചു — ഇപ്പോൾ ലോക്ക് ചെയ്തിരിക്കുന്നു"));
         } else if (sent?.status === "sent" || sent?.success) {
-          toast.warning(tx("Receipt sent — delivery not confirmed yet (the phone may be offline). Not locked; you can send again after confirming it did not arrive.", "രസീത് അയച്ചു — ഡെലിവറി ഉറപ്പാക്കിയിട്ടില്ല (ഫോൺ ഓഫലൈൻ ആകാം). വന്നെത്തിയില്ലെന്ന് ഉറപ്പായാൽ വീണ്ടും അയക്കാം."));
+          toast.warning(tx("Receipt sent — delivery not confirmed yet (the phone may be offline). Not locked; you can send again after confirming it did not arrive.", "രസീത് അയച്ചു — ഡെലിവറി ഉറപ്പാക്കിയിട്ടില്ല (ഫോൺ ഓഫലൈൻ ആകാം). വന്നെത്തിയില്ലെന്ന് ഉറപ്പായാൽ വീണ്ടും അയയ്ക്കാം."));
           // The recipient's phone may confirm delivery a few seconds later —
           // re-check silently so the lock badge flips WITHOUT the user
           // re-sending or reopening the page (user report: "it shows it is
@@ -146,7 +146,7 @@ export function Subscriptions() {
         } else if (sent?.status === "already-delivered") {
           toast.info(tx("Already sent to the recipient — the receipt is locked for their privacy.", "സ്വീകർത്താവിന് ഇതിനകം അയച്ചു — സ്വകാര്യതയ്ക്കായി രസീത് ലോക്ക് ചെയ്തിരിക്കുന്നു."));
         } else if (sent?.status === "no-phone" || sent?.status === "not-connected" || sent?.status === "skipped") {
-          toast.info(tx("Receipt saved in the app (WhatsApp send skipped — no number or not connected).", "രസീത് ആപ്പിൽ സേവ് ചെയ്തു (വാട്ട്സ്ആപ്പ് അയച്ചില്ല — നമ്പറില്ല അല്ലെങ്കിൽ കണക്റ്റ് അല്ല)."));
+          toast.info(tx("Receipt saved in the app (WhatsApp send skipped — no number or not connected).", "രസീത് ആപ്പിൽ സംരക്ഷിച്ചു (വാട്ട്സ്ആപ്പിൽ അയച്ചില്ല — നമ്പറില്ല അല്ലെങ്കിൽ കണക്റ്റ് ചെയ്തിട്ടില്ല)."));
         } else {
           toast.error(sent?.error || tx("Could not send the receipt", "രസീത് അയയ്ക്കാനായില്ല"));
         }
@@ -205,7 +205,7 @@ export function Subscriptions() {
       return;
     }
     if (form.amount_paid == null || Number(form.amount_paid) < 0) {
-      toast.error(tx("Enter how much was given", "എത്ര നൽകി എന്ന് നൽകുക"));
+      toast.error(tx("Enter how much was given", "അടച്ച തുക നൽകുക"));
       return;
     }
     const payingId = editingId;
@@ -282,7 +282,7 @@ export function Subscriptions() {
       if (r?.status === "delivered" || (r?.success && r?.delivered)) {
         toast.success(tx("Receipt delivered to the recipient — it is now locked (one admin re-send remains available)", "രസീത് സ്വീകർത്താവിന് ലഭിച്ചു — ഇപ്പോൾ ലോക്ക് ചെയ്തിരിക്കുന്നു (ഒരു അഡ്മിൻ റീ-സെൻഡ് ലഭ്യമാണ്)"));
       } else if (r?.status === "sent" || r?.success) {
-        toast.warning(tx("Receipt sent — delivery not confirmed yet (the phone may be offline). Not locked; you can send again after confirming it did not arrive.", "രസീത് അയച്ചു — ഡെലിവറി ഉറപ്പാക്കിയിട്ടില്ല (ഫോൺ ഓഫലൈൻ ആകാം). ലോക്ക് ചെയ്തിട്ടില്ല; വന്നെത്തിയില്ലെന്ന് ഉറപ്പായാൽ വീണ്ടും അയക്കാം."));
+        toast.warning(tx("Receipt sent — delivery not confirmed yet (the phone may be offline). Not locked; you can send again after confirming it did not arrive.", "രസീത് അയച്ചു — ഡെലിവറി ഉറപ്പാക്കിയിട്ടില്ല (ഫോൺ ഓഫലൈൻ ആകാം). ലോക്ക് ചെയ്തിട്ടില്ല; വന്നെത്തിയില്ലെന്ന് ഉറപ്പായാൽ വീണ്ടും അയയ്ക്കാം."));
         // Late delivery check — flip the lock silently when the phone
         // confirms a few seconds later.
         setTimeout(() => { refetch(); }, 15000);
@@ -358,7 +358,7 @@ export function Subscriptions() {
   const handleMarkOverdue = async () => {
     try {
       const count = await window.mms.subscriptions.markOverdue();
-      toast.success(`${count} ${tx("subscriptions marked overdue", "വരിസംഖ്യകൾ കാലം കഴിഞ്ഞതായി")}`);
+      toast.success(`${count} ${tx("subscriptions marked overdue", "കാലാവധി കഴിഞ്ഞ വരിസംഖ്യകൾ")}`);
       refetch();
       refreshCollected();
       refreshPending();
@@ -379,7 +379,7 @@ export function Subscriptions() {
       // TRUE dues — the multi-month view: old arrears ("3 months") + this
       // month's uncovered part − advance credit. Overdue families see the
       // whole stack here, not just the current month.
-      header: tx("Due (all months)", "ബാക്കി (എല്ലാ മാസവും)"),
+      header: tx("Due (all months)", "കുടിശ്ശിക (എല്ലാ മാസവും)"),
       accessor: (r) => {
         const rate = Number(r.amount || 0);
         const arrears = Number(r.arrears || 0);
@@ -389,14 +389,14 @@ export function Subscriptions() {
         const monthsDue = rate > 0 ? Math.ceil((due + advance) / rate) : 0;
         const sym = getCurrencySymbol();
         if (due <= 0 && advance > 0) {
-          return <Badge variant="success">{tx(`Paid ahead ${sym}${advance.toLocaleString("en-IN")}`, `മുൻകൂട്ടി അടച്ചു ${sym}${advance.toLocaleString("en-IN")}`)}</Badge>;
+          return <Badge variant="success">{tx(`Paid ahead ${sym}${advance.toLocaleString("en-IN")}`, `മുൻകൂർ അടവ് ${sym}${advance.toLocaleString("en-IN")}`)}</Badge>;
         }
         if (due <= 0) return <Badge variant="success">{tx("Paid", "അടച്ചു")}</Badge>;
         return (
           <span className="inline-flex flex-col leading-tight">
             <b className="text-danger">{formatCurrency(due)}</b>
             {monthsDue > 1 && (
-              <small className="text-muted">{tx(`${monthsDue} months due (incl. ${sym}${arrears.toLocaleString("en-IN")} old)`, `${monthsDue} മാസം ബാക്കി (പഴയവ ${sym}${arrears.toLocaleString("en-IN")} ഉൾപ്പെടെ)`)}{advance > 0 ? tx(` · less ${sym}${advance.toLocaleString("en-IN")} advance`, ` · അഡ്വാൻസ് ${sym}${advance.toLocaleString("en-IN")} കുറച്ചു`) : ""}</small>
+              <small className="text-muted">{tx(`${monthsDue} months due (incl. ${sym}${arrears.toLocaleString("en-IN")} old)`, `${monthsDue} മാസം കുടിശ്ശിക (പഴയവ ${sym}${arrears.toLocaleString("en-IN")} ഉൾപ്പെടെ)`)}{advance > 0 ? tx(` · less ${sym}${advance.toLocaleString("en-IN")} advance`, ` · മുൻകൂർ ${sym}${advance.toLocaleString("en-IN")} കുറച്ചു`) : ""}</small>
             )}
           </span>
         );
@@ -437,7 +437,7 @@ export function Subscriptions() {
                 className="act-btn"
                 disabled={sendingId === r.id}
                 title={r.wa_sent_at
-                  ? tx("Sent earlier but delivery was never confirmed — sending again is allowed", "ഇതിനകം അയച്ചെങ്കിലും ഡെലിവറി ഉറപ്പായില്ല — വീണ്ടും അയക്കാം")
+                  ? tx("Sent earlier but delivery was never confirmed — sending again is allowed", "ഇതിനകം അയച്ചെങ്കിലും ഡെലിവറി ഉറപ്പായില്ല — വീണ്ടും അയയ്ക്കാം")
                   : tx("Send receipt on WhatsApp", "\u0d35\u0d3e\u0d1f\u0d4d\u0d38\u0d3e\u0d2a\u0d4d\u0d2a\u0d3f\u0d7d \u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d4d \u0d05\u0d2f\u0d2f\u0d4d\u0d15\u0d4d\u0d15\u0d41\u0d15")}
                 onClick={() => sendReceipt(r.id)}
               >
@@ -471,13 +471,13 @@ export function Subscriptions() {
         { k: t("sub_amount"), v: formatCurrency(previewRow.amount) },
         { k: t("sub_amount_paid"), v: formatCurrency(previewRow.amount_paid) },
         { k: tx("Old arrears (previous months)", "പഴയ കുടിശ്ശിക (മുൻ മാസങ്ങൾ)"), v: formatCurrency(Number(previewRow.arrears || 0)) },
-        { k: tx("Advance credit", "അഡ്വാൻസ് ക്രെഡിറ്റ്"), v: formatCurrency(Number(previewRow.advance || 0)) },
+        { k: tx("Advance credit", "മുൻകൂർ തുക"), v: formatCurrency(Number(previewRow.advance || 0)) },
         {
-          k: tx("Total due now", "ഇപ്പോഴത്തെ ആകെ ബാക്കി"),
+          k: tx("Total due now", "നിലവിലെ ആകെ കുടിശ്ശിക"),
           v: formatCurrency(Math.max(0, Number(previewRow.arrears || 0) + Math.max(0, Number(previewRow.amount || 0) - Number(previewRow.amount_paid || 0)) - Number(previewRow.advance || 0))),
         },
         { k: t("sub_receipt"), v: previewRow.receipt_number || "—" },
-        { k: tx("Receipt on WhatsApp", "വാട്ട്സ്ആപ്പിലെ രസീത്"), v: previewRow.wa_delivered_at ? tx("Delivered — locked (privacy)", "എത്തിഞ്ഞു — ലോക്ക് ചെയ്തിരിക്കുന്നു (സ്വകാര്യത)") : previewRow.wa_sent_at ? tx("Sent — delivery not confirmed", "അയച്ചു — ഡെലിവറി ഉറപ്പായിട്ടില്ല") : tx("Not sent", "അയച്ചിട്ടില്ല") },
+        { k: tx("Receipt on WhatsApp", "വാട്ട്സ്ആപ്പിലെ രസീത്"), v: previewRow.wa_delivered_at ? tx("Delivered — locked (privacy)", "രസീത് ലഭിച്ചു — ഇനി ഇത് തിരുത്താനാകില്ല") : previewRow.wa_sent_at ? tx("Sent — delivery not confirmed", "അയച്ചു — ഡെലിവറി ഉറപ്പായിട്ടില്ല") : tx("Not sent", "അയച്ചിട്ടില്ല") },
         { k: t("sub_payment_date"), v: formatDate(previewRow.payment_date) },
         { k: t("sub_method"), v: previewRow.payment_method || "—" },
         { k: t("ui_transaction_ref"), v: previewRow.transaction_ref || "—" },
@@ -535,7 +535,7 @@ export function Subscriptions() {
             <span className="delta">{t("sub_dues")}</span>
           </div>
           <div className="val">{formatCurrency(totalPending ?? 0)}</div>
-          <div className="slab">{tx("Total dues — old arrears + this month − advance", "ആകെ ബാക്കി — പഴയ കുടിശ്ശിക + ഈ മാസം − അഡ്വാൻസ്")}</div>
+          <div className="slab">{tx("Total dues — old arrears + this month − advance", "ആകെ കുടിശ്ശിക — പഴയ കുടിശ്ശിക + ഈ മാസത്തെ തുക − മുൻകൂർ തുക")}</div>
         </div>
       </div>
 
@@ -617,10 +617,10 @@ export function Subscriptions() {
                         <div className="text-sm font-medium">
                           {monthLabel(h.period_start)} · {formatCurrency(h.amount)}
                           {Number(h.arrears_cleared || 0) > 0 && (
-                            <span className="text-xs text-muted"> · {tx(`incl. ${formatCurrency(Number(h.arrears_cleared || 0))} old dues`, `പഴയ ബാക്കി ${formatCurrency(Number(h.arrears_cleared || 0))} ഉൾപ്പെടെ`)}</span>
+                            <span className="text-xs text-muted"> · {tx(`incl. ${formatCurrency(Number(h.arrears_cleared || 0))} old dues`, `പഴയ കുടിശ്ശിക ${formatCurrency(Number(h.arrears_cleared || 0))} ഉൾപ്പെടെ`)}</span>
                           )}
                           {Number(h.advance_added || 0) > 0 && (
-                            <span className="text-xs text-muted"> · {tx(`${formatCurrency(Number(h.advance_added || 0))} advance`, `${formatCurrency(Number(h.advance_added || 0))} അഡ്വാൻസ്`)}</span>
+                            <span className="text-xs text-muted"> · {tx(`${formatCurrency(Number(h.advance_added || 0))} advance`, `${formatCurrency(Number(h.advance_added || 0))} മുൻകൂർ അടവ്`)}</span>
                           )}
                         </div>
                         <div className="text-xs text-muted">
@@ -676,7 +676,7 @@ export function Subscriptions() {
               <div className="rounded-lg border border-border-subtle bg-surface-hover/40 px-4 py-3 text-sm flex items-center gap-2">
                 <Wallet size={14} className="text-primary" />
                 <span className="text-muted">
-                  {tx("Recurring subscription for", "ഇതിന്റെ ആവർത്തിക്കുന്ന വരിസംഖ്യ")} <b className="text-text-primary">{form.house_name || form.family_number}</b>
+                  {tx("Recurring subscription for", "ആവർത്തിച്ച് വരുന്ന വരിസംഖ്യ")} <b className="text-text-primary">{form.house_name || form.family_number}</b>
                   {" — "}{tx("recorded in the name of", "ഇവരുടെ പേരിൽ രേഖപ്പെടുത്തിയത്")} <b className="text-text-primary">{form.member_name || "—"}</b>
                 </span>
               </div>
@@ -690,11 +690,11 @@ export function Subscriptions() {
                   <Input value={formatCurrency(form.amount || 0)} readOnly className="bg-surface-muted" />
                 </div>
                 <div>
-                  <Label>{tx("Total due now", "ആകെ ബാക്കി")}</Label>
+                  <Label>{tx("Total due now", "നിലവിലെ ആകെ കുടിശ്ശിക")}</Label>
                   <Input value={formatCurrency(Math.max(0, Number(form.arrears || 0) + Math.max(0, Number(form.amount || 0) - Number(form.amount_paid || 0)) - Number(form.advance || 0)))} readOnly className="bg-surface-muted" />
                   <div className="text-xs text-muted mt-1.5">
                     {Number(form.arrears || 0) > 0 && tx(`includes ${formatCurrency(Number(form.arrears || 0))} from previous months`, `മുൻ മാസങ്ങളിൽ നിന്ന് ${formatCurrency(Number(form.arrears || 0))} ഉൾപ്പെടുന്നു`)}
-                    {Number(form.advance || 0) > 0 && (Number(form.arrears || 0) > 0 ? " · " : "") + tx(`${formatCurrency(Number(form.advance || 0))} advance credit applies`, `${formatCurrency(Number(form.advance || 0))} അഡ്വാൻസ് ക്രെഡിറ്റ് ബാധകം`)}
+                    {Number(form.advance || 0) > 0 && (Number(form.arrears || 0) > 0 ? " · " : "") + tx(`${formatCurrency(Number(form.advance || 0))} advance credit applies`, `${formatCurrency(Number(form.advance || 0))} മുൻകൂർ തുക ബാധകം`)}
                   </div>
                 </div>
               </div>
@@ -717,11 +717,11 @@ export function Subscriptions() {
                   <div className="rounded-lg border border-border-subtle bg-surface-hover/40 px-4 py-3 text-xs text-muted leading-relaxed">
                     <b className="text-text-primary">{tx("How this payment will be applied", "ഈ അടവ് എങ്ങനെ കണക്കാക്കും")}</b>
                     <div className="mt-1">
-                      {arrearsTake > 0 && <div>· {tx(`${formatCurrency(arrearsTake)} clears previous months' balance`, `${formatCurrency(arrearsTake)} പഴയ മാസങ്ങളുടെ ബാക്കി അടയ്ക്കും`)}</div>}
+                      {arrearsTake > 0 && <div>· {tx(`${formatCurrency(arrearsTake)} clears previous months' balance`, `${formatCurrency(arrearsTake)} പഴയ മാസങ്ങളുടെ കുടിശ്ശിക അടയ്ക്കും`)}</div>}
                       <div>· {tx(`${formatCurrency(monthTake)} for this month`, `${formatCurrency(monthTake)} ഈ മാസത്തേക്ക്`)}</div>
-                      {advanceAdded > 0 && <div>· {tx(`${formatCurrency(advanceAdded)} becomes advance — next month's due will be ${formatCurrency(Math.max(0, rate - advanceAdded))}`, `${formatCurrency(advanceAdded)} അഡ്വാൻസ് ആകും — അടുത്ത മാസത്തെ ബാക്കി ${formatCurrency(Math.max(0, rate - advanceAdded))} ആകും`)}</div>}
+                      {advanceAdded > 0 && <div>· {tx(`${formatCurrency(advanceAdded)} becomes advance — next month's due will be ${formatCurrency(Math.max(0, rate - advanceAdded))}`, `${formatCurrency(advanceAdded)} മുൻകൂറാകും — അടുത്ത മാസത്തെ കുടിശ്ശിക ${formatCurrency(Math.max(0, rate - advanceAdded))} ആകും`)}</div>}
                       <div className="mt-1">{remaining > 0
-                        ? tx(`Balance after this payment: ${formatCurrency(remaining)}`, `ഈ അടവിന് ശേഷം ബാക്കി: ${formatCurrency(remaining)}`)
+                        ? tx(`Balance after this payment: ${formatCurrency(remaining)}`, `ഈ അടവിന് ശേഷമുള്ള കുടിശ്ശിക: ${formatCurrency(remaining)}`)
                         : tx("Fully settled after this payment", "ഇതിനു ശേഷം പൂർണമായി തീരും")}</div>
                     </div>
                   </div>
@@ -841,7 +841,7 @@ export function Subscriptions() {
         open={resendOpen}
         onClose={() => { setResendOpen(false); setResendTarget(null); }}
         onConfirm={executeAdminResend}
-        title={tx("Re-send receipt (administrator)", "രസീത് വീണ്ടും അയക്കുക (അഡ്മിൻ)")}
+        title={tx("Re-send receipt (administrator)", "രസീത് വീണ്ടും അയയ്ക്കുക (അഡ്മിൻ)")}
         description={
           resendTarget
             ? tx(
@@ -850,7 +850,7 @@ export function Subscriptions() {
               )
             : ""
         }
-        confirmLabel={tx("Re-send once", "ഒരിക്കൽ കൂടി അയക്കുക")}
+        confirmLabel={tx("Re-send once", "ഒരിക്കൽ കൂടി അയയ്ക്കുക")}
         danger={false}
       />
     </div>

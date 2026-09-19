@@ -124,7 +124,7 @@ export function Assets() {
     };
     try {
       if (editingId) { await window.mms.assets.update(editingId, payload); toast.success(t("ui_saved_updated")); }
-      else { const res = await window.mms.assets.create(payload); toast.success(tx(`Asset saved with code ${res.assetCode}`, `ആസ്തി സേവ് ചെയ്തു — കോഡ് ${res.assetCode}`)); }
+      else { const res = await window.mms.assets.create(payload); toast.success(tx(`Asset saved with code ${res.assetCode}`, `ആസ്തി സംരക്ഷിച്ചു — കോഡ് ${res.assetCode}`)); }
       setDialogOpen(false); setForm(emptyForm); setEditingId(null);
       refetch(); fetchSummary();
     } catch (e: any) { toast.error(e.message || t("ui_failed_save")); }

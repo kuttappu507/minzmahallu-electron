@@ -28,7 +28,7 @@ export function buildCollectionSheetHtml(tokenList: any[], event: any): string {
   const anekCss = getAnekMalayalamCss();
   const name = esc(mahalluName());
   const labels = ml ? {
-    title:'ടോക്കൺ പിരിവ് ഷീറ്റ്', sub:`${name} · മഹല്ല് മാനേജ്മെന്റ് സിസ്റ്റം`, no:'നമ്പർ', token:'ടോക്കൺ', head:'കുടുംബനാഥൻ', family:'വീടിന്റെ പേര്', area:'പ്രദേശം', collected:'പിരിച്ചത്', signature:'ഒപ്പ്', verify:'പിരിച്ചതായി അടയാളപ്പെടുത്തുന്നതിന് മുമ്പ് ഓരോ ടോക്കണും പരിശോധിക്കുക.', total:'ആകെ'
+    title:'ടോക്കൺ ശേഖരണ ഷീറ്റ്', sub:`${name} · മഹല്ല് മാനേജ്മെന്റ് സിസ്റ്റം`, no:'നമ്പർ', token:'ടോക്കൺ', head:'കുടുംബനാഥൻ', family:'വീട്ടുപേര്', area:'പ്രദേശം', collected:'ശേഖരിച്ചത്', signature:'ഒപ്പ്', verify:'ശേഖരിച്ചതായി രേഖപ്പെടുത്തുന്നതിന് മുമ്പ് ഓരോ ടോക്കണും പരിശോധിക്കുക.', total:'ആകെ'
   } : {
     title:'Token Collection Sheet', sub:`${name} · Mahallu Management System`, no:'No.', token:'Token', head:'Family Head', family:'Family Name', area:'Area', collected:'Collected', signature:'Signature', verify:'Verify each returned token before marking collected.', total:'Total'
   };

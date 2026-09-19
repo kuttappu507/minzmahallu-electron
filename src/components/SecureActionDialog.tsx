@@ -112,7 +112,7 @@ export function SecureActionDialog({
             rows={3}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder={reasonPlaceholder || tx("Why is this action being performed?", "ഈ പ്രവർത്തനം നടത്തുന്നതിനുള്ള കാരണം?")}
+            placeholder={reasonPlaceholder || tx("Why is this action being performed?", "ഈ പ്രവർത്തനം നടത്താനുള്ള കാരണം?")}
           />
         </div>
         <div>

@@ -71,7 +71,7 @@ export function TokenEvents() {
 
   const saveEvent = async () => {
     if (!form.eventName.trim() || !form.eventDate) {
-      toast.error(ml ? "പരിപാടി പേരും തീയതിയും ആവശ്യമാണ്" : "Event name and date are required");
+      toast.error(ml ? "പരിപാടിയുടെ പേരും തീയതിയും ആവശ്യമാണ്" : "Event name and date are required");
       return;
     }
     setSaving(true);
@@ -85,7 +85,7 @@ export function TokenEvents() {
       setDialogOpen(false);
       await load();
     } catch (e: any) {
-      toast.error(e.message || (ml ? "പരിപാടി സേവ് ചെയ്യാനായില്ല" : "Failed to save event"));
+      toast.error(e.message || (ml ? "പരിപാടി സംരക്ഷിക്കാനായില്ല" : "Failed to save event"));
     } finally { setSaving(false); }
   };
 
@@ -145,7 +145,7 @@ export function TokenEvents() {
         <div className="grid grid-cols-2 gap-3"><div><Label>{ml ? "തീയതി" : "Date"}</Label><Input type="date" value={form.eventDate} onChange={e => setForm({ ...form, eventDate: e.target.value })} /></div><div><Label>{ml ? "സമയം" : "Time"}</Label><Input type="time" value={form.eventTime} onChange={e => setForm({ ...form, eventTime: e.target.value })} /></div></div>
         <div><Label>{ml ? "സ്ഥലം" : "Venue"}</Label><Input value={form.venue} onChange={e => setForm({ ...form, venue: e.target.value })} /></div>
         <div><Label>{ml ? "വിവരണം" : "Description"}</Label><Textarea rows={3} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
-        <div className="dlg-actions"><Button variant="secondary" onClick={() => setDialogOpen(false)} disabled={saving}>{t("action_cancel")}</Button><Button onClick={saveEvent} disabled={saving}>{saving ? t("ui_saving") : (ml ? "സേവ്" : "Save Event")}</Button></div>
+        <div className="dlg-actions"><Button variant="secondary" onClick={() => setDialogOpen(false)} disabled={saving}>{t("action_cancel")}</Button><Button onClick={saveEvent} disabled={saving}>{saving ? t("ui_saving") : (ml ? "സംരക്ഷിക്കുക" : "Save Event")}</Button></div>
       </div>
     </Dialog>
 

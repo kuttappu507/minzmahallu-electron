@@ -211,7 +211,7 @@ export function Welfare() {
   const handleApprove = async () => {
     if (!editingId) return;
     if (!approveMinutesDate) {
-      toast.error(tx("Date of the committee minutes approving this amount is required", "ഈ തുക അംഗീകരിച്ച കമ്മിറ്റി യോഗ തീരുമാനത്തിന്റെ തീയതി ആവശ്യമാണ്"));
+      toast.error(tx("Date of the committee minutes approving this amount is required", "ഈ തുക അംഗീകരിച്ച കമ്മിറ്റി യോഗത്തിന്റെ തീരുമാന തീയതി നൽകണം."));
       return;
     }
     try {
@@ -300,7 +300,7 @@ export function Welfare() {
         { k: t("don_category"), v: previewRow.category || "—" },
         { k: t("wel_amount_requested"), v: formatCurrency(previewRow.amount_requested) },
         { k: t("wel_amount_approved"), v: formatCurrency(previewRow.amount_approved) },
-        { k: tx("Minutes date", "മിനിറ്റ്‌സ് തീയതി"), v: previewRow.minutes_date ? formatDate(previewRow.minutes_date) : "—" },
+        { k: tx("Minutes date", "യോഗ മിനിറ്റ്സ് തീയതി"), v: previewRow.minutes_date ? formatDate(previewRow.minutes_date) : "—" },
         { k: t("family_status"), v: previewRow.status },
         { k: t("ui_request_date"), v: previewRow.request_date || "—" },
         { k: t("ui_processed_date"), v: previewRow.processed_date || "—" },
@@ -365,7 +365,7 @@ export function Welfare() {
         toolbar={
           <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-40">
             <option value="All">{t("filter_all")}</option>
-            <option value="Pending">{t("status_pending")}</option>
+            <option value="Pending">{tx("Pending","കാത്തിരിക്കുന്നവ")}</option>
             <option value="Approved">{t("status_approved")}</option>
             <option value="Rejected">{t("status_rejected")}</option>
             <option value="Disbursed">{t("status_disbursed")}</option>
@@ -548,7 +548,7 @@ export function Welfare() {
                     <Input value={approveRemarks} onChange={(e) => setApproveRemarks(e.target.value)} />
                   </div>
                 </div>
-                <div className="text-xs text-muted mt-1.5">{tx("Date of the committee minutes in which this amount was agreed", "ഈ തുക അംഗീകരിച്ച കമ്മിറ്റി യോഗത്തിന്റെ തീയതി")}</div>
+                <div className="text-xs text-muted mt-1.5">{tx("Date of the committee minutes in which this amount was agreed", "ഈ തുക അംഗീകരിച്ച കമ്മിറ്റി യോഗ മിനിറ്റ്സിന്റെ തീയതി")}</div>
                 <div className="flex gap-2 mt-3">
                   <Button onClick={handleApprove}>
                     <Check className="h-4 w-4" />
@@ -578,7 +578,7 @@ export function Welfare() {
               <div className="text-sm text-muted mb-2">
                 {tx(
                   `Disbursement requires a reason and the administrator password. Minutes recorded: ${form.minutes_date ? formatDate(form.minutes_date) : "—"}`,
-                  `തുക നൽകാൻ കാരണവും അഡ്മിൻ പാസ്‌വേഡും ആവശ്യമാണ്. തീരുമാന തീയതി: ${form.minutes_date ? formatDate(form.minutes_date) : "—"}`
+                  `ധനസഹായം നൽകാനുള്ള കാരണവും അഡ്മിൻ പാസ്‌വേഡും ആവശ്യമാണ്. യോഗ മിനിറ്റ്സ് തീയതി: ${form.minutes_date ? formatDate(form.minutes_date) : "—"}`
                 )}
               </div>
               <Button onClick={() => editingId && openDisburse(form as Welfare)}>
@@ -605,7 +605,7 @@ export function Welfare() {
           disburseTarget
             ? tx(
                 `Disburse ${formatCurrency(disburseTarget.amount_approved)} to ${disburseTarget.applicant_name}? Minutes: ${disburseTarget.minutes_date ? formatDate(disburseTarget.minutes_date) : "—"}`,
-                `${disburseTarget.applicant_name} ന് ${formatCurrency(disburseTarget.amount_approved)} തുക നൽകണോ? തീരുമാന തീയതി: ${disburseTarget.minutes_date ? formatDate(disburseTarget.minutes_date) : "—"}`
+                `${disburseTarget.applicant_name} ന് ${formatCurrency(disburseTarget.amount_approved)} തുക നൽകണോ? യോഗ മിനിറ്റ്സ് തീയതി: ${disburseTarget.minutes_date ? formatDate(disburseTarget.minutes_date) : "—"}`
               )
             : ""
         }

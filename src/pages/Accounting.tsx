@@ -123,7 +123,7 @@ const PREVIEW_FIELD_LABELS: Record<string, { en: string; ml: string }> = {
   amount_paid: { en: "Amount paid", ml: "അടച്ച തുക" },
   status: { en: "Status", ml: "നില" },
   remarks: { en: "Remarks", ml: "കുറിപ്പുകൾ" },
-  purpose: { en: "Purpose", ml: "ആവശ്യം" },
+  purpose: { en: "Purpose", ml: "ഉദ്ദേശ്യം" },
 };
 
 /** Parse a changes JSON string ({field:{old,new}}) defensively. */
@@ -142,14 +142,14 @@ function parseChanges(json: string | null | undefined): Record<string, { old: un
  *  the dropdown shows the app language with the other language as a hint. */
 const TXN_CATEGORIES: Record<string, { en: string; ml: string }[]> = {
   Income: [
-    { en: "Shop Rent", ml: "കട വാടകം" },
-    { en: "Goods Rent", ml: "സാധന വാടകം" },
-    { en: "Hall Rent", ml: "ഹാൾ വാടകം" },
+    { en: "Shop Rent", ml: "കട വാടക" },
+    { en: "Equipment Rent", ml: "ഉപകരണ വാടക" },
+    { en: "Hall Rent", ml: "ഹാൾ വാടക" },
     { en: "Parking", ml: "പാർക്കിംഗ്" },
     { en: "Other Income", ml: "മറ്റ് വരവുകൾ" },
   ],
   Expense: [
-    { en: "Electricity", ml: "കറണ്ട്" },
+    { en: "Electricity", ml: "വൈദ്യുതി" },
     { en: "Water", ml: "വാട്ടർ ബിൽ" },
     { en: "Fuel", ml: "ഇന്ധനം" },
     { en: "Maintenance", ml: "അറ്റകുറ്റപ്പണി" },
@@ -688,7 +688,7 @@ export function Accounting() {
                 onChange={(e) => { setForm({ ...form, category: e.target.value }); setCatOpen(true); }}
                 onFocus={() => setCatOpen(true)}
                 onKeyDown={(e) => { if (e.key === "Escape") setCatOpen(false); }}
-                placeholder={form.type === "Income" ? tx("e.g. Shop Rent, Goods Rent", "ഉദാ: കട വാടകം, സാധന വാടകം") : tx("e.g. Electricity, Maintenance", "ഉദാ: കറണ്ട്, അറ്റകുറ്റപ്പണി")}
+                placeholder={form.type === "Income" ? tx("e.g. Shop Rent, Equipment Rent", "ഉദാ: കട വാടക, ഉപകരണ വാടക") : tx("e.g. Electricity, Maintenance", "ഉദാ: വൈദ്യുതി, അറ്റകുറ്റപ്പണി")}
               />
               {dialogOpen && catOpen && (() => {
                 const q = String(form.category || "").toLowerCase();
@@ -792,7 +792,7 @@ export function Accounting() {
         title={tx("Edit ledger entry", "ലെഡ്ജർ എൻട്രി തിരുത്തുക")}
         description={tx("Editing recorded income/expense is restricted to administrators. Your password and reason are written to the audit log.", "രേഖപ്പെടുത്തിയ വരവ്/ചെലവ് തിരുത്ത് അഡ്മിൻമാർക്ക് മാത്രമാണ്. നിങ്ങളുടെ പാസ്‌വേഡും കാരണവും ഓഡിറ്റ് ലോഗിൽ രേഖപ്പെടുത്തും.")}
         reasonPlaceholder={tx("Why is this entry being edited?", "എന്തുകൊണ്ടാണ് ഈ എൻട്രി തിരുത്തുന്നത്?")}
-        confirmLabel={tx("Continue to edit", "തിരുത്താൻ തുടരുക")}
+        confirmLabel={tx("Continue to edit", "തിരുത്തൽ തുടരുക")}
       />
 
       {/* Double-click preview — full entry details + the complete change history */}
@@ -842,7 +842,7 @@ export function Accounting() {
             ];
             if (isTxn && rec.created_by_name) detailRows.push([tx("Created by", "ചേർത്തത്"), rec.created_by_name]);
             if (previewRow.source === "donations" && rec.donor_name) detailRows.push([tx("Donor", "ദാതാവ്"), rec.donor_name]);
-            if (previewRow.source === "donations" && (rec.purpose || previewRow.description)) detailRows.push([tx("Purpose", "ആവശ്യം"), rec.purpose || String(previewRow.description || "").replace(/^[^—]*—\s*/, "")]);
+            if (previewRow.source === "donations" && (rec.purpose || previewRow.description)) detailRows.push([tx("Purpose", "ഉദ്ദേശ്യം"), rec.purpose || String(previewRow.description || "").replace(/^[^—]*—\s*/, "")]);
             if (previewRow.source === "subscriptions" && rec.house_name) detailRows.push([tx("Family", "കുടുംബം"), `${rec.house_name || ""}${rec.family_number ? ` (${rec.family_number})` : ""}`]);
             if (previewRow.source === "welfare" && rec.applicant_name) detailRows.push([tx("Applicant", "അപേക്ഷകൻ"), rec.applicant_name]);
             if (previewRow.source === "salary" && rec.staff_name) detailRows.push([tx("Staff", "ജീവനക്കാരൻ"), `${rec.staff_name}${rec.staff_code ? ` (${rec.staff_code})` : ""}`]);
@@ -898,7 +898,7 @@ export function Accounting() {
         <div className="p-6 space-y-4">
           {receiptsData?.missing?.length > 0 && (
             <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              {tx("Missing receipt numbers", "കാണാത്ത രസീത് നമ്പറുകൾ")}: {receiptsData.missing.join(", ")} — {tx("permanent deletion is disabled, so gaps mean manual editing of the database.", "സ്ഥിരം ഇല്ലാതാക്കൽ ഇല്ലാതെയാണ് സംവിധാനം; വിടവുണ്ടെങ്കിൽ അത് ഡാറ്റാബേസ് നേരിട്ട് മാറ്റിയതിന്റെ സൂചനയാണ്.")}
+              {tx("Missing receipt numbers", "കാണാത്ത രസീത് നമ്പറുകൾ")}: {receiptsData.missing.join(", ")} — {tx("permanent deletion is disabled, so gaps mean manual editing of the database.", "സ്ഥിരമായി ഇല്ലാതാക്കൽ അനുവദിച്ചിട്ടില്ല. വിടവുകൾ ഉണ്ടെങ്കിൽ അത് ഡാറ്റാബേസ് നേരിട്ട് മാറ്റിയതിന്റെ സൂചനയായിരിക്കാം.")}
             </div>
           )}
           {(!receiptsData?.missing || receiptsData.missing.length === 0) && (

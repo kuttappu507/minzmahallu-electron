@@ -94,7 +94,7 @@ export function buildRegisterBookHtml(data: RegisterData, lang: 'en' | 'ml' = 'e
     const slice = rows.slice(p * ENTRIES_PER_PAGE, (p + 1) * ENTRIES_PER_PAGE);
     const body = slice.length
       ? slice.map((r) => `<tr><td class="num">${esc(r.register_number)}</td>${r.cols.map((c) => `<td>${esc(c.value)}</td>`).join("")}</tr>`).join("")
-      : `<tr><td colspan="${allCols.length + 1}" style="text-align:center;color:#8ba096">${ml ? "രേഖകളില്ല" : "No entries"}</td></tr>`;
+      : `<tr><td colspan="${allCols.length + 1}" style="text-align:center;color:#8ba096">${ml ? "രേഖകളൊന്നുമില്ല" : "No entries"}</td></tr>`;
     pages.push(`<div class="page">
       <div class="head"><div class="t">${title}</div><div class="s">${esc(data.mahalluName)} · ${ml ? "പേജ്" : "Page"} ${p + 1} / ${pageCount}</div></div>
       <table>${headCols}${body}</table>

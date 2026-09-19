@@ -153,7 +153,7 @@ async function donationReceiptData(donationId: number): Promise<ReceiptData | nu
     payerDetail: String(d.donor_phone || ""),
     line1Label: ml ? "വിഭാഗം" : "Category",
     line1Value: String(d.category_name || "Donation"),
-    line2Label: ml ? "ആവശ്യം" : "Purpose",
+    line2Label: ml ? "ഉദ്ദേശ്യം" : "Purpose",
     line2Value: String(d.purpose || ""),
     amount: Number(d.amount || 0),
     paymentMethod: String(d.payment_method || ""),
@@ -221,17 +221,17 @@ async function subscriptionReceiptData(subscriptionId: number): Promise<ReceiptD
   const appliedBits: string[] = [];
   if (arrearsCleared > 0) appliedBits.push(ml ? `${inr(arrearsCleared)} പഴയ മാസങ്ങൾ` : `${inr(arrearsCleared)} previous months`);
   if (monthPart > 0) appliedBits.push(ml ? `${inr(monthPart)} ഈ മാസം` : `${inr(monthPart)} this month`);
-  if (advanceAdded > 0) appliedBits.push(ml ? `${inr(advanceAdded)} അഡ്വാൻസ്` : `${inr(advanceAdded)} advance`);
+  if (advanceAdded > 0) appliedBits.push(ml ? `${inr(advanceAdded)} മുൻകൂർ അടവ്` : `${inr(advanceAdded)} advance`);
   const appliedNote = appliedBits.length
     ? (ml ? "തുക കണക്കാക്കിയത്: " : "Amount applied: ") + appliedBits.join(" · ")
     : "";
   const balanceNote = dueAfter > 0
     ? (ml
-        ? `ബാക്കി: ${inr(dueAfter)}${arrearsAfter > 0 ? " (പഴയ മാസങ്ങൾ ഉൾപ്പെടെ)" : ""}`
+        ? `കുടിശ്ശിക: ${inr(dueAfter)}${arrearsAfter > 0 ? " (പഴയ മാസങ്ങൾ ഉൾപ്പെടെ)" : ""}`
         : `Balance due: ${inr(dueAfter)}${arrearsAfter > 0 ? " (incl. previous months)" : ""}`)
     : advanceAfter > 0
       ? (ml
-          ? `പൂർണമായി അടച്ചു — ${inr(advanceAfter)} അഡ്വാൻസ് അടുത്ത മാസം കുറയ്ക്കും`
+          ? `പൂർണമായി അടച്ചു — ${inr(advanceAfter)} മുൻകൂർ അടുത്ത മാസം കുറയ്ക്കും`
           : `Fully paid — ${inr(advanceAfter)} advance reduces next month's due`)
       : (ml ? "ഈ മാസത്തെ വരിസംഖ്യ പൂർണമായി അടച്ചു കഴിഞ്ഞു" : "This month's subscription is fully paid");
   const footNote = appliedNote ? `${appliedNote}. ${balanceNote}` : balanceNote;

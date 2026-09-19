@@ -362,7 +362,7 @@ export function Committee() {
         onConfirm={executeRestore}
         danger={false}
         title={t("committee_restore")}
-        description={tx("This committee record will be restored to its previous state.", "ഈ കമ്മിറ്റി രേഖ പഴയ അവസ്ഥയിലേക്ക് പുനഃസ്ഥാപിക്കും.")}
+        description={tx("This committee record will be restored to its previous state.", "ഈ കമ്മിറ്റി രേഖ മുമ്പത്തെ നിലയിലേക്ക് പുനഃസ്ഥാപിക്കും.")}
         requireReason={false}
         confirmLabel={t("committee_restore")}
       />
@@ -376,7 +376,7 @@ export function Committee() {
         title={tx("Edit committee member", "കമ്മിറ്റി അംഗത്തെ തിരുത്തുക")}
         description={t("committee_edit_gate")}
         reasonPlaceholder={tx("Why is this committee record being edited?", "എന്തുകൊണ്ടാണ് ഈ കമ്മിറ്റി രേഖ തിരുത്തുന്നത്?")}
-        confirmLabel={tx("Continue to edit", "തിരുത്താൻ തുടരുക")}
+        confirmLabel={tx("Continue to edit", "തിരുത്തൽ തുടരുക")}
       />
 
       {/* Add/Edit dialog */}
@@ -384,7 +384,7 @@ export function Committee() {
         <div className="p-6 space-y-4">
           {!editingId && (
             <div className="rounded-lg border border-border-subtle bg-surface-hover/40 p-3">
-              <Label>{tx("Link an existing mahallu member — details fill in automatically", "നിലവിലുള്ള അംഗത്തെ ബന്ധിപ്പിക്കുക — വിവരങ്ങൾ തനിയെ നിറയും")}</Label>
+              <Label>{tx("Link an existing mahallu member — details fill in automatically", "നിലവിലുള്ള അംഗത്തെ ബന്ധിപ്പിക്കുക — വിവരങ്ങൾ സ്വയമേവ ലഭിക്കും")}</Label>
               <Select value={form.member_id ? String(form.member_id) : ""} onChange={e => onMemberPick(e.target.value)}>
                 <option value="">{tx("— new entry (no member link)", "— പുതിയ വിവരം (അംഗ ലിങ്ക് ഇല്ല)")}</option>
                 {memberOptions.map(m => <option key={m.id} value={String(m.id)}>{m.name} ({m.member_code})</option>)}
