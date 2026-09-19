@@ -26,13 +26,38 @@ describe("roleAccess — bifurcation matrix", () => {
     expect(canWriteChannel("Treasurer", "committee:update")).toBe(false);
   });
 
-  it("Secretary owns the registers but not the money", () => {
+  it("Secretary has FULL power (user request: admin = secretary)", () => {
     expect(canWriteChannel("Secretary", "marriages:create")).toBe(true);
     expect(canWriteChannel("Secretary", "deaths:update")).toBe(true);
     expect(canWriteChannel("Secretary", "tokens:generate")).toBe(true);
     expect(canWriteChannel("Secretary", "certificates:issueMarriage")).toBe(true);
-    expect(canWriteChannel("Secretary", "accounting:create")).toBe(false);
-    expect(canWriteChannel("Secretary", "donations:create")).toBe(false);
+    // Full power: the secretary may also write money records and settings.
+    expect(canWriteChannel("Secretary", "accounting:create")).toBe(true);
+    expect(canWriteChannel("Secretary", "donations:create")).toBe(true);
+    expect(canWriteChannel("Secretary", "settings:save")).toBe(true);
+  });
+
+  it("Member views everything and may only hand in donations/subscriptions", () => {
+    expect(canWriteChannel("Member", "donations:create")).toBe(true);
+    expect(canWriteChannel("Member", "subscriptions:create")).toBe(true);
+    expect(canWriteChannel("Member", "members:create")).toBe(false);
+    expect(canWriteChannel("Member", "families:create")).toBe(false);
+    expect(canWriteChannel("Member", "accounting:create")).toBe(false);
+    expect(canWriteChannel("Member", "users:resetPassword")).toBe(false);
+    // Reads are open to every authenticated role.
+    expect(canWriteChannel("Member", "members:list")).toBe(true);
+    expect(canWriteChannel("Member", "dashboard:summary")).toBe(true);
+  });
+
+  it("Staff writes the people registers + money, but not users/settings", () => {
+    expect(canWriteChannel("Staff", "members:create")).toBe(true);
+    expect(canWriteChannel("Staff", "families:create")).toBe(true);
+    expect(canWriteChannel("Staff", "marriages:create")).toBe(true);
+    expect(canWriteChannel("Staff", "deaths:create")).toBe(true);
+    expect(canWriteChannel("Staff", "donations:create")).toBe(true);
+    expect(canWriteChannel("Staff", "subscriptions:create")).toBe(true);
+    expect(canWriteChannel("Staff", "users:create")).toBe(false);
+    expect(canWriteChannel("Staff", "settings:save")).toBe(false);
   });
 
   it("housekeeping channels that run on page load are never blocked", () => {

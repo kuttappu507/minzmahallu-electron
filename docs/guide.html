@@ -9,8 +9,9 @@
 <meta property="og:description" content="ഇൻസ്റ്റാൾ മുതൽ ആദ്യ രസീത് വരെ — ഘട്ടം ഘട്ടമായുള്ള ഗൈഡ്. PDF ആയി സൂക്ഷിക്കാം.">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#0d9488">
-<link rel="icon" type="image/png" href="logo-small.png">
-<link rel="apple-touch-icon" href="logo-small.png">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anek+Malayalam:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -36,7 +37,7 @@ header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.9);backdrop
 header.scrolled{box-shadow:0 10px 30px -18px rgba(4,60,55,.25)}
 .hd{display:flex;align-items:center;justify-content:space-between;gap:12px;height:70px}
 .brand{display:flex;align-items:center;gap:11px;font-weight:700;font-size:16px}
-.brand .logo{width:40px;height:40px;border-radius:11px;overflow:hidden;flex:none;box-shadow:0 8px 18px -8px rgba(13,148,136,.55)}
+.brand .logo{width:40px;height:40px;border-radius:11px;overflow:hidden;flex:none;box-shadow:0 8px 18px -8px rgba(13,148,136,.55);background:linear-gradient(135deg,#14b8a6,#0a6b63)}
 .brand .logo img{width:100%;height:100%;object-fit:cover}
 .brand small{display:block;font-size:10.5px;font-weight:500;color:var(--mut);letter-spacing:.4px;line-height:1.3}
 .hd-right{display:flex;align-items:center;gap:12px}
@@ -76,6 +77,7 @@ h1 .grad{background:linear-gradient(120deg,#0d9488 10%,#0891b2 55%,#2563eb 110%)
 .stepcard p + p{margin-top:7px}
 .stepcard code{font-family:var(--font);background:var(--teal-tint);color:var(--teal-ink);border:1px solid var(--teal-line);border-radius:7px;padding:1px 7px;font-size:.92em;font-weight:600;white-space:nowrap}
 .tip{margin-top:12px;background:var(--gold-tint);border:1px solid #f2e2b8;border-radius:12px;padding:11px 14px;font-size:13.4px;color:#6b4e0f;line-height:1.7}
+.warn{margin-top:12px;background:#fdf2f2;border:1px solid #f5c8c8;border-radius:12px;padding:11px 14px;font-size:13.4px;color:#8a2b2b;line-height:1.7}
 .tip b{color:#8a6410}
 .note-blue{margin-top:12px;background:var(--sky-tint);border:1px solid #c7d9fb;border-radius:12px;padding:12px 14px;font-size:13.6px;color:#1e429f;line-height:1.75}
 .note-blue b{color:#173d8f}
@@ -97,7 +99,7 @@ h1 .grad{background:linear-gradient(120deg,#0d9488 10%,#0891b2 55%,#2563eb 110%)
 /* ---------- footer (homepage style) ---------- */
 footer{background:#07211f;color:#9cc6bf;padding:44px 0 32px;margin-top:40px;text-align:center}
 .foot-brand{display:flex;flex-direction:column;align-items:center;gap:10px;color:#fff;font-weight:700}
-.foot-brand .logo{width:46px;height:46px;border-radius:13px;overflow:hidden}
+.foot-brand .logo{width:46px;height:46px;border-radius:13px;overflow:hidden;background:linear-gradient(135deg,#14b8a6,#0a6b63)}
 .foot-brand .logo img{width:100%;height:100%;object-fit:cover}
 .foot-brand small{display:block;font-size:12px;font-weight:400;color:#7fb5ac}
 .foot-links{display:flex;flex-wrap:wrap;gap:22px;justify-content:center;font-size:14px;font-weight:500;margin:18px 0 4px}
@@ -213,12 +215,13 @@ html.lang-en .t-ml{display:none}
     <div class="stepcard reveal"><span class="n">3</span><div>
       <h3 class="t-ml">അഡ്മിൻ അക്കൗണ്ട് ഉണ്ടാക്കുക</h3><h3 class="t-en">Create the admin account</h3>
       <p><span class="t-ml">ആപ്പ് ആദ്യമായി തുറക്കുമ്പോൾ അഡ്മിന്റെ പേരും ഒരു പാസ്‌വേഡും ചോദിച്ചേക്കും. ഇവിടെ നൽകുന്ന ആദ്യ അക്കൗണ്ടാണ് മഹല്ലിന്റെ പ്രധാന അഡ്മിൻ ആകുന്നത് — പിന്നീട് ജീവനക്കാർക്ക് പ്രത്യേക അക്കൗണ്ടുകൾ ഉണ്ടാക്കാം. പാസ്‌വേഡ് എഴുതുമ്പോൾ പേര്, ജനനത്തീയതി പോലെ ഊഹിക്കാവുന്നത് ഒഴിവാക്കുക; അക്ഷരങ്ങളും അക്കങ്ങളും ചേർന്ന നീണ്ട പാസ്‌വേഡാണ് നല്ലത്.</span><span class="t-en">When the app opens for the first time, it asks for an admin name and a password. The first account created becomes the mahallu's main admin — separate accounts for other staff can be added later. Avoid guessable passwords like names or birthdates; a long mix of letters and numbers is best.</span></p>
-      <div class="tip"><b class="t-ml">ഏറ്റവും പ്രധാനം:</b><b class="t-en">Most important:</b> <span class="t-ml">പാസ്‌വേഡ് മറന്നാൽ തിരിച്ചു കിട്ടില്ല. ഒരു കടലാസിൽ എഴുതി സുരക്ഷിതമായിടത്ത് സൂക്ഷിക്കുക — ആപ്പിന്റെ താക്കോൽ അതാണ്.</span><span class="t-en">A forgotten password cannot be recovered. Write it down and keep it somewhere safe — it is the key to the app.</span></div>
+      <div class="tip"><b class="t-ml">ഏറ്റവും പ്രധാനം:</b><b class="t-en">Most important:</b> <span class="t-ml">അഡ്മിൻ പാസ്‌വേഡ് മറക്കരുത് — മറന്നാൽ തിരിച്ചു കിട്ടില്ല. ഒരു കടലാസിൽ എഴുതി സുരക്ഷിതമായിടത്ത് സൂക്ഷിക്കുക — ആപ്പിന്റെ താക്കോൽ അതാണ്.</span><span class="t-en">DO NOT lose the admin password — a forgotten password cannot be recovered. Write it down and keep it somewhere safe — it is the key to the app.</span></div>
     </div></div>
 
     <div class="stepcard reveal"><span class="n">4</span><div>
       <h3 class="t-ml">മഹല്ലിന്റെ വിവരങ്ങൾ നൽകുക</h3><h3 class="t-en">Fill in the mahallu details</h3>
       <p><span class="t-ml">Settings പേജിൽ മഹല്ലിന്റെ പേര്, വിലാസം, സ്ഥലം, ഫോൺ നമ്പർ എന്നിവ നൽകുക. ഇനി വരുന്ന ഓരോ രസീറ്റിലും ഓരോ സർട്ടിഫിക്കറ്റിലും അച്ചടിക്കുന്നത് ഈ വിവരങ്ങളാണ് — അതുകൊണ്ട് ഒന്നും കാലിയായി വയ്ക്കരുത്. പിന്നീട് തിരുത്താമെങ്കിലും തുടക്കത്തിൽ തന്നെ ശരിയായി വയ്ക്കുന്നതാണ് നല്ലത്; രണ്ടു നിമിഷം മതി.</span><span class="t-en">In the Settings page, enter the mahallu name, address, place and phone number. Every receipt and certificate printed from now on carries these details — so leave nothing blank. It can be edited later, but getting it right at the start takes only a couple of minutes.</span></p>
+      <div class="warn"><b class="t-ml">ശ്രദ്ധിക്കുക:</b><b class="t-en">Please note:</b> <span class="t-ml">രേഖകൾ ചേർക്കുമ്പോൾ ശ്രദ്ധയോടെ നൽകുക — സുരക്ഷാ കാരണങ്ങളാൽ ഇല്ലാതാക്കുന്ന ബട്ടൺ (Delete) ആപ്പിൽ പ്രവർത്തനത്തിൽ ഇല്ല. തെറ്റായ രേഖ തിരുത്താനോ അക്കൗണ്ട് ശരിയാക്കാനോ മാത്രമേ കഴിയൂ; അതുകൊണ്ട് ഓരോ വിവരവും ഒന്നു പരിശോധിച്ചു ചേർക്കുക.</span><span class="t-en">Enter records carefully — for security reasons the delete option is disabled in the app. A wrong entry can only be corrected or reversed, never deleted, so double-check each detail as you go.</span></div>
     </div></div>
 
     <div class="stepcard reveal"><span class="n">5</span><div>

@@ -191,3 +191,19 @@ ManifestDPIAware true
     MessageBox MB_OK|MB_ICONINFORMATION "MMS was uninstalled — your DATA IS SAFE.$\r$\n$\r$\nKept untouched at:$\r$\n$APPDATA\mms$\r$\n(database + backups)$\r$\n$\r$\nPlease do NOT delete that folder.$\r$\n(നിങ്ങളുടെ ഡാറ്റയും ബാക്കപ്പുകളും $APPDATA\mms ഫോൾഡറിൽ സുരക്ഷിതമായി നിലനിർത്തിയിട്ടുണ്ട് — ഈ ഫോൾഡർ ഇല്ലാതാക്കരുത്.)"
   mms_data_note_done:
 !macroend
+
+; ======================= shortcut restoration ==========================
+; WHY: electron-builder skips desktop / Start-Menu shortcut creation when
+; the installer runs as an IN-APP UPDATE (${isUpdated} is true), but the
+; pre-update uninstall step has already deleted the old shortcuts — so the
+; desktop icon "disappears" after updating from inside the app (user report
+; after v2.1.0). Recreate both shortcuts on the update path here; fresh
+; installs are handled by the standard template, and package.json now also
+; sets createDesktopShortcut:"always" as belt-and-braces.
+!macro customInstall
+  ${if} ${isUpdated}
+    DetailPrint "MMS: restoring application shortcuts..."
+    CreateShortCut "$DESKTOP\${PRODUCT_FILENAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+    CreateShortCut "$SMPROGRAMS\${PRODUCT_FILENAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+  ${endif}
+!macroend

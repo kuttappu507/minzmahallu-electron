@@ -40,20 +40,25 @@ export const donations = {
     // Auto-numbered in the mahallu's PREFIX/YYYY/MM/NNN series unless the
     // user typed their own number (book migration / manual override).
     const receipt = data.receiptNumber || nextReceiptNumber(data.donationDate || nowDate(), "donation");
+    // Role-based approval workflow: Member/Staff entries stay PENDING (not
+    // counted anywhere) until the secretary/admin approves them. The IPC
+    // layer injects approvalStatus; default 'approved' keeps every other
+    // caller (imports, fixtures) behaving exactly as before.
+    const approvalStatus = data.approvalStatus === "pending" ? "pending" : "approved";
     const { id } = run(
       `INSERT INTO donations
-        (donor_name, donor_phone, donor_address, family_id, member_id, category_id, amount, donation_date, receipt_number, purpose, payment_method, transaction_ref, received_by, remarks)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (donor_name, donor_phone, donor_address, family_id, member_id, category_id, amount, donation_date, receipt_number, purpose, payment_method, transaction_ref, received_by, remarks, approval_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.donorName, data.donorPhone ?? "", data.donorAddress ?? "",
         data.familyId ?? null, data.memberId ?? null, data.categoryId, data.amount,
         data.donationDate || nowDate(), receipt,
         data.purpose ?? "", data.paymentMethod ?? "Cash",
         data.transactionRef ?? "", data.receivedBy ?? 1,
-        data.remarks ?? ""
+        data.remarks ?? "", approvalStatus
       ]
     );
-    return { id, receiptNumber: receipt };
+    return { id, receiptNumber: receipt, approvalStatus };
   },
   update: (id: number, data: any) =>
     run(
@@ -86,5 +91,5 @@ export const donations = {
     return run("DELETE FROM donation_categories WHERE id = ?", [id]);
   },
   memberBalance: (familyId: number, memberId?: number) => subscriptions.memberBalance(familyId, memberId),
-  totalThisMonth: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM donations WHERE strftime('%Y-%m', donation_date) = ?", [istMonth()]),
+  totalThisMonth: () => scalar<number>("SELECT COALESCE(SUM(amount),0) AS v FROM donations WHERE strftime('%Y-%m', donation_date) = ? AND (approval_status IS NULL OR approval_status = 'approved')", [istMonth()]),
 };

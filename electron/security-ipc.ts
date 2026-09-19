@@ -4,7 +4,7 @@ import { changePassword, createInitialAdministrator, needsInitialSetup, verifyCu
 import { security, type Actor } from "./services/security.service.js";
 import { getDB } from "./db/connection.js";
 import { todayIST } from "./services/data.service.js";
-import { canWriteChannel, accessDeniedMessage } from "./services/roleAccess.js";
+import { canWriteChannel, accessDeniedMessage, isFullPower, createsPending } from "./services/roleAccess.js";
 
 // Install the sender guard before main.ts registers any handlers. This makes
 // the protection apply to read, write, export and utility IPC channels alike.
@@ -59,9 +59,14 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   };
   const admin = (): Actor => {
     const current = actor();
-    if (current.role !== "Administrator") throw new Error("Administrator permission is required for this operation");
+    // FULL POWER: Administrator AND Secretary (user request: "admin
+    // (secretary) have full power") — both pass every admin gate.
+    if (!isFullPower(current.role)) throw new Error("Administrator permission is required for this operation");
     return current;
   };
+  // Approval workflow: entries created by Member/Staff accounts land as
+  // PENDING until a full-power account approves them (Approvals page).
+  const withApproval = (a: Actor, d: any) => ({ ...d, approvalStatus: createsPending(a.role) ? "pending" : "approved" });
   register("auth:changePassword", (userId: number, newPassword: string) => {
     try {
       const a = actor();
@@ -116,14 +121,15 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("marriages:remove", () => { throw new Error("Marriage records cannot be permanently deleted. Correct or revoke the record instead."); });
   register("deaths:remove", () => { throw new Error("Death records cannot be permanently deleted. Correct or revoke the record instead."); });
   register("certificates:remove", () => { throw new Error("Issued certificates cannot be permanently deleted. Revoke the certificate instead."); });
-  register("families:create", (d: any) => { actor(); return data.families.create(d); });
-  register("members:create", (d: any) => { actor(); return data.members.create(d); });
-  register("subscriptions:create", (d: any) => { const a = actor(); const r = data.subscriptions.create({ ...d, collectedBy: a.id }); try { data.audit.log(a.id, a.username, "ADD", "subscriptions", r.id, `Subscription account created for family #${d.familyId}`, ""); } catch {}
+  register("families:create", (d: any) => { const a = actor(); return data.families.create(withApproval(a, d)); });
+  register("members:create", (d: any) => { const a = actor(); return data.members.create(withApproval(a, d)); });
+  register("subscriptions:create", (d: any) => { const a = actor(); const r = data.subscriptions.create(withApproval(a, { ...d, collectedBy: a.id })); try { data.audit.log(a.id, a.username, "ADD", "subscriptions", r.id, `Subscription account created for family #${d.familyId}${r?.approvalStatus === "pending" ? " (pending approval)" : ""}`, ""); } catch {}
     // The WhatsApp receipt is sent by the UI right AFTER the dialog closes
     // (background send, Donations-style). Awaiting PDF + delivery here made
     // every save hang for seconds — users clicked Save again and again and
     // the payee's WhatsApp received duplicate receipts (user report).
-    const receiptWhatsApp = Number(d?.amountPaid ?? 0) > 0 && r?.id ? "queued" : "skipped";
+    // PENDING entries send nothing — no payment was applied yet.
+    const receiptWhatsApp = r?.approvalStatus === "pending" ? "skipped" : (Number(d?.amountPaid ?? 0) > 0 && r?.id ? "queued" : "skipped");
     return { ...r, receiptWhatsApp };
   });
   // Payment edits are restricted to "how much was given" (plus date/method/
@@ -156,7 +162,7 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("subscriptions:paymentsHistory", (familyId: number) => { actor(); return data.subscriptions.paymentsHistory(familyId); });
   register("subscriptions:remove", () => { admin(); throw new Error("A recurring subscription cannot be deleted. Cancel the payment instead — the account stays with the family."); });
   register("subscriptions:markOverdue", () => { actor(); return data.subscriptions.markOverdue(); });
-  register("donations:create", (d: any) => { const a = actor(); return data.donations.create({ ...d, receivedBy: a.id }); });
+  register("donations:create", (d: any) => { const a = actor(); const r = data.donations.create(withApproval(a, { ...d, receivedBy: a.id })); try { if (r?.approvalStatus === "pending") data.audit.log(a.id, a.username, "ADD", "donations", r.id, `Donation recorded (pending approval): receipt ${r.receiptNumber}`, ""); } catch {} return r; });
   register("donations:update", (id: number, d: any, adminPassword: string, reason: string) => {
     const a = admin();
     // Editing an issued donation receipt is a sensitive financial action:
@@ -208,9 +214,9 @@ export function registerSecurityIpc(getActor: ActorProvider) {
     return r;
   });
   register("accounting:receiptSequence", () => { actor(); return data.accounting.receiptSequence(); });
-  register("marriages:create", (d: any) => { const a = actor(); return data.marriages.create({ ...d, createdBy: a.id }); });
+  register("marriages:create", (d: any) => { const a = actor(); return data.marriages.create(withApproval(a, { ...d, createdBy: a.id })); });
   register("marriages:update", (id: number, d: any) => { const a = actor(); return data.marriages.update(id, d); });
-  register("deaths:create", (d: any) => { const a = actor(); return data.deaths.create({ ...d, createdBy: a.id }); });
+  register("deaths:create", (d: any) => { const a = actor(); return data.deaths.create(withApproval(a, { ...d, createdBy: a.id })); });
   register("deaths:update", (id: number, d: any) => { const a = actor(); return data.deaths.update(id, d); });
   register("welfare:create", (d: any) => { const a = actor(); return data.welfare.create({ ...d, createdBy: a.id }); });
   register("welfare:update", (id: number, d: any) => {
@@ -258,6 +264,24 @@ export function registerSecurityIpc(getActor: ActorProvider) {
   register("users:remove", (id: number) => { admin(); return data.users.remove(id); });
   register("audit:list", (filter: any) => { actor(); return data.audit.list(filter || {}); });
   register("audit:verify", () => { actor(); return data.audit.verify(); });
+
+  // ===== Approvals queue — full-power accounts only (Administrator/Secretary).
+  // Entries added by Member/Staff accounts wait here until approved or
+  // rejected; every decision is written to the tamper-evident audit log.
+  register("approvals:list", () => { admin(); return data.approvals.list(); });
+  register("approvals:pendingCount", () => { actor(); return { count: data.approvals.pendingCount() }; });
+  register("approvals:approve", (kind: string, id: number) => {
+    const a = admin();
+    const r = data.approvals.approve(kind, id, a);
+    try { data.audit.log(a.id, a.username, "APPROVE", kind, id, `Pending ${kind} entry #${id} approved — now counted in the records`, ""); } catch {}
+    return r;
+  });
+  register("approvals:reject", (kind: string, id: number, reason: string) => {
+    const a = admin();
+    const r = data.approvals.reject(kind, id, String(reason || ""), a);
+    try { data.audit.log(a.id, a.username, "REJECT", kind, id, `Pending ${kind} entry #${id} rejected and removed${reason ? `: ${String(reason).trim()}` : ""}`, String(reason || "").trim()); } catch {}
+    return r;
+  });
   register("settings:load", () => { actor(); return data.settings.load(); });
   register("settings:save", (d: any) => { const a = admin(); return data.settings.save({ ...d, updatedBy: a.id }); });
   // Read-side IPC guards — every handler below requires an authenticated actor.

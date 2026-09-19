@@ -36,7 +36,7 @@ export const dashboard = {
        SELECT strftime('%Y-%m', date(m || '-01', '+1 month')) FROM months WHERE m < ?
      )
      SELECT m AS month,
-       COALESCE((SELECT SUM(amount) FROM donations WHERE strftime('%Y-%m', donation_date) = m), 0) AS amount
+       COALESCE((SELECT SUM(amount) FROM donations WHERE strftime('%Y-%m', donation_date) = m AND (approval_status IS NULL OR approval_status = 'approved')), 0) AS amount
      FROM months ORDER BY m`,
     [todayIST(), `-${months - 1} months`, istMonth()]
   ),
@@ -53,7 +53,7 @@ export const dashboard = {
      )
      SELECT m AS month,
        COALESCE((SELECT SUM(amount) FROM transactions WHERE type='Income' AND (status IS NULL OR status != 'Void') AND strftime('%Y-%m', txn_date) = m), 0)
-         + COALESCE((SELECT SUM(amount) FROM donations WHERE strftime('%Y-%m', donation_date) = m), 0)
+         + COALESCE((SELECT SUM(amount) FROM donations WHERE strftime('%Y-%m', donation_date) = m AND (approval_status IS NULL OR approval_status = 'approved')), 0)
          + COALESCE((SELECT SUM(amount) FROM subscription_payments WHERE status='Active' AND amount > 0 AND strftime('%Y-%m', COALESCE(payment_date, period_start)) = m), 0)
        AS income,
        COALESCE((SELECT SUM(amount) FROM transactions WHERE type='Expense' AND (status IS NULL OR status != 'Void') AND strftime('%Y-%m', txn_date) = m), 0)
@@ -71,11 +71,11 @@ export const dashboard = {
   todayAtGlance: () => {
     const receiptsToday = scalar<number>(
       `SELECT (SELECT COUNT(*) FROM subscription_payments WHERE status='Active' AND amount > 0 AND date(payment_date) = ?)
-       + (SELECT COUNT(*) FROM donations WHERE date(donation_date) = ?) AS v`,
+       + (SELECT COUNT(*) FROM donations WHERE date(donation_date) = ? AND (approval_status IS NULL OR approval_status = 'approved')) AS v`,
       [todayIST(), todayIST()]
     ) || 0;
     const donationsToday = scalar<number>(
-      `SELECT COALESCE(SUM(amount),0) FROM donations WHERE date(donation_date) = ?`,
+      `SELECT COALESCE(SUM(amount),0) FROM donations WHERE date(donation_date) = ? AND (approval_status IS NULL OR approval_status = 'approved')`,
       [todayIST()]
     ) || 0;
     const welfarePending = scalar<number>(

@@ -41,6 +41,21 @@ const translations: Record<string, { en: string; ml: string }> = {
   nav_users: { en: "Users", ml: "ഉപയോക്താക്കൾ" },
   nav_audit: { en: "Audit Log", ml: "ഓഡിറ്റ് ലോഗ്" },
   nav_backup: { en: "Backup & Restore", ml: "ബാക്കപ്പ് & റെസ്റ്റോർ" },
+  nav_approvals: { en: "Approvals", ml: "അംഗീകാരങ്ങൾ" },
+
+  // Approvals queue (pending-approval workflow)
+  appr_title: { en: "Pending Approvals", ml: "അംഗീകരിക്കേണ്ട രേഖകൾ" },
+  appr_subtitle: { en: "Entries added by member and staff accounts take effect only after you approve them here.", ml: "അംഗങ്ങളും ജീവനക്കാരും ചേർത്ത രേഖകൾ ഇവിടെ അംഗീകരിച്ചതിനുശേഷം മാത്രമേ നിലവിൽ വരൂ." },
+  appr_empty: { en: "Nothing waiting for approval", ml: "അംഗീകരിക്കാൻ ഒന്നുമില്ല" },
+  appr_empty_hint: { en: "New entries from member and staff accounts will appear here.", ml: "അംഗങ്ങളും ജീവനക്കാരും പുതിയതായി ചേർക്കുന്ന രേഖകൾ ഇവിടെ പ്രത്യക്ഷപ്പെടും." },
+  appr_waiting: { en: "waiting", ml: "കാത്തിരിക്കുന്നു" },
+  appr_queue_hint: { en: "Pending entries are NOT counted in any ledger, dashboard or register until approved.", ml: "അംഗീകരിക്കുന്നതുവരെ കാത്തിരിക്കുന്ന രേഖകൾ കണക്കിലോ ഡാഷ്ബോർഡിലോ രജിസ്റ്ററിലോ എടുക്കില്ല." },
+  appr_approve: { en: "Approve", ml: "അംഗീകരിക്കുക" },
+  appr_reject: { en: "Reject", ml: "നിരാകരിക്കുക" },
+  appr_reject_title: { en: "Reject this entry?", ml: "ഈ രേഖ നിരാകരിക്കണോ?" },
+  appr_reject_hint: { en: "The entry will be removed — it was never counted. This decision is recorded in the audit log.", ml: "രേഖ നീക്കം ചെയ്യപ്പെടും — ഇതുവരെ കണക്കിൽ എടുത്തിട്ടില്ല. ഈ തീരുമാനം ഓഡിറ്റ് ലോഗിൽ രേഖപ്പെടുത്തുന്നു." },
+  appr_pending_badge: { en: "Pending approval", ml: "അംഗീകാരം വേണം" },
+  ui_refresh: { en: "Refresh", ml: "പുതുക്കുക" },
   action_logout: { en: "Logout", ml: "ലോഗ്ഔട്ട്" },
 
   // Common actions

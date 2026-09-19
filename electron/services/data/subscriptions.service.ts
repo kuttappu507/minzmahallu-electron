@@ -208,26 +208,35 @@ export const subscriptions = {
     const { periodStart, periodEnd } = currentPeriod();
     const configured = scalar<number>("SELECT COALESCE(subscription_monthly_amount, 0) FROM settings WHERE id = 1") || 0;
     const firstPayment = Math.max(0, Number(data.amountPaid ?? 0));
+    // Role-based approval workflow: subscriptions entered by Member/Staff
+    // stay PENDING — the first payment is PARKED in the pending_* columns
+    // and only applied (receipt + money counted) when an admin approves.
+    const approvalStatus = data.approvalStatus === "pending" ? "pending" : "approved";
     const { id } = run(
       `INSERT INTO subscriptions
         (family_id, member_id, plan_id, period_start, period_end, amount, amount_paid,
-         payment_date, receipt_number, payment_method, transaction_ref, status, collected_by, remarks)
-       VALUES (?, ?, ?, ?, ?, ?, 0, NULL, NULL, ?, ?, 'Pending', ?, ?)`,
+         payment_date, receipt_number, payment_method, transaction_ref, status, collected_by, remarks, approval_status,
+         pending_amount_paid, pending_payment_method, pending_payment_date)
+       VALUES (?, ?, ?, ?, ?, ?, 0, NULL, NULL, ?, ?, 'Pending', ?, ?, ?, ?, ?, ?)`,
       [
         data.familyId, data.memberId ?? familyHeadMemberId(data.familyId), data.planId ?? 1,
         data.periodStart || periodStart, data.periodEnd || periodEnd,
         data.amount ?? configured,
         data.paymentMethod ?? "Cash", data.transactionRef ?? "",
-        data.collectedBy ?? 1, data.remarks ?? ""
+        data.collectedBy ?? 1, data.remarks ?? "", approvalStatus,
+        approvalStatus === "pending" && firstPayment > 0 ? firstPayment : null,
+        approvalStatus === "pending" && firstPayment > 0 ? (data.paymentMethod ?? "Cash") : null,
+        approvalStatus === "pending" && firstPayment > 0 ? (data.paymentDate || nowDate()) : null
       ]
     );
     // A first payment runs through the SAME oldest-first allocation as any
     // other payment (a fresh account has no arrears, so cash above the rate
     // becomes advance credit for coming months — never a paid-ahead month).
-    if (firstPayment > 0) {
-      return { ...(subscriptions as any).applyPayment(id, data), id };
+    // PENDING rows skip this entirely — no receipt, no money counted.
+    if (firstPayment > 0 && approvalStatus === "approved") {
+      return { ...(subscriptions as any).applyPayment(id, data), id, approvalStatus };
     }
-    return { id, receiptNumber: "" };
+    return { id, receiptNumber: "", approvalStatus };
   },
   /** Restricted payment edit: ONLY how much was given (plus date/method/ref/
    *  remarks) may change. Family, member, period and the monthly rate are

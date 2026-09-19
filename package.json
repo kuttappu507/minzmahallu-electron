@@ -1,6 +1,6 @@
 {
   "name": "minz-mahallu-management",
-  "version": "2.2.1",
+  "version": "2.3.0",
   "description": "Minz Mahallu Management System - Modern React + Electron Edition",
   "author": "MMS",
   "license": "MIT",
@@ -14,8 +14,7 @@
     "rebuild:native": "electron-builder install-app-deps",
     "build": "tsc -b && vite build && tsc -p electron/tsconfig.json",
     "package": "npm run build && electron-builder --publish never",
-    "package:win": "npm run build && electron-builder --win nsis portable --publish never",
-    "package:portable": "npm run build && electron-builder --win portable --publish never",
+    "package:win": "npm run build && electron-builder --win nsis --publish never",
     "package:mac": "npm run build && electron-builder --mac dmg zip --publish never",
     "package:linux": "npm run build && electron-builder --linux AppImage deb --publish never",
     "lint": "eslint .",
@@ -97,8 +96,7 @@
     "buildDependenciesFromSource": false,
     "win": {
       "target": [
-        "nsis",
-        "portable"
+        "nsis"
       ],
       "icon": "resources/icon.png"
     },
@@ -108,10 +106,9 @@
       "perMachine": true,
       "include": "build/installer.nsh",
       "deleteAppDataOnUninstall": false,
-      "artifactName": "Minz-Mahallu-Setup-${version}.${ext}"
-    },
-    "portable": {
-      "artifactName": "MMS-React-Portable-${version}.exe"
+      "artifactName": "Minz-Mahallu-Setup-${version}.${ext}",
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true
     },
     "mac": {
       "target": [

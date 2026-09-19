@@ -237,7 +237,7 @@ export const accounting = {
     }
     // 2. Donations (always Income)
     {
-      const w: string[] = ["1=1"];
+      const w: string[] = ["1=1", "(d.approval_status IS NULL OR d.approval_status = 'approved')"];
       if (range) { w.push("d.donation_date >= ?"); w.push("d.donation_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All" && filter.type !== "Income") { w.push("1=0"); } // donations are income only
       if (filter.search) { w.push("(d.donor_name LIKE ? OR d.receipt_number LIKE ? OR d.purpose LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t, t); }
@@ -308,7 +308,7 @@ export const accounting = {
       parts.push(`SELECT t.txn_date AS ledger_date, t.type, t.amount, 'transactions' AS source FROM transactions t WHERE ${w.join(" AND ")}`);
     }
     {
-      const w: string[] = ["1=1"];
+      const w: string[] = ["1=1", "(d.approval_status IS NULL OR d.approval_status = 'approved')"];
       if (range) { w.push("d.donation_date >= ?"); w.push("d.donation_date <= ?"); }
       parts.push(`SELECT d.donation_date AS ledger_date, 'Income' AS type, d.amount, 'donations' AS source FROM donations d WHERE ${w.join(" AND ")}`);
     }
@@ -474,14 +474,14 @@ export const accounting = {
     // Opening balance = everything received/spent BEFORE the FY (all sources).
     const opening = s(`SELECT
         (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Income' AND (status IS NULL OR status != 'Void') AND txn_date < '${fyStart}')
-      + (SELECT COALESCE(SUM(amount),0) FROM donations WHERE donation_date < '${fyStart}')
+      + (SELECT COALESCE(SUM(amount),0) FROM donations WHERE donation_date < '${fyStart}' AND (approval_status IS NULL OR approval_status = 'approved'))
       + (SELECT COALESCE(SUM(amount),0) FROM subscription_payments WHERE status='Active' AND COALESCE(payment_date, period_start) < '${fyStart}')
       - (SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Expense' AND (status IS NULL OR status != 'Void') AND txn_date < '${fyStart}')
       - (SELECT COALESCE(SUM(amount_approved),0) FROM welfare_requests WHERE status='Disbursed' AND COALESCE(disbursed_date, created_at) < '${fyStart}')
       - (SELECT COALESCE(SUM(amount),0) FROM staff_payments WHERE status='Paid' AND payment_date < '${fyStart}')`);
 
     const receipts = {
-      donations: s(`SELECT COALESCE(SUM(amount),0) FROM donations WHERE donation_date >= '${fyStart}' AND donation_date <= '${fyEnd}'`),
+      donations: s(`SELECT COALESCE(SUM(amount),0) FROM donations WHERE donation_date >= '${fyStart}' AND donation_date <= '${fyEnd}' AND (approval_status IS NULL OR approval_status = 'approved')`),
       subscriptions: s(`SELECT COALESCE(SUM(amount),0) FROM subscription_payments WHERE status='Active' AND COALESCE(payment_date, period_start) >= '${fyStart}' AND COALESCE(payment_date, period_start) <= '${fyEnd}'`),
       manual: s(`SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='Income' AND (status IS NULL OR status != 'Void') AND txn_date >= '${fyStart}' AND txn_date <= '${fyEnd}'`),
     };

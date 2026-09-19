@@ -37,10 +37,14 @@ const Settings = lazy(() => import("@/pages/Settings").then(m => ({ default: m.S
 const Users = lazy(() => import("@/pages/Users").then(m => ({ default: m.Users })));
 const AuditLog = lazy(() => import("@/pages/AuditLog").then(m => ({ default: m.AuditLog })));
 const Backup = lazy(() => import("@/pages/Backup").then(m => ({ default: m.Backup })));
+const Approvals = lazy(() => import("@/pages/Approvals").then(m => ({ default: m.Approvals })));
 import { useEffect, useState } from "react";
 import { transliterateMalayalam } from "@/lib/malayalamTransliteration";
 import { setCurrencySymbol } from "@/lib/utils";
 
+/** Auto-capitalization lives in src/lib/auto-capitalize.ts (wired from
+ *  main.tsx, v2.2.1): one document-level focusout listener with data-nocap
+ *  opt-outs. Nothing else needed here. */
 function OfflineMalayalamLayer() {
   const { lang } = useI18n();
   useEffect(() => {
@@ -77,7 +81,7 @@ function ProtectedLayout() {
   const location = useLocation();
   useEffect(() => { document.body.classList.toggle("route-accounting", location.pathname === "/accounting"); return () => document.body.classList.remove("route-accounting"); }, [location.pathname]);
   return <div id="app" className="app-shell"><Topbar /><div className="app-body"><Sidebar /><div className="maincol"><div id="content"><Suspense fallback={<div className="flex items-center justify-center h-64"><div className="spinner-sm" /></div>}><Routes>
-    <Route path="/" element={<Dashboard />} /><Route path="/families" element={<Families />} /><Route path="/members" element={<Members />} /><Route path="/staff" element={<Staff />} /><Route path="/committee" element={<Committee />} /><Route path="/subscriptions" element={<Subscriptions />} /><Route path="/donations" element={<Donations />} /><Route path="/whatsapp" element={<WhatsApp />} /><Route path="/accounting" element={<Accounting />} /><Route path="/assets" element={<Assets />} /><Route path="/marriages" element={<Marriages />} /><Route path="/deaths" element={<Deaths />} /><Route path="/welfare" element={<Welfare />} /><Route path="/certificates" element={<Certificates />} /><Route path="/tokens" element={<TokenEvents />} /><Route path="/tokens/manage" element={<TokensWithPrint />} /><Route path="/reports" element={<Reports />} /><Route path="/settings" element={<Settings />} /><Route path="/users" element={<Users />} /><Route path="/audit" element={<AuditLog />} /><Route path="/backup" element={<Backup />} />
+    <Route path="/" element={<Dashboard />} /><Route path="/families" element={<Families />} /><Route path="/members" element={<Members />} /><Route path="/staff" element={<Staff />} /><Route path="/committee" element={<Committee />} /><Route path="/subscriptions" element={<Subscriptions />} /><Route path="/donations" element={<Donations />} /><Route path="/whatsapp" element={<WhatsApp />} /><Route path="/accounting" element={<Accounting />} /><Route path="/assets" element={<Assets />} /><Route path="/marriages" element={<Marriages />} /><Route path="/deaths" element={<Deaths />} /><Route path="/welfare" element={<Welfare />} /><Route path="/certificates" element={<Certificates />} /><Route path="/tokens" element={<TokenEvents />} /><Route path="/tokens/manage" element={<TokensWithPrint />} /><Route path="/reports" element={<Reports />} /><Route path="/approvals" element={<Approvals />} /><Route path="/settings" element={<Settings />} /><Route path="/users" element={<Users />} /><Route path="/audit" element={<AuditLog />} /><Route path="/backup" element={<Backup />} />
   </Routes></Suspense></div></div></div></div>;
 }
 

@@ -390,9 +390,12 @@ body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayala
 .seal{position:absolute;right:22mm;bottom:14mm;width:28mm;height:28mm;border:1.5px solid #0e7c5b;border-radius:50%;display:grid;place-items:center;text-align:center;font-size:7pt;color:#0e7c5b;font-weight:600;opacity:.3;transform:rotate(-12deg)}
 /* Footer */
 .cert-footer{position:absolute;left:16mm;right:16mm;bottom:6mm;text-align:center;font-size:7.5pt;color:#8ba096}
-/* ===== Registration number stack (all certificates) — shown ONLY when filled.
-   Lives in the header's right grid column (top-right corner of the page). ===== */
-.reg-stack{grid-column:3;justify-self:end;align-self:start;display:flex;flex-direction:column;gap:1.2mm;align-items:flex-end;text-align:left}
+/* ===== Registration number stacks (all certificates) — shown ONLY when filled.
+   Society register number sits in the LEFT grid column (user request), the
+   SMF + Wakf numbers stay stacked in the RIGHT column. ===== */
+.reg-stack{justify-self:end;align-self:start;display:flex;flex-direction:column;gap:1.2mm;align-items:flex-end;text-align:left}
+.hdr .reg-stack.right{grid-column:3}
+.hdr .reg-stack.left{grid-column:1;justify-self:start;align-items:flex-start}
 .reg-box{border:.25mm solid #9fcfbc;border-radius:1mm;padding:.7mm 2.2mm;font-size:7.5pt;color:#5f7268;background:#f6faf8;max-width:40mm;line-height:1.35}
 .reg-box b{color:#1a2b22;font-weight:600}
 /* ===== Death certificate — our design, official SMF register texts/format.
@@ -424,13 +427,18 @@ const CORNER_SVG = `<svg viewBox="0 0 40 40" fill="none" stroke="#0e7c5b" stroke
 function buildRegStack(c: CertData, ml: boolean): string {
   // Reg numbers print ONLY when filled in Settings — an unfilled box is
   // omitted entirely rather than shown blank.
+  // Layout per user request: the SOCIETY register number goes to the LEFT
+  // side of the header; SMF + Wakf stay stacked on the RIGHT side.
   const L = ml ? { smf: 'SMF രജി. നമ്പർ', wakf: 'വഖഫ് രജി. നമ്പർ', society: 'സൊസൈറ്റി രജി. നമ്പർ' }
                : { smf: 'SMF Reg. No.', wakf: 'Wakaf Reg. No.', society: 'Society Reg. No.' };
-  const boxes: string[] = [];
-  if (c.smf_reg_no) boxes.push(`<div class="reg-box">${L.smf}: <b>${esc(c.smf_reg_no)}</b></div>`);
-  if (c.wakf_reg_no) boxes.push(`<div class="reg-box">${L.wakf}: <b>${esc(c.wakf_reg_no)}</b></div>`);
-  if (c.society_reg_no) boxes.push(`<div class="reg-box">${L.society}: <b>${esc(c.society_reg_no)}</b></div>`);
-  return boxes.length ? `<div class="reg-stack">${boxes.join('')}</div>` : '';
+  const left: string[] = [];
+  const right: string[] = [];
+  if (c.society_reg_no) left.push(`<div class="reg-box">${L.society}: <b>${esc(c.society_reg_no)}</b></div>`);
+  if (c.smf_reg_no) right.push(`<div class="reg-box">${L.smf}: <b>${esc(c.smf_reg_no)}</b></div>`);
+  if (c.wakf_reg_no) right.push(`<div class="reg-box">${L.wakf}: <b>${esc(c.wakf_reg_no)}</b></div>`);
+  const leftHtml = left.length ? `<div class="reg-stack left">${left.join('')}</div>` : '';
+  const rightHtml = right.length ? `<div class="reg-stack right">${right.join('')}</div>` : '';
+  return (leftHtml || rightHtml) ? leftHtml + rightHtml : '';
 }
 
 function buildHeader(c: CertData, ml: boolean): string {

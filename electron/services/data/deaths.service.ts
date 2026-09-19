@@ -28,19 +28,21 @@ export const deaths = {
     // nextRegisterNumber) — COUNT-based numbers could be reused after a
     // deletion or lag behind when a death date is backdated.
     const num = nextRegisterNumber("deaths", "death_number", "DTH");
+    // Approval workflow: death registers added by Staff wait for admin approval.
+    const approvalStatus = data.approvalStatus === "pending" ? "pending" : "approved";
     const { id } = run(
       `INSERT INTO deaths
-        (death_number, deceased_name, father_name, gender, age, date_of_death, place_of_death, burial_date, cause_of_death, burial_place, address, family_id, registration_date, remarks)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (death_number, deceased_name, father_name, gender, age, date_of_death, place_of_death, burial_date, cause_of_death, burial_place, address, family_id, registration_date, remarks, approval_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         num, data.deceasedName ?? "", data.fatherName ?? "",
         data.gender ?? "Male", data.age ?? null, data.dateOfDeath,
         data.placeOfDeath ?? "", data.burialDate ?? null, data.causeOfDeath ?? "", data.burialPlace ?? "",
         data.address ?? "", data.familyId ?? null,
-        data.registrationDate || nowDate(), data.remarks ?? ""
+        data.registrationDate || nowDate(), data.remarks ?? "", approvalStatus
       ]
     );
-    return { id, deathNumber: num };
+    return { id, deathNumber: num, approvalStatus };
   },
   update: (id: number, data: any) =>
     run(
@@ -57,6 +59,6 @@ export const deaths = {
   // Raw rows for the printed death register (chronological, numbered).
   registerRows: () => all<any>(
     `SELECT id, death_number, deceased_name, father_name, gender, age, date_of_death, place_of_death, burial_date, burial_place
-     FROM deaths ORDER BY date_of_death ASC, id ASC`
+     FROM deaths WHERE (approval_status IS NULL OR approval_status = 'approved') ORDER BY date_of_death ASC, id ASC`
   ),
 };

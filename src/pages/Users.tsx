@@ -22,9 +22,10 @@ const locked = (u: UserRow) => !u.is_active;
 // explanation of what each role can and cannot do). Every role belongs to a
 // named group and shows a live capability description while creating/editing.
 const ROLE_GROUPS: Array<{ id: string; en: string; ml: string; roles: string[] }> = [
-  { id: "full", en: "Full control", ml: "പൂർണ്ണ നിയന്ത്രണം", roles: ["Administrator"] },
-  { id: "mgmt", en: "Management committee", ml: "നിർവ്വാഹക സമിതി", roles: ["President", "Secretary", "Treasurer", "Imam"] },
+  { id: "full", en: "Full control", ml: "പൂർണ്ണ നിയന്ത്രണം", roles: ["Administrator", "Secretary"] },
+  { id: "mgmt", en: "Management committee", ml: "നിർവ്വാഹക സമിതി", roles: ["President", "Treasurer", "Imam"] },
   { id: "office", en: "Office / data entry", ml: "ഓഫീസ് / വിവര ശേഖരണം", roles: ["Staff"] },
+  { id: "member", en: "Mahallu members", ml: "മഹല്ല് അംഗങ്ങൾ", roles: ["Member"] },
   { id: "view", en: "View only", ml: "കാഴ്ച മാത്രം", roles: ["Auditor"] },
 ];
 const ROLE_INFO: Record<string, { en: string; ml: string }> = {
@@ -37,8 +38,8 @@ const ROLE_INFO: Record<string, { en: string; ml: string }> = {
     ml: "നിർവ്വാഹക ചുമതല — മഹല്ലിലെ രേഖകളും റിപ്പോർട്ടുകളും കാണും നടത്തും. പണവുമായി ബന്ധപ്പെട്ട സുരക്ഷിത പ്രവർത്തനങ്ങൾക്ക് അഡ്മിൻ പാസ്‌വേഡ് ആവശ്യമാണ്.",
   },
   Secretary: {
-    en: "Management role — keeps families, members and registers up to date. Cannot create user accounts or change settings.",
-    ml: "നിർവ്വാഹക ചുമതല — കുടുംബങ്ങൾ, അംഗങ്ങൾ, രജിസ്റ്ററുകൾ എന്നിവ കൃത്യമായി സൂക്ഷിക്കും. ഉപയോക്തൃ അക്കൗണ്ടുകൾ ഉണ്ടാക്കാനോ സെറ്റിംഗ്സ് മാറ്റാനോ കഴിയില്ല.",
+    en: "Full power — the secretary runs the office: every record, register, account and approval. Entries added by Member/Staff accounts are approved here.",
+    ml: "പൂർണ്ണ അധികാരം — ഓഫീസ് നടത്തിപ്പ് സെക്രട്ടറിയുടെ കൈയിൽ: എല്ലാ രേഖകളും രജിസ്റ്ററുകളും കണക്കുകളും അംഗീകാരങ്ങളും. അംഗങ്ങളും ജീവനക്കാരും ചേർക്കുന്ന രേഖകൾ ഇവിടെ അംഗീകരിക്കും.",
   },
   Treasurer: {
     en: "Management role — records collections, payments and accounts. Cancelling payments or altering money records requires the administrator password.",
@@ -49,8 +50,12 @@ const ROLE_INFO: Record<string, { en: string; ml: string }> = {
     ml: "നിർവ്വാഹക ചുമതല — മതപരമായ രജിസ്റ്ററുകൾ (വിവാഹം, മരണം, സർട്ടിഫിക്കറ്റുകൾ), ക്ഷേമ അപേക്ഷകൾ എന്നിവ കൈകാര്യം ചെയ്യും. ഉപയോക്താക്കളെയോ സെറ്റിംഗ്സുകളോ മാറ്റാനാവില്ല.",
   },
   Staff: {
-    en: "Office role — enters daily records (families, members, subscriptions, donations). Cannot manage user accounts or settings.",
-    ml: "ഓഫീസ് ചുമതല — ദൈനംദിന വിവരങ്ങൾ (കുടുംബം, അംഗങ്ങൾ, വരിസംഖ്യ, സംഭാവനകൾ) രേഖപ്പെടുത്തും. ഉപയോക്തൃ അക്കൗണ്ടുകളോ സെറ്റിംഗ്സുകളോ കൈകാര്യം ചെയ്യാനാവില്ല.",
+    en: "Office role — views everything and adds donations, subscriptions, families, members and register entries. Money and important records become official only after the secretary/admin approves them.",
+    ml: "ഓഫീസ് ചുമതല — എല്ലാം കാണാം; സംഭാവനകൾ, വരിസംഖ്യകൾ, കുടുംബങ്ങൾ, അംഗങ്ങൾ, രജിസ്റ്റർ രേഖകൾ എന്നിവ ചേർക്കാം. പണവും പ്രധാന രേഖകളും സെക്രട്ടറി/അഡ്മിൻ അംഗീകരിച്ചതിനുശേഷം മാത്രമേ ഔദ്യോഗികമാവൂ.",
+  },
+  Member: {
+    en: "Mahallu member — views all records and can hand in donations and subscriptions. They are counted once the secretary or administrator approves them.",
+    ml: "മഹല്ല് അംഗം — എല്ലാ രേഖകളും കാണാം; സംഭാവനകളും വരിസംഖ്യകളും നൽകാം. സെക്രട്ടറിയോ അഡ്മിനോ അംഗീകരിച്ചതിനുശേഷം കണക്കിൽ എടുക്കും.",
   },
   Auditor: {
     en: "View-only — can read records, open reports and export them for checking. Cannot add, edit or delete anything.",

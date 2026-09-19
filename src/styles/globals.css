@@ -350,7 +350,7 @@
        duration stays SHORT — but long enough to read as a glide, not a jump
        (the office found the old 0.2s snap too abrupt). Paint-only properties
        (colors) may run longer. See lowfx below. */
-    position: relative; transition: width 0.28s cubic-bezier(0.45, 0, 0.2, 1), background 0.3s, border-color 0.3s;
+    position: relative; transition: width 0.42s cubic-bezier(0.65, 0, 0.35, 1), background 0.3s, border-color 0.3s;
     z-index: 40;
     box-shadow: var(--sh);
   }
@@ -362,9 +362,9 @@
      corner curve ends instead of poking through the curve. Padding-top is
      reduced to 0 so the nav content keeps roughly its old offset. */
   .navscroll { flex: 1; overflow-y: auto; overflow-x: hidden; border-top: 18px solid transparent; padding: 0 12px 10px; /* scrollbar-width deliberately NOT set: the standard property makes Chromium ignore the 3px ::-webkit-scrollbar rules below */ }
-  .navsec { font: 700 9.5px Poppins; letter-spacing: 0.2em; text-transform: uppercase; color: var(--fnt); padding: 18px 14px 8px; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+  .navsec { font: 700 9.5px Poppins; letter-spacing: 0.2em; text-transform: uppercase; color: var(--fnt); padding: 18px 14px 8px; white-space: nowrap; display: flex; align-items: center; gap: 8px; /* fade (not snap) with the collapse glide */ transition: opacity 0.2s ease 0.14s; }
   .navsec::after { content: ""; flex: 1; height: 1px; background: var(--line); }
-  .sidebar.min .navsec { padding: 12px 0 5px; color: transparent; }
+  .sidebar.min .navsec { padding: 12px 0 5px; color: transparent; opacity: 0; transition-delay: 0s; }
   .sidebar.min .navsec::after { display: block; border-top: 1px solid var(--line); }
 
   .navit {
@@ -379,20 +379,22 @@
     text-decoration: none; min-width: 0;
   }
   .navit b { font: 500 13.5px Poppins; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
-    /* NEW collapse animation (user report: labels vanished into icons-only
-       before the panel finished collapsing). The label fades + slides while
-       it is lifted OUT OF FLOW by the .min state — the icon glides to center
-       and the text dissolves, all during the width transition. */
-    transition: opacity 0.17s ease 0.13s, transform 0.17s ease 0.13s; }
+    /* Collapse choreography (user report: the old fade felt cheap). EXPAND:
+       the label waits ~1/3 of the width glide, then fades + slides in — the
+       panel is already wide enough to read it. COLLAPSE: the label dissolves
+       immediately while the panel glides shut. */
+    transition: opacity 0.24s cubic-bezier(0.4, 0, 0.2, 1) 0.15s, transform 0.24s cubic-bezier(0.4, 0, 0.2, 1) 0.15s; }
   .navit-ic {
     flex: 0 0 30px; width: 30px; height: 30px; border-radius: 9px;
     display: grid; place-items: center;
     background: color-mix(in srgb, var(--sc, var(--em)) 10%, transparent);
     color: var(--sc, var(--em));
     /* Paint-only (see .navit): the collapsed state changes width/height/flex-basis
-       — those are layout properties and must SNAP, not animate. */
-    transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
+       — those are layout properties and must SNAP, not animate. transform is
+       paint-only, so the icon gets a gentle "settle" pulse during the glide. */
+    transition: background-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.42s cubic-bezier(0.65, 0, 0.35, 1);
   }
+  .sidebar.min .navit-ic { transform: scale(1.05); }
   .navit-ic .ic, .navit-ic > svg { width: 17px; height: 17px; min-width: 17px; min-height: 17px; }
   .navit:hover { background: var(--panel2); color: var(--tx); }
   .navit:hover .navit-ic { background: color-mix(in srgb, var(--sc, var(--em)) 16%, transparent); }
@@ -422,11 +424,13 @@
     position: absolute; top: 50%; right: -14px; transform: translateY(-50%);
     width: 28px; height: 56px; border-radius: 99px;
     border: 1px solid var(--line); background: var(--panel); color: var(--fnt);
-    display: grid; place-items: center; box-shadow: var(--sh); z-index: 50; transition: 0.13s;
+    display: grid; place-items: center; box-shadow: var(--sh); z-index: 50;
+    transition: color 0.18s, border-color 0.18s, background 0.18s, transform 0.42s cubic-bezier(0.65, 0, 0.35, 1);
     cursor: pointer;
   }
-  .flap:hover { color: var(--em); border-color: var(--em); background: var(--selbg); }
-  .flap .ic { transition: transform 0.28s; transform: rotate(180deg); }
+  .flap:hover { color: var(--em); border-color: var(--em); background: var(--selbg); transform: translateY(-50%) scale(1.07); }
+  .flap:active { transform: translateY(-50%) scale(0.94); }
+  .flap .ic { transition: transform 0.42s cubic-bezier(0.65, 0, 0.35, 1); transform: rotate(180deg); }
   .sidebar.min .flap .ic { transform: rotate(0deg); }
 
   /* LOW-END MODE — html.lowfx (set from src/lib/fx.ts: weak CPU/RAM detection or
@@ -437,8 +441,9 @@
      of cheap frames) while hover/hover-color transitions stay off. */
   html.lowfx .sidebar { transition: width 0.2s cubic-bezier(0.4, 0, 0.25, 1); }
   html.lowfx .flap .ic { transition: none; }
+  html.lowfx .flap { transition: color 0.15s, border-color 0.15s, background 0.15s; }
   html.lowfx .navit, html.lowfx .navit-ic, html.lowfx .navit-dot { transition: none; }
-  html.lowfx .navit b, html.lowfx .sb-user .nm { transition: opacity 0.12s, transform 0.12s; }
+  html.lowfx .navit b, html.lowfx .sb-user .nm, html.lowfx .navsec { transition: opacity 0.12s, transform 0.12s; }
 
   .sb-user { border-top: 1px solid var(--line); padding: 14px 14px 16px; display: flex; align-items: center; gap: 10px; position: relative; }
   .sb-avatar { position: relative; flex: none; }
@@ -454,7 +459,7 @@
   }
   .sb-user b { font: 600 12.5px Poppins; display: block; color: var(--tx); line-height: 1.25; }
   .sb-user small { font: 500 10.5px Poppins; color: var(--fnt); }
-  .sb-user .nm { min-width: 0; transition: opacity 0.17s ease 0.13s; }
+  .sb-user .nm { min-width: 0; transition: opacity 0.24s cubic-bezier(0.4, 0, 0.2, 1) 0.15s, transform 0.24s cubic-bezier(0.4, 0, 0.2, 1) 0.15s; }
   .sb-user .ibtn { margin-left: auto; }
   .sb-user .ibtn:hover { background: var(--rose-bg); color: var(--c-rose); }
   .sidebar.min .sb-user { flex-direction: column; padding: 12px 0 16px; }

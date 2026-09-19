@@ -76,7 +76,7 @@ export function buildRegisterBookHtml(data: RegisterData, lang: 'en' | 'ml' = 'e
   table{width:100%;border-collapse:collapse;font-size:7.6pt}
   th,td{padding:1.3mm 1.8mm;border:.22mm solid #b9cfc3;text-align:left;vertical-align:top}
   th{background:#eef7f1;font-size:7pt;letter-spacing:.3px}
-  td.num{font-family:'Courier New',monospace;font-weight:700;color:#0e7c5b;width:16mm}
+  td.num{font-weight:700;color:#0e7c5b;width:16mm;font-variant-numeric:tabular-nums;font-family:inherit}
   .foot{position:absolute;left:10mm;right:10mm;bottom:5mm;display:flex;justify-content:space-between;font-size:7pt;color:#8ba096;border-top:.2mm solid #cfdfd6;padding-top:1.5mm}
   .sign-row{display:flex;justify-content:space-between;margin-top:16mm}
   .sign{width:70mm;text-align:center}

@@ -105,6 +105,7 @@ export function buildAccountStatementHtml(rows: LedgerRow[], summary: Summary, f
     method: 'അടവ് രീതി',
     status: 'നില',
     amount: 'തുക',
+    category: 'വിഭാഗം',
     income: 'വരവ്',
     expense: 'ചെലവ്',
     balance: 'ബാലൻസ്',
@@ -158,21 +159,24 @@ export function buildAccountStatementHtml(rows: LedgerRow[], summary: Summary, f
       <td style="padding:7px 8px;text-align:center;font-weight:600;color:${isIn ? '#0eab7f' : '#e8556e'}">${esc(r.type)}</td>
       <td style="padding:7px 8px">${esc(r.description || '—')}</td>
       <td style="padding:7px 8px;text-align:center">${esc(r.category || '—')}</td>
-      <td style="padding:7px 8px;text-align:center;font-family:monospace;font-size:9pt">${esc(r.receipt_number || '—')}</td>
+      <td style="padding:7px 8px;text-align:center;font-variant-numeric:tabular-nums;font-family:inherit">${esc(r.receipt_number || '—')}</td>
       <td style="padding:7px 8px;text-align:center">${esc(r.payment_method || '—')}</td>
       <td style="padding:7px 8px;text-align:center">${r.status === 'Void'
         ? `<span style="color:#b02a37;font-weight:700;letter-spacing:1px">VOID</span>${r.void_reason ? `<div style="font-size:7pt;color:#b02a37">${esc(String(r.void_reason).slice(0, 40))}${String(r.void_reason).length > 40 ? '…' : ''}</div>` : ''}`
         : '<span style="color:#64748b">—</span>'}</td>
       <td style="padding:7px 8px;text-align:right;font-weight:600;color:${isIn ? '#0eab7f' : '#e8556e'};white-space:nowrap">${isIn ? '+' : '−'}${amt}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="8" style="padding:30px;text-align:center;color:#94a3b8">${esc(L.noEntries)}</td></tr>`;
+  }).join('') : `<tr><td colspan="9" style="padding:30px;text-align:center;color:#94a3b8">${esc(L.noEntries)}</td></tr>`;
 
   return `<!doctype html><html lang="${ml ? 'ml' : 'en'}"><head><meta charset="utf-8"><title>${esc(L.title)}</title><style>
 ${anekCss}
 @page{size:A4 portrait;margin:12mm}
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{width:210mm;background:#fff}
-body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayalam Variable","Segoe UI",Arial,sans-serif;color:#1e293b;font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+/* The page box inside a 12mm A4 margin is 186mm wide — sizing the body to
+   the full 210mm paper width pushed the rightmost (Amount) column into the
+   clipped zone (user report: subscription summary table cut off). */
+html,body{width:186mm;background:#fff}
+body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayalam Variable","Segoe UI",Arial,sans-serif;color:#1e293b;font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact;overflow-wrap:anywhere}
 .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0eab7f;padding-bottom:10px;margin-bottom:12px}
 .header-left h1{font-size:16px;font-weight:700;color:#0eab7f;letter-spacing:-0.01em}
 .header-left p{font-size:9px;color:#64748b;margin-top:2px}
@@ -199,7 +203,8 @@ body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayala
 .bd-col.expense h4{color:#e8556e}
 .bd-row{display:flex;justify-content:space-between;font-size:9.5px;padding:2px 0;color:#475569}
 .bd-row b{font-weight:600;color:#1e293b;font-variant-numeric:tabular-nums}
-table{width:100%;border-collapse:collapse;border:1px solid #e6ede7;border-radius:6px;overflow:hidden}
+table{width:100%;border-collapse:collapse;border:1px solid #e6ede7;border-radius:6px;overflow:hidden;table-layout:fixed}
+table th:nth-child(1){width:8.5%}table th:nth-child(2){width:8%}table th:nth-child(3){width:7%}table th:nth-child(4){width:22%}table th:nth-child(5){width:11%}table th:nth-child(6){width:11%}table th:nth-child(7){width:9%}table th:nth-child(8){width:8.5%}table th:nth-child(9){width:15%}
 thead th{background:#f1f5f1;padding:8px;font-size:8.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#475569;border-bottom:2px solid #0eab7f;text-align:left}
 thead th.center{text-align:center}
 thead th.right{text-align:right}

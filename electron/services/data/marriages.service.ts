@@ -28,19 +28,21 @@ export const marriages = {
     // nextRegisterNumber) — COUNT-based numbers collided/lagged when a
     // nikah_date fell outside the current year.
     const num = nextRegisterNumber("marriages", "marriage_number", "MRG");
+    // Approval workflow: nikah registers added by Staff wait for admin approval.
+    const approvalStatus = data.approvalStatus === "pending" ? "pending" : "approved";
     const { id } = run(
       `INSERT INTO marriages
-        (marriage_number, bride_name, bride_father, bride_address, groom_name, groom_father, groom_address, witness1, witness2, witness3, witness4, mahar, nikah_date, registration_date, place, remarks)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (marriage_number, bride_name, bride_father, bride_address, groom_name, groom_father, groom_address, witness1, witness2, witness3, witness4, mahar, nikah_date, registration_date, place, remarks, approval_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         num, data.brideName ?? "", data.brideFather ?? "", data.brideAddress ?? "",
         data.groomName ?? "", data.groomFather ?? "", data.groomAddress ?? "",
         data.witness1 ?? "", data.witness2 ?? "", data.witness3 ?? "", data.witness4 ?? "",
         data.mahar ?? "", data.nikahDate, data.registrationDate || nowDate(),
-        data.place ?? "", data.remarks ?? ""
+        data.place ?? "", data.remarks ?? "", approvalStatus
       ]
     );
-    return { id, marriageNumber: num };
+    return { id, marriageNumber: num, approvalStatus };
   },
   update: (id: number, data: any) =>
     run(
@@ -57,6 +59,6 @@ export const marriages = {
   // Raw rows for the printed marriage register (chronological, numbered).
   registerRows: () => all<any>(
     `SELECT id, marriage_number, nikah_date, bride_name, bride_father, groom_name, groom_father, place, mahar
-     FROM marriages ORDER BY nikah_date ASC, id ASC`
+     FROM marriages WHERE (approval_status IS NULL OR approval_status = 'approved') ORDER BY nikah_date ASC, id ASC`
   ),
 };

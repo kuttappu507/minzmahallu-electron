@@ -24,6 +24,8 @@ async function waitForFonts(win: import("electron").BrowserWindow): Promise<void
         if (document.fonts) {
           await document.fonts.ready;
           await Promise.all([
+            document.fonts.load('700 12pt "Anek Malayalam Variable"'),
+            document.fonts.load('400 12pt "Anek Malayalam Variable"'),
             document.fonts.load('700 12pt "Anek Malayalam"'),
             document.fonts.load('400 12pt "Anek Malayalam"')
           ]);

@@ -138,6 +138,11 @@ export function Subscriptions() {
           toast.success(tx("Receipt delivered to the recipient — it is now locked", "രസീത് സ്വീകർത്താവിന് ലഭിച്ചു — ഇപ്പോൾ ലോക്ക് ചെയ്തിരിക്കുന്നു"));
         } else if (sent?.status === "sent" || sent?.success) {
           toast.warning(tx("Receipt sent — delivery not confirmed yet (the phone may be offline). Not locked; you can send again after confirming it did not arrive.", "രസീത് അയച്ചു — ഡെലിവറി ഉറപ്പാക്കിയിട്ടില്ല (ഫോൺ ഓഫലൈൻ ആകാം). വന്നെത്തിയില്ലെന്ന് ഉറപ്പായാൽ വീണ്ടും അയക്കാം."));
+          // The recipient's phone may confirm delivery a few seconds later —
+          // re-check silently so the lock badge flips WITHOUT the user
+          // re-sending or reopening the page (user report: "it shows it is
+          // not confirmed the delivery").
+          setTimeout(() => { refetch(); }, 15000);
         } else if (sent?.status === "already-delivered") {
           toast.info(tx("Already sent to the recipient — the receipt is locked for their privacy.", "സ്വീകർത്താവിന് ഇതിനകം അയച്ചു — സ്വകാര്യതയ്ക്കായി രസീത് ലോക്ക് ചെയ്തിരിക്കുന്നു."));
         } else if (sent?.status === "no-phone" || sent?.status === "not-connected" || sent?.status === "skipped") {
@@ -278,6 +283,9 @@ export function Subscriptions() {
         toast.success(tx("Receipt delivered to the recipient — it is now locked (one admin re-send remains available)", "രസീത് സ്വീകർത്താവിന് ലഭിച്ചു — ഇപ്പോൾ ലോക്ക് ചെയ്തിരിക്കുന്നു (ഒരു അഡ്മിൻ റീ-സെൻഡ് ലഭ്യമാണ്)"));
       } else if (r?.status === "sent" || r?.success) {
         toast.warning(tx("Receipt sent — delivery not confirmed yet (the phone may be offline). Not locked; you can send again after confirming it did not arrive.", "രസീത് അയച്ചു — ഡെലിവറി ഉറപ്പാക്കിയിട്ടില്ല (ഫോൺ ഓഫലൈൻ ആകാം). ലോക്ക് ചെയ്തിട്ടില്ല; വന്നെത്തിയില്ലെന്ന് ഉറപ്പായാൽ വീണ്ടും അയക്കാം."));
+        // Late delivery check — flip the lock silently when the phone
+        // confirms a few seconds later.
+        setTimeout(() => { refetch(); }, 15000);
       } else if (r?.status === "already-delivered") {
         toast.info(tx("Already sent to the recipient — the receipt is locked for their privacy.", "സ്വീകർത്താവിന് ഇതിനകം അയച്ചു — സ്വകാര്യതയ്ക്കായി രസീത് ലോക്ക് ചെയ്തിരിക്കുന്നു."));
       } else if (r?.status === "already-sent") {
@@ -362,7 +370,7 @@ export function Subscriptions() {
   const columns: Column<Subscription>[] = [
     {
       header: t("member_family"),
-      accessor: (r) => <span className="font-medium">{r.house_name || r.family_number || "—"}</span>,
+      accessor: (r) => <span className="inline-flex items-center gap-1.5"><span className="font-medium">{r.house_name || r.family_number || "—"}</span>{(r as any).approval_status === "pending" && <Badge variant="pending" className="whitespace-nowrap">{t("appr_pending_badge")}</Badge>}</span>,
     },
     { header: tx("Head", "കുടുംബനാഥൻ"), accessor: (r) => r.member_name || "—" },
     { header: tx("Month", "മാസം"), accessor: (r) => monthLabel(r.period_start) },

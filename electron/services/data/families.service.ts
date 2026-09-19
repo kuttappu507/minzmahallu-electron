@@ -39,18 +39,21 @@ export const families = {
     const num = scalar<string>(
       "SELECT 'FAM-' || printf('%04d', COALESCE(MAX(id), 0) + 1) AS n FROM families"
     );
+    // Approval workflow: families added by Staff wait for admin approval.
+    const approvalStatus = data.approvalStatus === "pending" ? "pending" : "approved";
     const { id } = run(
       `INSERT INTO families
-        (family_number, house_name, house_number, ward, area, address, pincode, phone, alternative_phone, status, notes, whatsapp_phone, whatsapp_enabled)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (family_number, house_name, house_number, ward, area, address, pincode, phone, alternative_phone, status, notes, whatsapp_phone, whatsapp_enabled, approval_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         num, data.houseName ?? "", data.houseNumber ?? "", data.ward ?? "",
         data.area ?? "", data.address ?? "", data.pincode ?? "",
         data.phone ?? "", data.altPhone ?? "", data.status ?? "Active",
-        data.notes ?? "", data.whatsappPhone ?? "", data.whatsappEnabled === 0 ? 0 : 1
+        data.notes ?? "", data.whatsappPhone ?? "", data.whatsappEnabled === 0 ? 0 : 1,
+        approvalStatus
       ]
     );
-    return { id, familyNumber: num };
+    return { id, familyNumber: num, approvalStatus };
   },
   update: (id: number, data: any) =>
     run(

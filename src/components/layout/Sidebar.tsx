@@ -1,19 +1,30 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Home, User, Briefcase, Users, Receipt, Gift, Calculator, Gem, Flower, Activity, Award, Ticket, BarChart3, Sliders, Users as UsersIcon, FileText, Database, LogOut, ChevronRight, MessageCircle, Landmark } from "lucide-react";
+import { LayoutDashboard, Home, User, Briefcase, Users, Receipt, Gift, Calculator, Gem, Flower, Activity, Award, Ticket, BarChart3, Sliders, Users as UsersIcon, FileText, Database, LogOut, ChevronRight, MessageCircle, Landmark, ShieldCheck } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
-const NAV=[{id:"dash",to:"/",icon:LayoutDashboard,key:"nav_dashboard"},{sec:"Management"},{id:"families",to:"/families",icon:Home,key:"nav_families"},{id:"members",to:"/members",icon:User,key:"nav_members"},{id:"staff",to:"/staff",icon:Briefcase,key:"nav_staff"},{id:"committee",to:"/committee",icon:Users,key:"nav_committee"},{id:"subs",to:"/subscriptions",icon:Receipt,key:"nav_subscriptions"},{id:"dons",to:"/donations",icon:Gift,key:"nav_donations"},{id:"whatsapp",to:"/whatsapp",icon:MessageCircle,key:"nav_whatsapp"},{sec:"Finance"},{id:"acct",to:"/accounting",icon:Calculator,key:"nav_accounting"},{id:"assets",to:"/assets",icon:Landmark,key:"nav_assets"},{sec:"Registers"},{id:"marriage",to:"/marriages",icon:Gem,key:"nav_marriage"},{id:"death",to:"/deaths",icon:Flower,key:"nav_death"},{id:"welfare",to:"/welfare",icon:Activity,key:"nav_welfare"},{id:"certs",to:"/certificates",icon:Award,key:"nav_certificates"},{id:"tokens",to:"/tokens",icon:Ticket,key:"nav_tokens"},{sec:"System"},{id:"reports",to:"/reports",icon:BarChart3,key:"nav_reports"},{id:"settings",to:"/settings",icon:Sliders,key:"nav_settings"},{id:"users",to:"/users",icon:UsersIcon,key:"nav_users"},{id:"audit",to:"/audit",icon:FileText,key:"nav_audit"},{id:"backup",to:"/backup",icon:Database,key:"nav_backup"}];
-const TINTS:Record<string,string>={dash:"t-em",families:"t-em",members:"t-teal",staff:"t-vio",committee:"t-cyan",subs:"t-gold",dons:"t-pink",whatsapp:"t-teal",acct:"t-sky",assets:"t-teal",marriage:"t-vio",death:"t-slate",welfare:"t-orange",certs:"t-cyan",tokens:"t-pink",reports:"t-blue",settings:"t-vio",users:"t-blue",audit:"t-gold",backup:"t-teal"};
+const NAV=[{id:"dash",to:"/",icon:LayoutDashboard,key:"nav_dashboard"},{sec:"Management"},{id:"families",to:"/families",icon:Home,key:"nav_families"},{id:"members",to:"/members",icon:User,key:"nav_members"},{id:"staff",to:"/staff",icon:Briefcase,key:"nav_staff"},{id:"committee",to:"/committee",icon:Users,key:"nav_committee"},{id:"subs",to:"/subscriptions",icon:Receipt,key:"nav_subscriptions"},{id:"dons",to:"/donations",icon:Gift,key:"nav_donations"},{id:"whatsapp",to:"/whatsapp",icon:MessageCircle,key:"nav_whatsapp"},{sec:"Finance"},{id:"acct",to:"/accounting",icon:Calculator,key:"nav_accounting"},{id:"assets",to:"/assets",icon:Landmark,key:"nav_assets"},{sec:"Registers"},{id:"marriage",to:"/marriages",icon:Gem,key:"nav_marriage"},{id:"death",to:"/deaths",icon:Flower,key:"nav_death"},{id:"welfare",to:"/welfare",icon:Activity,key:"nav_welfare"},{id:"certs",to:"/certificates",icon:Award,key:"nav_certificates"},{id:"tokens",to:"/tokens",icon:Ticket,key:"nav_tokens"},{sec:"System"},{id:"reports",to:"/reports",icon:BarChart3,key:"nav_reports"},{id:"approvals",to:"/approvals",icon:ShieldCheck,key:"nav_approvals"},{id:"settings",to:"/settings",icon:Sliders,key:"nav_settings"},{id:"users",to:"/users",icon:UsersIcon,key:"nav_users"},{id:"audit",to:"/audit",icon:FileText,key:"nav_audit"},{id:"backup",to:"/backup",icon:Database,key:"nav_backup"}];
+const TINTS:Record<string,string>={dash:"t-em",families:"t-em",members:"t-teal",staff:"t-vio",committee:"t-cyan",subs:"t-gold",dons:"t-pink",whatsapp:"t-teal",acct:"t-sky",assets:"t-teal",marriage:"t-vio",death:"t-slate",welfare:"t-orange",certs:"t-cyan",tokens:"t-pink",reports:"t-blue",approvals:"t-gold",settings:"t-vio",users:"t-blue",audit:"t-gold",backup:"t-teal"};
 const sectionLabel:Record<string,string>={Management:"നടത്തിപ്പ്",Finance:"സാമ്പത്തികം",Registers:"രജിസ്റ്ററുകൾ",System:"സിസ്റ്റം"};
 // Every real role in the app (matches Users.tsx) — the old map only knew
 // Manager/Operator/Viewer, so actual roles fell back to raw English.
-function roleLabel(role:string|undefined,ml:boolean){if(!role)return "—";if(!ml)return role;return ({Administrator:"അഡ്മിൻ",President:"പ്രസിഡന്റ്",Secretary:"സെക്രട്ടറി",Treasurer:"ട്രഷറർ",Imam:"ഇമാം",Staff:"ജീവനക്കാൻ",Auditor:"ഓഡിറ്റർ",Manager:"മാനേജർ",Operator:"ഓപ്പറേറ്റർ",Viewer:"വ്യൂവർ"} as Record<string,string>)[role]||role;}
+function roleLabel(role:string|undefined,ml:boolean){if(!role)return "—";if(!ml)return role;return ({Administrator:"അഡ്മിൻ",President:"പ്രസിഡന്റ്",Secretary:"സെക്രട്ടറി",Treasurer:"ട്രഷറർ",Imam:"ഇമാം",Staff:"ജീവനക്കാരൻ",Member:"അംഗം",Auditor:"ഓഡിറ്റർ",Manager:"മാനേജർ",Operator:"ഓപ്പറേറ്റർ",Viewer:"വ്യൂവർ"} as Record<string,string>)[role]||role;}
 export function Sidebar(){
   const {t,lang}=useI18n();const {user,logout}=useAuth();const navigate=useNavigate();
   const [collapsed,setCollapsed]=useState(false);const [tip,setTip]=useState<{text:string;top:number}|null>(null);
+  // Approval queue: only full-power accounts (Administrator/Secretary) see the
+  // Approvals entry, with a live pending count badge.
+  const canApprove=user?.role==="Administrator"||user?.role==="Secretary";
+  const [pendingApprovals,setPendingApprovals]=useState(0);
   const ml=lang==="ml";
+  useEffect(()=>{
+    if(!canApprove)return;
+    let live=false;
+    const load=async()=>{try{const r:any=await window.mms.approvals?.pendingCount?.();if(live&&r)setPendingApprovals(Number(r.count||0));}catch{/* role may lack access — ignore */}};
+    load();const timer=setInterval(load,15000);
+    return()=>{live=false;clearInterval(timer);};
+  },[canApprove]);
   // AUTO-DETECT: narrow window ⇒ collapse to the icon rail, wide window ⇒
   // expand again (user report: the automatic detection never worked). The
   // flap button still allows a manual toggle at any size.
@@ -31,6 +42,8 @@ export function Sidebar(){
     <div className="navscroll" onMouseLeave={()=>setTip(null)}>
       {NAV.map((item,i)=>{
         if(item.sec)return <div key={`sec-${i}`} className="navsec">{collapsed?"":sectionText(item.sec)}</div>;
+        // Approvals is role-gated IN THE UI too (the IPC layer enforces it as well).
+        if(item.id==="approvals"&&!canApprove)return null;
         const Icon=item.icon!;
         return <NavLink key={item.id} to={item.to!} end={item.to==="/"}
           className={({isActive})=>cn("navit",TINTS[item.id!],isActive&&"on")}
@@ -41,6 +54,7 @@ export function Sidebar(){
               flow while the width glides, so the old "icons-only flash"
               before the panel finished collapsing is gone. */}
           <b>{t(item.key!)}</b>
+          {item.id==="approvals"&&pendingApprovals>0&&<span className="navbadge">{pendingApprovals}</span>}
           <i className="navit-dot" aria-hidden="true"/>
         </NavLink>
       })}

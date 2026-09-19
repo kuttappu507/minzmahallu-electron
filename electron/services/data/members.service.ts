@@ -73,10 +73,12 @@ export const members = {
       "SELECT 'MBR-' || printf('%04d', COALESCE(MAX(id), 0) + 1) AS n FROM members"
     );
     const isHead = data.relationship === "Head" ? 1 : 0;
+    // Approval workflow: Member/Staff additions wait for admin approval.
+    const approvalStatus = data.approvalStatus === "pending" ? "pending" : "approved";
     const { id } = run(
       `INSERT INTO members
-        (member_code, family_id, name, arabic_name, father_name, gender, date_of_birth, age, blood_group, occupation, education, marital_status, mobile, email, emergency_contact, relationship, is_head, status, nationality, address, father_id, mother_id, spouse_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (member_code, family_id, name, arabic_name, father_name, gender, date_of_birth, age, blood_group, occupation, education, marital_status, mobile, email, emergency_contact, relationship, is_head, status, nationality, address, father_id, mother_id, spouse_id, approval_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         num, data.familyId, data.name ?? "", data.arabicName ?? "",
         data.fatherName ?? "", data.gender ?? "Male", data.dateOfBirth ?? "", data.age ?? null,
@@ -86,10 +88,11 @@ export const members = {
         data.relationship ?? "Other", isHead,
         data.status ?? "Active",
         data.nationality ?? "Indian", data.address ?? "",
-        data.fatherId ?? null, data.motherId ?? null, data.spouseId ?? null
+        data.fatherId ?? null, data.motherId ?? null, data.spouseId ?? null,
+        approvalStatus
       ]
     );
-    return { id, memberCode: num };
+    return { id, memberCode: num, approvalStatus };
   },
   update: (id: number, data: any) => {
     if (data.relationship === "Head") members.assertSingleHead(data.familyId, id);

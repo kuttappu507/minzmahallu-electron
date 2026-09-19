@@ -58,6 +58,11 @@ let startPromise: Promise<void> | null = null;
 let reconnectTimer: NodeJS.Timeout | null = null;
 let reconnectAttempts = 0;
 let lastAutoAttempt = 0;
+// One-shot guard for the loggedOut recovery: a truncated/rotated key file can
+// present as "logged out" even though the phone still lists the device. We
+// retry ONCE with the verified creds.json.bak before declaring the pairing
+// dead and wiping it. Reset on every successful connection.open.
+let loggedOutRetryUsed = false;
 // Latest credential saver handed to us by useMultiFileAuthState. Quit calls it
 // once more and AWAITS it — Baileys otherwise writes creds asynchronously and
 // a hard exit can drop a pending key rotation, which the next start then reads
@@ -140,6 +145,25 @@ function setState(next: EngineState, error = "") {
   else if (error === "") lastError = "";
 }
 
+/** Restore creds.json from the verified backup (creds.json.bak). Returns
+ *  true when a complete, registered backup was copied over the live file. */
+function restoreBackupCreds(): boolean {
+  const dir = authDir();
+  if (!dir) return false;
+  const bak = path.join(dir, "creds.json.bak");
+  if (!fs.existsSync(bak)) return false;
+  try {
+    const raw = fs.readFileSync(bak, "utf-8");
+    const creds = JSON.parse(raw);
+    if (creds?.registered === true) {
+      fs.writeFileSync(path.join(dir, "creds.json"), raw);
+      console.log("[whatsapp] Restored WhatsApp session from creds.json.bak");
+      return true;
+    }
+  } catch { /* unusable backup */ }
+  return false;
+}
+
 /** A paired session's credentials exist AND registration completed on disk.
  * Leftovers from an ABORTED pairing (creds.json written before the QR was
  * scanned) are wiped so the next start doesn't run a doomed handshake that
@@ -147,11 +171,21 @@ function setState(next: EngineState, error = "") {
 export function hasPersistedSession(): boolean {
   const dir = authDir();
   if (!dir) return false;
+  const credsPath = path.join(dir, "creds.json");
+  // MISSING live file: a previous exit may have been killed mid-write with no
+  // chance to run the recovery path. The verified backup MUST be tried before
+  // answering "no session" — otherwise the app asks for a fresh QR even
+  // though the phone still lists the device (user report: pairing lost after
+  // closing, "still"). Previously only the UNREADABLE-file branch restored.
+  if (!fs.existsSync(credsPath)) {
+    return restoreBackupCreds();
+  }
   try {
-    const credsPath = path.join(dir, "creds.json");
-    if (!fs.existsSync(credsPath)) return false;
     const creds = JSON.parse(fs.readFileSync(credsPath, "utf-8"));
     if (creds?.registered === true) return true;
+    // Live file parses but is NOT registered. If a VERIFIED backup exists,
+    // prefer it over wiping — the pairing may still be alive on the phone.
+    if (restoreBackupCreds()) return true;
     // Only wipe when no socket is live — mid-pairing creds are expected to
     // be unregistered for a while and must not be destroyed.
     if (!sock && !startPromise) {
@@ -162,19 +196,7 @@ export function hasPersistedSession(): boolean {
     // Live creds.json is UNREADABLE (truncated by a hard exit, antivirus
     // lock, …). The phone still lists the device, so restore the last
     // verified backup — the keys in it are what the server knows.
-    const bak = path.join(dir, "creds.json.bak");
-    if (fs.existsSync(bak)) {
-      try {
-        const raw = fs.readFileSync(bak, "utf-8");
-        const creds = JSON.parse(raw);
-        if (creds?.registered === true) {
-          fs.writeFileSync(path.join(dir, "creds.json"), raw);
-          console.log("[whatsapp] Restored WhatsApp session from creds.json.bak (live file was unreadable)");
-          return true;
-        }
-      } catch { /* unusable backup */ }
-    }
-    return false;
+    return restoreBackupCreds();
   }
 }
 
@@ -258,6 +280,7 @@ async function onConnectionUpdate(update: Partial<ConnectionState>) {
 
   if (connection === "open") {
     qrDataUrl = "";
+    loggedOutRetryUsed = false;
     const user = (current as any).user;
     me = {
       number: String(user?.id || "").replace(/@.*$/, ""),
@@ -272,6 +295,16 @@ async function onConnectionUpdate(update: Partial<ConnectionState>) {
     const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
     const reason = String((lastDisconnect?.error as any)?.message || "");
     if (statusCode === DisconnectReason.loggedOut) {
+      // One-shot second chance: try the verified backup ONCE before wiping —
+      // a mid-write kill can surface as loggedOut while the phone still
+      // lists the device. If the retry also 401s, the pairing is truly dead.
+      if (!loggedOutRetryUsed && restoreBackupCreds()) {
+        loggedOutRetryUsed = true;
+        sock = null;
+        setState("RECONNECTING", "Retrying with the backed-up WhatsApp session…");
+        scheduleReconnect();
+        return;
+      }
       // The phone unlinked this device — credentials are dead. Wipe them so
       // the next Connect shows a fresh QR instead of a doomed handshake.
       resetAuth();
