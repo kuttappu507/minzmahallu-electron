@@ -4,6 +4,7 @@ import {
   startEngine, maybeStartEngine, stopEngine, currentQr, engineState,
   requireConnectedSocket, resolveJid, engineSendText, engineSendDocument,
   clearLegacyWahaData, onDelivery, isDelivered, waitForDelivery, whatsappStoreDir,
+  requestPairingCode,
 } from "./whatsapp-engine.service.js";
 import { SendThrottle } from "./whatsapp-throttle.js";
 import {
@@ -421,6 +422,19 @@ export const whatsapp = {
     ensureSchema();
     return currentQr(25000);
   },
+  // Phone-number pairing — the QR-free alternative path. Same ToS consent
+  // gate as connect(): the first pairing must be acknowledged.
+  pairingCode: async (phone: string) => {
+    ensureSchema();
+    const settings = getDB().prepare("SELECT tos_ack_at FROM whatsapp_settings WHERE id=1").get() as any;
+    if (!String(settings?.tos_ack_at || "")) {
+      throw new Error("Before connecting, please read and accept the WhatsApp safety notice on this page (tick the box, then try again).");
+    }
+    const digits = String(phone || "").replace(/\D/g, "");
+    if (digits.length === 10) return requestPairingCode(`91${digits}`);
+    if (digits.length >= 11 && digits.length <= 15) return requestPairingCode(digits);
+    throw new Error("Enter the WhatsApp number with country code (e.g. 91XXXXXXXXXX)");
+  },
   disconnect: async () => {
     ensureSchema();
     // PAUSE, not logout: the engine stops but the paired device STAYS linked
@@ -713,3 +727,60 @@ export const whatsapp = {
 };
 
 export { checkInternet };
+
+// ---------------------------------------------------------------------------
+// Welfare disbursement notification (v2.4.0 user request): when a welfare
+// request is marked Disbursed, a WhatsApp message goes to the family — the
+// family's WhatsApp number, or the family phone when no WhatsApp number is
+// set. Best-effort by design: a missing number, opted-out family, no internet
+// or an unpaired session NEVER fails the disbursement; the attempt (or its
+// failure reason) is still recorded in the WhatsApp message history so the
+// office can see what happened and fix the record.
+// ---------------------------------------------------------------------------
+export async function sendWelfareDisbursedMessage(welfareId: number): Promise<{ sent?: boolean; skipped?: string; error?: string }> {
+  ensureSchema();
+  const w = getDB().prepare(
+    "SELECT id, request_number, applicant_name, category, amount_approved, family_id, disbursed_date FROM welfare_requests WHERE id = ?"
+  ).get(Number(welfareId)) as any;
+  if (!w) return { skipped: "welfare request not found" };
+
+  const fam = w.family_id
+    ? getDB().prepare("SELECT id, house_name, phone, whatsapp_phone, whatsapp_enabled FROM families WHERE id = ?").get(Number(w.family_id)) as any
+    : null;
+  // Opted-out families are honoured (same policy as bulk campaigns).
+  const optedOut = fam && Number(fam.whatsapp_enabled) === 0;
+  const phone = optedOut ? "" : normalizePhone(fam?.whatsapp_phone || fam?.phone || "");
+  if (!phone) {
+    saveMessage({
+      type: "WELFARE_DISBURSED", name: String(w.applicant_name || ""), phone: "",
+      text: "", status: "FAILED", familyId: w.family_id ?? null,
+      error: optedOut ? "The family has opted out of WhatsApp messages" : "No WhatsApp/phone number saved for the family",
+    });
+    return { skipped: optedOut ? "opted out" : "no number" };
+  }
+
+  const s = getDB().prepare("SELECT mahallu_name, language, currency_symbol FROM settings WHERE id = 1").get() as any;
+  const ml = String(s?.language || "en") === "ml";
+  const org = String(s?.mahallu_name || "Mahallu");
+  const cur = String(s?.currency_symbol || "₹");
+  const amount = `${cur}${Number(w.amount_approved || 0).toLocaleString("en-IN")}`;
+  const date = fmtDdMmYyyy(String(w.disbursed_date || ""));
+  const category = String(w.category || "").trim();
+  const applicant = String(w.applicant_name || "").trim();
+  const text = ml
+    ? `സലാം! ${org} ക്ഷേമനിധി: ${applicant} എന്നയാൾക്കുള്ള${category ? ` ${category}` : ""} സഹായമായി ${amount} ${date}-ന് വിതരണം ചെയ്തു. — ${org} ഓഫീസ്`
+    : `Assalamu Alaikkum! ${amount}${category ? ` (${category})` : ""} from the ${org} welfare fund was disbursed to ${applicant} on ${date}. — ${org} Office`;
+
+  try {
+    await requireInternet();
+    const result = await sendTextInternal(phone, text);
+    saveMessage({ type: "WELFARE_DISBURSED", name: applicant, phone, text, status: "SENT", familyId: w.family_id ?? null, providerId: result.id });
+    return { sent: true };
+  } catch (err: any) {
+    saveMessage({
+      type: "WELFARE_DISBURSED", name: applicant, phone, text, status: "FAILED",
+      familyId: w.family_id ?? null, error: String(err?.message || err),
+    });
+    return { error: String(err?.message || err) };
+  }
+}

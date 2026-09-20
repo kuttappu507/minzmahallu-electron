@@ -28,7 +28,7 @@ export const members = {
         params.push(filter.status);
       }
     }
-    const sql = `SELECT m.*, f.family_number, f.house_name AS family_house_name
+    const sql = `SELECT m.*, f.family_number, f.house_name AS family_house_name, f.area AS family_area
       FROM members m LEFT JOIN families f ON f.id = m.family_id
       WHERE ${where.join(" AND ")}
       ORDER BY m.member_code ASC`;

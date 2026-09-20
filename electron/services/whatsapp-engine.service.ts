@@ -224,9 +224,16 @@ async function connectInternal(): Promise<void> {
   fs.mkdirSync(dir, { recursive: true });
   clearReconnectTimer();
   const { state: authState, saveCreds } = await useMultiFileAuthState(dir);
+  // Live WA Web version: required for a successful handshake. The remote fetch
+  // can hang when a proxy/firewall slows the endpoint — bound it to 8s so the
+  // socket still opens with Baileys' bundled version instead of hanging (user
+  // report: pairing stuck forever on "Starting").
   let version: [number, number, number] | undefined;
   try {
-    const fetched = await fetchLatestWaWebVersion();
+    const fetched = await Promise.race([
+      fetchLatestWaWebVersion(),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
+    ]);
     version = fetched?.version || undefined;
   } catch { /* offline or blocked — Baileys falls back to its bundled version */ }
 
@@ -236,7 +243,10 @@ async function connectInternal(): Promise<void> {
       keys: makeCacheableSignalKeyStore(authState.keys, silentLogger),
     },
     logger: silentLogger,
-    browser: Browsers.ubuntu("Chrome"),
+    // macOS/Chrome fingerprint pairs most reliably with the current WA Web
+    // protocol — the Ubuntu fingerprint used before was being rejected
+    // outright by some servers (user report: "pairing is failing").
+    browser: Browsers.macOS("Chrome"),
     version,
     markOnlineOnConnect: false,
     generateHighQualityLinkPreview: false,
@@ -452,6 +462,38 @@ export async function currentQr(waitMs = 25000): Promise<string> {
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   throw new Error("QR code is not available yet");
+}
+
+/** Phone-number pairing ("Link with phone number") — the ALTERNATIVE to the
+ *  QR scan, added because QR pairing was failing for some users. Requests an
+ *  8-character code that the user types into WhatsApp on the phone:
+ *  WhatsApp → Settings → Linked Devices → Link a Device → Link with phone
+ *  number instead. Must run while the session is UNPAIRED. */
+export async function requestPairingCode(phone: string, waitMs = 20000): Promise<string> {
+  if (hasPersistedSession()) {
+    throw new Error("WhatsApp is already paired. Unlink the phone first if you want to pair a different device.");
+  }
+  if (!sock && !startPromise) await startEngine().catch(() => { /* surfaced below */ });
+  const deadline = Date.now() + waitMs;
+  while (Date.now() < deadline) {
+    const s = sock;
+    if (s) {
+      try {
+        const raw = await (s as any).requestPairingCode(phone);
+        const code = String(raw || "").replace(/[^A-Z0-9]/gi, "").toUpperCase();
+        if (code.length < 4) throw new Error("WhatsApp did not return a pairing code. Try again.");
+        // WhatsApp's own UI shows the code in two blocks of four.
+        return code.length > 4 ? `${code.slice(0, 4)}-${code.slice(4, 8)}` : code;
+      } catch (err: any) {
+        throw new Error(String(err?.message || err) || "Could not request a pairing code");
+      }
+    }
+    if (!sock && !startPromise && state === "IDLE" && lastError) {
+      throw new Error(lastError ? `Could not start WhatsApp: ${lastError}` : "Pairing code is not available yet");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+  throw new Error("Pairing code is not available yet — check the internet connection and try again");
 }
 
 /** Socket for interactive actions — throws actionable guidance when the

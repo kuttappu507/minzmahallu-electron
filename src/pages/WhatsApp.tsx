@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   MessageCircle, RefreshCw, Smartphone, Wifi, WifiOff, Send, ShieldCheck,
-  Clock3, Megaphone, ReceiptText, RotateCcw, AlertTriangle, Users, Power, Unlink,
+  Clock3, Megaphone, ReceiptText, RotateCcw, AlertTriangle, Users, Power, Unlink, Loader2,
 } from "lucide-react";
 import { Button, Badge, Textarea } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -48,6 +48,10 @@ export function WhatsApp() {
   const [subStats, setSubStats] = useState<any>(null);
   const [annStats, setAnnStats] = useState<any>(null);
   const [unlinkOpen, setUnlinkOpen] = useState(false);
+  // Phone-number pairing (QR-free alternative path).
+  const [pairPhone, setPairPhone] = useState("");
+  const [pairCode, setPairCode] = useState("");
+  const [pairBusy, setPairBusy] = useState(false);
   // ToS safety notice: the checkbox must be ticked before the FIRST pairing
   // (until `status.tosAcked` comes back true from the main process).
   const [tosCheck, setTosCheck] = useState(false);
@@ -107,6 +111,22 @@ export function WhatsApp() {
   const loadQr = async () => {
     try { setQr(await window.mms.whatsapp.qr()); }
     catch (e: any) { toast.error(e?.message || tx("QR code is not ready yet", "QR കോഡ് ഇതുവരെ തയ്യാറായിട്ടില്ല")); }
+  };
+
+  // Pair with the phone NUMBER instead of scanning the QR code — for phones
+  // / cameras where QR pairing keeps failing. The 8-character code is typed
+  // on the phone: WhatsApp → Settings → Linked Devices → Link a Device →
+  // "Link with phone number instead".
+  const requestPairing = async () => {
+    if (!pairPhone.trim()) { toast.error(tx("Enter the WhatsApp number", "വാട്ട്സ്ആപ്പ് നമ്പർ നൽകുക")); return; }
+    setPairBusy(true);
+    try {
+      const code = await window.mms.whatsapp.pairingCode(pairPhone.trim());
+      setPairCode(code);
+      toast.success(tx("Pairing code ready — enter it on the phone", "പെയറിംഗ് കോഡ് തയ്യാർ — ഫോണിൽ നൽകുക"));
+    } catch (e: any) {
+      toast.error(e?.message || tx("Could not request a pairing code", "പെയറിംഗ് കോഡ് ലഭിച്ചില്ല"));
+    } finally { setPairBusy(false); }
   };
 
   // PAUSE — the engine stops but the device stays linked on the phone, so
@@ -213,6 +233,41 @@ export function WhatsApp() {
                 ? <img src={qr} alt={tx("WhatsApp QR code", "വാട്ട്സ്ആപ്പ് QR കോഡ്")} className="wa-qr-img" />
                 : <div className="wa-qr-empty">{tx("QR code will appear here", "QR കോഡ് ഇവിടെ കാണും")}</div>}
               <Button variant="secondary" size="sm" onClick={loadQr}><RefreshCw className="h-4 w-4" />{tx("Refresh QR", "പുതിയ QR എടുക്കുക")}</Button>
+            </div>
+          )}
+
+          {/* QR-FREE PAIRING — phone number + 8-character code. Shown whenever
+              the session is not connected (after the safety notice), so it is
+              also a fallback when the QR handshake keeps failing. */}
+          {!needsTosAck && !connected && (
+            <div className="wa-pair" data-testid="wa-pair">
+              <div className="wa-pair-title">{tx("QR not working? Pair with the phone number instead", "QR വഴി കഴിയുന്നില്ലേ? ഫോൺ നമ്പർ വഴി പെയർ ചെയ്യുക")}</div>
+              {pairCode ? (
+                <div className="wa-pair-done">
+                  <div className="wa-pair-code">{pairCode}</div>
+                  <ol className="wa-pair-steps">
+                    <li>{tx("Open WhatsApp on the phone", "ഫോണിൽ WhatsApp തുറക്കുക")}</li>
+                    <li>{tx("Settings → Linked Devices → Link a Device", "Settings → Linked Devices → Link a Device")}</li>
+                    <li>{tx("Tap “Link with phone number instead” and type this code", "“Link with phone number instead” അമർത്തി ഈ കോഡ് നൽകുക")}</li>
+                  </ol>
+                  <Button variant="secondary" size="sm" onClick={() => { setPairCode(""); }} disabled={pairBusy}><RefreshCw className="h-4 w-4" />{tx("Get a new code", "പുതിയ കോഡ് എടുക്കുക")}</Button>
+                </div>
+              ) : (
+                <div className="wa-pair-form">
+                  <input
+                    className="wa-pair-input"
+                    value={pairPhone}
+                    onChange={(e) => setPairPhone(e.target.value.replace(/[^0-9+ ]/g, ""))}
+                    placeholder={tx("WhatsApp number (10 digits or with 91)", "വാട്ട്സ്ആപ്പ് നമ്പർ (10 അക്കം / 91 സഹിതം)")}
+                    inputMode="tel"
+                    disabled={pairBusy}
+                  />
+                  <Button variant="secondary" size="sm" onClick={requestPairing} disabled={pairBusy || !status.internet}>
+                    {pairBusy ? <Loader2 size={14} className="animate-spin" /> : <Smartphone className="h-4 w-4" />}
+                    {tx("Get pairing code", "പെയറിംഗ് കോഡ് എടുക്കുക")}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 

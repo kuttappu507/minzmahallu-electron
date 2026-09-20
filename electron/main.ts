@@ -22,6 +22,7 @@ import { buildRegisterBookHtml } from "./print/register-book.template.js";
 import { getAnekMalayalamCss } from "./print/utils.js";
 import { registerSecurityIpc } from "./security-ipc.js";
 import { registerWhatsAppIpc } from "./whatsapp-ipc.js";
+import { sendWelfareDisbursedMessage } from "./services/whatsapp.service.js";
 import { registerReceiptIpc } from "./receipt-ipc.js";
 import { verifyUninstallPassword, UNINSTALL_ADMIN_SQL } from "./services/uninstall-guard.js";
 import { registerUpdateIpc, scheduleMonthlyUpdateCheck } from "./update-check.js";
@@ -377,7 +378,15 @@ app.whenReady().then(() => {
   ipcMain.handle("welfare:update", (_e, id, d) => data.welfare.update(id, d));
   ipcMain.handle("welfare:approve", (_e, id, amount, remarks) => data.welfare.approve(id, amount, remarks, session.user?.id ?? 1));
   ipcMain.handle("welfare:reject", (_e, id, reason) => data.welfare.reject(id, reason, session.user?.id ?? 1));
-  ipcMain.handle("welfare:disburse", (_e, id) => data.welfare.disburse(id, session.user?.id ?? 1));
+  ipcMain.handle("welfare:disburse", (_e, id) => {
+    const result = data.welfare.disburse(id, session.user?.id ?? 1);
+    // WhatsApp notification to the family — best-effort, fire-and-forget:
+    // a missing number / opted-out family / unpaired session must never fail
+    // the disbursement itself. The attempt (or its reason) lands in the
+    // WhatsApp message history either way.
+    void sendWelfareDisbursedMessage(Number(id)).catch(() => { /* recorded */ });
+    return result;
+  });
   ipcMain.handle("welfare:remove", (_e, id) => data.welfare.remove(id));
   ipcMain.handle("welfare:categories", () => data.welfare.categories());
   ipcMain.handle("certificates:list", (_e, filter) => data.certificates.list(filter || {}));

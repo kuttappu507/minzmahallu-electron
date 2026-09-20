@@ -41,6 +41,8 @@ export function registerWhatsAppIpc(getActor: () => Actor | null) {
   register("whatsapp:connect", (opts?: { acknowledged?: boolean }) => { requireAuth(); return whatsapp.connect(opts || {}); });
   register("whatsapp:ackToS", () => { requireAuth(); return whatsapp.acknowledgeToS(); });
   register("whatsapp:qr", () => { requireAuth(); return whatsapp.qr(); });
+  // Phone-number pairing — QR-free alternative ("Link with phone number").
+  register("whatsapp:pairingCode", (phone: string) => { requireAuth(); return whatsapp.pairingCode(phone); });
   // PAUSE the engine — the paired device stays linked on the phone, so
   // Connect resumes without a new QR scan.
   register("whatsapp:disconnect", () => { requireAuth(); return whatsapp.disconnect(); });

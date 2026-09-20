@@ -2,6 +2,11 @@
  * Register-book printing — a paginated, numbered marriage / death register in
  * the style of the official mahallu registers, with signature lines and an
  * integrity line ("N entries, no deletions").
+ *
+ * v2.4.0 redesign (user report: the register PDF "did not look good") —
+ * a proper document header (mahallu name + register title + date), a separate
+ * serial-number column, roomier rows with zebra striping, a cleaner footer
+ * and a proper signature block.
  */
 import { esc } from "./utils.js";
 import { getAnekMalayalamCss } from "./utils.js";
@@ -16,7 +21,7 @@ export interface RegisterData {
   generatedAt: string;
 }
 
-const ENTRIES_PER_PAGE = 22;
+const ENTRIES_PER_PAGE = 20;
 
 /**
  * Map a raw register row to display columns with localized labels.
@@ -68,55 +73,72 @@ export function buildRegisterBookHtml(data: RegisterData, lang: 'en' | 'ml' = 'e
   @page{size:A4 landscape;margin:0}
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayalam Variable","Segoe UI",Arial,sans-serif;color:#1a2b22;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .page{width:297mm;min-height:210mm;padding:8mm 10mm;position:relative;page-break-after:always}
+  .page{width:297mm;min-height:210mm;padding:0;position:relative;page-break-after:always;display:flex;flex-direction:column}
   .page:last-child{page-break-after:auto}
-  .head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:.4mm solid #0e7c5b;padding-bottom:2mm;margin-bottom:3mm}
-  .head .t{font-size:14pt;font-weight:700;color:#0e7c5b;letter-spacing:1px}
-  .head .s{font-size:8.5pt;color:#5f7268}
-  table{width:100%;border-collapse:collapse;font-size:7.6pt}
-  th,td{padding:1.3mm 1.8mm;border:.22mm solid #b9cfc3;text-align:left;vertical-align:top}
-  th{background:#eef7f1;font-size:7pt;letter-spacing:.3px}
-  td.num{font-weight:700;color:#0e7c5b;width:16mm;font-variant-numeric:tabular-nums;font-family:inherit}
-  .foot{position:absolute;left:10mm;right:10mm;bottom:5mm;display:flex;justify-content:space-between;font-size:7pt;color:#8ba096;border-top:.2mm solid #cfdfd6;padding-top:1.5mm}
-  .sign-row{display:flex;justify-content:space-between;margin-top:16mm}
-  .sign{width:70mm;text-align:center}
-  .sign .line{border-top:.3mm solid #5f7268;margin-top:16mm;padding-top:1.5mm;font-size:8pt}
-  .integrity{margin-top:8mm;padding:3mm 4mm;border:.35mm solid #0e7c5b;border-radius:1.5mm;background:#f2faf6;font-size:8.5pt;text-align:center}
+  /* Document header — a full-width green band, like the printed mahallu registers */
+  .band{background:linear-gradient(90deg,#0b6b4f,#0e7c5b 55%,#159b78);color:#fff;padding:7mm 12mm 6mm;display:flex;justify-content:space-between;align-items:center}
+  .band .l{display:flex;align-items:center;gap:4.5mm}
+  .band .logo{width:13mm;height:13mm;border-radius:3mm;background:rgba(255,255,255,.16);border:.4mm solid rgba(255,255,255,.55);display:grid;place-items:center;font-weight:800;font-size:6mm;font-family:Poppins,Arial,sans-serif}
+  .band .org{font-size:13.5pt;font-weight:700;letter-spacing:.2px}
+  .band .org small{display:block;font-size:7.5pt;font-weight:500;opacity:.85;margin-top:.8mm;letter-spacing:1.6px;text-transform:uppercase}
+  .band .t{text-align:right}
+  .band .t b{display:block;font-size:15pt;font-weight:800;letter-spacing:1.5px}
+  .band .t span{display:block;font-size:8pt;opacity:.9;margin-top:1.2mm}
+  /* Meta strip under the band */
+  .meta{display:flex;justify-content:space-between;align-items:center;background:#eef7f1;border-bottom:.3mm solid #cfe3d8;padding:2.6mm 12mm;font-size:8pt;color:#41584d}
+  .meta b{color:#0e7c5b}
+  /* Table area fills the sheet; footer pinned to the bottom */
+  .tbody{flex:1;padding:5mm 12mm 0}
+  table{width:100%;border-collapse:collapse;font-size:8.4pt}
+  th,td{padding:2.2mm 2.4mm;border:.24mm solid #b9cfc3;text-align:left;vertical-align:top}
+  th{background:#0e7c5b;color:#fff;font-size:7.8pt;font-weight:700;letter-spacing:.4px;border-color:#0e7c5b}
+  tbody tr:nth-child(even) td{background:#f4faf7}
+  td.num{font-weight:700;color:#0e7c5b;text-align:center;font-variant-numeric:tabular-nums}
+  .sl{width:11mm}.regno{width:24mm;white-space:nowrap}
+  .empty{padding:14mm 0;text-align:center;color:#8ba096;font-size:9.5pt}
+  .foot{margin-top:auto;display:flex;justify-content:space-between;align-items:center;border-top:.3mm solid #cfe3d8;background:#f7fbf9;padding:2.6mm 12mm;font-size:7.6pt;color:#5f7268}
+  .sign-row{display:flex;justify-content:space-between;gap:10mm;margin:14mm 6mm 0}
+  .sign{flex:1;text-align:center}
+  .sign .line{border-top:.35mm dotted #41584d;margin-top:14mm;padding-top:1.8mm;font-size:8.4pt;font-weight:600;color:#1a2b22}
+  .sign .sub{font-size:7.2pt;color:#8ba096;margin-top:.6mm}
+  .integrity{margin:6mm 6mm 0;padding:3mm 5mm;border:.35mm solid #0e7c5b;border-left-width:1.4mm;border-radius:1.5mm;background:#f2faf6;font-size:8.6pt;color:#0b4a37}
   `;
 
   const rows = data.rows.map((r) => mapRegisterRow(data.type, r, ml));
   const pageCount = Math.max(1, Math.ceil(rows.length / ENTRIES_PER_PAGE));
   const allCols = rows[0]?.cols.map((c) => c.label) || [];
-  const headCols = `<tr><th class="num">#</th>${allCols.map((c) => `<th>${esc(c)}</th>`).join("")}</tr>`;
+  const headCols = `<tr><th class="sl">${ml ? "ക്ര." : "Sl."}</th><th class="regno">${ml ? "രജിസ്റ്റർ നമ്പർ" : "Register No."}</th>${allCols.map((c) => `<th>${esc(c)}</th>`).join("")}</tr>`;
+  const emptyBody = `<tr><td colspan="${allCols.length + 2}"><div class="empty">${ml ? "ഈ രജിസ്റ്ററിൽ രേഖകളൊന്നുമില്ല" : "No entries in this register yet"}</div></td></tr>`;
 
   const pages: string[] = [];
   for (let p = 0; p < pageCount; p++) {
     const slice = rows.slice(p * ENTRIES_PER_PAGE, (p + 1) * ENTRIES_PER_PAGE);
+    const isLast = p === pageCount - 1;
     const body = slice.length
-      ? slice.map((r) => `<tr><td class="num">${esc(r.register_number)}</td>${r.cols.map((c) => `<td>${esc(c.value)}</td>`).join("")}</tr>`).join("")
-      : `<tr><td colspan="${allCols.length + 1}" style="text-align:center;color:#8ba096">${ml ? "രേഖകളൊന്നുമില്ല" : "No entries"}</td></tr>`;
+      ? slice.map((r, i) => `<tr><td class="num sl">${p * ENTRIES_PER_PAGE + i + 1}</td><td class="num regno">${esc(r.register_number)}</td>${r.cols.map((c) => `<td>${esc(c.value)}</td>`).join("")}</tr>`).join("")
+      : emptyBody;
+    // Last page carries the integrity line + signature block between the
+    // table and the footer — built inline, no fragile string surgery.
+    const lastExtras = isLast ? `
+      <div class="integrity">${ml
+        ? `ഈ രജിസ്റ്ററിൽ ${rows.length} രേഖകളുണ്ട്. സ്ഥിരം ഇല്ലാതാക്കൽ നിർജ്ജീവമാക്കിയിരിക്കുന്നു — ഓരോ രേഖയും ഓഡിറ്റ് ട്രയിലിൽ രേഖപ്പെടുത്തിയിരിക്കുന്നു.`
+        : `This register contains ${rows.length} entries. Permanent deletion is disabled — every entry is recorded in the tamper-evident audit trail.`}</div>
+      <div class="sign-row">
+        <div class="sign"><div class="line">${ml ? "സെക്രട്ടറി" : "Secretary"}</div><div class="sub">${ml ? "ഒപ്പ് & തീയതി" : "Signature & date"}</div></div>
+        <div class="sign"><div class="line">${ml ? "ഖാസി / പ്രസിഡന്റ്" : "Qazi / President"}</div><div class="sub">${ml ? "ഒപ്പ് & തീയതി" : "Signature & date"}</div></div>
+        <div class="sign"><div class="line">${ml ? "ഓഡിറ്റർ" : "Auditor"}</div><div class="sub">${ml ? "ഒപ്പ് & തീയതി" : "Signature & date"}</div></div>
+      </div>` : "";
     pages.push(`<div class="page">
-      <div class="head"><div class="t">${title}</div><div class="s">${esc(data.mahalluName)} · ${ml ? "പേജ്" : "Page"} ${p + 1} / ${pageCount}</div></div>
-      <table>${headCols}${body}</table>
-      <div class="foot"><span>${esc(data.mahalluName)} — ${title}</span><span>${ml ? "പേജ്" : "Page"} ${p + 1} / ${pageCount} · ${ml ? "രേഖകൾ" : "Entries"} ${slice.length ? slice[0].register_number : "—"} – ${slice.length ? slice[slice.length - 1].register_number : "—"}</span></div>
+      <div class="band">
+        <div class="l"><div class="logo">M</div><div class="org">${esc(data.mahalluName)}<small>Mahallu Management System</small></div></div>
+        <div class="t"><b>${title}</b><span>${ml ? "ഔദ്യോഗിക രജിസ്റ്റർ പ്രതി" : "Official register extract"}</span></div>
+      </div>
+      <div class="meta"><span>${ml ? "തയ്യാറാക്കിയത്" : "Generated"}: <b>${esc(data.generatedAt)}</b></span><span>${ml ? "പേജ്" : "Page"} ${p + 1} / ${pageCount}</span></div>
+      <div class="tbody"><table><thead>${headCols}</thead><tbody>${body}</tbody></table></div>
+      ${lastExtras}
+      <div class="foot"><span>${esc(data.mahalluName)} — ${title}</span><span>${ml ? "രേഖകൾ" : "Entries"}: ${slice.length ? esc(String(slice[0].register_number)) : "—"} – ${slice.length ? esc(String(slice[slice.length - 1].register_number)) : "—"}</span></div>
     </div>`);
   }
-
-  // Last page: signatures + integrity line
-  const last = pages[pages.length - 1];
-  const finalPage = last.replace(
-    "</div>",
-    `<div class="integrity">${ml
-      ? `ഈ രജിസ്റ്ററിൽ ${rows.length} രേഖകളുണ്ട്. സ്ഥിരം ഇല്ലാതാക്കൽ നിർജ്ജീവമാക്കിയിരിക്കുന്നു — ഓരോ രേഖയും ഓഡിറ്റ് ട്രയിലിൽ രേഖപ്പെടുത്തിയിരിക്കുന്നു.`
-      : `This register contains ${rows.length} entries. Permanent deletion is disabled — every entry is recorded in the tamper-evident audit trail.`}</div>
-    <div class="sign-row">
-      <div class="sign"><div class="line">${ml ? "സെക്രട്ടറി" : "Secretary"} · ${ml ? "ഒപ്പ്" : "Signature"}</div></div>
-      <div class="sign"><div class="line">${ml ? "ഖാസി / പ്രസിഡന്റ്" : "Qazi / President"} · ${ml ? "ഒപ്പ്" : "Signature"}</div></div>
-      <div class="sign"><div class="line">${ml ? "ഓഡിറ്റർ" : "Auditor"} · ${ml ? "ഒപ്പ്" : "Signature"}</div></div>
-    </div>
-  </div>`
-  );
-  pages[pages.length - 1] = finalPage;
 
   return `<!doctype html><html lang="${ml ? 'ml' : 'en'}"><head><meta charset="utf-8"><title>${title}</title><style>${css}</style></head><body>${pages.join("")}</body></html>`;
 }

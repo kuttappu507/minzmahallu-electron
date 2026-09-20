@@ -339,30 +339,28 @@
   #app { min-height: 100vh; }
   @media (min-width: 1500px) { #content { padding-left: 32px; padding-right: 32px; } }
 
-  /* ===== Sidebar — floating rounded panel (island menu) ===== */
+  /* ===== Sidebar — flat panel, flush with the window and the main column.
+     The old floating island left a visible background strip between the menu
+     and the content (user report) — removed: no margin, no radius, no shadow;
+     a single hairline divider separates it from the main column. ===== */
   .sidebar {
     width: 248px; flex: none;
-    margin: 12px 0 12px 12px;
-    background: var(--panel); border: 1px solid var(--line);
-    border-radius: 18px;
+    margin: 0;
+    background: var(--panel); border: 0; border-right: 1px solid var(--line);
+    border-radius: 0;
     display: flex; flex-direction: column; overflow: visible;
-    /* Width must transition (the main column genuinely reflows with it), so the
-       duration stays SHORT — but long enough to read as a glide, not a jump
-       (the office found the old 0.2s snap too abrupt). Paint-only properties
-       (colors) may run longer. See lowfx below. */
-    position: relative; transition: width 0.42s cubic-bezier(0.65, 0, 0.35, 1), background 0.3s, border-color 0.3s;
+    /* Width must transition (the main column genuinely reflows with it).
+       Ease-OUT (fast start, gentle settle) reads smoother than the old
+       ease-in-out: the panel covers most of the distance immediately and the
+       eye never sees the slow, stutter-prone early frames. 0.3s keeps it
+       snappy while the choreography below syncs to the same clock. */
+    position: relative; transition: width 0.3s cubic-bezier(0.33, 1, 0.68, 1), background 0.25s, border-color 0.25s;
     z-index: 40;
-    box-shadow: var(--sh);
   }
   .sidebar.min { width: 80px; }
 
-  /* A transparent top border SHORTENS the scrollbar track: Blink draws the
-     ::-webkit-scrollbar inside the border edge, so an 18px border-top (same as
-     the sidebar's border-radius) makes the track start exactly where the top
-     corner curve ends instead of poking through the curve. Padding-top is
-     reduced to 0 so the nav content keeps roughly its old offset. */
-  .navscroll { flex: 1; overflow-y: auto; overflow-x: hidden; border-top: 18px solid transparent; padding: 0 12px 10px; /* scrollbar-width deliberately NOT set: the standard property makes Chromium ignore the 3px ::-webkit-scrollbar rules below */ }
-  .navsec { font: 700 9.5px Poppins; letter-spacing: 0.2em; text-transform: uppercase; color: var(--fnt); padding: 18px 14px 8px; white-space: nowrap; display: flex; align-items: center; gap: 8px; /* fade (not snap) with the collapse glide */ transition: opacity 0.2s ease 0.14s; }
+  .navscroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0 12px 10px; /* scrollbar-width deliberately NOT set: the standard property makes Chromium ignore the 3px ::-webkit-scrollbar rules below */ }
+  .navsec { font: 700 9.5px Poppins; letter-spacing: 0.2em; text-transform: uppercase; color: var(--fnt); padding: 18px 14px 8px; white-space: nowrap; display: flex; align-items: center; gap: 8px; /* fade (not snap) with the collapse glide */ transition: opacity 0.18s ease 0.08s; }
   .navsec::after { content: ""; flex: 1; height: 1px; background: var(--line); }
   .sidebar.min .navsec { padding: 12px 0 5px; color: transparent; opacity: 0; transition-delay: 0s; }
   .sidebar.min .navsec::after { display: block; border-top: 1px solid var(--line); }
@@ -383,7 +381,7 @@
        the label waits ~1/3 of the width glide, then fades + slides in — the
        panel is already wide enough to read it. COLLAPSE: the label dissolves
        immediately while the panel glides shut. */
-    transition: opacity 0.24s cubic-bezier(0.4, 0, 0.2, 1) 0.15s, transform 0.24s cubic-bezier(0.4, 0, 0.2, 1) 0.15s; }
+    transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1) 0.1s, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) 0.1s; }
   .navit-ic {
     flex: 0 0 30px; width: 30px; height: 30px; border-radius: 9px;
     display: grid; place-items: center;
@@ -392,7 +390,7 @@
     /* Paint-only (see .navit): the collapsed state changes width/height/flex-basis
        — those are layout properties and must SNAP, not animate. transform is
        paint-only, so the icon gets a gentle "settle" pulse during the glide. */
-    transition: background-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.42s cubic-bezier(0.65, 0, 0.35, 1);
+    transition: background-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.3s cubic-bezier(0.33, 1, 0.68, 1);
   }
   .sidebar.min .navit-ic { transform: scale(1.05); }
   .navit-ic .ic, .navit-ic > svg { width: 17px; height: 17px; min-width: 17px; min-height: 17px; }
@@ -425,12 +423,12 @@
     width: 28px; height: 56px; border-radius: 99px;
     border: 1px solid var(--line); background: var(--panel); color: var(--fnt);
     display: grid; place-items: center; box-shadow: var(--sh); z-index: 50;
-    transition: color 0.18s, border-color 0.18s, background 0.18s, transform 0.42s cubic-bezier(0.65, 0, 0.35, 1);
+    transition: color 0.18s, border-color 0.18s, background 0.18s, transform 0.3s cubic-bezier(0.33, 1, 0.68, 1);
     cursor: pointer;
   }
   .flap:hover { color: var(--em); border-color: var(--em); background: var(--selbg); transform: translateY(-50%) scale(1.07); }
   .flap:active { transform: translateY(-50%) scale(0.94); }
-  .flap .ic { transition: transform 0.42s cubic-bezier(0.65, 0, 0.35, 1); transform: rotate(180deg); }
+  .flap .ic { transition: transform 0.3s cubic-bezier(0.33, 1, 0.68, 1); transform: rotate(180deg); }
   .sidebar.min .flap .ic { transform: rotate(0deg); }
 
   /* LOW-END MODE — html.lowfx (set from src/lib/fx.ts: weak CPU/RAM detection or
@@ -459,7 +457,7 @@
   }
   .sb-user b { font: 600 12.5px Poppins; display: block; color: var(--tx); line-height: 1.25; }
   .sb-user small { font: 500 10.5px Poppins; color: var(--fnt); }
-  .sb-user .nm { min-width: 0; transition: opacity 0.24s cubic-bezier(0.4, 0, 0.2, 1) 0.15s, transform 0.24s cubic-bezier(0.4, 0, 0.2, 1) 0.15s; }
+  .sb-user .nm { min-width: 0; transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1) 0.1s, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) 0.1s; }
   .sb-user .ibtn { margin-left: auto; }
   .sb-user .ibtn:hover { background: var(--rose-bg); color: var(--c-rose); }
   .sidebar.min .sb-user { flex-direction: column; padding: 12px 0 16px; }
@@ -695,6 +693,25 @@
   .wa-qr-hint { font: 600 12.5px Poppins; color: var(--tx); }
   .wa-qr-img { width: 216px; height: 216px; border-radius: 12px; background: #fff; padding: 8px; border: 1px solid var(--line); }
   .wa-qr-empty { width: 216px; height: 216px; border-radius: 12px; display: grid; place-items: center; font: 500 11.5px Poppins; color: var(--fnt); }
+
+  /* QR-free pairing (phone number + 8-char code) */
+  .wa-pair { margin-top: 12px; border: 1.5px dashed var(--line2); border-radius: 12px; padding: 12px 14px; background: var(--panel2); }
+  .wa-pair-title { font: 600 12px Poppins; color: var(--tx); margin-bottom: 9px; }
+  .wa-pair-form { display: flex; gap: 8px; flex-wrap: wrap; }
+  .wa-pair-input {
+    flex: 1; min-width: 190px; height: 34px; border-radius: 9px;
+    border: 1.5px solid var(--line); background: var(--panel); color: var(--tx);
+    font: 500 12.5px Poppins; padding: 0 11px; outline: none;
+  }
+  .wa-pair-input:focus { border-color: var(--em); box-shadow: 0 0 0 3px color-mix(in srgb, var(--em) 12%, transparent); }
+  .wa-pair-code {
+    font: 700 26px/1.1 Poppins; letter-spacing: 0.14em; color: var(--em);
+    background: color-mix(in srgb, var(--em) 8%, transparent);
+    border: 1.5px solid color-mix(in srgb, var(--em) 30%, transparent);
+    border-radius: 10px; padding: 8px 14px; margin-bottom: 8px;
+    display: inline-block; font-variant-numeric: tabular-nums;
+  }
+  .wa-pair-steps { margin: 0 0 10px 18px; padding: 0; color: var(--fnt); font: 500 11.5px Poppins; display: grid; gap: 3px; }
   .wa-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
   .wa-checks { list-style: none; margin-top: 12px; display: flex; flex-direction: column; gap: 8px; font: 500 12px Poppins; color: var(--mut); }
   .wa-checks li { display: flex; align-items: flex-start; gap: 8px; color: var(--emdd); font-weight: 600; }
@@ -1001,7 +1018,9 @@
       radial-gradient(800px 420px at -10% 110%, color-mix(in srgb, var(--c-em) 8%, transparent), transparent 70%),
       var(--bodybg);
   }
-  .app-body { flex: 1; display: flex; gap: 12px; min-height: 0; }
+  /* No gap: the sidebar sits FLUSH against the main window (user report — the
+     old 12px gutter showed the app background between menu and content). */
+  .app-body { flex: 1; display: flex; gap: 0; min-height: 0; }
 
   /* ===== Empty state ===== */
   .empty-state { padding: 40px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; }
