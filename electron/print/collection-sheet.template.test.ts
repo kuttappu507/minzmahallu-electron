@@ -78,9 +78,9 @@ describe("collection sheet follows the app language (Malayalam)", () => {
     db.prepare("UPDATE settings SET language = 'ml' WHERE id = 1").run();
     try {
       const html = buildCollectionSheetHtml(rows, event);
-      expect(html).toContain("ടോക്കൺ പിരിവ് ഷീറ്റ്");
+      expect(html).toContain("ടോക്കൺ ശേഖരണ ഷീറ്റ്");       // master-approved term (ശേഖരണ, not പിരിവ്)
       expect(html).toContain("<th>കുടുംബനാഥൻ</th>");   // family head
-      expect(html).toContain("<th>വീടിന്റെ പേര്</th>");  // family name
+      expect(html).toContain("<th>വീട്ടുപേര്</th>");      // house name (approved term)
       expect(html).toContain("<th>പ്രദേശം</th>");       // area
       expect(html).not.toContain("Family Head");
     } finally {

@@ -15,13 +15,14 @@ import { buildTokenSheetHtml } from "./print/token.template.js";
 import { buildCollectionSheetHtml } from "./print/collection-sheet.template.js";
 import { buildCertificateHtml } from "./print/certificate.template.js";
 import { getPreviewScreenCss } from "./print/utils.js";
-import { renderHtmlToPdf } from "./print/pdf-renderer.js";
+import { renderHtmlToPdf, prewarmPdfRenderer, disposePdfRenderer } from "./print/pdf-renderer.js";
 import { buildAccountStatementHtml } from "./print/account-statement.template.js";
 import { buildAuditPackHtml } from "./print/audit-pack.template.js";
 import { buildRegisterBookHtml } from "./print/register-book.template.js";
 import { getAnekMalayalamCss } from "./print/utils.js";
 import { registerSecurityIpc } from "./security-ipc.js";
 import { registerWhatsAppIpc } from "./whatsapp-ipc.js";
+import { sendWelfareDisbursedMessage } from "./services/whatsapp.service.js";
 import { registerReceiptIpc } from "./receipt-ipc.js";
 import { verifyUninstallPassword, UNINSTALL_ADMIN_SQL } from "./services/uninstall-guard.js";
 import { registerUpdateIpc, scheduleMonthlyUpdateCheck } from "./update-check.js";
@@ -377,7 +378,15 @@ app.whenReady().then(() => {
   ipcMain.handle("welfare:update", (_e, id, d) => data.welfare.update(id, d));
   ipcMain.handle("welfare:approve", (_e, id, amount, remarks) => data.welfare.approve(id, amount, remarks, session.user?.id ?? 1));
   ipcMain.handle("welfare:reject", (_e, id, reason) => data.welfare.reject(id, reason, session.user?.id ?? 1));
-  ipcMain.handle("welfare:disburse", (_e, id) => data.welfare.disburse(id, session.user?.id ?? 1));
+  ipcMain.handle("welfare:disburse", (_e, id) => {
+    const result = data.welfare.disburse(id, session.user?.id ?? 1);
+    // WhatsApp notification to the family — best-effort, fire-and-forget:
+    // a missing number / opted-out family / unpaired session must never fail
+    // the disbursement itself. The attempt (or its reason) lands in the
+    // WhatsApp message history either way.
+    void sendWelfareDisbursedMessage(Number(id)).catch(() => { /* recorded */ });
+    return result;
+  });
   ipcMain.handle("welfare:remove", (_e, id) => data.welfare.remove(id));
   ipcMain.handle("welfare:categories", () => data.welfare.categories());
   ipcMain.handle("certificates:list", (_e, filter) => data.certificates.list(filter || {}));
@@ -775,9 +784,18 @@ app.whenReady().then(() => {
       return { success: true, user };
     } catch (err: any) { return { success: false, error: err.message }; }
   });
-  registerWhatsAppIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null);
+  // The window getter lets WhatsApp push late receipt-delivery confirmations
+  // to the open page (the send itself returns as soon as WhatsApp accepts the
+  // message, so the lock badge flips on its own a moment later).
+  registerWhatsAppIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow);
   registerReceiptIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow);
   createWindow();
+  // Warm the offscreen PDF window a moment after start-up: receipts,
+  // certificates and statements then render in an already-running hidden
+  // window instead of spawning a renderer process on the first click
+  // (user report: receipt sending took too long). Delayed so it never
+  // competes with the login window and the database opening.
+  setTimeout(() => { try { prewarmPdfRenderer(); } catch { /* best effort */ } }, 2500);
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
   // ===== Auto-backup timer =====
@@ -840,4 +858,10 @@ app.on("window-all-closed", () => {
   if (isUninstallVerify) { try { closeDB(); } catch {} app.exit(1); return; }
   closeDB(); if (process.platform !== "darwin") app.quit();
 });
-app.on("before-quit", () => { closeConfirmed = true; closeDB(); });
+app.on("before-quit", () => {
+  closeConfirmed = true;
+  // Release the warm offscreen PDF window: the app is going down, and the
+  // WhatsApp quit handler that runs next must not race a hidden renderer.
+  try { disposePdfRenderer(); } catch { /* best effort */ }
+  closeDB();
+});

@@ -540,9 +540,11 @@ export function Accounting() {
         </div>
       </div>
 
-      {/* Source breakdown card — two high-contrast panels with share bars.
-          Labels and amounts are deliberately bold, full-contrast and set in
-          the UI font (NOT thin mono/muted text) so they read at a glance. */}
+      {/* Source breakdown card — two high-contrast panels. Each source row
+          shows its EXPLICIT share of the panel total as a percentage chip
+          (user report: the old growing bars made it impossible to tell what
+          basis they filled on). Labels and amounts are deliberately bold,
+          full-contrast and set in the UI font so they read at a glance. */}
       {summary && (
         <div className="card card-pad-tight mt-3">
           <div className="ch-head mb-3">
@@ -566,14 +568,12 @@ export function Accounting() {
                 ] as const).map(item => {
                   const pct = summary.totalIncome > 0 ? Math.max(0, Math.min(100, Math.round((item.value / summary.totalIncome) * 100))) : 0;
                   return (
-                    <div key={item.label}>
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-sm font-semibold text-text-primary">{item.label}</span>
-                        <span className="text-sm font-bold text-text-primary tabular-nums">{formatCurrency(item.value)}</span>
-                      </div>
-                      <div className="mt-1.5 h-1.5 rounded-full bg-emerald-500/15 overflow-hidden">
-                        <div className="h-full rounded-full bg-emerald-500/70" style={{ width: `${pct}%` }} />
-                      </div>
+                    <div key={item.label} className="flex items-center justify-between gap-3 py-1 border-b border-emerald-500/10 last:border-0">
+                      <span className="text-sm font-semibold text-text-primary flex items-center gap-2">
+                        {item.label}
+                        <span className="text-[11px] font-bold text-emerald-700/80 dark:text-emerald-300/80 bg-emerald-500/12 rounded-full px-2 py-0.5 tabular-nums">{pct}%</span>
+                      </span>
+                      <span className="text-sm font-bold text-text-primary tabular-nums">{formatCurrency(item.value)}</span>
                     </div>
                   );
                 })}
@@ -595,14 +595,12 @@ export function Accounting() {
                 ] as const).map(item => {
                   const pct = summary.totalExpense > 0 ? Math.max(0, Math.min(100, Math.round((item.value / summary.totalExpense) * 100))) : 0;
                   return (
-                    <div key={item.label}>
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-sm font-semibold text-text-primary">{item.label}</span>
-                        <span className="text-sm font-bold text-text-primary tabular-nums">{formatCurrency(item.value)}</span>
-                      </div>
-                      <div className="mt-1.5 h-1.5 rounded-full bg-rose-500/15 overflow-hidden">
-                        <div className="h-full rounded-full bg-rose-500/70" style={{ width: `${pct}%` }} />
-                      </div>
+                    <div key={item.label} className="flex items-center justify-between gap-3 py-1 border-b border-rose-500/10 last:border-0">
+                      <span className="text-sm font-semibold text-text-primary flex items-center gap-2">
+                        {item.label}
+                        <span className="text-[11px] font-bold text-rose-700/80 dark:text-rose-300/80 bg-rose-500/12 rounded-full px-2 py-0.5 tabular-nums">{pct}%</span>
+                      </span>
+                      <span className="text-sm font-bold text-text-primary tabular-nums">{formatCurrency(item.value)}</span>
                     </div>
                   );
                 })}

@@ -119,6 +119,17 @@ export function Subscriptions() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Late WhatsApp delivery ack. The receipt send returns the moment WhatsApp
+  // ACCEPTS the message; the confirmation that lands a moment later is PUSHED
+  // here, so the row turns "delivered — locked" by itself instead of sitting
+  // on "sent, not confirmed" until the next manual refresh. (The pushed id is
+  // the ledger payment id, so any subscription delivery refreshes the list.)
+  useEffect(() => {
+    let off: any;
+    try { off = (window.mms.whatsapp as any).onReceiptDelivered?.((e: any) => { if (e?.kind === "subscription") refetch(); }); } catch { /* preview build */ }
+    return () => { try { if (typeof off === "function") off(); } catch { /* already gone */ } };
+  }, [refetch]);
+
   const openNew = () => {
     setForm({ ...emptyForm, payment_date: todayIST() });
     setEditingId(null);
@@ -137,7 +148,7 @@ export function Subscriptions() {
         if (sent?.status === "delivered" || (sent?.success && sent?.delivered)) {
           toast.success(tx("Receipt delivered to the recipient — it is now locked", "രസീത് സ്വീകർത്താവിന് ലഭിച്ചു — ഇപ്പോൾ ലോക്ക് ചെയ്തിരിക്കുന്നു"));
         } else if (sent?.status === "sent" || sent?.success) {
-          toast.warning(tx("Receipt sent — delivery not confirmed yet (the phone may be offline). Not locked; you can send again after confirming it did not arrive.", "രസീത് അയച്ചു — ഡെലിവറി ഉറപ്പാക്കിയിട്ടില്ല (ഫോൺ ഓഫലൈൻ ആകാം). വന്നെത്തിയില്ലെന്ന് ഉറപ്പായാൽ വീണ്ടും അയയ്ക്കാം."));
+          toast.warning(tx("Receipt sent on WhatsApp — delivery is being confirmed. It locks itself the moment the recipient's phone confirms; if it never arrives you can send it again.", "രസീത് വാട്ട്സ്ആപ്പിൽ അയച്ചു — ഡെലിവറി ഉറപ്പാക്കിക്കൊണ്ടിരിക്കുന്നു. സ്വീകർത്താവിന്റെ ഫോൺ ഉറപ്പിച്ച ഉടനെ അത് ലോക്ക് ആകും; ലഭിച്ചില്ലെങ്കിൽ വീണ്ടും അയയ്ക്കാം."));
           // The recipient's phone may confirm delivery a few seconds later —
           // re-check silently so the lock badge flips WITHOUT the user
           // re-sending or reopening the page (user report: "it shows it is
@@ -282,7 +293,7 @@ export function Subscriptions() {
       if (r?.status === "delivered" || (r?.success && r?.delivered)) {
         toast.success(tx("Receipt delivered to the recipient — it is now locked (one admin re-send remains available)", "രസീത് സ്വീകർത്താവിന് ലഭിച്ചു — ഇപ്പോൾ ലോക്ക് ചെയ്തിരിക്കുന്നു (ഒരു അഡ്മിൻ റീ-സെൻഡ് ലഭ്യമാണ്)"));
       } else if (r?.status === "sent" || r?.success) {
-        toast.warning(tx("Receipt sent — delivery not confirmed yet (the phone may be offline). Not locked; you can send again after confirming it did not arrive.", "രസീത് അയച്ചു — ഡെലിവറി ഉറപ്പാക്കിയിട്ടില്ല (ഫോൺ ഓഫലൈൻ ആകാം). ലോക്ക് ചെയ്തിട്ടില്ല; വന്നെത്തിയില്ലെന്ന് ഉറപ്പായാൽ വീണ്ടും അയയ്ക്കാം."));
+        toast.warning(tx("Receipt sent on WhatsApp — delivery is being confirmed. It locks itself the moment the recipient's phone confirms; if it never arrives you can send it again.", "രസീത് വാട്ട്സ്ആപ്പിൽ അയച്ചു — ഡെലിവറി ഉറപ്പാക്കിക്കൊണ്ടിരിക്കുന്നു. സ്വീകർത്താവിന്റെ ഫോൺ ഉറപ്പിച്ച ഉടനെ അത് ലോക്ക് ആകും; ലഭിച്ചില്ലെങ്കിൽ വീണ്ടും അയയ്ക്കാം."));
         // Late delivery check — flip the lock silently when the phone
         // confirms a few seconds later.
         setTimeout(() => { refetch(); }, 15000);

@@ -15,9 +15,21 @@ export function esc(value: any): string {
  * which don't have the Malayalam unicode block — the PDF shows empty boxes
  * or missing characters.
  *
+ * The result is MEMOIZED: the font files never change during a run, yet this
+ * used to re-read ~110 KB of woff2 from disk (through asar in a packaged app)
+ * and re-base64 them on EVERY receipt, certificate and statement render.
+ *
  * Returns an empty string if the font package isn't resolvable (defensive).
  */
+let anekMalayalamCssCache: string | null = null;
+
 export function getAnekMalayalamCss(): string {
+  if (anekMalayalamCssCache !== null) return anekMalayalamCssCache;
+  anekMalayalamCssCache = buildAnekMalayalamCss();
+  return anekMalayalamCssCache;
+}
+
+function buildAnekMalayalamCss(): string {
   try {
     const require = createRequire(import.meta.url);
     const cssPath = require.resolve('@fontsource-variable/anek-malayalam/wght.css');

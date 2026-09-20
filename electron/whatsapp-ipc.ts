@@ -1,5 +1,5 @@
 import { app, ipcMain } from "electron";
-import { whatsapp } from "./services/whatsapp.service.js";
+import { whatsapp, setReceiptDeliveryPush } from "./services/whatsapp.service.js";
 import { recipientStats } from "./services/whatsapp-recipient.service.js";
 import { flushAuthWrites, maybeStartEngine, stopEngine } from "./services/whatsapp-engine.service.js";
 import type { Actor } from "./services/security.service.js";
@@ -9,10 +9,25 @@ import type { Actor } from "./services/security.service.js";
 // whatsapp:* handler fails closed when nobody is signed in.
 let registered = false;
 
-export function registerWhatsAppIpc(getActor: () => Actor | null) {
+export function registerWhatsAppIpc(
+  getActor: () => Actor | null,
+  getWindow?: () => Electron.BrowserWindow | null
+) {
   if (registered) return;
   registered = true;
   whatsapp.init();
+  // Push late receipt deliveries to the open window: the send returns as soon
+  // as WhatsApp accepts the message (no 4 s block), and the ack that lands a
+  // moment later flips the privacy lock — the page is told which row changed
+  // so its badge updates itself instead of waiting for the next refresh.
+  setReceiptDeliveryPush((e) => {
+    try {
+      const win = getWindow?.();
+      if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) {
+        win.webContents.send("whatsapp:receipt-delivered", e);
+      }
+    } catch { /* renderer gone — the database row is already updated */ }
+  });
 
   const actor = (): Actor => {
     const current = getActor();
@@ -41,6 +56,8 @@ export function registerWhatsAppIpc(getActor: () => Actor | null) {
   register("whatsapp:connect", (opts?: { acknowledged?: boolean }) => { requireAuth(); return whatsapp.connect(opts || {}); });
   register("whatsapp:ackToS", () => { requireAuth(); return whatsapp.acknowledgeToS(); });
   register("whatsapp:qr", () => { requireAuth(); return whatsapp.qr(); });
+  // Phone-number pairing — QR-free alternative ("Link with phone number").
+  register("whatsapp:pairingCode", (phone: string) => { requireAuth(); return whatsapp.pairingCode(phone); });
   // PAUSE the engine — the paired device stays linked on the phone, so
   // Connect resumes without a new QR scan.
   register("whatsapp:disconnect", () => { requireAuth(); return whatsapp.disconnect(); });
@@ -78,22 +95,31 @@ export function registerWhatsAppIpc(getActor: () => Actor | null) {
   // unpaired machine stays idle until the user presses Connect (no QR
   // handshake churn).
   maybeStartEngine();
-  // GRACEFUL QUIT: end the WebSocket cleanly and give Baileys' async auth
-  // writes (fs/promises) a moment to reach disk BEFORE the process exits.
-  // Exiting the instant the socket closes can lose a pending key rotation —
-  // the next login then presents stale keys, the server answers 401, and the
-  // pairing looks "logged out after close". (main.ts' before-quit closes the
-  // DB first; this handler runs after it and finishes the exit itself.)
+  // GRACEFUL QUIT — the "pairing gone after closing the app" guard:
+  //   1. persist the session WHILE the socket is still alive (Baileys writes
+  //      creds asynchronously, so a key rotation can still be in flight),
+  //   2. close the WebSocket cleanly WITHOUT logout, so the phone keeps this
+  //      device linked,
+  //   3. verify the credentials on disk one last time (and refresh the
+  //      atomic creds.json.bak the next start can fall back on).
+  // Every step is capped and the whole sequence is bounded, so a wedged
+  // socket can never hang the exit; main.ts' before-quit closes the DB first,
+  // this handler runs after it and finishes the exit itself.
   let quitting = false;
   app.on("before-quit", (event) => {
     if (quitting) return;
     quitting = true;
     event.preventDefault();
     void (async () => {
-      try {
-        await stopEngine();
-        await flushAuthWrites();
-      } catch { /* best effort */ }
+      const guard = new Promise((resolve) => setTimeout(resolve, 8000));
+      const work = (async () => {
+        try {
+          await flushAuthWrites();
+          await stopEngine();
+          await flushAuthWrites(1500);
+        } catch { /* best effort */ }
+      })();
+      await Promise.race([work, guard]);
       app.exit(0);
     })();
   });

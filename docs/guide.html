@@ -143,24 +143,61 @@ html.lang-en .t-ml{display:none}
   /* last resort on very narrow phones: wrap to two rows instead of clipping */
   .hd{flex-wrap:wrap;height:auto;min-height:0;padding:8px 0;row-gap:6px}
 }
-/* ---------- print / save as PDF ---------- */
+/* ---------- print / save as PDF — a designed document, not a raw page dump.
+   Adds a print-only cover header, a repeating footer, keeps cards intact and
+   removes every interactive/screen-only element. ---------- */
 @media print{
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  header,#toTop,.cta,footer,.hero .blob{display:none!important}
-  body{background:#fff;font-size:12.5pt}
+  @page{size:A4;margin:14mm 13mm 17mm}
+  header,#toTop,.cta,footer,.hero .blob,#burger,.pdfbtn{display:none!important}
+  html,body{background:#fff}
+  body{font-size:11.6pt;line-height:1.62;color:#14231e}
   .wrap{max-width:100%;padding:0}
-  .hero{padding:10mm 0 6mm}
-  .sec-head{margin:9mm auto 5mm}
-  .stepcard{break-inside:avoid;page-break-inside:avoid;box-shadow:none;border:1px solid #d5dde5;margin-bottom:5mm}
-  .stepcard:hover{transform:none}
-  .titem{box-shadow:none;border:1px solid #d5dde5;break-inside:avoid}
-  .reveal{opacity:1;transform:none}
-  a{color:inherit}
+  .hero{padding:0 0 4mm;border:0}
+  /* Cover header — printed instead of the website header */
+  .print-head{display:flex!important;align-items:center;gap:5mm;border-bottom:.7mm solid #0e7c5b;padding-bottom:4mm;margin-bottom:7mm}
+  .print-head img{width:15mm;height:15mm;border-radius:3.5mm}
+  .print-head .pt-title{font-size:17pt;font-weight:800;color:#0b4a37;line-height:1.25}
+  .print-head .pt-sub{font-size:9pt;color:#41584d;margin-top:1mm}
+  .print-head .pt-meta{margin-left:auto;text-align:right;font-size:8.2pt;color:#5f7268;line-height:1.5}
+  .print-head .pt-meta b{color:#0e7c5b}
+  /* Repeating footer on every printed page */
+  .print-foot{position:fixed;bottom:-9mm;left:0;right:0;display:flex!important;justify-content:space-between;font-size:7.8pt;color:#7c8f86;border-top:.25mm solid #cfe3d8;padding-top:1.6mm}
+  /* Headings: green accent, never split from their content */
+  .sec-head{margin:8mm 0 4.5mm;break-after:avoid;page-break-after:avoid}
+  .kicker{color:#0e7c5b}
+  h2{color:#0b4a37}
+  .sec-sub{color:#41584d}
+  .stepcard{break-inside:avoid;page-break-inside:avoid;box-shadow:none!important;border:.3mm solid #c9d8d1;border-left:.9mm solid #0e7c5b;margin-bottom:5mm;transform:none!important}
+  .stepcard .sc-body{color:#233329}
+  .tip,.warn{break-inside:avoid;box-shadow:none;border-radius:2.5mm}
+  .titem{box-shadow:none;border:.3mm solid #c9d8d1;break-inside:avoid}
+  .tgrid{gap:3.5mm}
+  .reveal{opacity:1!important;transform:none!important}
+  a{color:inherit;text-decoration:none}
+  .btn{box-shadow:none}
+  /* Cards must never begin a page with a widowed heading */
+  h2,h3{break-after:avoid}
 }
+@media screen{.print-head,.print-foot{display:none}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
+<!-- Print-only document header + footer — the “Save as PDF” output is a
+     designed document (cover band, repeating footer) instead of a raw
+     website dump (user request). -->
+<div class="print-head">
+  <img src="logo-small.png" alt="Minz Mahallu">
+  <div>
+    <div class="pt-title t-ml">എങ്ങനെ ഉപയോഗിക്കാം? — ഉപയോഗ ഗൈഡ്</div>
+    <div class="pt-title t-en">How to Use — User Guide</div>
+    <div class="pt-sub t-ml">Minz Mahallu Management System · സമ്പൂർണ്ണമായും സൗജന്യം</div>
+    <div class="pt-sub t-en">Minz Mahallu Management System · Completely free</div>
+  </div>
+  <div class="pt-meta"><b>minzmahallu.vercel.app</b><br><span id="print-date"></span></div>
+</div>
+<div class="print-foot"><span>Minz Mahallu Management System</span><span class="t-ml">ഉപയോഗ ഗൈഡ് — minzmahallu.vercel.app</span><span class="t-en">User guide — minzmahallu.vercel.app</span></div>
 <header id="hdr">
   <div class="wrap hd">
     <a class="brand" href="index.html">
@@ -255,7 +292,7 @@ html.lang-en .t-ml{display:none}
     <div class="stepcard reveal"><span class="n">10</span><div>
       <h3 class="t-ml">കണക്കും ബാക്കപ്പും — ഏറ്റവും പ്രധാനം</h3><h3 class="t-en">Accounts and backup — the most important</h3>
       <p><span class="t-ml">Accounting-ൽ വരവും ചെലവും ഒറ്റ കണക്ക് പുസ്തകത്തിൽ കാണാം — വരിസംഖ്യയും സംഭാവനകളും അടക്കം എല്ലാ കാശ് കാര്യങ്ങളും അവിടെ എത്തും. Reports ഭാഗത്തു നിന്ന് ഏത് പട്ടികയും Excel, CSV അല്ലെങ്കിൽ PDF ആയി എടുക്കാം — കമ്മിറ്റി യോഗത്തിൽ കാണിക്കാൻ ഇതു തന്നെ വേണം.</span><span class="t-en">Accounting shows income and expense in one book — subscriptions, donations and every other money matter flows in there. From the Reports section, any list can be exported as Excel, CSV or PDF — exactly what you need to present at committee meetings.</span></p>
-      <p><span class="t-ml">ഏറ്റവും പ്രധാന ശീലം: <b>എല്ലാ ആഴ്ചയും Backup</b> എടുത്ത് പെൻഡ്രൈവിൽ സൂക്ഷിക്കുക. കമ്പ്യൂട്ടർ മാറിയാലോ തകരാറുണ്ടായാലോ പുതിയതിൽ ആപ്പ് ഇൻസ്റ്റാൾ ചെയ്ത് <b>Restore</b> അമർത്തി ബാക്കപ്പ് ഫയൽ തിരഞ്ഞെടുത്താൽ എല്ലാം അതേപടി തിരിച്ചു വരും.</span><span class="t-en">The most important habit: take a <b>Backup every week</b> and keep it on a pendrive. If the computer changes or fails, install the app on the new one, press <b>Restore</b>, pick the backup file — and everything comes back exactly as it was.</span></p>
+      <p><span class="t-ml">ഏറ്റവും പ്രധാന ശീലം: <b>എല്ലാ ആഴ്ചയും ബാക്കപ്പ്</b> എടുത്ത് പെൻഡ്രൈവിൽ സൂക്ഷിക്കുക. കമ്പ്യൂട്ടർ മാറിയാലോ തകരാറുണ്ടായാലോ പുതിയതിൽ ആപ്പ് ഇൻസ്റ്റാൾ ചെയ്ത് <b>റെസ്റ്റോർ</b> അമർത്തി ബാക്കപ്പ് ഫയൽ തിരഞ്ഞെടുത്താൽ എല്ലാം അതേപടി തിരിച്ചു വരും.</span><span class="t-en">The most important habit: take a <b>Backup every week</b> and keep it on a pendrive. If the computer changes or fails, install the app on the new one, press <b>Restore</b>, pick the backup file — and everything comes back exactly as it was.</span></p>
     </div></div>
   </section>
 
@@ -264,14 +301,14 @@ html.lang-en .t-ml{display:none}
     <div class="sec-head reveal">
       <span class="kicker t-ml">നല്ല രീതികൾ</span><span class="kicker t-en">Good habits</span>
       <h2 class="t-ml">ചെറിയ കാര്യങ്ങൾ — വലിയ പ്രയോജനം</h2><h2 class="t-en">Small things that help a lot</h2>
-      <p class="sec-sub t-ml">ഇവയൊന്നും നിർബന്ധമല്ല; പക്ഷേ ശീലമാക്കിയാൽ സാധാരണ ഉണ്ടാകുന്ന കുഴപ്പങ്ങൾ മിക്കവയും ഒഴിവാകും.</p>
+      <p class="sec-sub t-ml">ഇവയൊന്നും നിർബന്ധമല്ല — എങ്കിലും ശീലമാക്കിയാൽ സാധാരണ ഉണ്ടാകുന്ന കുഴപ്പങ്ങൾ മിക്കതും ഒഴിവാക്കാം.</p>
       <p class="sec-sub t-en">None of these are compulsory — but as habits, they keep every common problem away.</p>
     </div>
     <div class="tgrid">
-      <div class="titem reveal"><span class="ck">✓</span><div><b class="t-ml">ആഴ്ചയിലൊരിക്കൽ ബാക്കപ്പ്</b><b class="t-en">Backup once a week</b><span class="t-ml">വെള്ളിയാഴ്ച ജോലി കഴിഞ്ഞാൽ ബാക്കപ്പ് — എളുപ്പത്തിൽ ഓർക്കാം.</span><span class="t-en">After Friday's work, take the backup — easy to remember.</span></div></div>
-      <div class="titem reveal"><span class="ck">✓</span><div><b class="t-ml">പാസ്‌വേഡ് സൂക്ഷിക്കുക</b><b class="t-en">Keep the password safe</b><span class="t-ml">അഡ്മിൻ പാസ്‌വേഡ് മാത്രമാണ് ആപ്പിന്റെ താക്കോൽ; അതു നഷ്ടപ്പെട്ടാൽ തിരിച്ചു കിട്ടില്ല.</span><span class="t-en">The admin password is the only key to the app — once lost, it is gone.</span></div></div>
-      <div class="titem reveal"><span class="ck">✓</span><div><b class="t-ml">അടവ് ഉടൻ രേഖപ്പെടുത്തുക</b><b class="t-en">Record payments on the spot</b><span class="t-ml">പണം കൈപ്പിടിച്ച ഉടൻ തന്നെ അടവ് ചേർക്കുക — മറവിയും കണക്കു തെറ്റും ഉണ്ടാവില്ല.</span><span class="t-en">Enter the payment the moment money is received — nothing is forgotten or miscounted.</span></div></div>
-      <div class="titem reveal"><span class="ck">✓</span><div><b class="t-ml">ഫോൺ നമ്പർ ശരിയായി</b><b class="t-en">Correct phone numbers</b><span class="t-ml">തെറ്റായ നമ്പറിൽ രസീത് എത്തില്ല; നമ്പർ മാറിയാൽ കുടുംബ വിവരത്തിൽ ഉടൻ തിരുത്തുക.</span><span class="t-en">Receipts never reach a wrong number; update the family record right away.</span></div></div>
+      <div class="titem reveal"><span class="ck">✓</span><div><b class="t-ml">എല്ലാ വെള്ളിയാഴ്ചയും ബാക്കപ്പ്</b><b class="t-en">Backup once a week</b><span class="t-ml">വെള്ളിയാഴ്ച ജോലി കഴിഞ്ഞാൽ ബാക്കപ്പ് എടുത്ത് പെൻഡ്രൈവിൽ സൂക്ഷിക്കുക — അങ്ങനെ വിവരങ്ങൾ എന്നും സുരക്ഷിതം.</span><span class="t-en">After Friday's work, take the backup — easy to remember.</span></div></div>
+      <div class="titem reveal"><span class="ck">✓</span><div><b class="t-ml">അഡ്മിൻ പാസ്‌വേഡ് സൂക്ഷിക്കുക</b><b class="t-en">Keep the password safe</b><span class="t-ml">ആപ്പ് തുറക്കുന്നത് ഈ പാസ്‌വേഡ് മാത്രമാണ് — മറന്നാൽ തിരിച്ചു കിട്ടില്ല. ഒരു കടലാസിൽ എഴുതി സുരക്ഷിതമായിടത്ത് വയ്ക്കുക.</span><span class="t-en">The admin password is the only key to the app — once lost, it is gone.</span></div></div>
+      <div class="titem reveal"><span class="ck">✓</span><div><b class="t-ml">അടവ് ഉടൻ രേഖപ്പെടുത്തുക</b><b class="t-en">Record payments on the spot</b><span class="t-ml">പണം പിരിച്ച ഉടൻ തന്നെ അടവ് ചേർക്കുക — മറവിയുണ്ടാവില്ല, കണക്കും കൃത്യമായിരിക്കും.</span><span class="t-en">Enter the payment the moment money is received — nothing is forgotten or miscounted.</span></div></div>
+      <div class="titem reveal"><span class="ck">✓</span><div><b class="t-ml">ഫോൺ നമ്പർ കൃത്യമായി സൂക്ഷിക്കുക</b><b class="t-en">Correct phone numbers</b><span class="t-ml">നമ്പർ തെറ്റായാൽ രസീറ്റ് അയക്കാൻ കഴിയില്ല; നമ്പർ മാറിയാൽ ഉടൻ തന്നെ കുടുംബ വിവരത്തിൽ തിരുത്തുക.</span><span class="t-en">Receipts never reach a wrong number; update the family record right away.</span></div></div>
     </div>
   </section>
 
@@ -318,6 +355,17 @@ html.lang-en .t-ml{display:none}
   btnML.addEventListener("click",function(){setLang("ml")});
   btnEN.addEventListener("click",function(){setLang("en")});
   /* The guide always opens in Malayalam, like the landing page. */
+
+  /* Print header date — IST, dd-mm-yyyy (matches the app's date style). */
+  (function(){
+    var pd=document.getElementById("print-date");
+    if(!pd)return;
+    var now=new Date();
+    /*IST = UTC+5:30*/
+    var ist=new Date(now.getTime()+(330+now.getTimezoneOffset())*60000);
+    var d=String(ist.getDate()).padStart(2,"0"),m=String(ist.getMonth()+1).padStart(2,"0"),y=ist.getFullYear();
+    pd.textContent=d+"-"+m+"-"+y;
+  })();
 
   /* ---- Header shadow + back to top ---- */
   var hdr=document.getElementById("hdr"),toTop=document.getElementById("toTop");
