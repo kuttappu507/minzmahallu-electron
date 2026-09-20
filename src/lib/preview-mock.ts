@@ -417,6 +417,9 @@ export function installPreviewMock() {
     listHistory: () => Promise.resolve([]),
     retryFailed: () => Promise.resolve({ sent: 0, failed: 0, skipped: 0, paused: false }),
     runtimeState: () => Promise.resolve({ installed: true, running: false, starting: false, state: "STOPPED", pid: null, lastError: "" }),
+    // Preview has no WhatsApp engine, so a delivery ack never arrives; the
+    // pages subscribe/unsubscribe through this stub exactly as in the app.
+    onReceiptDelivered: (_cb: (e: { kind: "donation" | "subscription"; id: number; msgId: string }) => void) => () => {},
   };
 
   // Receipts (A6) — preview-safe stubs; the real PDF work happens in the app.

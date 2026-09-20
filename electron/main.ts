@@ -15,7 +15,7 @@ import { buildTokenSheetHtml } from "./print/token.template.js";
 import { buildCollectionSheetHtml } from "./print/collection-sheet.template.js";
 import { buildCertificateHtml } from "./print/certificate.template.js";
 import { getPreviewScreenCss } from "./print/utils.js";
-import { renderHtmlToPdf } from "./print/pdf-renderer.js";
+import { renderHtmlToPdf, prewarmPdfRenderer, disposePdfRenderer } from "./print/pdf-renderer.js";
 import { buildAccountStatementHtml } from "./print/account-statement.template.js";
 import { buildAuditPackHtml } from "./print/audit-pack.template.js";
 import { buildRegisterBookHtml } from "./print/register-book.template.js";
@@ -784,9 +784,18 @@ app.whenReady().then(() => {
       return { success: true, user };
     } catch (err: any) { return { success: false, error: err.message }; }
   });
-  registerWhatsAppIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null);
+  // The window getter lets WhatsApp push late receipt-delivery confirmations
+  // to the open page (the send itself returns as soon as WhatsApp accepts the
+  // message, so the lock badge flips on its own a moment later).
+  registerWhatsAppIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow);
   registerReceiptIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow);
   createWindow();
+  // Warm the offscreen PDF window a moment after start-up: receipts,
+  // certificates and statements then render in an already-running hidden
+  // window instead of spawning a renderer process on the first click
+  // (user report: receipt sending took too long). Delayed so it never
+  // competes with the login window and the database opening.
+  setTimeout(() => { try { prewarmPdfRenderer(); } catch { /* best effort */ } }, 2500);
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
   // ===== Auto-backup timer =====
@@ -849,4 +858,10 @@ app.on("window-all-closed", () => {
   if (isUninstallVerify) { try { closeDB(); } catch {} app.exit(1); return; }
   closeDB(); if (process.platform !== "darwin") app.quit();
 });
-app.on("before-quit", () => { closeConfirmed = true; closeDB(); });
+app.on("before-quit", () => {
+  closeConfirmed = true;
+  // Release the warm offscreen PDF window: the app is going down, and the
+  // WhatsApp quit handler that runs next must not race a hidden renderer.
+  try { disposePdfRenderer(); } catch { /* best effort */ }
+  closeDB();
+});

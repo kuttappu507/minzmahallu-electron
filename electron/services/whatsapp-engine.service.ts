@@ -68,6 +68,10 @@ let loggedOutRetryUsed = false;
 // a hard exit can drop a pending key rotation, which the next start then reads
 // as stale keys -> server 401 -> "session gone after closing" (user report).
 let credsSaver: (() => Promise<void>) | null = null;
+// The LIVE creds object of the current socket (Baileys merges every
+// creds.update into it). Used to stamp the "pairing completed" marker that
+// Baileys only writes on the link-code path — see markPairedOnDisk().
+let liveCreds: any = null;
 
 // ---------------------------------------------------------------------------
 // Delivery tracking — the privacy lock needs to know the moment a message
@@ -134,7 +138,17 @@ export function whatsappStoreDir(): string | null {
   const base = userDataDir();
   return base ? path.join(base, "whatsapp") : null;
 }
+// Test seam — vitest runs OUTSIDE Electron, where app.getPath("userData")
+// throws and no auth folder can be resolved at all. Tests point the engine at
+// a temp directory so the real persistence + recovery logic (paired-session
+// detection, backup restore, aborted-pairing cleanup) is exercised as it runs
+// in the app. `undefined` = no override (normal Electron resolution).
+let authDirOverride: string | null | undefined;
+export function setAuthDirForTests(dir: string | null | undefined): void {
+  authDirOverride = dir;
+}
 function authDir(): string | null {
+  if (authDirOverride !== undefined) return authDirOverride;
   const base = userDataDir();
   return base ? path.join(base, "whatsapp", "auth") : null;
 }
@@ -145,26 +159,65 @@ function setState(next: EngineState, error = "") {
   else if (error === "") lastError = "";
 }
 
+/** Does this creds object describe a COMPLETED pairing?
+ *
+ *  Baileys 7 sets `registered: true` ONLY on the phone-number (link-code)
+ *  pairing path — see Socket/messages-recv.js. A QR-scan pairing goes through
+ *  `configureSuccessfulPairing()`, which fills `me` + `account` +
+ *  `signalIdentities` + `platform` and leaves `registered` FALSE forever.
+ *  Answering "is a session persisted?" from `registered` alone therefore
+ *  classified every QR pairing as an aborted one and WIPED the auth folder on
+ *  the next start — the exact user report ("pair once, it is gone after
+ *  closing the app, I have to scan again").
+ *
+ *  `me` alone is NOT sufficient either: `requestPairingCode()` writes `me`
+ *  before the phone ever accepts the code, so a half-finished link-code
+ *  attempt must still count as unpaired. */
+export function isPairedCreds(creds: any): boolean {
+  if (!creds || typeof creds !== "object") return false;
+  if (creds.registered === true) return true;
+  // QR pairing: the signed device identity from the phone.
+  if (creds.account && typeof creds.account === "object") return true;
+  // QR pairing: the primary device's signal identity.
+  const ids = creds.signalIdentities;
+  if (Array.isArray(ids) && ids.length > 0) return true;
+  return false;
+}
+
+/** Read + parse a creds-shaped JSON file. Null when absent/unreadable. */
+function readCredsFile(file: string): any | null {
+  try { return JSON.parse(fs.readFileSync(file, "utf-8")); } catch { return null; }
+}
+
+/** Write JSON the safe way: temp file + atomic rename, so a kill/BSOD
+ *  mid-write can never leave a half-written file at the destination. */
+function atomicWriteJson(file: string, raw: string): boolean {
+  try {
+    const tmp = `${file}.tmp-${process.pid}`;
+    fs.writeFileSync(tmp, raw);
+    fs.renameSync(tmp, file);
+    return true;
+  } catch { return false; }
+}
+
 /** Restore creds.json from the verified backup (creds.json.bak). Returns
- *  true when a complete, registered backup was copied over the live file. */
+ *  true when a complete, PAIRED backup was copied over the live file. */
 function restoreBackupCreds(): boolean {
   const dir = authDir();
   if (!dir) return false;
   const bak = path.join(dir, "creds.json.bak");
   if (!fs.existsSync(bak)) return false;
-  try {
-    const raw = fs.readFileSync(bak, "utf-8");
-    const creds = JSON.parse(raw);
-    if (creds?.registered === true) {
-      fs.writeFileSync(path.join(dir, "creds.json"), raw);
-      console.log("[whatsapp] Restored WhatsApp session from creds.json.bak");
-      return true;
-    }
-  } catch { /* unusable backup */ }
-  return false;
+  const creds = readCredsFile(bak);
+  if (!isPairedCreds(creds)) return false;
+  // Copy through a temp file so the live creds.json is never half-written.
+  let raw = "";
+  try { raw = fs.readFileSync(bak, "utf-8"); } catch { return false; }
+  const ok = atomicWriteJson(path.join(dir, "creds.json"), raw);
+  if (ok) console.log("[whatsapp] Restored WhatsApp session from creds.json.bak");
+  return ok;
 }
 
-/** A paired session's credentials exist AND registration completed on disk.
+/** A paired session's credentials exist AND the pairing completed on disk.
  * Leftovers from an ABORTED pairing (creds.json written before the QR was
  * scanned) are wiped so the next start doesn't run a doomed handshake that
  * the server answers with 401 — the "logged out after close" class. */
@@ -180,24 +233,22 @@ export function hasPersistedSession(): boolean {
   if (!fs.existsSync(credsPath)) {
     return restoreBackupCreds();
   }
-  try {
-    const creds = JSON.parse(fs.readFileSync(credsPath, "utf-8"));
-    if (creds?.registered === true) return true;
-    // Live file parses but is NOT registered. If a VERIFIED backup exists,
-    // prefer it over wiping — the pairing may still be alive on the phone.
-    if (restoreBackupCreds()) return true;
-    // Only wipe when no socket is live — mid-pairing creds are expected to
-    // be unregistered for a while and must not be destroyed.
-    if (!sock && !startPromise) {
-      try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* best effort */ }
-    }
-    return false;
-  } catch {
+  const creds = readCredsFile(credsPath);
+  if (isPairedCreds(creds)) return true;
+  if (creds === null) {
     // Live creds.json is UNREADABLE (truncated by a hard exit, antivirus
     // lock, …). The phone still lists the device, so restore the last
     // verified backup — the keys in it are what the server knows.
     return restoreBackupCreds();
   }
+  // Parses, but the pairing never completed. If a VERIFIED backup exists,
+  // prefer it over wiping — the pairing may still be alive on the phone.
+  if (restoreBackupCreds()) return true;
+  // Leftovers from an aborted pairing are retired so the next Connect shows a
+  // fresh QR instead of a doomed handshake — but ONLY when no socket is live:
+  // mid-pairing creds are expected to be incomplete for a while.
+  if (!sock && !startPromise) resetAuth("quarantine", "pairing never completed");
+  return false;
 }
 
 /** Full engine snapshot for the service layer / UI status mapping. */
@@ -218,24 +269,41 @@ function clearReconnectTimer() {
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
 }
 
+// Live WA Web version — cached for the whole process. The remote fetch is a
+// network round trip on EVERY connect (reconnects included) and can hang for
+// seconds behind a proxy/firewall; one fetch per app run is plenty, and a
+// cached answer makes reconnects after a drop instant.
+let cachedWaVersion: { version: [number, number, number]; at: number } | null = null;
+const WA_VERSION_TTL_MS = 12 * 60 * 60 * 1000;
+
+async function fetchWaWebVersion(): Promise<[number, number, number] | undefined> {
+  if (cachedWaVersion && Date.now() - cachedWaVersion.at < WA_VERSION_TTL_MS) return cachedWaVersion.version;
+  try {
+    // Bound the fetch to 8s so the socket still opens with Baileys' bundled
+    // version instead of hanging (user report: pairing stuck on "Starting").
+    const fetched = await Promise.race([
+      fetchLatestWaWebVersion(),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
+    ]);
+    const version = fetched?.version || undefined;
+    if (version) cachedWaVersion = { version, at: Date.now() };
+    return version;
+  } catch {
+    return cachedWaVersion?.version; // offline or blocked — reuse/omit
+  }
+}
+
 async function connectInternal(): Promise<void> {
   const dir = authDir();
   if (!dir) throw new Error("WhatsApp engine is only available inside the app.");
   fs.mkdirSync(dir, { recursive: true });
   clearReconnectTimer();
   const { state: authState, saveCreds } = await useMultiFileAuthState(dir);
-  // Live WA Web version: required for a successful handshake. The remote fetch
-  // can hang when a proxy/firewall slows the endpoint — bound it to 8s so the
-  // socket still opens with Baileys' bundled version instead of hanging (user
-  // report: pairing stuck forever on "Starting").
-  let version: [number, number, number] | undefined;
-  try {
-    const fetched = await Promise.race([
-      fetchLatestWaWebVersion(),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
-    ]);
-    version = fetched?.version || undefined;
-  } catch { /* offline or blocked — Baileys falls back to its bundled version */ }
+  // Keep a handle on the LIVE creds object: Baileys merges every
+  // `creds.update` into it (Socket/socket.js: `Object.assign(creds, update)`),
+  // so writing it back later persists whatever the socket learned meanwhile.
+  liveCreds = authState.creds as any;
+  const version = await fetchWaWebVersion();
 
   sock = makeWASocket({
     auth: {
@@ -298,16 +366,27 @@ async function onConnectionUpdate(update: Partial<ConnectionState>) {
     };
     reconnectAttempts = 0;
     setState("CONNECTED", "");
+    // The server accepted this session — stamp the pairing as COMPLETE and
+    // force a verified write (live creds + creds.json.bak). This is what
+    // makes the session survive a restart for QR pairings, which Baileys
+    // never flags as `registered` by itself.
+    markPairedOnDisk();
     return;
   }
 
   if (connection === "close") {
     const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
     const reason = String((lastDisconnect?.error as any)?.message || "");
-    if (statusCode === DisconnectReason.loggedOut) {
-      // One-shot second chance: try the verified backup ONCE before wiping —
-      // a mid-write kill can surface as loggedOut while the phone still
-      // lists the device. If the retry also 401s, the pairing is truly dead.
+    // These three mean the stored session itself is rejected — reconnecting
+    // with the same credentials loops forever, so they are handled like a
+    // logout instead of being retried in the backoff ladder.
+    const sessionRejected = statusCode === DisconnectReason.loggedOut
+      || statusCode === DisconnectReason.badSession
+      || statusCode === DisconnectReason.multideviceMismatch;
+    if (sessionRejected) {
+      // One-shot second chance: try the verified backup ONCE before retiring
+      // the session — a mid-write kill can surface as loggedOut while the
+      // phone still lists the device. If the retry also fails, it is dead.
       if (!loggedOutRetryUsed && restoreBackupCreds()) {
         loggedOutRetryUsed = true;
         sock = null;
@@ -315,11 +394,16 @@ async function onConnectionUpdate(update: Partial<ConnectionState>) {
         scheduleReconnect();
         return;
       }
-      // The phone unlinked this device — credentials are dead. Wipe them so
-      // the next Connect shows a fresh QR instead of a doomed handshake.
-      resetAuth();
+      // The phone unlinked this device (or the server rejected the stored
+      // session) — the credentials are dead. Retire them (kept recoverable,
+      // see resetAuth) so the next Connect shows a fresh QR instead of a
+      // doomed handshake.
+      resetAuth("quarantine", "rejected by WhatsApp");
+      liveCreds = null;
       sock = null;
-      setState("IDLE", "WhatsApp session was unlinked from the phone. Pair again by scanning the QR code.");
+      setState("IDLE", statusCode === DisconnectReason.loggedOut
+        ? "WhatsApp session was unlinked from the phone. Pair again by scanning the QR code."
+        : "WhatsApp rejected the stored session. Pair again by scanning the QR code.");
       return;
     }
     sock = null;
@@ -340,10 +424,67 @@ function scheduleReconnect() {
   }, delay);
 }
 
-function resetAuth() {
+/** Retire the stored credentials.
+ *
+ *  They are MOVED ASIDE, not deleted. "Is this a completed pairing?" is a
+ *  heuristic about Baileys' internal creds shape, and a false negative used to
+ *  DELETE a perfectly good session — the user then had to scan a new QR after
+ *  every restart. Quarantining keeps the last two retired attempts recoverable
+ *  (support can drop one back in place) while still guaranteeing the next
+ *  Connect starts from a clean slate. Only an explicit "Unlink phone" hard-
+ *  deletes, because that is the user asking for the credentials to go. */
+function resetAuth(mode: "quarantine" | "delete" = "quarantine", reason = ""): void {
   const dir = authDir();
   if (!dir) return;
-  try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* best effort */ }
+  try {
+    if (!fs.existsSync(dir)) return;
+    if (mode === "delete") {
+      fs.rmSync(dir, { recursive: true, force: true });
+      return;
+    }
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    fs.renameSync(dir, `${dir}-retired-${stamp}`);
+    console.log(`[whatsapp] Stored WhatsApp session retired${reason ? ` (${reason})` : ""} — pair again to continue`);
+  } catch (err: any) {
+    // Renaming can fail (a locked file on Windows): fall back to deleting so a
+    // rejected session is never presented to the server again.
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* best effort */ }
+    console.warn("[whatsapp] Could not retire the session folder:", err?.message || err);
+  } finally {
+    try { fs.mkdirSync(dir, { recursive: true }); } catch { /* created on next connect */ }
+    pruneRetiredAuth();
+  }
+}
+
+/** Keep at most the two most recent retired session folders. */
+function pruneRetiredAuth(): void {
+  const dir = authDir();
+  if (!dir) return;
+  try {
+    const parent = path.dirname(dir);
+    const prefix = `${path.basename(dir)}-retired-`;
+    const old = fs.readdirSync(parent).filter((n) => n.startsWith(prefix)).sort();
+    for (const name of old.slice(0, Math.max(0, old.length - 2))) {
+      try { fs.rmSync(path.join(parent, name), { recursive: true, force: true }); } catch { /* best effort */ }
+    }
+  } catch { /* best effort */ }
+}
+
+/** Stamp the persisted creds as a COMPLETED pairing and force a verified
+ *  write (live creds.json + creds.json.bak).
+ *
+ *  Baileys 7 sets `registered` only on the link-code pairing path, so a QR
+ *  session on disk never carried the flag; every "is a session persisted?"
+ *  answer then came out "no" and the auth folder was wiped at the next start.
+ *  Nothing inside Baileys READS `registered` (grep: only initAuthCreds and the
+ *  link-code handler touch it), so writing it once the server has accepted the
+ *  login is a safe, self-describing marker for our own recovery logic — and it
+ *  also heals sessions paired by older builds on the very first connect. */
+function markPairedOnDisk(): void {
+  try {
+    if (liveCreds && liveCreds.registered !== true) liveCreds.registered = true;
+    void credsSaver?.();
+  } catch { /* the quit-time flush is the safety net */ }
 }
 
 // ---- Creds write safety (user report: after quitting, the app came back
@@ -360,10 +501,10 @@ function backupCreds(dir: string): void {
   try {
     const live = path.join(dir, "creds.json");
     const raw = fs.readFileSync(live, "utf-8");
-    const parsed = JSON.parse(raw); // only back up a COMPLETE file
-    if (parsed && parsed.registered === true) {
-      fs.writeFileSync(path.join(dir, "creds.json.bak"), raw);
-    }
+    // Only back up a COMPLETE, PAIRED file (JSON.parse proves it is not
+    // mid-write) and write the copy ATOMICALLY, so the backup itself can
+    // never be the file a hard exit truncates.
+    if (isPairedCreds(JSON.parse(raw))) atomicWriteJson(path.join(dir, "creds.json.bak"), raw);
   } catch { /* live file mid-write or absent — skip this round */ }
 }
 
@@ -396,34 +537,38 @@ export function maybeStartEngine(): void {
 /**** Graceful-quit auth flush — makes "connection gone after closing" impossible.
  * 1. Force one FINAL creds write through Baileys' own saver (awaited, with a
  *    timeout so a wedged socket can never block exit).
- * 2. VERIFY the persisted creds actually parse and say `registered: true`;
- *    if the file is mid-write/unreadable, wait briefly for the write to land.
+ * 2. VERIFY the persisted creds actually parse and describe a completed
+ *    pairing; if the file is mid-write/unreadable, wait briefly for the write
+ *    to land. An UNPAIRED machine returns immediately — there is nothing to
+ *    verify, and burning the whole deadline made every close take 5 seconds.
  * Without this, quitting right after a key rotation could leave a truncated
  * creds.json behind and the pairing would be lost by the next start. */
-export async function flushAuthWrites(maxMs = 5000): Promise<void> {
-  const deadline = Date.now() + maxMs;
+export async function flushAuthWrites(maxMs = 3000): Promise<boolean> {
+  const dir = authDir();
+  if (!dir) return false;
   try {
     if (credsSaver) {
       await Promise.race([
         credsSaver(),
-        new Promise((r) => setTimeout(r, 2500)),
+        new Promise((r) => setTimeout(r, 2000)),
       ]);
     }
   } catch { /* best effort — verification below is the real safety net */ }
-  const dir = authDir();
-  if (!dir) return;
-  while (Date.now() < deadline) {
-    try {
-      const raw = fs.readFileSync(path.join(dir, "creds.json"), "utf-8");
-      const creds = JSON.parse(raw);
-      if (creds && creds.registered === true) {
-        // Final verified backup — the next start can always restore a
-        // complete pairing even if the very last write was cut off.
-        backupCreds(dir);
-        return; // pairing is safely on disk
-      }
-    } catch { /* mid-write or truncated — wait and re-read */ }
-    await new Promise((resolve) => setTimeout(resolve, 250));
+  const deadline = Date.now() + maxMs;
+  for (;;) {
+    const creds = readCredsFile(path.join(dir, "creds.json"));
+    if (creds === null) {
+      // Nothing usable on disk: either an unpaired machine (normal) or a
+      // truncated file. Stop waiting when no pairing was ever stamped.
+      if (!isPairedCreds(liveCreds)) return false;
+    } else if (isPairedCreds(creds)) {
+      // Final verified backup — the next start can always restore a complete
+      // pairing even if the very last write was cut off.
+      backupCreds(dir);
+      return true; // pairing is safely on disk
+    }
+    if (Date.now() >= deadline) return false;
+    await new Promise((resolve) => setTimeout(resolve, 150));
   }
 }
 
@@ -445,7 +590,14 @@ export async function stopEngine(opts: { logout?: boolean } = {}): Promise<void>
       await Promise.race([current.end(new Error("stopped")), new Promise((r) => setTimeout(r, 3000))]);
     }
   } catch { /* already closed */ }
-  if (opts.logout) resetAuth();
+  if (opts.logout) {
+    // Explicit "Unlink phone": the credentials really are removed.
+    resetAuth("delete", "unlink");
+    // Forget the in-memory creds + saver: a wiped session must never be
+    // written back (and must never satisfy the quit-time flush check).
+    liveCreds = null;
+    credsSaver = null;
+  }
   me = null;
   setState("IDLE", "");
 }
@@ -504,21 +656,47 @@ export function requireConnectedSocket(): WASocket {
   throw new Error("WhatsApp is not connected yet. Open the WhatsApp page, connect and scan the QR code, then try again.");
 }
 
+// ---------------------------------------------------------------------------
+// Phone → JID resolution, with a cache. EVERY send used to ask the WhatsApp
+// servers "is this number registered?" (`onWhatsApp`) — a full round trip of
+// roughly 0.5–2 s, repeated for the SAME family on every receipt and every
+// reminder. A positive answer is cached for 12 h (numbers do not move between
+// accounts often); a "not on WhatsApp" answer only for 2 min so a number that
+// was just corrected/registered is retried quickly. The cache is keyed on the
+// digits the app stores, so editing a family's number never serves a stale JID.
+// ---------------------------------------------------------------------------
+const JID_HIT_TTL_MS = 12 * 60 * 60 * 1000;
+const JID_MISS_TTL_MS = 2 * 60 * 1000;
+const jidCache = new Map<string, { jid: string | null; at: number }>();
+
 /** Resolve a phone number to a WhatsApp JID, verifying it is registered.
- *  10-digit local numbers are retried with the +91 (India) country code. */
+ *  10-digit local numbers are tried with the +91 (India) country code FIRST —
+ *  that is what the mahallu records hold, and probing the bare 10 digits first
+ *  guaranteed one wasted round trip on every single send. */
 export async function resolveJid(phone: string): Promise<string> {
   const s = requireConnectedSocket();
   const digits = String(phone || "").replace(/\D/g, "");
-  const candidates = digits.length ? [digits] : [];
-  if (digits.length === 10) candidates.push(`91${digits}`);
+  const notRegistered = () => new Error("This number is not registered on WhatsApp");
+  if (!digits) throw notRegistered();
+  const cached = jidCache.get(digits);
+  if (cached && Date.now() - cached.at < (cached.jid ? JID_HIT_TTL_MS : JID_MISS_TTL_MS)) {
+    if (cached.jid) return cached.jid;
+    throw notRegistered();
+  }
+  const candidates = digits.length === 10 ? [`91${digits}`, digits] : [digits];
   for (const candidate of candidates) {
     try {
       const results = await s.onWhatsApp(candidate);
       const hit = (results || []).find((r: any) => r?.exists && r?.jid);
-      if (hit) return String(hit.jid);
+      if (hit) {
+        const jid = String(hit.jid);
+        jidCache.set(digits, { jid, at: Date.now() });
+        return jid;
+      }
     } catch { /* try the next candidate form */ }
   }
-  throw new Error("This number is not registered on WhatsApp");
+  jidCache.set(digits, { jid: null, at: Date.now() });
+  throw notRegistered();
 }
 
 /** Send a plain text message over the paired session. */

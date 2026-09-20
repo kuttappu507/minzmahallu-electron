@@ -381,17 +381,30 @@ export function markReceiptDelivered(kind: "donation" | "subscription", id: numb
 
 /** Late delivery (phone came online hours later): map the stored message id
  *  back to whichever receipt row it belongs to. Called from the engine's
- *  delivery listener — must never throw. */
-export function markReceiptDeliveredByMsgId(msgId: string): void {
-  if (!msgId) return;
+ *  delivery listener — must never throw. Returns the rows whose lock flipped
+ *  NOW, so the caller can push a refresh to the open page instead of leaving
+ *  the office staring at "delivery not confirmed". */
+export function markReceiptDeliveredByMsgId(msgId: string): Array<{ kind: "donation" | "subscription"; id: number }> {
+  const flipped: Array<{ kind: "donation" | "subscription"; id: number }> = [];
+  if (!msgId) return flipped;
   ensureReceiptSchema();
-  for (const table of ["donations", "subscription_payments"]) {
+  const tables: Array<[ "donation" | "subscription", string ]> = [
+    ["donation", "donations"],
+    ["subscription", "subscription_payments"],
+  ];
+  for (const [kind, table] of tables) {
     try {
-      getDB()
-        .prepare(`UPDATE ${table} SET receipt_delivered_at = datetime('now') WHERE whatsapp_msg_id = ? AND receipt_delivered_at IS NULL`)
+      const db = getDB();
+      const rows = db
+        .prepare(`SELECT id FROM ${table} WHERE whatsapp_msg_id = ? AND receipt_delivered_at IS NULL`)
+        .all(msgId) as Array<{ id: number }>;
+      if (!rows.length) continue;
+      db.prepare(`UPDATE ${table} SET receipt_delivered_at = datetime('now') WHERE whatsapp_msg_id = ? AND receipt_delivered_at IS NULL`)
         .run(msgId);
+      for (const r of rows) flipped.push({ kind, id: Number(r.id) });
     } catch { /* best effort */ }
   }
+  return flipped;
 }
 
 /** Spend the ONE admin-authorized re-send. Returns the new count (1). */

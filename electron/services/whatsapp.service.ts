@@ -108,6 +108,22 @@ function ensureSchema() {
 // skip a due rest or reset the pacing clock.
 const sendThrottle = new SendThrottle({ storeDir: whatsappStoreDir });
 
+// ---------------------------------------------------------------------------
+// Late-delivery push. A receipt send only waits a short grace period for the
+// delivery ack (DELIVERY_WAIT_MS); the ack that arrives later flips the
+// privacy lock in the database here — and, when a window is wired up, tells
+// the renderer WHICH row changed so an open Donations/Subscriptions page
+// refreshes that row at once instead of on its next poll.
+// ---------------------------------------------------------------------------
+export type ReceiptDeliveryPush = { kind: "donation" | "subscription"; id: number; msgId: string };
+let receiptDeliveryPush: ((e: ReceiptDeliveryPush) => void) | null = null;
+let deliveryHooked = false;
+
+/** Wire (or clear) the renderer push for late receipt deliveries. */
+export function setReceiptDeliveryPush(cb: ((e: ReceiptDeliveryPush) => void) | null): void {
+  receiptDeliveryPush = cb;
+}
+
 function normalizePhone(value: string): string {
   const raw = String(value || "").trim();
   if (!raw) return "";
@@ -125,22 +141,46 @@ const INTERNET_PROBES = [
   "https://www.gstatic.com/generate_204",
   "https://cp.cloudflare.com/generate_204",
 ];
-const INTERNET_OK_TTL_MS = 30_000;   // cache a positive answer for half a minute
+const INTERNET_OK_TTL_MS = 60_000;   // cache a positive answer for a minute
 const INTERNET_FAIL_TTL_MS = 8_000;  // re-probe failures sooner
+const PROBE_TIMEOUT_MS = 3_500;      // per-probe cap (probes now run in parallel)
 let internetCache: { value: boolean; at: number } | null = null;
+let probeInFlight: Promise<boolean> | null = null;
+
+/** A CONNECTED WhatsApp socket holds a live WebSocket to WhatsApp's servers —
+ *  that IS proof the machine has internet, and it is free. Checking it first
+ *  removes an HTTP round trip (up to 7 s on a filtered network) from every
+ *  receipt send, campaign start and status poll. */
+function socketProvesInternet(): boolean {
+  try { return engineState().connected; } catch { return false; }
+}
+
+async function probeInternet(): Promise<boolean> {
+  // Probes race instead of running one after another: the first healthy
+  // answer wins, a dead network costs ONE timeout instead of two.
+  try {
+    await Promise.any(INTERNET_PROBES.map(async (url) => {
+      const response = await fetch(url, { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS), headers: { Accept: "*/*" } });
+      if (!(response.ok || response.status === 204)) throw new Error(`probe ${url} answered ${response.status}`);
+    }));
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 async function checkInternet(): Promise<boolean> {
+  if (socketProvesInternet()) { internetCache = { value: true, at: Date.now() }; return true; }
   const now = Date.now();
   const ttl = internetCache?.value ? INTERNET_OK_TTL_MS : INTERNET_FAIL_TTL_MS;
   if (internetCache && now - internetCache.at < ttl) return internetCache.value;
-  let value = false;
-  for (const url of INTERNET_PROBES) {
-    try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(4000), headers: { Accept: "*/*" } });
-      if (response.ok || response.status === 204) { value = true; break; }
-    } catch { /* try the next probe */ }
+  // The WhatsApp page polls status() every 6 s while a receipt send may probe
+  // at the same moment — concurrent callers share ONE probe round.
+  if (!probeInFlight) {
+    probeInFlight = probeInternet().finally(() => { probeInFlight = null; });
   }
-  internetCache = { value, at: now };
+  const value = await probeInFlight;
+  internetCache = { value, at: Date.now() };
   return value;
 }
 
@@ -152,6 +192,15 @@ async function requireInternet(): Promise<void> {
  *  unpaired app surfaces protocol noise instead of guidance. */
 function requirePairedSession() {
   requireConnectedSocket();
+}
+
+/** Everything a send needs, in the CHEAPEST-FIRST order: the session gate is
+ *  local and instant (and its message is the one the office can act on —
+ *  "open the WhatsApp page and connect"), the network check is a round trip
+ *  that is skipped entirely while the socket is connected. */
+async function requireReadyToSend(): Promise<void> {
+  requirePairedSession();
+  await requireInternet();
 }
 
 function updateStatus(status: WhatsAppStatus, error = "") {
@@ -188,15 +237,17 @@ async function sendDocumentInternal(input: {
 function monthKey(date = new Date()) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`; }
 function dayKey(date = new Date()) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }
 
-// How long a send waits for the recipient's delivery receipt before
-// reporting "sent — delivery not confirmed yet". Delivery usually lands in
-// 1–3 seconds; the wait is intentionally SHORT (user report: receipt sending
-// felt slow — the app must hand control back quickly). A late confirmation
-// still flips the lock via the engine's delivery listener, and the receipt
-// stays sendable until then, so nobody is ever locked out of their receipt.
-// 4s (was 6s): covers the typical ack window while the UI refreshes the row
-// again a few seconds later, so a late "delivered" appears on its own.
-const DELIVERY_WAIT_MS = 4_000;
+// How long a receipt send WAITS for the recipient's delivery ack before
+// handing control back to the UI. The message has already LEFT the app by
+// then, so this is a short grace period only — long enough for the common
+// "recipient is online" case to report a truthful "delivered", short enough
+// that the button never feels stuck. It used to block for a full 4 s on EVERY
+// send (the largest single slice of "receipt sending takes too much time").
+// A late ack still flips the privacy lock: the engine's delivery listener
+// writes it to the row (whatsapp.init → markReceiptDeliveredByMsgId) and the
+// whatsapp:receipt-delivered push tells the open page to refresh, so the lock
+// badge appears on its own within a second or two — no re-send, no waiting.
+const DELIVERY_WAIT_MS = 1_200;
 
 // Anti-duplicate window: a receipt that LEFT the app within this period
 // (sent, delivery not confirmed yet) may not be sent again without the admin
@@ -206,16 +257,21 @@ const DELIVERY_WAIT_MS = 4_000;
 const RECENT_SEND_WINDOW_MS = 90_000;
 
 // One shared send+track routine for receipt PDFs (the privacy lock lives
-// here): gate → send → record acceptance → wait for the delivery receipt →
-// flip the lock only on real delivery.
+// here): gate → send → record acceptance → short delivery grace → the lock
+// flips on real delivery (now, or later through the delivery listener).
 async function sendReceiptWithLock(input: {
   kind: "donation" | "subscription";
   rowId: number;              // donation id · subscription LEDGER payment id
   phone: string; text: string; pdf: Buffer; fileName: string;
   messageType: string; name?: string; familyId?: number | null; donationId?: number;
 }): Promise<{ msgId: string; delivered: boolean }> {
+  // One timing line per receipt, so "it felt slow" can be answered with a
+  // number instead of a guess (the recipient is only shown by its last four
+  // digits — the log is not a phone book).
+  const startedAt = Date.now();
   requirePairedSession();
   const jid = await resolveJid(input.phone);
+  const resolvedAt = Date.now();
   const result = await engineSendDocument(jid, input.pdf, input.fileName, input.text);
   const msgId = String(result.id || "");
   saveMessage({
@@ -223,6 +279,10 @@ async function sendReceiptWithLock(input: {
     status: "SENT", familyId: input.familyId, donationId: input.donationId, providerId: msgId,
   });
   markReceiptAccepted(input.kind, input.rowId, msgId);
+  console.log(`[whatsapp] ${input.messageType} → …${String(input.phone).slice(-4)} accepted in ${resolvedAt - startedAt} ms (resolve) + ${Date.now() - resolvedAt} ms (send), ${Math.round(input.pdf.length / 1024)} KB`);
+  if (isDelivered(msgId)) { markReceiptDelivered(input.kind, input.rowId); return { msgId, delivered: true }; }
+  // Short grace only. Whatever arrives later is applied by the engine's
+  // delivery listener (see whatsapp.init), so nothing is lost by returning.
   const delivered = await waitForDelivery(msgId, DELIVERY_WAIT_MS);
   if (delivered) markReceiptDelivered(input.kind, input.rowId);
   return { msgId, delivered };
@@ -339,17 +399,27 @@ export const whatsapp = {
   init: () => {
     ensureSchema();
     clearLegacyWahaData();
+    if (deliveryHooked) return; // init() runs once per process (tests call it repeatedly)
+    deliveryHooked = true;
     // LATE DELIVERY: WhatsApp confirms delivery whenever the recipient's
     // phone comes online — minutes or hours after we sent. Every
     // confirmation is mapped back to its receipt row and flips the send-lock
-    // at that moment (the "only when actually delivered" privacy rule).
-    onDelivery((msgId) => markReceiptDeliveredByMsgId(msgId));
+    // at that moment (the "only when actually delivered" privacy rule), and
+    // the rows that flipped are pushed to the open page.
+    onDelivery((msgId) => {
+      for (const row of markReceiptDeliveredByMsgId(msgId)) {
+        try { receiptDeliveryPush?.({ ...row, msgId }); } catch { /* renderer gone — the DB stays the truth */ }
+      }
+    });
   },
   status: async () => {
     ensureSchema();
-    const internet = await checkInternet();
     // A paired session logs back in silently at app start / after drops.
+    // Kicked off BEFORE the connectivity probe: a connected socket is itself
+    // proof of internet, so the probe — a network round trip every 6 s while
+    // the WhatsApp page is open — is skipped in the normal case.
     maybeStartEngine();
+    const internet = await checkInternet();
     const snap = engineState();
     const tosAcked = !!String((getDB().prepare("SELECT tos_ack_at FROM whatsapp_settings WHERE id=1").get() as any)?.tos_ack_at || "");
     const throttle = sendThrottle.snapshot();
@@ -463,8 +533,7 @@ export const whatsapp = {
     return getDB().prepare("SELECT id, house_name, family_number, whatsapp_phone, phone, whatsapp_enabled, status FROM families WHERE id=?").get(familyId) as any;
   },
   checkNumber: async (phone: string) => {
-    await requireInternet();
-    requirePairedSession();
+    await requireReadyToSend();
     const normalized = normalizePhone(phone);
     if (!normalized) return { available: false, reason: "WhatsApp number is missing or invalid" };
     try {
@@ -488,8 +557,7 @@ export const whatsapp = {
         throw new Error("This family has opted out of WhatsApp messages. Turn messaging back on in the family record first.");
       }
     }
-    await requireInternet();
-    requirePairedSession();
+    await requireReadyToSend();
     const result = await sendTextInternal(phone, input.text);
     saveMessage({ type: input.type || "MESSAGE", name: input.name, phone, text: input.text, status: "SENT", familyId: input.familyId, donationId: input.donationId, subscriptionId: input.subscriptionId, providerId: result.id });
     return { success: true, providerMessageId: result.id || "" };
@@ -512,18 +580,19 @@ export const whatsapp = {
     const text = `Assalamu Alaikum ${d.donor_name},\n\nYour donation receipt is attached.\n\nReceipt: ${d.receipt_number}\nAmount: ${currency}${Number(d.amount || 0).toLocaleString("en-IN")}\nCategory: ${d.category_name || "Donation"}\nDate: ${fmtDdMmYyyy(String(d.donation_date || ""))}\n${settingsRow?.mahallu_name ? `\n${settingsRow.mahallu_name}` : ""}\n\nJazakallahu Khairan.`;
     // 1. Generate and SAVE the A6 receipt in the app — this works even when
     //    WhatsApp is not set up yet, so the record always has its PDF.
-    //    Started IMMEDIATELY and overlapped with the internet probe below —
+    //    Started IMMEDIATELY and overlapped with the readiness gate below —
     //    the hidden-window render is the slowest step of every send
     //    (user report: receipt sending took too long).
     const receiptP = generateDonationReceiptPdf(donationId);
     receiptP.catch(() => { /* awaited below; keep the early-throw path quiet */ });
-    // 2. Sending needs a number, internet and a paired session (truthful
-    //    pre-checks so the toast explains the real problem).
+    // 2. Sending needs a number, a paired session and internet — checked in
+    //    that (cheap-first) order so the toast explains the real problem
+    //    instantly instead of after a network probe.
     if (!phone) {
       try { await receiptP; } catch { /* surface the phone problem instead */ }
       throw new Error("ഈ ദാതാവിന്റെ വാട്ട്സ്ആപ്പ് നമ്പർ ചേർത്തിട്ടില്ല. ആദ്യം ദാതാവിന്റെ ഫോൺ നമ്പർ ചേർക്കുക.");
     }
-    await requireInternet();
+    await requireReadyToSend();
     const receipt = await receiptP;
     const result = await sendReceiptWithLock({
       kind: "donation", rowId: donationId,
@@ -535,7 +604,7 @@ export const whatsapp = {
       providerMessageId: result.msgId, delivered: result.delivered,
       deliveredNote: result.delivered
         ? "Delivered to the recipient — the receipt is now locked (one admin re-send remains available)."
-        : "Sent, but delivery is not confirmed yet (the phone may be offline). The receipt is NOT locked and can be sent again once you confirm it did not arrive.",
+        : "Sent — WhatsApp accepted the receipt and delivery is being confirmed. It is NOT locked yet: the lock flips by itself the moment the recipient's phone confirms, and the receipt can be sent again if it never arrives.",
     };
   },
   sendSubscriptionReceipt: async (subscriptionId: number, opts: { soft?: boolean; adminPassword?: string } = {}) => {
@@ -580,13 +649,14 @@ export const whatsapp = {
     const settingsRow = getDB().prepare("SELECT mahallu_name, currency_symbol FROM settings WHERE id=1").get() as any;
     const currency = settingsRow?.currency_symbol || "₹";
     // Always finish the A6 render + store (works without WhatsApp). On the
-    // hard path the internet probe runs IN PARALLEL with the render — the
-    // two no longer add up (user report: receipt sending took too long).
-    // Soft mode never probes the internet: the payment itself must not fail
-    // because of messaging.
+    // hard path the readiness gate (session, then network) runs IN PARALLEL
+    // with the render — the two no longer add up (user report: receipt
+    // sending took too long).
+    // Soft mode never gates: the payment itself must not fail because of
+    // messaging — it reports a status instead of throwing.
     const [receipt] = await Promise.all([
       receiptP,
-      soft ? Promise.resolve(null) : requireInternet(),
+      soft ? Promise.resolve(null) : requireReadyToSend(),
     ]);
     // ---- The caption tells the money story: cash in, where it went
     // (old arrears → this month → advance), and what is still due after it.
@@ -637,7 +707,7 @@ export const whatsapp = {
       providerMessageId: result.msgId, delivered: result.delivered,
       deliveredNote: result.delivered
         ? "Delivered to the recipient — the receipt is now locked (one admin re-send remains available)."
-        : "Sent, but delivery is not confirmed yet (the phone may be offline). The receipt is NOT locked and can be sent again once you confirm it did not arrive.",
+        : "Sent — WhatsApp accepted the receipt and delivery is being confirmed. It is NOT locked yet: the lock flips by itself the moment the recipient's phone confirms, and the receipt can be sent again if it never arrives.",
     };
   },
   createSubscriptionCampaign: async () => {
@@ -696,8 +766,7 @@ export const whatsapp = {
     return { campaignId, total: eligible.length, day: key };
   },
   runCampaign: async (campaignId: number) => {
-    await requireInternet();
-    requirePairedSession();
+    await requireReadyToSend();
     const campaign = getDB().prepare("SELECT * FROM whatsapp_campaigns WHERE id=?").get(campaignId) as any;
     if (!campaign) throw new Error("Campaign not found");
     const result = await runQueue(campaignId);
@@ -709,8 +778,7 @@ export const whatsapp = {
   failedRecipients: (campaignId: number) => { ensureSchema(); return getDB().prepare("SELECT * FROM whatsapp_campaign_recipients WHERE campaign_id=? AND status='FAILED'").all(campaignId); },
   retryFailed: async (campaignId: number) => {
     ensureSchema();
-    await requireInternet();
-    requirePairedSession();
+    await requireReadyToSend();
     getDB().prepare("UPDATE whatsapp_campaign_recipients SET status='PENDING', error_message='' WHERE campaign_id=? AND status='FAILED'").run(campaignId);
     return runQueue(campaignId);
   },
@@ -772,7 +840,9 @@ export async function sendWelfareDisbursedMessage(welfareId: number): Promise<{ 
     : `Assalamu Alaikkum! ${amount}${category ? ` (${category})` : ""} from the ${org} welfare fund was disbursed to ${applicant} on ${date}. — ${org} Office`;
 
   try {
-    await requireInternet();
+    // Session gate first (instant, actionable), network probe second — and
+    // skipped entirely while the socket is connected.
+    await requireReadyToSend();
     const result = await sendTextInternal(phone, text);
     saveMessage({ type: "WELFARE_DISBURSED", name: applicant, phone, text, status: "SENT", familyId: w.family_id ?? null, providerId: result.id });
     return { sent: true };
