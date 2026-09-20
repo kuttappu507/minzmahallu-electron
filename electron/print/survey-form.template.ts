@@ -68,7 +68,7 @@ export function buildSurveyFormHtml(): string {
     ],
     cols: {
       no: ['No.', 'നമ്പർ'],
-      name: ['Full Name', 'പേര്'],
+      name: ["Name & Father's Name", 'പേരും പിതാവിന്റെ പേരും'],
       relation: ['Relation to Head', 'ബന്ധം'],
       gender: ['M / F', 'ആൺ / പെൺ'],
       dob: ['Date of Birth', 'ജനനത്തീയതി'],
@@ -96,49 +96,56 @@ export function buildSurveyFormHtml(): string {
   ).join('');
 
   const C = L.cols;
+  /* PURE BLACK & WHITE — this form is photocopied and hand-filled in the
+     field, so it prints in grayscale only: no brand colours, no filled
+     backgrounds, plain hairline borders.
+     Page-2 LANDSCAPE budget (user report: the members sheet overflowed to a
+     third page): A4 landscape body = 297×210, .page.land padding 9/11 →
+     usable height ≈ 192mm. Header ≈ 12 + section ≈ 5 + note ≈ 7 + table
+     (head ≈ 9 + 10 × 12.6 = 126) + hint ≈ 7 → ≈ 166mm, safely inside. */
   return `<!doctype html><html><head><meta charset="utf-8"><style>
 @page{size:A4 portrait;margin:0}
 @page second{size:A4 landscape;margin:0}
 *{box-sizing:border-box}
-body{margin:0;font-family:Poppins,"Anek Malayalam Variable","Segoe UI",Arial,sans-serif;color:#18231e;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{margin:0;font-family:Poppins,"Anek Malayalam Variable","Segoe UI",Arial,sans-serif;color:#111;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .page{padding:11mm;page-break-after:always}
 .page.last{page-break-after:auto}
 /* Named page: the members sheet prints LANDSCAPE (Chromium honours named
    pages with preferCSSPageSize). Width/height mirror the A4 landscape box. */
 .page.land{page:second;width:297mm;height:209mm;padding:9mm 11mm}
-.head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:.5mm solid #d5e3dd;padding-bottom:3mm;margin-bottom:2.5mm}
+.head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:.5mm solid #111;padding-bottom:2mm;margin-bottom:2mm}
 .brand{display:flex;gap:2.5mm;align-items:center}
-.logo{width:9mm;height:9mm;border-radius:2.5mm;background:#159b78;color:#fff;display:grid;place-items:center;font-weight:800;font-size:4.5mm}
-.head h1{margin:0;font-size:5mm}
-.pgtag{font-size:2.6mm;font-weight:700;color:#138466;border:.3mm solid #bfe0d5;border-radius:99px;padding:1mm 3mm;background:#f0f9f5;white-space:nowrap}
-.sub{font-size:2.4mm;color:#718078;margin-top:.8mm}
+.logo{width:8mm;height:8mm;border:.4mm solid #111;color:#111;display:grid;place-items:center;font-weight:800;font-size:4mm}
+.head h1{margin:0;font-size:4.6mm}
+.pgtag{font-size:2.6mm;font-weight:700;color:#111;border:.3mm solid #111;border-radius:99px;padding:1mm 3mm;white-space:nowrap}
+.sub{font-size:2.4mm;color:#555;margin-top:.8mm}
 .en{display:block;font-size:2.8mm;font-weight:600}
-.ml{display:block;font-size:2.6mm;color:#50615a;font-weight:400}
-.instr{background:#f3f7f5;border:.3mm solid #d8e5df;border-radius:2mm;padding:2mm 2.6mm;font-size:2.4mm;color:#50615a;margin-bottom:3mm}
-.instr .en{font-size:2.4mm;font-weight:500;color:#18231e}
-.sec{margin:0 0 1.8mm;font-size:3.1mm;color:#138466;font-weight:700}
-.note{font-size:2.3mm;color:#718078;margin:-0.5mm 0 2mm}
-.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:2.4mm;margin-bottom:3mm}
-.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:2.4mm;margin-bottom:3mm}
-.field{border:.3mm solid #c9d8d1;border-radius:1.5mm;padding:1.4mm 2mm;min-height:13mm}
-.field .fill{border-bottom:.25mm dotted #9fb2a9;height:6.5mm}
+.ml{display:block;font-size:2.6mm;color:#444;font-weight:400}
+.instr{border:.3mm solid #999;border-radius:1.5mm;padding:1.8mm 2.4mm;font-size:2.4mm;color:#333;margin-bottom:2.6mm}
+.instr .en{font-size:2.4mm;font-weight:600;color:#111}
+.sec{margin:0 0 1.6mm;font-size:3.1mm;color:#111;font-weight:700}
+.note{font-size:2.3mm;color:#555;margin:-0.5mm 0 1.8mm}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:2.4mm;margin-bottom:2.6mm}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:2.4mm;margin-bottom:2.6mm}
+.field{border:.3mm solid #777;border-radius:1.5mm;padding:1.4mm 2mm;min-height:13mm}
+.field .fill{border-bottom:.25mm dotted #888;height:6.5mm}
 .field.wide{grid-column:span 2}
 .field.full{grid-column:span 4;min-height:14mm}
-table{width:100%;border-collapse:collapse;border:.4mm solid #c9d8d1;margin-bottom:2mm}
-th{background:#f3f7f5;border:.3mm solid #c9d8d1;padding:1.6mm 1mm;vertical-align:top}
+table{width:100%;border-collapse:collapse;border:.4mm solid #111;margin-bottom:1.6mm}
+th{background:#eee;border:.3mm solid #666;padding:1.3mm 1mm;vertical-align:top}
 th .en{font-size:2.4mm;font-weight:700}
 th .ml{font-size:2.2mm}
-td{border:.3mm solid #c9d8d1;height:14.2mm;padding:0 1.4mm}
+td{border:.3mm solid #666;height:12.6mm;padding:0 1.4mm}
 td .en{font-size:2.1mm}
-.no{width:10mm;text-align:center;font-size:2.7mm;color:#819088;font-weight:600}
-.hint{font-size:2.3mm;color:#718078;margin:1.4mm 0 0}
-.decl{font-size:2.6mm;color:#50615a;margin:3mm 0 8mm}
-.decl .en{font-weight:500;color:#18231e}
-.signrow{display:flex;justify-content:space-between;gap:8mm;margin-bottom:5mm}
-.sign{flex:1;border-top:.3mm solid #50615a;padding-top:1.4mm;min-height:13mm}
-.office{border:.35mm dashed #9fb2a9;border-radius:2mm;padding:2.2mm 3mm;display:flex;gap:5mm;align-items:center}
-.office .en{color:#819088}
-.office .fill{flex:1;border-bottom:.25mm dotted #9fb2a9;height:5.5mm}
+.no{width:9mm;text-align:center;font-size:2.7mm;color:#555;font-weight:600}
+.hint{font-size:2.2mm;color:#555;margin:1.2mm 0 0}
+.decl{font-size:2.6mm;color:#333;margin:2.6mm 0 7mm}
+.decl .en{font-weight:600;color:#111}
+.signrow{display:flex;justify-content:space-between;gap:8mm;margin-bottom:4mm}
+.sign{flex:1;border-top:.3mm solid #111;padding-top:1.4mm;min-height:13mm}
+.office{border:.35mm dashed #777;border-radius:2mm;padding:2mm 3mm;display:flex;gap:5mm;align-items:center}
+.office .en{color:#555}
+.office .fill{flex:1;border-bottom:.25mm dotted #888;height:5.5mm}
 </style></head><body>
 <section class="page">
 <header class="head"><div class="brand"><div class="logo">M</div><div><h1>${esc(L.title[0])} · ${esc(L.title[1])}</h1><div class="sub">${esc(L.sub[0])} — ${esc(L.sub[1])}</div></div></div><span class="pgtag">${esc(L.page1[0])} / ${esc(L.page1[1])}</span></header>
@@ -175,7 +182,7 @@ td .en{font-size:2.1mm}
 <div class="sec">${two(L.members)}</div>
 <div class="note"><span class="en">${esc(L.membersSub[0])}</span><span class="ml">${esc(L.membersSub[1])}</span></div>
 <table><thead><tr>
-<th class="no">${two(C.no)}</th><th style="width:17%">${two(C.name)}</th><th style="width:12%">${two(C.relation)}</th><th style="width:6%">${two(C.gender)}</th><th style="width:10%">${two(C.dob)}</th><th style="width:10%">${two(C.marital)}</th><th style="width:12%">${two(C.education)}</th><th style="width:12%">${two(C.job)}</th><th style="width:12%">${two(C.mobile)}</th><th style="width:9%">${two(C.blood)}</th>
+<th class="no">${two(C.no)}</th><th style="width:23%">${two(C.name)}</th><th style="width:12%">${two(C.relation)}</th><th style="width:6%">${two(C.gender)}</th><th style="width:9%">${two(C.dob)}</th><th style="width:9%">${two(C.marital)}</th><th style="width:12%">${two(C.education)}</th><th style="width:12%">${two(C.job)}</th><th style="width:9%">${two(C.mobile)}</th><th style="width:8%">${two(C.blood)}</th>
 </tr></thead><tbody>${memberRows}</tbody></table>
 <div class="hint"><span class="en">${esc(L.relationHint[0])}</span><span class="ml">${esc(L.relationHint[1])}</span></div>
 </section></body></html>`;

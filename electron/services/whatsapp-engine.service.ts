@@ -72,6 +72,17 @@ let credsSaver: (() => Promise<void>) | null = null;
 // creds.update into it). Used to stamp the "pairing completed" marker that
 // Baileys only writes on the link-code path — see markPairedOnDisk().
 let liveCreds: any = null;
+// Stale-session loop guard (user report: after closing and reopening the app,
+// WhatsApp "tries to connect, disconnects, tries again" forever). A session
+// the server no longer accepts does not always close with 401/403 — it can
+// also surface as a bare connectionClosed/restartRequired. Guard: while the
+// PAIRED session has NEVER reached `open` in this app run, count consecutive
+// server-side closes; a healthy session opens on the 1st–2nd attempt, so
+// after 4 we retire the session and ask for a fresh QR instead of looping.
+// Fresh QR pairings are exempt — their creds are not paired-on-disk yet.
+const MAX_CLOSES_WITHOUT_OPEN = 4;
+let sessionProven = false;      // this persisted session reached `open` at least once this run
+let closesWithoutOpen = 0;
 
 // ---------------------------------------------------------------------------
 // Delivery tracking — the privacy lock needs to know the moment a message
@@ -359,6 +370,8 @@ async function onConnectionUpdate(update: Partial<ConnectionState>) {
   if (connection === "open") {
     qrDataUrl = "";
     loggedOutRetryUsed = false;
+    sessionProven = true;
+    closesWithoutOpen = 0;
     const user = (current as any).user;
     me = {
       number: String(user?.id || "").replace(/@.*$/, ""),
@@ -377,10 +390,14 @@ async function onConnectionUpdate(update: Partial<ConnectionState>) {
   if (connection === "close") {
     const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
     const reason = String((lastDisconnect?.error as any)?.message || "");
-    // These three mean the stored session itself is rejected — reconnecting
-    // with the same credentials loops forever, so they are handled like a
-    // logout instead of being retried in the backoff ladder.
+    // These mean the stored session itself is rejected — reconnecting with
+    // the same credentials loops forever, so they are handled like a logout
+    // instead of being retried in the backoff ladder. `forbidden` (403,
+    // "Stream Errored (forbidden)") is what the server answers when the
+    // stored device identity is no longer accepted — the classic
+    // "connect → disconnect → connect …" loop after a restart.
     const sessionRejected = statusCode === DisconnectReason.loggedOut
+      || statusCode === DisconnectReason.forbidden
       || statusCode === DisconnectReason.badSession
       || statusCode === DisconnectReason.multideviceMismatch;
     if (sessionRejected) {
@@ -408,6 +425,21 @@ async function onConnectionUpdate(update: Partial<ConnectionState>) {
     }
     sock = null;
     if (intentionalStop) { setState("IDLE", ""); return; }
+    // Loop guard: a session that keeps getting closed WITHOUT a single `open`
+    // is stale no matter what statusCode the server used. Retire it and ask
+    // for a fresh QR instead of flashing connect/disconnect forever.
+    if (!sessionProven) {
+      closesWithoutOpen++;
+      const credsOnDisk = readCredsFile(path.join(authDir() || "", "creds.json"));
+      if (closesWithoutOpen >= MAX_CLOSES_WITHOUT_OPEN && isPairedCreds(credsOnDisk)) {
+        resetAuth("quarantine", "session never reconnected after restart");
+        liveCreds = null;
+        closesWithoutOpen = 0;
+        setState("IDLE",
+          "WhatsApp could not re-establish the saved session. The stored session was retired — pair again by scanning the QR code.");
+        return;
+      }
+    }
     setState("RECONNECTING", reason);
     scheduleReconnect();
   }

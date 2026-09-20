@@ -139,8 +139,8 @@ function receiptCard(r: ReceiptData, L: ReturnType<typeof labels>): string {
   return `
   <article class="rc">
     <header class="rc-head">
-      <div class="rc-brand"><b>${esc(r.mahalluName || 'MAHALLU')}</b>${addrParts.length ? `<span>${esc(addrParts.join(' · '))}</span>` : ''}</div>
       <div class="rc-type">${esc(isDonation ? L.titleDonation : L.titleSubscription)}</div>
+      <div class="rc-brand"><b>${esc(r.mahalluName || 'MAHALLU')}</b>${addrParts.length ? `<span>${esc(addrParts.join(' · '))}</span>` : ''}</div>
     </header>
     <div class="rc-meta">
       <div><span>${esc(L.no)}</span><b>${esc(r.receiptNumber || '—')}</b></div>
@@ -182,10 +182,14 @@ function baseCss(): string {
     html,body{background:#fff}
     body{font-family:Poppins,"Anek Malayalam Variable","Segoe UI",Arial,sans-serif;color:#101a14;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     .rc{width:105mm;height:148mm;display:flex;flex-direction:column;border:.35mm solid #bfcfc7;background:#fff;overflow:hidden}
-    .rc-head{display:flex;justify-content:space-between;align-items:center;background:#0d7a5f;color:#fff;padding:4mm 5mm 3.4mm}
-    .rc-brand b{display:block;font-size:11.5pt;font-weight:800;letter-spacing:.3px;line-height:1.15}
-    .rc-brand span{display:block;font-size:5.6pt;opacity:.9;margin-top:.7mm;letter-spacing:.4px}
-    .rc-type{text-align:right;font-size:9.5pt;font-weight:800;letter-spacing:.6px;line-height:1.25;max-width:38mm;align-self:center}
+    /* Header: the receipt type is a SMALL caption in the top-LEFT corner;
+       the mahallu name is the big CENTRED line under it, with the address
+       (and phone) centred underneath — the classic Kerala receipt head. */
+    .rc-head{display:flex;flex-direction:column;align-items:stretch;background:#0d7a5f;color:#fff;padding:3mm 5mm 3.2mm}
+    .rc-type{text-align:left;font-size:7pt;font-weight:700;letter-spacing:1px;text-transform:uppercase;opacity:.95}
+    .rc-brand{margin-top:1.4mm;text-align:center}
+    .rc-brand b{display:block;font-size:13pt;font-weight:800;letter-spacing:.3px;line-height:1.15}
+    .rc-brand span{display:block;font-size:6pt;opacity:.9;margin-top:.9mm;letter-spacing:.4px}
     .rc-meta{display:flex;border-bottom:.3mm solid #d9e5e0}
     .rc-meta>div{flex:1;display:flex;justify-content:space-between;padding:2.4mm 5mm;border-right:.3mm solid #d9e5e0}
     .rc-meta>div:last-child{border-right:0}

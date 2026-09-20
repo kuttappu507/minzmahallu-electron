@@ -401,7 +401,9 @@ body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayala
 /* ===== Death certificate — our design, official SMF register texts/format.
    Tightened vertical rhythm: the SMF field set + the verify box must ALWAYS
    fit ONE A4 landscape sheet (209.7mm usable). ===== */
-.dc-recog{margin-top:1.4mm;font-size:8pt;line-height:1.4;font-style:italic;color:#5f7268}
+/* (The old "Recognized by: SAMASTHA … / സംസ്ഥാന കമ്മിറ്റി" approval line under
+   the mahallu name was removed on request — the register identity is carried
+   by the mahallu name, the subtitle and the SMF/Wakf register stack.) */
 .dc-statement{font-size:10pt;line-height:1.55;margin:2mm 1mm 0;color:#2d3d35;text-align:justify}
 .dc-statement b{color:#0e7c5b}
 .dc-cols{display:grid;gap:0 9mm}
@@ -528,8 +530,6 @@ function buildDeathCert(c: CertData, ml: boolean): string {
   // texts and field structure (Village/Panchayath/Taluk … Secretary/Sign).
   const L = ml ? {
     subtitle: 'മഹല്ല് മരണ രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയത്',
-    recog1: 'അംഗീകാരം: SAMASTHA KERALA SUNNI MAHALLU FEDERATION (SMF)',
-    recog2: 'സംസ്ഥാന കമ്മിറ്റി : സമസ്തലയം, ചേളാരി',
     title: 'മരണ സർട്ടിഫിക്കറ്റ്',
     statement: 'മരണത്തെക്കുറിച്ചുള്ള താഴെ പറയുന്ന വിവരങ്ങൾ യഥാർത്ഥ മരണ രേഖയിൽ നിന്ന് എടുത്തതാണെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു. അത് രജിസ്റ്റർ ചെയ്തിരിക്കുന്നത്',
     mahalluSuffix: '(മഹല്ല്) എന്നതിനു വേണ്ടിയുള്ള രജിസ്റ്ററാണ്',
@@ -544,8 +544,6 @@ function buildDeathCert(c: CertData, ml: boolean): string {
     male: 'പുരുഷൻ', female: 'സ്ത്രീ',
   } : {
     subtitle: 'Registered in the Mahallu Death Register',
-    recog1: 'Recognized by: SAMASTHA KERALA SUNNI MAHALLU FEDERATION (SMF)',
-    recog2: 'STATE COMMITTEE : Samasthalayam, Chelari',
     title: 'DEATH CERTIFICATE',
     statement: 'This is to Certify that the following information has been taken from the original record of death which is the register for',
     mahalluSuffix: '(Mahallu)',
@@ -575,7 +573,6 @@ function buildDeathCert(c: CertData, ml: boolean): string {
     <div class="hdr-main">
       <div class="mahallu-name">${esc(c.mahallu_name || 'Minz Mahallu')}</div>
       ${addr ? `<div class="mahallu-addr">${esc(addr)}</div>` : ''}
-      <div class="dc-recog">${L.recog1}<br>${L.recog2}</div>
     </div>
     ${buildRegStack(c, ml)}
   </div>
