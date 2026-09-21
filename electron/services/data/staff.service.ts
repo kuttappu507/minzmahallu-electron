@@ -145,6 +145,20 @@ export const staff = {
     return { rows: all<any>(sql, params), total: 0 };
   },
   paySalary: (data: any, userId: number) => {
+    // ONE salary payment per staff per month — a second entry for the same
+    // period is almost always a double-entry glitch (user report), so reject
+    // it here in the main process even if a client bypasses the dialog guard.
+    // Cancelled payments do not count — the month becomes payable again.
+    const duplicate = one<any>(
+      `SELECT id, amount FROM staff_payments
+       WHERE staff_id = ? AND period_month = ? AND period_year = ? AND status != 'Cancelled' LIMIT 1`,
+      [data.staffId, Number(data.periodMonth), Number(data.periodYear)]
+    );
+    if (duplicate) {
+      throw new Error(
+        `A salary payment for this month already exists (id ${duplicate.id}). Only one salary payment is allowed per staff per month — cancel the existing payment first if it was recorded by mistake.`
+      );
+    }
     const { id } = run(
       `INSERT INTO staff_payments (staff_id, period_month, period_year, amount, payment_date, payment_method, transaction_ref, status, notes, paid_by)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,

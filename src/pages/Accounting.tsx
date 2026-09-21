@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Edit2, Ban, ReceiptText, TrendingUp, TrendingDown, Scale, Eye, Calendar, FileDown, Loader2, History } from "lucide-react";
 import { useAsyncLock } from "../lib/use-async-lock";
 import { amountError } from "@/lib/amount";
@@ -171,6 +171,11 @@ export function Accounting() {
   const [customOpen, setCustomOpen] = useState(false);
   const [sourceFilter, setSourceFilter] = useState("All");
   const [typeFilter, setTypeFilter] = useState("All");
+  // Category filter (user request): a particular donation category (or a
+  // manual income/expense category) can be isolated, then exported alone —
+  // PDF and Excel respect the same filter.
+  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [donationCats, setDonationCats] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<UnifiedRow[]>([]);
@@ -226,14 +231,15 @@ export function Accounting() {
   const fetchUnified = async () => {
     setLoading(true);
     try {
-      const filter: any = { period, source: sourceFilter, type: typeFilter, search: search || undefined, page, pageSize: 20 };
+      const cat = categoryFilter !== "All" ? categoryFilter : undefined;
+      const filter: any = { period, source: sourceFilter, type: typeFilter, category: cat, search: search || undefined, page, pageSize: 20 };
       if (period === "custom") {
         if (!from || !to) { setLoading(false); return; }
         filter.from = from; filter.to = to;
       }
       const [listRes, sumRes] = await Promise.all([
         window.mms.accounting.unifiedList(filter),
-        window.mms.accounting.unifiedSummary({ period, from: period === "custom" ? from : undefined, to: period === "custom" ? to : undefined })
+        window.mms.accounting.unifiedSummary({ period, category: cat, from: period === "custom" ? from : undefined, to: period === "custom" ? to : undefined })
       ]);
       setRows(listRes.rows || []);
       setTotal(listRes.total || 0);
@@ -245,7 +251,13 @@ export function Accounting() {
     }
   };
 
-  useEffect(() => { fetchUnified(); }, [period, sourceFilter, typeFilter, page, from, to]);
+  useEffect(() => { fetchUnified(); }, [period, sourceFilter, typeFilter, categoryFilter, page, from, to]);
+
+  // Donation categories for the filter dropdown (names as stored — the same
+  // values the unified ledger projects into its category column).
+  useEffect(() => { window.mms.donations.categories().then((r: any[]) => setDonationCats((r || []).map((c: any) => String(c.name)).filter(Boolean))).catch(() => setDonationCats([])); }, []);
+  // Manual ledger categories (stored in English so exports stay stable).
+  const ledgerCats = useMemo(() => Array.from(new Set([...TXN_CATEGORIES.Income, ...TXN_CATEGORIES.Expense].map(c => c.en))), []);
 
   // Manual transaction save (calls the legacy create/update endpoints).
   const openAdd = (type: "Income" | "Expense") => {
@@ -366,9 +378,9 @@ export function Accounting() {
     }
   };
 
-  // Export handlers — both respect the current period/source/type filters.
+  // Export handlers — both respect the current period/source/type/category filters.
   const buildExportFilter = () => {
-    const filter: any = { period, source: sourceFilter, type: typeFilter };
+    const filter: any = { period, source: sourceFilter, type: typeFilter, category: categoryFilter !== "All" ? categoryFilter : undefined };
     if (period === "custom") { filter.from = from; filter.to = to; }
     return filter;
   };
@@ -635,6 +647,24 @@ export function Accounting() {
               <option value="All">{t("filter_all")}</option>
               <option value="Income">{t("acc_income")}</option>
               <option value="Expense">{t("acc_expense")}</option>
+            </Select>
+            {/* Category filter — donation categories + manual income/expense
+                categories; picking one narrows the ledger AND the exports. */}
+            <Select value={categoryFilter} onChange={e => { setCategoryFilter(e.target.value); setPage(1); }} className="w-48" title={tx("Category", "വിഭാഗം")}>
+              <option value="All">{t("ui_all_categories")}</option>
+              {donationCats.length > 0 && (
+                <optgroup label={t("acc_group_donation_categories")}>
+                  {donationCats.map(c => <option key={`d-${c}`} value={c}>{c}</option>)}
+                </optgroup>
+              )}
+              {ledgerCats.length > 0 && (
+                <optgroup label={t("acc_group_ledger_categories")}>
+                  {ledgerCats.map(c => {
+                    const mlName = [...TXN_CATEGORIES.Income, ...TXN_CATEGORIES.Expense].find(x => x.en === c)?.ml;
+                    return <option key={`l-${c}`} value={c}>{isMalayalam() && mlName ? mlName : c}</option>;
+                  })}
+                </optgroup>
+              )}
             </Select>
             {period === "custom" && (
               <Button variant="secondary" onClick={() => setCustomOpen(true)}><Calendar size={14} />{rangeLabel || tx("Set dates", "തീയതികൾ സജ്ജമാക്കുക")}</Button>

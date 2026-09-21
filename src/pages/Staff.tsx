@@ -6,6 +6,7 @@ import { amountError, nonNegativeAmountError } from "@/lib/amount";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
 import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
+import { MemberLinkPicker } from "@/components/MemberLinkPicker";
 import { SecureActionDialog } from "@/components/SecureActionDialog";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
@@ -195,6 +196,12 @@ export function Staff() {
     setPreviewOpen(false); refetch(); refreshSummary();
   };
 
+  // Months this staff has already been paid for (any year) — the pay dialog
+  // blocks a second payment for the same month (user report: the same month
+  // could be paid twice against one staff, a double-entry glitch).
+  const [paidPeriods, setPaidPeriods] = useState<Array<{ period_month: number; period_year: number }>>([]);
+  const isMonthPaid = (m: number, y: number) => paidPeriods.some(p => Number(p.period_month) === Number(m) && Number(p.period_year) === Number(y));
+
   const openPay = (s?: StaffRow) => {
     const target = s || preview;
     if (!target) return;
@@ -211,12 +218,34 @@ export function Staff() {
       notes: ""
     });
     setPayOpen(true);
+    window.mms.staff.listPayments({ staffId: target.id })
+      .then(r => setPaidPeriods((r.rows || []).filter((p: any) => p.status !== "Cancelled")))
+      .catch(() => setPaidPeriods([]));
+  };
+
+  // Year change: if the currently selected month is already paid in the new
+  // year, jump to the first unpaid month instead of leaving an invalid pick.
+  const setPayYear = (y: number) => {
+    setPayForm((f: any) => {
+      const next = { ...f, periodYear: y };
+      if (isMonthPaid(f.periodMonth, y)) {
+        const firstFree = MONTHS.find(m => !isMonthPaid(m, y));
+        if (firstFree) next.periodMonth = firstFree;
+      }
+      return next;
+    });
   };
 
   const executePay = () => runLocked(async () => {
     if (!payForm.staffId || !payForm.periodMonth || !payForm.periodYear) return;
     const payAmtErr = amountError(payForm.amount, t);
     if (payAmtErr) { toast.error(payAmtErr); return; }
+    // One salary payment per staff per month — block the duplicate early with
+    // a localized message (the main process re-checks as a second gate).
+    if (isMonthPaid(payForm.periodMonth, payForm.periodYear)) {
+      toast.error(t("staff_month_already_paid_toast"));
+      return;
+    }
     try {
       await window.mms.staff.paySalary({
         staffId: payForm.staffId,
@@ -233,7 +262,10 @@ export function Staff() {
       setPayOpen(false);
       if (tab === "salary") refreshPayments();
       refreshSummary();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) {
+      if (/already exists/i.test(e.message || "")) toast.error(t("staff_month_already_paid_toast"));
+      else toast.error(e.message);
+    }
   });
 
   // Salary payment preview — double-click a row in the Salary tab.
@@ -509,6 +541,13 @@ export function Staff() {
               </Select>
               <div className="text-xs text-muted mt-1.5">{tx("Resignation / expulsion is executed from the member's view with date, reason and admin password.", "രാജിയോ സേവനത്തിൽ നിന്നുള്ള ഒഴിവാക്കലോ രേഖപ്പെടുത്താൻ അംഗത്തിന്റെ വിവരങ്ങൾ തുറന്ന് തീയതി, കാരണം, അഡ്മിൻ പാസ്‌വേഡ് എന്നിവ നൽകുക.")}</div>
             </div>
+            {/* Link an existing mahallu member (same picker as the committee
+                dialog) — family filter on top, member link below; the preview
+                shows this link, so the form must be able to set it. */}
+            <MemberLinkPicker
+              value={form.member_id || null}
+              onPick={m => setForm(f => ({ ...f, member_id: m ? m.id : null, name: m ? m.name : f.name, phone: m && m.mobile ? m.mobile : (f.phone || ""), address: m && m.address ? m.address : (f.address || "") }))}
+            />
           </div>
           <div><Label>{t("staff_address")}</Label><Textarea rows={2} value={form.address || ""} onChange={e => setForm({ ...form, address: e.target.value })} /></div>
           <div><Label>{t("staff_notes")}</Label><Textarea rows={2} value={form.notes || ""} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
@@ -528,11 +567,15 @@ export function Staff() {
           <div className="grid grid-cols-2 gap-4">
             <div><Label>{t("staff_period_month")} *</Label>
               <Select value={String(payForm.periodMonth)} onChange={e => setPayForm({ ...payForm, periodMonth: Number(e.target.value) })}>
-                {MONTHS.map(m => <option key={m} value={m}>{MONTH_NAMES[m - 1]}</option>)}
+                {MONTHS.map(m => {
+                  const paid = isMonthPaid(m, payForm.periodYear);
+                  return <option key={m} value={m} disabled={paid}>{MONTH_NAMES[m - 1]}{paid ? ` — ${t("staff_month_already_paid")}` : ""}</option>;
+                })}
               </Select>
+              {isMonthPaid(payForm.periodMonth, payForm.periodYear) && <div className="text-xs text-rose-600 mt-1.5">{t("staff_month_already_paid_toast")}</div>}
             </div>
             <div><Label>{t("staff_period_year")} *</Label>
-              <Input type="number" value={payForm.periodYear} onChange={e => setPayForm({ ...payForm, periodYear: Number(e.target.value) })} />
+              <Input type="number" value={payForm.periodYear} onChange={e => setPayYear(Number(e.target.value))} />
             </div>
             <div><Label>{t("staff_amount")} *</Label><Input type="number" value={payForm.amount} onChange={e => setPayForm({ ...payForm, amount: Number(e.target.value) })} /></div>
             <div><Label>{t("staff_payment_date")}</Label><Input type="date" value={payForm.paymentDate} onChange={e => setPayForm({ ...payForm, paymentDate: e.target.value })} /></div>

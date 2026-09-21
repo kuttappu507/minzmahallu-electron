@@ -4,6 +4,7 @@ import { useAsyncLock } from "../lib/use-async-lock";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
 import { Button, Dialog, Input, Label, Select, Textarea, Badge } from "@/components/ui";
+import { MemberLinkPicker } from "@/components/MemberLinkPicker";
 import { SecureActionDialog } from "@/components/SecureActionDialog";
 import { clampPhone10 } from "@/lib/phone";
 import { DataTable, type Column } from "@/components/DataTable";
@@ -75,13 +76,11 @@ export function Committee() {
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
 
-  // Member-link options for the add dialog: pick an existing mahallu member
-  // and the name/phone/address are filled in automatically.
-  const [memberOptions, setMemberOptions] = useState<any[]>([]);
-  useEffect(() => { if (!dialogOpen) return; window.mms.members.list({ page: 1, pageSize: 10000 }).then(r => setMemberOptions((r.rows || []).filter((m: any) => !m.archive_state))).catch(() => setMemberOptions([])); }, [dialogOpen]);
-  const onMemberPick = (v: string) => {
-    const m = memberOptions.find(x => String(x.id) === v);
-    setForm(f => ({ ...f, member_id: v ? Number(v) : null, name: m ? m.name : f.name, phone: m && m.mobile ? m.mobile : (f.phone || ""), address: m && m.address ? m.address : (f.address || "") }));
+  // Member-link options for the add dialog now live in the shared
+  // MemberLinkPicker (family filter + member link, loaded fresh each time the
+  // dialog opens). Only the auto-fill mapping stays here.
+  const onMemberPick = (m: any | null) => {
+    setForm(f => ({ ...f, member_id: m ? m.id : null, name: m ? m.name : f.name, phone: m && m.mobile ? m.mobile : (f.phone || ""), address: m && m.address ? m.address : (f.address || "") }));
   };
 
   // Committee records are OFFICIAL — direct editing is blocked (user report).
@@ -384,12 +383,12 @@ export function Committee() {
         <div className="p-6 space-y-4">
           {!editingId && (
             <div className="rounded-lg border border-border-subtle bg-surface-hover/40 p-3">
-              <Label>{tx("Link an existing mahallu member — details fill in automatically", "നിലവിലുള്ള അംഗത്തെ ബന്ധിപ്പിക്കുക — വിവരങ്ങൾ സ്വയമേവ ലഭിക്കും")}</Label>
-              <Select value={form.member_id ? String(form.member_id) : ""} onChange={e => onMemberPick(e.target.value)}>
-                <option value="">{tx("— new entry (no member link)", "— പുതിയ വിവരം (അംഗ ലിങ്ക് ഇല്ല)")}</option>
-                {memberOptions.map(m => <option key={m.id} value={String(m.id)}>{m.name} ({m.member_code})</option>)}
-              </Select>
-              <div className="text-xs text-muted mt-1.5">{tx("Name, phone and address are taken from the member record; you can still adjust them.", "പേര്, ഫോൺ, വിലാസം എന്നിവ അംഗ രേഖയിൽ നിന്ന് എടുക്കും; ആവശ്യമെങ്കിൽ മാറ്റാവുന്നതാണ്.")}</div>
+              {/* Family filter + member link — pick a family to shorten the
+                  member list (user report: finding a member in a flat list of
+                  all members was hard). */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <MemberLinkPicker value={form.member_id || null} onPick={onMemberPick} />
+              </div>
             </div>
           )}
           <div className="grid grid-cols-2 gap-4">

@@ -91,6 +91,9 @@ export function buildAccountStatementHtml(rows: LedgerRow[], summary: Summary, f
 
   const periodKey = filter.period || 'all';
   const periodLabel = (PERIOD_LABELS[periodKey] || PERIOD_LABELS.all)[ml ? 'ml' : 'en'];
+  // Category filter (user request) — show it on the statement so an exported
+  // single-category sheet is self-explanatory.
+  const categoryLabel = filter.category && filter.category !== 'All' ? String(filter.category) : '';
   const rangeText = summary.from && summary.to
     ? `${fmtDate(summary.from)} — ${fmtDate(summary.to)}`
     : (periodKey === 'all' ? (ml ? 'എല്ലാ കാലവും' : 'All Time') : '');
@@ -217,7 +220,7 @@ tbody td{border-top:1px solid #e6ede7;font-size:9.5px}
     <p>${esc(L.system)}</p>
   </div>
   <div class="header-right">
-    <div class="period">${esc(L.title)} · ${esc(periodLabel)}</div>
+    <div class="period">${esc(L.title)} · ${esc(periodLabel)}${categoryLabel ? ` · ${esc(L.category)}: ${esc(categoryLabel)}` : ''}</div>
     <div class="range">${esc(rangeText)}</div>
     <div class="gen">${esc(L.generated)}: ${istDateTimeDm(new Date())} IST</div>
   </div>

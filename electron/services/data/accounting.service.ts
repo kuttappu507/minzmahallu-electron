@@ -216,7 +216,7 @@ export const accounting = {
     return null;
   },
 
-  unifiedList: (filter: { period?: string; from?: string; to?: string; source?: string; type?: string; search?: string; page?: number; pageSize?: number } = {}) => {
+  unifiedList: (filter: { period?: string; from?: string; to?: string; source?: string; type?: string; category?: string; search?: string; page?: number; pageSize?: number } = {}) => {
     const range = (accounting as any)._resolvePeriodRange(filter.period || "all", filter.from, filter.to) as { from: string; to: string } | null;
     // Each sub-query projects a uniform row shape: ledger_date, type, amount, source, source_id, description, payment_method, transaction_ref, receipt_number.
     // We use UNION ALL and a synthetic row_number for stable ordering across sources.
@@ -240,10 +240,10 @@ export const accounting = {
       const w: string[] = ["1=1", "(d.approval_status IS NULL OR d.approval_status = 'approved')"];
       if (range) { w.push("d.donation_date >= ?"); w.push("d.donation_date <= ?"); params.push(range.from, range.to); }
       if (filter.type && filter.type !== "All" && filter.type !== "Income") { w.push("1=0"); } // donations are income only
-      if (filter.search) { w.push("(d.donor_name LIKE ? OR d.receipt_number LIKE ? OR d.purpose LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t, t); }
-      parts.push(`SELECT d.id AS source_id, 'donations' AS source, d.donation_date AS ledger_date, 'Income' AS type, d.amount, (d.donor_name || COALESCE(' — ' || d.purpose, '')) AS description, d.payment_method, '' AS transaction_ref, d.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, NULL AS category, NULL AS status, NULL AS void_reason, NULL AS voided_at, NULL AS asset_name,
+      if (filter.search) { w.push("(d.donor_name LIKE ? OR d.receipt_number LIKE ? OR d.purpose LIKE ? OR c.name LIKE ?)"); const t = `%${filter.search}%`; params.push(t, t, t, t); }
+      parts.push(`SELECT d.id AS source_id, 'donations' AS source, d.donation_date AS ledger_date, 'Income' AS type, d.amount, (d.donor_name || COALESCE(' — ' || d.purpose, '')) AS description, d.payment_method, '' AS transaction_ref, d.receipt_number, NULL AS account_id, NULL AS linked_module, NULL AS linked_id, NULL AS voucher_no, NULL AS bill_no, NULL AS payee, c.name AS category, NULL AS status, NULL AS void_reason, NULL AS voided_at, NULL AS asset_name,
         CASE WHEN EXISTS(SELECT 1 FROM audit_log al WHERE al.module='donations' AND al.entity_id=d.id AND al.action IN ('UPDATE','EDIT')) THEN 1 ELSE 0 END AS has_history
-        FROM donations d WHERE ${w.join(" AND ")}`);
+        FROM donations d LEFT JOIN donation_categories c ON c.id = d.category_id WHERE ${w.join(" AND ")}`);
     }
     // 3. Subscription payments from the immutable ledger (Income)
     {
@@ -279,6 +279,14 @@ export const accounting = {
       outerWhere.push("source = ?");
       params.push(filter.source);
     }
+    // Category filter — matches the donation category name on donation rows
+    // and the manual category on ledger rows. Rows without any category
+    // (subscriptions, welfare, salary) drop out automatically because their
+    // projected category is NULL and `u.category = ?` never matches NULL.
+    if (filter.category && filter.category !== "All") {
+      outerWhere.push("u.category = ?");
+      params.push(filter.category);
+    }
     const sql = `SELECT * FROM (${innerSql}) AS u WHERE ${outerWhere.join(" AND ")} ORDER BY u.ledger_date DESC, u.source_id DESC`;
 
     let rows: any[];
@@ -295,7 +303,7 @@ export const accounting = {
     return { rows, total };
   },
 
-  unifiedSummary: (filter: { period?: string; from?: string; to?: string } = {}) => {
+  unifiedSummary: (filter: { period?: string; from?: string; to?: string; category?: string } = {}) => {
     const range = (accounting as any)._resolvePeriodRange(filter.period || "all", filter.from, filter.to) as { from: string; to: string } | null;
 
     // Re-use the union from unifiedList but only compute aggregates. We build it
@@ -305,27 +313,27 @@ export const accounting = {
     {
       const w: string[] = ["(t.status IS NULL OR t.status != 'Void')"];
       if (range) { w.push("t.txn_date >= ?"); w.push("t.txn_date <= ?"); }
-      parts.push(`SELECT t.txn_date AS ledger_date, t.type, t.amount, 'transactions' AS source FROM transactions t WHERE ${w.join(" AND ")}`);
+      parts.push(`SELECT t.txn_date AS ledger_date, t.type, t.amount, t.category AS category, 'transactions' AS source FROM transactions t WHERE ${w.join(" AND ")}`);
     }
     {
       const w: string[] = ["1=1", "(d.approval_status IS NULL OR d.approval_status = 'approved')"];
       if (range) { w.push("d.donation_date >= ?"); w.push("d.donation_date <= ?"); }
-      parts.push(`SELECT d.donation_date AS ledger_date, 'Income' AS type, d.amount, 'donations' AS source FROM donations d WHERE ${w.join(" AND ")}`);
+      parts.push(`SELECT d.donation_date AS ledger_date, 'Income' AS type, d.amount, c.name AS category, 'donations' AS source FROM donations d LEFT JOIN donation_categories c ON c.id = d.category_id WHERE ${w.join(" AND ")}`);
     }
     {
       const w: string[] = ["sp.status = 'Active'", "COALESCE(sp.amount, 0) > 0"];
       if (range) { w.push("sp.payment_date >= ?"); w.push("sp.payment_date <= ?"); }
-      parts.push(`SELECT COALESCE(sp.payment_date, sp.period_start) AS ledger_date, 'Income' AS type, sp.amount, 'subscriptions' AS source FROM subscription_payments sp WHERE ${w.join(" AND ")}`);
+      parts.push(`SELECT COALESCE(sp.payment_date, sp.period_start) AS ledger_date, 'Income' AS type, sp.amount, NULL AS category, 'subscriptions' AS source FROM subscription_payments sp WHERE ${w.join(" AND ")}`);
     }
     {
       const w: string[] = ["w.status = 'Disbursed'"];
       if (range) { w.push("w.disbursed_date >= ?"); w.push("w.disbursed_date <= ?"); }
-      parts.push(`SELECT COALESCE(w.disbursed_date, w.created_at) AS ledger_date, 'Expense' AS type, w.amount_approved AS amount, 'welfare' AS source FROM welfare_requests w WHERE ${w.join(" AND ")}`);
+      parts.push(`SELECT COALESCE(w.disbursed_date, w.created_at) AS ledger_date, 'Expense' AS type, w.amount_approved AS amount, NULL AS category, 'welfare' AS source FROM welfare_requests w WHERE ${w.join(" AND ")}`);
     }
     {
       const w: string[] = ["sp.status = 'Paid'"];
       if (range) { w.push("sp.payment_date >= ?"); w.push("sp.payment_date <= ?"); }
-      parts.push(`SELECT sp.payment_date AS ledger_date, 'Expense' AS type, sp.amount, 'salary' AS source FROM staff_payments sp WHERE ${w.join(" AND ")}`);
+      parts.push(`SELECT sp.payment_date AS ledger_date, 'Expense' AS type, sp.amount, NULL AS category, 'salary' AS source FROM staff_payments sp WHERE ${w.join(" AND ")}`);
     }
 
     const params: any[] = [];
@@ -338,6 +346,14 @@ export const accounting = {
     // period filter was active. Now we always emit `WHERE 1=1` so the optional
     // AND-clause composes cleanly even when there is no period filter.
     const whereClause = range ? "WHERE 1=1 AND ledger_date >= ? AND ledger_date <= ?" : "WHERE 1=1";
+    // Category filter (user request): scope the summary to one donation or
+    // income/expense category so the cards agree with the filtered list.
+    const catFilter = (filter as any).category;
+    const catActive = !!(catFilter && catFilter !== "All");
+    const finalWhere = catActive ? `${whereClause} AND category = ?` : whereClause;
+    const finalParams = [...params];
+    if (range) finalParams.push(range.from, range.to);
+    if (catActive) finalParams.push(catFilter);
     const row = one<any>(
       `SELECT
         COALESCE(SUM(CASE WHEN type='Income' THEN amount ELSE 0 END), 0) AS total_income,
@@ -349,8 +365,8 @@ export const accounting = {
         COALESCE(SUM(CASE WHEN type='Expense' AND source='salary' THEN amount ELSE 0 END), 0) AS expense_salary,
         COALESCE(SUM(CASE WHEN type='Expense' AND source='transactions' THEN amount ELSE 0 END), 0) AS expense_manual,
         COUNT(*) AS entry_count
-       FROM (${union}) AS u ${whereClause}`,
-      range ? [...params, range.from, range.to] : params
+       FROM (${union}) AS u ${finalWhere}`,
+      finalParams
     );
     return {
       totalIncome: row?.total_income ?? 0,

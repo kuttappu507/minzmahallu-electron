@@ -674,6 +674,8 @@ const translations: Record<string, { en: string; ml: string }> = {
   staff_restored_toast: { en: "Staff restored", ml: "ജീവനക്കാരനെ പുനഃസ്ഥാപിച്ചു" },
   staff_salary_paid: { en: "Salary payment recorded", ml: "ശമ്പളം നൽകിയതായി രേഖപ്പെടുത്തി" },
   staff_payment_cancelled: { en: "Salary payment cancelled", ml: "ശമ്പള നൽകൽ റദ്ദാക്കി" },
+  staff_month_already_paid: { en: "Already paid", ml: "നൽകി കഴിഞ്ഞു" },
+  staff_month_already_paid_toast: { en: "Salary for this month is already recorded — only one salary payment is allowed per month. Cancel the existing payment first if it was recorded by mistake.", ml: "ഈ മാസത്തേക്കുള്ള ശമ്പളം ഇതിനകം രേഖപ്പെടുത്തിയിട്ടുണ്ട് — ഒരു മാസത്തിൽ ഒരു ശമ്പളം മാത്രമേ നൽകാവൂ. തെറ്റായി രേഖപ്പെടുത്തിയതാണെങ്കിൽ ആദ്യം അത് റദ്ദാക്കുക." },
   staff_history: { en: "Activity & History", ml: "പ്രവർത്തനങ്ങളും ചരിത്രവും" },
   staff_no_history: { en: "No history recorded", ml: "ചരിത്ര രേഖകളില്ല" },
 
@@ -695,6 +697,8 @@ const translations: Record<string, { en: string; ml: string }> = {
   acc_source_subscriptions: { en: "Subscriptions", ml: "വരിസംഖ്യകൾ" },
   acc_source_welfare: { en: "Welfare", ml: "ക്ഷേമം" },
   acc_source_salary: { en: "Salary", ml: "ശമ്പളം" },
+  acc_group_donation_categories: { en: "Donation categories", ml: "സംഭാവന വിഭാഗങ്ങൾ" },
+  acc_group_ledger_categories: { en: "Income & expense categories", ml: "വരവ്-ചെലവ് വിഭാഗങ്ങൾ" },
   acc_unified_title: { en: "Unified Ledger", ml: "ഏകീകൃത കണക്കുപുസ്തകം" },
   acc_unified_subtitle: { en: "Auto-aggregated from all financial modules", ml: "വരിസംഖ്യ, സംഭാവന, മറ്റു കണക്കുകൾ — എല്ലാം സ്വയമേവ ഒരിടത്ത്" },
   acc_breakdown: { en: "Source Breakdown", ml: "ഉറവിടം തിരിച്ചുള്ള കണക്ക്" },

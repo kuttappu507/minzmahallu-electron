@@ -32,12 +32,15 @@ describe("ledger categories (V038)", () => {
     expect(row.category).toBe("Shop Rent");
 
     // The unified UNION must stay uniform: category present on the manual row,
-    // NULL on auto rows, and every source still projecting the same shape.
+    // the donation category name on donation rows (V039), and every source
+    // still projecting the same shape.
     const uni = accounting.unifiedList({ period: "all" }) as any;
     const mine = (uni.rows || []).find((r: any) => r.source === "transactions" && r.source_id === res.id);
     expect(mine?.category).toBe("Shop Rent");
+    // Donation rows carry the DONATION category name (or NULL when the
+    // donation has no category) — never a value from another source.
     const donationRow = (uni.rows || []).find((r: any) => r.source === "donations");
-    if (donationRow) expect(donationRow.category ?? null).toBeNull();
+    if (donationRow) expect(donationRow.category ?? null).not.toBe("Shop Rent");
   });
 
   it("finds entries by category search", () => {

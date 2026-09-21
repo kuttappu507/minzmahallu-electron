@@ -516,6 +516,11 @@ app.whenReady().then(() => {
         { "Metric": "Expense — Salary", "Value": summary.expenseSalary },
         { "Metric": "Expense — Manual", "Value": summary.expenseManual },
       ];
+      // Category filter (user request) — record it on the Summary sheet so a
+      // single-category export states what it covers.
+      if (filter?.category && filter.category !== "All") {
+        summaryData.push({ "Metric": "Category Filter", "Value": String(filter.category) });
+      }
 
       const wb = new Workbook();
       const LEDGER_HEADERS = ["Date", "Source", "Type", "Description", "Category", "Receipt No", "Voucher No", "Bill No", "Payee", "Payment Method", "Transaction Ref", "Status", "Void Reason", "Amount"];
