@@ -40,7 +40,7 @@ const translations: Record<string, { en: string; ml: string }> = {
   nav_settings: { en: "Settings", ml: "ക്രമീകരണങ്ങൾ" },
   nav_users: { en: "Users", ml: "ഉപയോക്താക്കൾ" },
   nav_audit: { en: "Audit Log", ml: "ഓഡിറ്റ് ലോഗ്" },
-  nav_backup: { en: "Backup & Restore", ml: "ബാക്കപ്പ് & റെസ്റ്റോർ" },
+  nav_backup: { en: "Backup & Restore", ml: "ബാക്കപ്പ് & പുനഃസ്ഥാപനം" },
   nav_approvals: { en: "Approvals", ml: "അംഗീകാരങ്ങൾ" },
 
   // Approvals queue (pending-approval workflow)
@@ -347,7 +347,7 @@ const translations: Record<string, { en: string; ml: string }> = {
   audit_description: { en: "Description", ml: "വിവരണം" },
 
   // Backup
-  bak_title: { en: "Backup & Restore", ml: "ബാക്കപ്പ് & റെസ്റ്റോർ" },
+  bak_title: { en: "Backup & Restore", ml: "ബാക്കപ്പ് & പുനഃസ്ഥാപനം" },
   bak_create_now: { en: "Create Backup Now", ml: "ഇപ്പോൾ ബാക്കപ്പ് എടുക്കുക" },
 
   // Users
@@ -564,7 +564,7 @@ const translations: Record<string, { en: string; ml: string }> = {
   usr_last_login: { en: "Last Login", ml: "അവസാന ലോഗിൻ" },
 
   // Backup
-  bak_subtitle: { en: "Create database snapshots for safekeeping & disaster recovery.", ml: "ഡാറ്റ സുരക്ഷിതമായി സൂക്ഷിക്കാൻ ബാക്കപ്പ് എടുക്കുക; നഷ്ടപ്പെട്ടാൽ തിരികെ വയ്ക്കാം." },
+  bak_subtitle: { en: "Create database snapshots for safekeeping & disaster recovery.", ml: "ഡാറ്റ സുരക്ഷിതമായി സൂക്ഷിക്കാൻ ബാക്കപ്പ് എടുക്കുക; നഷ്ടപ്പെട്ടാൽ പുനഃസ്ഥാപിക്കാം." },
   bak_total_backups: { en: "Total Backups", ml: "ആകെ ബാക്കപ്പുകൾ" },
   bak_most_recent: { en: "Most Recent Backup", ml: "ഏറ്റവും പുതിയ ബാക്കപ്പ്" },
   bak_health: { en: "Backup Health", ml: "ബാക്കപ്പ് നില" },
