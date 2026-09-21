@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildReceiptHtml, buildReceiptSheetHtml, amountInWords, formatReceiptAmount, type ReceiptData } from "./receipt.template.js";
+import { buildReceiptHtml, buildReceiptSheetHtml, amountInWords, formatReceiptAmount, stripIndiaPrefix, type ReceiptData } from "./receipt.template.js";
 
 const donation: ReceiptData = {
   kind: "DONATION",
@@ -82,6 +82,29 @@ describe("A6 receipt template", () => {
     const html = buildReceiptHtml(subscription, "en");
     expect(html).toContain("Balance this month: \u20B950");
     expect(html).toContain("SUBSCRIPTION RECEIPT");
+  });
+
+  it("prints the donor phone WITHOUT the 91 country code", () => {
+    const html = buildReceiptHtml(donation, "en");
+    expect(html).toContain("9876543210");
+    expect(html).not.toContain("919876543210");
+  });
+
+  it("stripIndiaPrefix only strips real India mobile codes", () => {
+    expect(stripIndiaPrefix("919876543210")).toBe("9876543210");
+    expect(stripIndiaPrefix("+91 98765 43210")).toBe("98765 43210");
+    expect(stripIndiaPrefix("0483 000 0000")).toBe("0483 000 0000"); // landline
+    expect(stripIndiaPrefix("999888777666")).toBe("999888777666"); // not 91xxxxxxxxxx
+    expect(stripIndiaPrefix("FAM-012")).toBe("FAM-012"); // reference, not a phone
+    expect(stripIndiaPrefix("")).toBe("");
+  });
+
+  it("closes with the -sd- / Secretary / mahallu sign-off block", () => {
+    const html = buildReceiptHtml(donation, "en");
+    expect(html).toContain('class="rc-sign"');
+    expect(html).toContain("-sd-");
+    expect(html).toContain("Secretary");
+    expect(html).toContain("For Minz Mahallu");
   });
 
   it("renders Malayalam labels for ml", () => {

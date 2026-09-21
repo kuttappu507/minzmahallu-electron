@@ -83,6 +83,23 @@ export function formatReceiptAmount(amount: number, currencySymbol: string = '\u
   return String(currencySymbol || '\u20B9') + Number(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 }
 
+/**
+ * Receipts print phone numbers WITHOUT the India country-code prefix.
+ * The database normalises mobile numbers to 91XXXXXXXXXX for WhatsApp
+ * delivery, but on paper a receipt reading "91 98…" looks like a wrong
+ * number. Strips a leading 91 ONLY when what remains is a 10-digit Indian
+ * mobile (starts 6-9) — landlines ("0483 000 0000"), overseas numbers and
+ * house/reference numbers pass through untouched.
+ */
+export function stripIndiaPrefix(raw: string): string {
+  const s = String(raw ?? '').trim();
+  const digits = s.replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91') && /^[6-9]/.test(digits.slice(2))) {
+    return s.replace(/^(\+?\s*91)?[\s-]*/, '').trim();
+  }
+  return s;
+}
+
 // ---------------------------------------------------------------------------
 // Labels (bilingual like the other print templates)
 // ---------------------------------------------------------------------------
@@ -106,7 +123,7 @@ function labels(lang: Lang) {
     page: 'ഷീറ്റ്',
     securityCode: 'സുരക്ഷാ കോഡ്',
     verifyHint: 'ഈ സുരക്ഷാ കോഡ് മഹല്ല് ഓഫീസിലോ Minz Mahallu ആപ്പിലോ പരിശോധിക്കുക.',
-    computerGenerated: 'കമ്പ്യൂട്ടറിൽ തയ്യാറാക്കിയ രസീത് — ഒപ്പ് ആവശ്യമില്ല.',
+    secretary: 'സെക്രട്ടറി',
   } : {
     titleDonation: 'DONATION RECEIPT',
     titleSubscription: 'SUBSCRIPTION RECEIPT',
@@ -123,7 +140,7 @@ function labels(lang: Lang) {
     page: 'Sheet',
     securityCode: 'SECURITY CODE',
     verifyHint: 'Verify this security code at the mahallu office or in the Minz Mahallu app.',
-    computerGenerated: 'Computer-generated receipt — no signature required.',
+    secretary: 'Secretary',
   };
 }
 
@@ -134,8 +151,9 @@ function receiptCard(r: ReceiptData, L: ReturnType<typeof labels>): string {
   const isDonation = r.kind === 'DONATION';
   const notes = String(r.notes || '').trim();
   // Header identity block, mirroring the certificate: mahallu name on top,
-  // address (+ phone) underneath.
-  const addrParts = [r.mahalluAddress, r.mahalluPhone].map((s) => String(s || '').trim()).filter(Boolean);
+  // address (+ phone) underneath. Phone numbers print WITHOUT the leading
+  // 91 country code (see stripIndiaPrefix).
+  const addrParts = [r.mahalluAddress, stripIndiaPrefix(String(r.mahalluPhone || ''))].map((s) => String(s || '').trim()).filter(Boolean);
   return `
   <article class="rc">
     <header class="rc-head">
@@ -148,9 +166,9 @@ function receiptCard(r: ReceiptData, L: ReturnType<typeof labels>): string {
     </div>
     <div class="rc-body">
       <div class="rc-party">
-        <div class="rc-party-name">${esc(r.payerName || '—')}</div>
-        ${r.payerDetail ? `<div class="rc-party-sub">${esc(r.payerDetail)}</div>` : ''}
         <div class="rc-party-cap">${esc(L.received)}</div>
+        <div class="rc-party-name">${esc(r.payerName || '—')}</div>
+        ${r.payerDetail ? `<div class="rc-party-sub">${esc(stripIndiaPrefix(r.payerDetail))}</div>` : ''}
       </div>
       <div class="rc-lines">
         <div class="rc-line"><span>${esc(r.line1Label)}</span><b>${esc(r.line1Value || '—')}</b></div>
@@ -168,9 +186,13 @@ function receiptCard(r: ReceiptData, L: ReturnType<typeof labels>): string {
     <footer class="rc-foot">
       <div class="rc-verify">
         ${r.verificationCode ? `<div class="rc-verify-copy"><span class="rc-vcap">${esc(L.securityCode)}</span><span class="rc-vcode">${esc(r.verificationCode)}</span><span class="rc-vhint">${esc(L.verifyHint)}</span></div>` : ''}
-        <span class="rc-vhint">${esc(L.computerGenerated)}</span>
+        <span class="rc-thanks">${esc(L.thanks)}</span>
       </div>
-      <div class="rc-for"><b>${esc(L.forMahallu)} ${esc(r.mahalluName || 'MAHALLU')}</b><span>${esc(L.thanks)}</span></div>
+      <div class="rc-sign">
+        <span class="rc-sd">-sd-</span>
+        <span class="rc-sec">${esc(L.secretary)}</span>
+        <b class="rc-for-line">${esc(L.forMahallu)} ${esc(r.mahalluName || 'MAHALLU')}</b>
+      </div>
     </footer>
     <div class="rc-app">${esc(APP_BRAND)}</div>
   </article>`;
@@ -184,42 +206,47 @@ function baseCss(): string {
     .rc{width:105mm;height:148mm;display:flex;flex-direction:column;border:.35mm solid #bfcfc7;background:#fff;overflow:hidden}
     /* Header: the receipt type is a SMALL caption in the top-LEFT corner;
        the mahallu name is the big CENTRED line under it, with the address
-       (and phone) centred underneath — the classic Kerala receipt head. */
-    .rc-head{display:flex;flex-direction:column;align-items:stretch;background:#0d7a5f;color:#fff;padding:3mm 5mm 3.2mm}
-    .rc-type{text-align:left;font-size:7pt;font-weight:700;letter-spacing:1px;text-transform:uppercase;opacity:.95}
-    .rc-brand{margin-top:1.4mm;text-align:center}
-    .rc-brand b{display:block;font-size:13pt;font-weight:800;letter-spacing:.3px;line-height:1.15}
-    .rc-brand span{display:block;font-size:6pt;opacity:.9;margin-top:.9mm;letter-spacing:.4px}
+       (and phone) centred underneath — the classic Kerala receipt head.
+       v2.4.3: sizes opened up so the card carries no dead whitespace. */
+    .rc-head{display:flex;flex-direction:column;align-items:stretch;background:#0d7a5f;color:#fff;padding:3.4mm 5mm 3.6mm}
+    .rc-type{text-align:left;font-size:7.2pt;font-weight:700;letter-spacing:1px;text-transform:uppercase;opacity:.95}
+    .rc-brand{margin-top:1.2mm;text-align:center}
+    .rc-brand b{display:block;font-size:14.5pt;font-weight:800;letter-spacing:.3px;line-height:1.15}
+    .rc-brand span{display:block;font-size:6.6pt;opacity:.92;margin-top:1mm;letter-spacing:.4px}
     .rc-meta{display:flex;border-bottom:.3mm solid #d9e5e0}
-    .rc-meta>div{flex:1;display:flex;justify-content:space-between;padding:2.4mm 5mm;border-right:.3mm solid #d9e5e0}
+    .rc-meta>div{flex:1;display:flex;justify-content:space-between;padding:2.8mm 5mm;border-right:.3mm solid #d9e5e0}
     .rc-meta>div:last-child{border-right:0}
-    .rc-meta span{font-size:6pt;color:#5d6f67;letter-spacing:.3px}
-    .rc-meta b{font-size:8.4pt}
-    .rc-body{flex:1;display:flex;flex-direction:column;padding:4mm 5mm;gap:3mm}
-    .rc-party{border-bottom:.2mm dashed #c9d8d2;padding-bottom:2.6mm}
-    .rc-party-name{font-size:12pt;font-weight:800;line-height:1.2}
-    .rc-party-sub{font-size:7.5pt;color:#5d6f67;margin-top:.8mm}
-    .rc-party-cap{font-size:6pt;color:#84938c;margin-top:1.2mm}
-    .rc-lines{display:flex;flex-direction:column;gap:1.6mm}
-    .rc-line{display:flex;justify-content:space-between;gap:4mm;font-size:7.8pt;border-bottom:.15mm solid #e7efeb;padding-bottom:1.2mm}
-    .rc-line span{color:#5d6f67;font-size:6.8pt}
+    .rc-meta span{font-size:6.4pt;color:#5d6f67;letter-spacing:.3px}
+    .rc-meta b{font-size:9pt}
+    .rc-body{flex:1;display:flex;flex-direction:column;padding:4.4mm 5.5mm;gap:3.4mm}
+    .rc-party{border-bottom:.2mm dashed #c9d8d2;padding-bottom:3mm}
+    .rc-party-cap{font-size:6.4pt;color:#84938c;letter-spacing:.3px}
+    .rc-party-name{font-size:13.5pt;font-weight:800;line-height:1.2;margin-top:.8mm}
+    .rc-party-sub{font-size:8pt;color:#5d6f67;margin-top:1mm}
+    .rc-lines{display:flex;flex-direction:column;gap:2mm}
+    .rc-line{display:flex;justify-content:space-between;gap:4mm;font-size:8.6pt;border-bottom:.15mm solid #e7efeb;padding-bottom:1.5mm}
+    .rc-line span{color:#5d6f67;font-size:7.4pt}
     .rc-line b{text-align:right}
-    .rc-amount{margin-top:auto;background:#f1f8f4;border:.3mm solid #9ec7b8;border-left:1.2mm solid #0d7a5f;border-radius:1.5mm;padding:3mm 4mm;display:flex;flex-direction:column;gap:.8mm}
-    .rc-amount span{font-size:6.4pt;color:#4c5f56;letter-spacing:.5px}
-    .rc-amount b{font-size:16pt;font-weight:800;color:#0a5c47;line-height:1.05}
-    .rc-amount small{font-size:6.2pt;color:#4c5f56;font-style:italic}
-    .rc-notes{font-size:6.8pt;color:#4c5f56;border-top:.2mm dashed #c9d8d2;padding-top:1.6mm}
-    .rc-foot-note{font-size:7.2pt;color:#0a5c47;font-weight:600}
-    .rc-foot{display:flex;justify-content:space-between;align-items:flex-end;gap:3mm;padding:3mm 5mm 2.6mm;border-top:.3mm solid #d9e5e0;background:#fbfdfc}
+    .rc-amount{margin-top:auto;background:#f1f8f4;border:.3mm solid #9ec7b8;border-left:1.2mm solid #0d7a5f;border-radius:2mm;padding:3.4mm 4.2mm;display:flex;flex-direction:column;gap:.9mm}
+    .rc-amount span{font-size:6.6pt;color:#4c5f56;letter-spacing:.5px}
+    .rc-amount b{font-size:18pt;font-weight:800;color:#0a5c47;line-height:1.05}
+    .rc-amount small{font-size:6.6pt;color:#4c5f56;font-style:italic}
+    .rc-notes{font-size:7.2pt;color:#4c5f56;border-top:.2mm dashed #c9d8d2;padding-top:1.8mm}
+    .rc-foot-note{font-size:7.6pt;color:#0a5c47;font-weight:600}
+    .rc-foot{display:flex;justify-content:space-between;align-items:flex-end;gap:3mm;padding:3.2mm 5.5mm 3mm;border-top:.3mm solid #d9e5e0;background:#fbfdfc}
     .rc-verify{display:flex;flex-direction:column;gap:1.2mm;min-width:0}
     .rc-verify-copy{display:flex;flex-direction:column;gap:.7mm;min-width:0}
-    .rc-vcap{font-size:6pt;font-weight:700;color:#0a5c47;letter-spacing:.8px}
-    .rc-vcode{font-size:10.5pt;font-weight:800;letter-spacing:1.2px;color:#0a5c47}
-    .rc-vhint{font-size:5.6pt;color:#5d6f67;max-width:58mm;line-height:1.25}
-    .rc-for{text-align:right;flex:none}
-    .rc-for b{display:block;font-size:7.6pt}
-    .rc-for span{display:block;font-size:6.2pt;color:#5d6f67;margin-top:.6mm}
-    .rc-app{text-align:center;font-size:4.8pt;color:#9aaba2;letter-spacing:.5px;padding:1mm 0 1.2mm;border-top:.2mm solid #e7efeb;background:#fbfdfc}
+    .rc-vcap{font-size:6.2pt;font-weight:700;color:#0a5c47;letter-spacing:.8px}
+    .rc-vcode{font-size:11pt;font-weight:800;letter-spacing:1.2px;color:#0a5c47}
+    .rc-vhint{font-size:5.8pt;color:#5d6f67;max-width:54mm;line-height:1.25}
+    .rc-thanks{font-size:6.8pt;font-weight:600;color:#3c4a43}
+    /* Signature block (bottom-right): the "signed" mark over the Secretary
+       line over the mahallu name — the classic Kerala receipt sign-off. */
+    .rc-sign{text-align:right;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:.7mm;min-width:30mm}
+    .rc-sd{font-size:8.8pt;font-weight:600;font-style:italic;color:#2c3a33}
+    .rc-sec{font-size:8.4pt;font-weight:700;letter-spacing:.3px;color:#101a14}
+    .rc-for-line{font-size:7.8pt;color:#101a14;font-weight:700}
+    .rc-app{text-align:center;font-size:5pt;color:#9aaba2;letter-spacing:.5px;padding:1mm 0 1.2mm;border-top:.2mm solid #e7efeb;background:#fbfdfc}
   `;
 }
 

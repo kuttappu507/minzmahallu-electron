@@ -1,13 +1,15 @@
 /*
- * Receipt template — anti-forgery SECURITY CODE footer (A6 single + A4 sheet).
+ * Receipt template — anti-forgery SECURITY CODE footer + classic sign-off
+ * (A6 single + A4 sheet).
  *
- * Receipts carry a security code instead of a signature block: they are
- * computer-generated documents. By design there is NO QR image on the printed
- * receipt — the register verification code IS the anti-forgery element. The
- * code must appear in BOTH output shapes (they share one card design), the
- * header must show the mahallu name + address like the certificate, the title
- * must say the receipt type explicitly, and the app brand must appear in very
- * small letters at the bottom.
+ * Receipts carry BOTH anti-forgery elements: the register verification code
+ * (the office checks it against the app) and the classic Kerala sign-off
+ * block bottom-right — "-sd-" over "Secretary" over the mahallu name. By
+ * design there is NO QR image on the printed receipt. The code must appear
+ * in BOTH output shapes (they share one card design), the header must show
+ * the mahallu name + address like the certificate, the title must say the
+ * receipt type explicitly, and the app brand must appear in very small
+ * letters at the bottom.
  */
 import { describe, it, expect } from "vitest";
 import { buildReceiptHtml, buildReceiptSheetHtml, amountInWords, type ReceiptData } from "../print/receipt.template.js";
@@ -32,7 +34,7 @@ const base: ReceiptData = {
   verificationCode: "WK4M-8Q7Z-T3HD",
 };
 
-describe("A6 receipt — security-code footer replaces the signature (no QR)", () => {
+describe("A6 receipt — security-code footer + classic signature sign-off (no QR)", () => {
   const html = buildReceiptHtml(base, "en");
 
   it("prints NO QR image — the security code is the anti-forgery element", () => {
@@ -64,24 +66,25 @@ describe("A6 receipt — security-code footer replaces the signature (no QR)", (
     expect(html).toContain("Minz Mahallu Management System");
   });
 
-  it("states the receipt is computer-generated — no signature required", () => {
-    expect(html).toContain("Computer-generated receipt — no signature required.");
+  it("closes with the classic sign-off: -sd- over Secretary over the mahallu line", () => {
+    expect(html).toContain('class="rc-sign"');
+    expect(html).toContain("-sd-");
+    expect(html).toContain("Secretary");
     expect(html).toContain("For Minz Mahallu Jamath");
     expect(html).toContain("Jazakallahu Khairan.");
-  });
-
-  it("drops the old signature block entirely", () => {
-    expect(html).not.toContain("rc-sign");
-    expect(html).not.toContain(">Signature<");
+    // The old "no signature required" disclaimer is gone — a signature line
+    // is printed now.
+    expect(html).not.toContain("no signature required");
   });
 
   it("renders the same footer bilingually", () => {
     const ml = buildReceiptHtml(base, "ml");
     expect(ml).toContain("\u0d38\u0d41\u0d30\u0d15\u0d4d\u0d37\u0d3e \u0d15\u0d4b\u0d21\u0d4d"); // സുരക്ഷാ കോഡ്
-    expect(ml).toContain("കമ്പ്യൂട്ടറിൽ തയ്യാറാക്കിയ രസീത് — ഒപ്പ് ആവശ്യമില്ല.");
+    expect(ml).toContain("\u0d38\u0d46\u0d15\u0d4d\u0d30\u0d1f\u0d4d\u0d1f\u0d31\u0d3f"); // സെക്രട്ടറി
     expect(ml).toContain("WK4M-8Q7Z-T3HD");
     expect(ml).toContain("\u0d38\u0d02\u0d2d\u0d3e\u0d35\u0d28 \u0d30\u0d38\u0d40\u0d24\u0d4d"); // സംഭാവന രസീത്
-    expect(ml).not.toContain("rc-sign");
+    expect(ml).toContain('class="rc-sign"');
+    expect(ml).toContain("-sd-");
   });
 
   it("keeps the amount block untouched (words + ₹)", () => {
@@ -106,8 +109,9 @@ describe("A4 4-up sheet — every receipt card carries the security code", () =>
     expect(html).toContain("2 receipts");
   });
 
-  it("has no signature blocks on the sheet either", () => {
-    expect(html).not.toContain("rc-sign");
+  it("carries the signature sign-off on the sheet too (shared card design)", () => {
+    expect((html.match(/class="rc-sign"/g) || []).length).toBe(2);
+    expect((html.match(/>-sd-</g) || []).length).toBe(2);
     expect(html).not.toContain(">Signature<");
   });
 });

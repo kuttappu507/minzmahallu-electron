@@ -350,19 +350,26 @@
     border-radius: 0;
     display: flex; flex-direction: column; overflow: visible;
     /* Width must transition (the main column genuinely reflows with it).
-       Ease-OUT (fast start, gentle settle) reads smoother than the old
-       ease-in-out: the panel covers most of the distance immediately and the
-       eye never sees the slow, stutter-prone early frames. 0.3s keeps it
-       snappy while the choreography below syncs to the same clock. */
-    position: relative; transition: width 0.3s cubic-bezier(0.33, 1, 0.68, 1), background 0.25s, border-color 0.25s;
+       PROFESSIONAL GLIDE (v2.4.3 rework) — one calm, office-grade motion:
+       · EXPAND uses a decelerate curve — the panel opens decisively and
+         settles softly, never overshoots, never bounces.
+       · COLLAPSE (declared on .sidebar.min; CSS runs the transition of the
+         DESTINATION state) uses a symmetric ease-in-out, so closing reads
+         as a controlled retreat instead of a snap.
+       · Every label fade below shares the same clock (0.34s / 0.28s), so
+         nothing feels hurried or staggered. No scale pulses. */
+    position: relative; transition: width 0.34s cubic-bezier(0.22, 0.61, 0.36, 1), background 0.25s, border-color 0.25s;
     z-index: 40;
   }
-  .sidebar.min { width: 80px; }
+  .sidebar.min {
+    width: 80px;
+    transition: width 0.28s cubic-bezier(0.45, 0, 0.55, 1), background 0.25s, border-color 0.25s;
+  }
 
   .navscroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0 12px 10px; /* scrollbar-width deliberately NOT set: the standard property makes Chromium ignore the 3px ::-webkit-scrollbar rules below */ }
-  .navsec { font: 700 9.5px Poppins; letter-spacing: 0.2em; text-transform: uppercase; color: var(--fnt); padding: 18px 14px 8px; white-space: nowrap; display: flex; align-items: center; gap: 8px; /* fade (not snap) with the collapse glide */ transition: opacity 0.18s ease 0.08s; }
+  .navsec { font: 700 9.5px Poppins; letter-spacing: 0.2em; text-transform: uppercase; color: var(--fnt); padding: 18px 14px 8px; white-space: nowrap; display: flex; align-items: center; gap: 8px; /* expand: fades in on the same clock as the width glide */ transition: opacity 0.22s ease 0.1s; }
   .navsec::after { content: ""; flex: 1; height: 1px; background: var(--line); }
-  .sidebar.min .navsec { padding: 12px 0 5px; color: transparent; opacity: 0; transition-delay: 0s; }
+  .sidebar.min .navsec { padding: 12px 0 5px; color: transparent; opacity: 0; transition: opacity 0.12s ease 0s; }
   .sidebar.min .navsec::after { display: block; border-top: 1px solid var(--line); }
 
   .navit {
@@ -377,22 +384,21 @@
     text-decoration: none; min-width: 0;
   }
   .navit b { font: 500 13.5px Poppins; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
-    /* Collapse choreography (user report: the old fade felt cheap). EXPAND:
-       the label waits ~1/3 of the width glide, then fades + slides in — the
-       panel is already wide enough to read it. COLLAPSE: the label dissolves
-       immediately while the panel glides shut. */
-    transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1) 0.1s, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) 0.1s; }
+    /* Collapse choreography. EXPAND: the label waits until the panel is
+       wide enough to read it (0.12s of the 0.34s glide), then fades +
+       slides in on the same clock — smooth, never late. COLLAPSE: the
+       label dissolves quickly at the very start of the retreat. */
+    transition: opacity 0.22s cubic-bezier(0.33, 1, 0.68, 1) 0.12s, transform 0.22s cubic-bezier(0.33, 1, 0.68, 1) 0.12s; }
   .navit-ic {
     flex: 0 0 30px; width: 30px; height: 30px; border-radius: 9px;
     display: grid; place-items: center;
     background: color-mix(in srgb, var(--sc, var(--em)) 10%, transparent);
     color: var(--sc, var(--em));
-    /* Paint-only (see .navit): the collapsed state changes width/height/flex-basis
-       — those are layout properties and must SNAP, not animate. transform is
-       paint-only, so the icon gets a gentle "settle" pulse during the glide. */
-    transition: background-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.3s cubic-bezier(0.33, 1, 0.68, 1);
+    /* Paint-only (see .navit): icons keep a steady colour/bg transition
+       while the width glides — the old scale(1.05) pulse is GONE (it read
+       as a gimmick, per the v2.4.3 user report). */
+    transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
   }
-  .sidebar.min .navit-ic { transform: scale(1.05); }
   .navit-ic .ic, .navit-ic > svg { width: 17px; height: 17px; min-width: 17px; min-height: 17px; }
   .navit:hover { background: var(--panel2); color: var(--tx); }
   .navit:hover .navit-ic { background: color-mix(in srgb, var(--sc, var(--em)) 16%, transparent); }
@@ -408,7 +414,7 @@
   .navit.on .navit-dot { background: var(--sc, var(--em)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sc, var(--em)) 18%, transparent); }
   .navbadge { font: 700 8.5px Poppins; letter-spacing: 0.1em; background: var(--sb); color: var(--st); border: 1px solid var(--sl); padding: 2.5px 8px; border-radius: 99px; }
   .sidebar.min .navit { justify-content: center; }
-  .sidebar.min .navit b { position: absolute; opacity: 0; transform: translateX(10px); pointer-events: none; transition-delay: 0s; }
+  .sidebar.min .navit b { position: absolute; opacity: 0; transform: translateX(10px); pointer-events: none; transition: opacity 0.12s ease 0s, transform 0.12s ease 0s; }
   .sidebar.min .navbadge, .sidebar.min .navit-dot { display: none; }
   .sidebar.min .navit-ic { flex: 0 0 34px; width: 34px; height: 34px; }
   .sidebar.min .navit:hover::after {
@@ -423,12 +429,12 @@
     width: 28px; height: 56px; border-radius: 99px;
     border: 1px solid var(--line); background: var(--panel); color: var(--fnt);
     display: grid; place-items: center; box-shadow: var(--sh); z-index: 50;
-    transition: color 0.18s, border-color 0.18s, background 0.18s, transform 0.3s cubic-bezier(0.33, 1, 0.68, 1);
+    transition: color 0.18s, border-color 0.18s, background 0.18s, transform 0.34s cubic-bezier(0.22, 0.61, 0.36, 1);
     cursor: pointer;
   }
   .flap:hover { color: var(--em); border-color: var(--em); background: var(--selbg); transform: translateY(-50%) scale(1.07); }
   .flap:active { transform: translateY(-50%) scale(0.94); }
-  .flap .ic { transition: transform 0.3s cubic-bezier(0.33, 1, 0.68, 1); transform: rotate(180deg); }
+  .flap .ic { transition: transform 0.34s cubic-bezier(0.22, 0.61, 0.36, 1); transform: rotate(180deg); }
   .sidebar.min .flap .ic { transform: rotate(0deg); }
 
   /* LOW-END MODE — html.lowfx (set from src/lib/fx.ts: weak CPU/RAM detection or
@@ -438,6 +444,7 @@
      Compromise: lowfx keeps a slightly shorter, eased width glide (a handful
      of cheap frames) while hover/hover-color transitions stay off. */
   html.lowfx .sidebar { transition: width 0.2s cubic-bezier(0.4, 0, 0.25, 1); }
+  html.lowfx .sidebar.min { transition: width 0.22s cubic-bezier(0.45, 0, 0.55, 1), background 0.25s, border-color 0.25s; }
   html.lowfx .flap .ic { transition: none; }
   html.lowfx .flap { transition: color 0.15s, border-color 0.15s, background 0.15s; }
   html.lowfx .navit, html.lowfx .navit-ic, html.lowfx .navit-dot { transition: none; }
@@ -457,11 +464,11 @@
   }
   .sb-user b { font: 600 12.5px Poppins; display: block; color: var(--tx); line-height: 1.25; }
   .sb-user small { font: 500 10.5px Poppins; color: var(--fnt); }
-  .sb-user .nm { min-width: 0; transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1) 0.1s, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) 0.1s; }
+  .sb-user .nm { min-width: 0; transition: opacity 0.22s cubic-bezier(0.33, 1, 0.68, 1) 0.12s, transform 0.22s cubic-bezier(0.33, 1, 0.68, 1) 0.12s; }
   .sb-user .ibtn { margin-left: auto; }
   .sb-user .ibtn:hover { background: var(--rose-bg); color: var(--c-rose); }
   .sidebar.min .sb-user { flex-direction: column; padding: 12px 0 16px; }
-  .sidebar.min .sb-user .nm { position: absolute; opacity: 0; pointer-events: none; transition-delay: 0s; }
+  .sidebar.min .sb-user .nm { position: absolute; opacity: 0; pointer-events: none; transition: opacity 0.12s ease 0s; }
   .sidebar.min .sb-user .ibtn { display: none; }
 
   /* ===== Main column — full-window pane, no island ===== */

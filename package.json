@@ -1,6 +1,6 @@
 {
   "name": "minz-mahallu-management",
-  "version": "2.4.2",
+  "version": "2.4.3",
   "description": "Minz Mahallu Management System - Modern React + Electron Edition",
   "author": "MMS",
   "license": "MIT",
@@ -102,6 +102,7 @@
     },
     "nsis": {
       "oneClick": false,
+      "license": "build/license.txt",
       "allowToChangeInstallationDirectory": true,
       "perMachine": true,
       "include": "build/installer.nsh",

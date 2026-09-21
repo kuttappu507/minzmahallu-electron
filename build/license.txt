@@ -1,0 +1,83 @@
+﻿Minz Mahallu Management System — Installation Disclaimer
+Minz Mahallu Management System — ഇൻസ്റ്റാളേഷൻ ഡിസ്ക്ലെയ്മർ
+============================================================
+
+1. FREE SOFTWARE
+This application ("Minz Mahallu Management System") is provided
+COMPLETELY FREE OF CHARGE for mahallu / masjid office
+administration. There is no licence fee, subscription or hidden
+payment. It may be installed and used on any number of computers.
+
+1. പൂർണ്ണ സൗജന്യം
+മഹല്ല് / മസ്ജിദ് ഓഫീസ് ഭരണത്തിനായി ഈ ആപ്പ് പൂർണ്ണമായും
+സൗജന്യമാണ്. ലൈസൻസ് ഫീസോ പ്രതിമാസ തുകയോ ഒന്നുമില്ല.
+എത്ര കമ്പ്യൂട്ടറുകളിലും ഇൻസ്റ്റാളും ഉപയോഗവും ചെയ്യാം.
+
+------------------------------------------------------------
+
+2. NO WARRANTY
+The software is provided "AS IS", WITHOUT WARRANTY OF ANY KIND,
+express or implied — including, but not limited to, fitness for a
+particular purpose, accuracy of reports, certificates or
+accounts, and uninterrupted operation.
+
+2. വാറന്റി ഇല്ല
+സോഫ്റ്റ്‌വെയർ "ഉള്ളത് പോലെ" ആണ് നൽകിയിരിക്കുന്നത്. റിപ്പോർട്ടുകളുടെ,
+സർട്ടിഫിക്കറ്റുകളുടെ, കണക്കുകളുടെ കൃത്യത; തടസ്സമില്ലാത്ത പ്രവർത്തനം
+തുടങ്ങിയ ഒന്നിനും ഒരു വാറന്റിയും നൽകുന്നില്ല.
+
+------------------------------------------------------------
+
+3. LIMITATION OF LIABILITY
+To the maximum extent permitted by law, the authors,
+contributors and distributors of this software shall NOT be
+liable for any claim, damages, financial loss, data loss or
+legal dispute — whether in contract, tort or otherwise —
+arising from the use or misuse of this application.
+
+3. ഉത്തരവാദിത്ത പരിധി
+ഈ ആപ്പ് ഉപയോഗിക്കുന്നതിൽ നിന്നോ ദുരുപയോഗത്തിൽ നിന്നോ ഉണ്ടാകുന്ന
+ഡാറ്റ നഷ്ടം, സാമ്പത്തിക നഷ്ടം, നിയമ തർക്കം, മറ്റേതെങ്കിലും
+ക്ലെയിമുകൾക്ക് ആപ്പ് നിർമ്മാതാക്കളോ വിതരണക്കാരോ ഉത്തരവാദി
+അല്ല.
+
+------------------------------------------------------------
+
+4. YOUR DATA IS YOUR RESPONSIBILITY
+All records (members, families, donations, subscriptions,
+certificates, accounts and WhatsApp sessions) are stored on
+THIS computer only. Take regular backups (Settings -> Backup)
+and verify every important document before it is used or
+issued. The creators cannot recover data lost on your machine
+and are not responsible for the accuracy of entries made by
+its users.
+
+4. ഡാറ്റയുടെ ഉത്തരവാദിത്തം ഉപയോക്താക്കളുടേതാണ്
+എല്ലാ രേഖകളും (അംഗങ്ങൾ, കുടുംബങ്ങൾ, സംഭാവനകൾ, വരിസംഖ്യകൾ,
+സർട്ടിഫിക്കറ്റുകൾ, കണക്കുകൾ, വാട്ട്സ്ആപ്പ് സെഷനുകൾ) ഈ
+കമ്പ്യൂട്ടറിൽ മാത്രം സൂക്ഷിക്കുന്നു. പതിവായി ബാക്കപ്പ് എടുക്കുക
+(Settings -> Backup); പ്രധാന രേഖകൾ ഉപയോഗിക്കും മുമ്പ്
+പരിശോധിക്കുക. നിങ്ങളുടെ കമ്പ്യൂട്ടറിൽ നഷ്ടപ്പെടുന്ന ഡാറ്റ
+തിരികെ കൊണ്ടുവരാൻ നിർമ്മാതാക്കൾക്ക് കഴിയില്ല.
+
+------------------------------------------------------------
+
+5. THIRD-PARTY SERVICES
+WhatsApp message delivery uses YOUR OWN WhatsApp account. This
+software is not affiliated with, endorsed by, or connected to
+WhatsApp LLC or Meta Platforms, Inc.
+
+5. മൂന്നാം കക്ഷി സേവനങ്ങൾ
+വാട്ട്സ്ആപ്പ് സന്ദേശങ്ങൾ അയയ്ക്കാൻ നിങ്ങളുടെ സ്വന്തം വാട്ട്സ്ആപ്പ്
+അക്കൗണ്ട് ഉപയോഗിക്കുന്നു. ഈ സോഫ്റ്റ്‌വെയർ WhatsApp LLC-യുമോ
+Meta Platforms-ഉമോ ബന്ധപ്പെട്ടതല്ല.
+
+------------------------------------------------------------
+
+6. ACCEPTANCE
+By clicking "I Agree" you confirm that you have read and
+accepted all the terms above on behalf of the mahallu.
+
+6. സമ്മതം
+"I Agree" അമർത്തുന്നതിലൂടെ മേൽ പറഞ്ഞ എല്ലാ വ്യവസ്ഥകളും വായിച്ച്
+മഹല്ലിന്റെ പേരിൽ സ്വീകരിക്കുന്നു എന്ന് സമ്മതിക്കുന്നു.
