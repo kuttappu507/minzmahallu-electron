@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Download, FileSpreadsheet, FileText, Home, Users, Wallet, Gift, Gem, Flower, ScrollText, ShieldCheck, BarChart3, Loader2, CalendarRange } from "lucide-react";
 import { useI18n } from "@/i18n";
-import { todayIST } from "@/lib/utils";
+import { todayIST, formatDateTime, formatDate } from "@/lib/utils";
 import { Select, Input, Button } from "@/components/ui";
 import { toast } from "@/lib/toast";
 import { getAnekFontCss } from "@/lib/tokenPrint";
@@ -26,10 +26,35 @@ const REPORTS:ReportType[]=[
 const esc=(v:any)=>String(v??"").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;");
 const escapeCsv=(v:any)=>{const s=String(v??"");return /[,\n\"]/.test(s)?`"${s.replace(/\"/g,'\"\"')}"`:s;};
 const cols=(rows:any[],preferred?:string[])=>{const present=preferred?.filter(k=>Object.prototype.hasOwnProperty.call(rows[0]||{},k))||[];return present.length?present:Object.keys(rows[0]||{});};
-const csv=(rows:any[],c:string[],r?:ReportType)=>[c.map(k=>escapeCsv(colLabel(r as ReportType,k))).join(","),...rows.map(row=>c.map(k=>escapeCsv(row[k])).join(","))].join("\n");
+const csv=(rows:any[],c:string[],r?:ReportType)=>[c.map(k=>escapeCsv(colLabel(r as ReportType,k))).join(","),...rows.map(row=>c.map(k=>escapeCsv(istCell(row[k]))).join(","))].join("\n");
 const colLabel=(r:ReportType,k:string)=>r.labels?.[k]||k.replace(/_/g," ").replace(/\b[a-z]/g,(m)=>m.toUpperCase());
 const rowDate=(row:any,keys:string[])=>{for(const k of keys){if(row?.[k]){const d=new Date(row[k]);if(!Number.isNaN(d.getTime()))return d;}}return null;};
+/* SQLite `datetime('now')` stamps are stored in UTC — exports must show the
+   Indian time the office actually works with (same rule as formatDateTime()
+   on screen; user report: "audit log pdf time is not indian time"). Values
+   without a time part (business dates, amounts, text) pass through untouched,
+   so Excel numeric cells stay numeric. */
+const istCell=(v:any)=>{const s=String(v??"");return /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(s)?formatDateTime(s):v;};
+/* Printed PDFs show calendar dates as dd-mm-yyyy — the app-wide print
+   convention used by every other template (receipts, registers, audit pack). */
+const pdfCell=(v:any)=>{const s=String(v??"");return /^\d{4}-\d{2}-\d{2}$/.test(s)?formatDate(s):istCell(v);};
 
+/* PDF columns sized by their content (same heuristic as the Excel export):
+   short columns (Action, Module, Amount) shrink to what they hold and long
+   ones (Description) get the space, instead of the old equal-width fixed
+   layout that wasted half the sheet on narrow data. Widths are percentages
+   of the table, clamped so nothing becomes unreadable. */
+function pdfColgroup(rows:any[],c:string[],rpt:ReportType):string{
+  const lens=c.map(k=>{
+    let max=colLabel(rpt,k).length;
+    for(let i=0;i<rows.length&&i<400;i++){const len=String(pdfCell(rows[i]?.[k])??"").length;if(len>max)max=len;}
+    return Math.min(50,Math.max(8,max));
+  });
+  const tot=lens.reduce((a,b)=>a+b,0)||1;
+  const pct=lens.map(w=>+(w/tot*100).toFixed(2));
+  pct[pct.length-1]=+(100-pct.slice(0,-1).reduce((a,b)=>a+b,0)).toFixed(2);
+  return `<colgroup>${pct.map(p=>`<col style="width:${p}%">`).join("")}</colgroup>`;
+}
 function crc32(data:Uint8Array){let c=0xffffffff;for(let i=0;i<data.length;i++){c^=data[i];for(let k=0;k<8;k++)c=(c>>>1)^((c&1)?0xedb88320:0);}return (c^0xffffffff)>>>0;}
 function u16(n:number){return new Uint8Array([n&255,(n>>>8)&255]);}
 function u32(n:number){return new Uint8Array([n&255,(n>>>8)&255,(n>>>16)&255,(n>>>24)&255]);}
@@ -50,7 +75,7 @@ function columnWidths(rows:any[],c:string[]):string{
 function buildXlsx(rows:any[],c:string[],r?:ReportType){
   const encoder=new TextEncoder();
   const sheetRows=[`<row r="1">${c.map((k,i)=>xmlCell(`${excelCol(i)}1`,colLabel(r as ReportType,k),true)).join("")}</row>`];
-  rows.forEach((r,ri)=>{const rr=ri+2;sheetRows.push(`<row r="${rr}">${c.map((k,ci)=>xmlCell(`${excelCol(ci)}${rr}`,r[k])).join("")}</row>`);});
+  rows.forEach((r,ri)=>{const rr=ri+2;sheetRows.push(`<row r="${rr}">${c.map((k,ci)=>xmlCell(`${excelCol(ci)}${rr}`,istCell(r[k]))).join("")}</row>`);});
   const files:{name:string;data:Uint8Array}[]=[
     {name:"[Content_Types].xml",data:encoder.encode(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`)},
     {name:"_rels/.rels",data:encoder.encode(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`)},
@@ -79,7 +104,7 @@ export function Reports(){
  const filtered=(rows:any[],r:ReportType)=>{const [a,b]=bounds();if(!a&&!b)return rows;return rows.filter(x=>{const d=rowDate(x,r.dateKeys);return d?(!a||d>=a)&&(!b||d<=b):false;});};
  const toBlobBuffer=(bytes:Uint8Array):ArrayBuffer=>{const copy=new Uint8Array(bytes.byteLength);copy.set(bytes);return copy.buffer;};
  const triggerDownload=(bytes:Uint8Array,mime:string,name:string)=>{const url=URL.createObjectURL(new Blob([toBlobBuffer(bytes)],{type:mime}));const a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);};
- const exportReport=async(r:ReportType,f:"csv"|"excel"|"pdf")=>{setBusy(r.id);setBusyFmt(f);try{const raw=await r.fetch();const rows=filtered(raw,r);if(!rows.length){toast.warning(`${t("rpt_no_records")} "${r.title}"`);return;}const c=cols(rows,r.columns);const stamp=todayIST();const name=`${r.id}_${range}_${stamp}`;if(f==="csv")triggerDownload(new TextEncoder().encode("\ufeff"+csv(rows,c,r)),"text/csv;charset=utf-8",`${name}.csv`);else if(f==="excel")triggerDownload(buildXlsx(rows,c,r),"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",`${name}.xlsx`);else{const anekCss=await getAnekFontCss();const capHeader=(k:string)=>esc(colLabel(r,k));const html=`<!doctype html><html><head><meta charset="utf-8"><style>${anekCss}@page{size:A4 landscape;margin:10mm}body{font:11px Poppins,"Anek Malayalam Variable",Arial,sans-serif;color:#1e2b25}h1{font-size:18px;margin:0 0 6px}p{margin:0 0 12px;color:#5f7268}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:5px;border:1px solid #dfe8e1;text-align:left;vertical-align:top;word-break:break-word;overflow-wrap:anywhere}th{background:#f6f9f6}</style></head><body><h1>${esc(r.title)}</h1><p>Minz Mahallu Management System · ${rows.length} records · ${range}</p><table><tr>${c.map(k=>`<th>${capHeader(k)}</th>`).join("")}</tr>${rows.map(x=>`<tr>${c.map(k=>`<td>${esc(x[k])}</td>`).join("")}</tr>`).join("")}</table></body></html>`;const result=await window.mms.pdf.generate(html,`${name}.pdf`);if(result?.success===false&&!result?.cancelled)throw new Error(result.error||t("rpt_pdf_failed"));}toast.success(`${r.title}: ${rows.length} ${f.toUpperCase()}`);}catch(e:any){toast.error(e.message||t("ui_failed_save"));}finally{setBusy(null);setBusyFmt(null);}};
+ const exportReport=async(r:ReportType,f:"csv"|"excel"|"pdf")=>{setBusy(r.id);setBusyFmt(f);try{const raw=await r.fetch();const rows=filtered(raw,r);if(!rows.length){toast.warning(`${t("rpt_no_records")} "${r.title}"`);return;}const c=cols(rows,r.columns);const stamp=todayIST();const name=`${r.id}_${range}_${stamp}`;if(f==="csv")triggerDownload(new TextEncoder().encode("\ufeff"+csv(rows,c,r)),"text/csv;charset=utf-8",`${name}.csv`);else if(f==="excel")triggerDownload(buildXlsx(rows,c,r),"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",`${name}.xlsx`);else{const anekCss=await getAnekFontCss();const capHeader=(k:string)=>esc(colLabel(r,k));const html=`<!doctype html><html><head><meta charset="utf-8"><style>${anekCss}@page{size:A4 landscape;margin:10mm}body{font:11px Poppins,"Anek Malayalam Variable",Arial,sans-serif;color:#1e2b25}h1{font-size:18px;margin:0 0 6px}p{margin:0 0 12px;color:#5f7268}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:5px;border:1px solid #dfe8e1;text-align:left;vertical-align:top;word-break:break-word;overflow-wrap:anywhere}th{background:#f6f9f6}</style></head><body><h1>${esc(r.title)}</h1><p>Minz Mahallu Management System · ${rows.length} records · ${range}</p><table>${pdfColgroup(rows,c,r)}<tr>${c.map(k=>`<th>${capHeader(k)}</th>`).join("")}</tr>${rows.map(x=>`<tr>${c.map(k=>`<td>${esc(pdfCell(x[k]))}</td>`).join("")}</tr>`).join("")}</table></body></html>`;const result=await window.mms.pdf.generate(html,`${name}.pdf`);if(result?.success===false&&!result?.cancelled)throw new Error(result.error||t("rpt_pdf_failed"));}toast.success(`${r.title}: ${rows.length} ${f.toUpperCase()}`);}catch(e:any){toast.error(e.message||t("ui_failed_save"));}finally{setBusy(null);setBusyFmt(null);}};
  const labels=ml?{all:"എല്ലാ തീയതികളും",thisMonth:"ഈ മാസം",lastMonth:"കഴിഞ്ഞ മാസം",custom:"ഇഷ്ടാനുസൃത തീയതി"}:{all:"All time",thisMonth:"This month",lastMonth:"Last month",custom:"Custom dates"};
  return <div className="view view-enter"><div className="vhead"><div className="modic t-em"><BarChart3 size={20}/></div><div><h1>{t("rpt_title")}</h1><div className="vs">{t("rpt_subtitle")}</div></div></div>
  <div className="card card-pad-4 mb-4"><div className="flex items-center gap-3 flex-wrap"><div className="flex items-center gap-2 report-range-title"><CalendarRange size={18}/><b>{ml?"റിപ്പോർട്ട് തീയതി":"Report date"}</b></div><div className="report-range-field"><Select value={range} onChange={e=>setRange(e.target.value as any)} className="w-44">{Object.entries(labels).map(([k,v])=><option key={k} value={k}>{v}</option>)}</Select></div>{range==="custom"&&<><div className="report-range-field"><label className="lbl">{ml?"മുതൽ":"From"}</label><Input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></div><div className="report-range-field"><label className="lbl">{ml?"വരെ":"To"}</label><Input type="date" value={to} onChange={e=>setTo(e.target.value)}/></div></>}</div></div>

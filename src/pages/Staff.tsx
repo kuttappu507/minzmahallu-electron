@@ -289,7 +289,7 @@ export function Staff() {
     { header: t("staff_name"), accessor: r => <span className="font-medium">{r.name}</span> },
     { header: t("staff_role"), accessor: r => <Badge variant="muted">{r.role}</Badge> },
     { header: t("staff_phone"), accessor: r => r.phone || "—" },
-    { header: t("staff_salary"), accessor: r => <span className="font-mono">{formatCurrency(r.salary || 0)}</span> },
+    { header: t("staff_salary"), accessor: r => formatCurrency(r.salary || 0) },
     { header: t("staff_joined_date"), accessor: r => r.joined_date ? formatDate(r.joined_date) : "—" },
     { header: t("staff_status"), accessor: r => <Badge variant={statusVariant(displayStatus(r))}>{displayStatus(r)}</Badge> },
     {
@@ -308,7 +308,7 @@ export function Staff() {
     { header: t("staff_name"), accessor: r => <span className="font-medium">{r.staff_name}</span> },
     { header: t("staff_role"), accessor: r => <Badge variant="muted">{r.staff_role}</Badge> },
     { header: tx("Period", "കാലയളവ്"), accessor: r => `${MONTH_NAMES[r.period_month - 1]} ${r.period_year}` },
-    { header: t("staff_amount"), accessor: r => <span className="font-mono">{formatCurrency(r.amount)}</span> },
+    { header: t("staff_amount"), accessor: r => formatCurrency(r.amount) },
     { header: t("staff_payment_date"), accessor: r => formatDate(r.payment_date) },
     { header: t("staff_payment_method"), accessor: r => r.payment_method },
     { header: t("staff_status"), accessor: r => <Badge variant={r.status === "Paid" ? statusVariant("Active") : r.status === "Pending" ? statusVariant("Pending") : "muted"}>{r.status}</Badge> },
