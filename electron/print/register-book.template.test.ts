@@ -55,4 +55,12 @@ describe("register-book template", () => {
     const html = buildRegisterBookHtml({ type: "death", rows: [], mahalluName: "Minz Mahallu", generatedAt: "2026-08-30T00:00:00Z" }, "en");
     expect(html).toContain("No entries");
   });
+
+  it("prints the Generated stamp as 12-hour AM/PM, never a raw ISO string", () => {
+    // User report (v2.4.8): the register header showed the UTC ISO value
+    // ("2026-09-22T10:54:32.150Z") instead of a readable local time.
+    const html = buildRegisterBookHtml({ type: "marriage", rows: [], mahalluName: "Minz Mahallu", generatedAt: "2026-08-30T00:00:00Z" }, "en");
+    expect(html).not.toContain("2026-08-30T00:00:00Z");
+    expect(html).toMatch(/\d{2}-\d{2}-\d{4} \d{2}:\d{2} (AM|PM)/);
+  });
 });

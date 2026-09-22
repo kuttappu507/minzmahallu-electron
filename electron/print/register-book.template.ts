@@ -63,6 +63,27 @@ function fmtDate(d: string): string {
   } catch { return String(d); }
 }
 
+/** Header "Generated" stamp as the office reads times everywhere else in the
+ *  app: 12-hour with AM/PM in the machine's own timezone (formatDateTime
+ *  convention). The raw value arrives as a UTC ISO string — printing it
+ *  verbatim showed "2026-09-22T10:54:32.150Z" on the register (user report:
+ *  "the time mentioned in register is weird format"). Unparseable values
+ *  pass through untouched. */
+function fmtDateTime(d: string): string {
+  try {
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return String(d);
+    const day = String(date.getDate()).padStart(2, "0");
+    const mon = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    const h24 = date.getHours();
+    const ampm = h24 >= 12 ? "PM" : "AM";
+    const h12 = String(h24 % 12 || 12).padStart(2, "0");
+    const min = String(date.getMinutes()).padStart(2, "0");
+    return `${day}-${mon}-${year} ${h12}:${min} ${ampm}`;
+  } catch { return String(d); }
+}
+
 export function buildRegisterBookHtml(data: RegisterData, lang: 'en' | 'ml' = 'en'): string {
   const ml = lang === 'ml';
   const title = ml
@@ -133,7 +154,7 @@ export function buildRegisterBookHtml(data: RegisterData, lang: 'en' | 'ml' = 'e
         <div class="l"><div class="logo">M</div><div class="org">${esc(data.mahalluName)}<small>Mahallu Management System</small></div></div>
         <div class="t"><b>${title}</b><span>${ml ? "ഔദ്യോഗിക രജിസ്റ്റർ പ്രതി" : "Official register extract"}</span></div>
       </div>
-      <div class="meta"><span>${ml ? "തയ്യാറാക്കിയത്" : "Generated"}: <b>${esc(data.generatedAt)}</b></span><span>${ml ? "പേജ്" : "Page"} ${p + 1} / ${pageCount}</span></div>
+      <div class="meta"><span>${ml ? "തയ്യാറാക്കിയത്" : "Generated"}: <b>${esc(fmtDateTime(data.generatedAt))}</b></span><span>${ml ? "പേജ്" : "Page"} ${p + 1} / ${pageCount}</span></div>
       <div class="tbody"><table><thead>${headCols}</thead><tbody>${body}</tbody></table></div>
       ${lastExtras}
       <div class="foot"><span>${esc(data.mahalluName)} — ${title}</span><span>${ml ? "രേഖകൾ" : "Entries"}: ${slice.length ? esc(String(slice[0].register_number)) : "—"} – ${slice.length ? esc(String(slice[slice.length - 1].register_number)) : "—"}</span></div>
