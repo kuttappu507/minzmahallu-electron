@@ -259,18 +259,26 @@ const RECENT_SEND_WINDOW_MS = 90_000;
 // One shared send+track routine for receipt PDFs (the privacy lock lives
 // here): gate → send → record acceptance → short delivery grace → the lock
 // flips on real delivery (now, or later through the delivery listener).
+//
+// `jid` may be a PROMISE started earlier by the caller: the recipient lookup
+// is a 0.5–2 s WhatsApp server round trip on a cold cache, and it used to run
+// strictly AFTER the PDF render finished — one of the largest slices of
+// "receipt sending takes too much time" (user report). The callers now kick
+// it off the moment the phone number is known, so the lookup overlaps the
+// render and the internet/session gate instead of adding to them.
 async function sendReceiptWithLock(input: {
   kind: "donation" | "subscription";
   rowId: number;              // donation id · subscription LEDGER payment id
   phone: string; text: string; pdf: Buffer; fileName: string;
   messageType: string; name?: string; familyId?: number | null; donationId?: number;
+  jid?: Promise<string> | string;
 }): Promise<{ msgId: string; delivered: boolean }> {
   // One timing line per receipt, so "it felt slow" can be answered with a
   // number instead of a guess (the recipient is only shown by its last four
   // digits — the log is not a phone book).
   const startedAt = Date.now();
   requirePairedSession();
-  const jid = await resolveJid(input.phone);
+  const jid = typeof input.jid === "string" ? input.jid : await (input.jid ?? resolveJid(input.phone));
   const resolvedAt = Date.now();
   const result = await engineSendDocument(jid, input.pdf, input.fileName, input.text);
   const msgId = String(result.id || "");
@@ -473,8 +481,9 @@ export const whatsapp = {
     }
     await requireInternet();
     // Explicit user action — bring the in-process engine up and give it a
-    // moment to reach a meaningful state (QR available or logged in).
-    await startEngine();
+    // moment to reach a meaningful state (QR available or logged in). Being
+    // voluntary, this also clears the flap detector's halt.
+    await startEngine(true);
     const deadline = Date.now() + 15000;
     while (Date.now() < deadline) {
       const snap = engineState();
@@ -592,12 +601,17 @@ export const whatsapp = {
       try { await receiptP; } catch { /* surface the phone problem instead */ }
       throw new Error("ഈ ദാതാവിന്റെ വാട്ട്സ്ആപ്പ് നമ്പർ ചേർത്തിട്ടില്ല. ആദ്യം ദാതാവിന്റെ ഫോൺ നമ്പർ ചേർക്കുക.");
     }
+    // Recipient JID lookup starts NOW so it overlaps the render + the
+    // readiness gate instead of waiting for both (user report: receipt
+    // sending took too long). Errors settle through the await below.
+    const jidP = resolveJid(phone);
+    jidP.catch(() => { /* awaited below; keep the early-throw path quiet */ });
     await requireReadyToSend();
-    const receipt = await receiptP;
+    const [receipt] = await Promise.all([receiptP, jidP]);
     const result = await sendReceiptWithLock({
       kind: "donation", rowId: donationId,
       phone, text, pdf: receipt.buffer, fileName: `receipt-${fileNameSafe(receipt.receiptNumber || donationId)}.pdf`,
-      messageType: "DONATION_RECEIPT", name: d.donor_name, donationId,
+      messageType: "DONATION_RECEIPT", name: d.donor_name, donationId, jid: jidP,
     });
     return {
       success: true, receiptSaved: true, receiptNumber: receipt.receiptNumber,
@@ -646,6 +660,12 @@ export const whatsapp = {
     const receiptP = generateSubscriptionReceiptPdf(subscriptionId);
     receiptP.catch(() => { /* awaited below; keep early-return paths quiet */ });
     const phone = normalizePhone(String(s.family_phone || ""));
+    // Recipient JID lookup starts NOW so it overlaps the render, the ledger
+    // reads and the readiness gate instead of waiting for all of them (user
+    // report: receipt sending took too long). Every early exit below drops
+    // it quietly; the send paths await it through sendReceiptWithLock.
+    const jidP = phone ? resolveJid(phone) : null;
+    jidP?.catch(() => { /* awaited at send time, or dropped on early exits */ });
     const settingsRow = getDB().prepare("SELECT mahallu_name, currency_symbol FROM settings WHERE id=1").get() as any;
     const currency = settingsRow?.currency_symbol || "₹";
     // Always finish the A6 render + store (works without WhatsApp). On the
@@ -689,7 +709,7 @@ export const whatsapp = {
         const result = await sendReceiptWithLock({
           kind: "subscription", rowId: receipt.paymentId || 0,
           phone, text, pdf: receipt.buffer, fileName: `receipt-${fileNameSafe(receipt.receiptNumber || subscriptionId)}.pdf`,
-          messageType: "SUBSCRIPTION_RECEIPT", name: s.member_name || who, familyId: s.family_id,
+          messageType: "SUBSCRIPTION_RECEIPT", name: s.member_name || who, familyId: s.family_id, jid: jidP ?? undefined,
         });
         return { status: result.delivered ? "delivered" : "sent", providerMessageId: result.msgId, receiptSaved: true, receiptNumber: receipt.receiptNumber };
       } catch (err: any) {
@@ -700,7 +720,7 @@ export const whatsapp = {
     const result = await sendReceiptWithLock({
       kind: "subscription", rowId: receipt.paymentId || 0,
       phone, text, pdf: receipt.buffer, fileName: `receipt-${fileNameSafe(receipt.receiptNumber || subscriptionId)}.pdf`,
-      messageType: "SUBSCRIPTION_RECEIPT", name: s.member_name || who, familyId: s.family_id,
+      messageType: "SUBSCRIPTION_RECEIPT", name: s.member_name || who, familyId: s.family_id, jid: jidP ?? undefined,
     });
     return {
       success: true, receiptSaved: true, receiptNumber: receipt.receiptNumber,

@@ -1,7 +1,7 @@
 import { app, ipcMain } from "electron";
 import { whatsapp, setReceiptDeliveryPush } from "./services/whatsapp.service.js";
 import { recipientStats } from "./services/whatsapp-recipient.service.js";
-import { flushAuthWrites, maybeStartEngine, stopEngine } from "./services/whatsapp-engine.service.js";
+import { flushAuthWrites, maybeStartEngine, stopEngine, drainAuthWrites, snapshotAuthNow } from "./services/whatsapp-engine.service.js";
 import type { Actor } from "./services/security.service.js";
 
 // WhatsApp IPC — auth-gated exactly like the rest of the app. The actor
@@ -100,8 +100,12 @@ export function registerWhatsAppIpc(
   //      creds asynchronously, so a key rotation can still be in flight),
   //   2. close the WebSocket cleanly WITHOUT logout, so the phone keeps this
   //      device linked,
-  //   3. verify the credentials on disk one last time (and refresh the
-  //      atomic creds.json.bak the next start can fall back on).
+  //   3. drain Baileys' in-flight KEY writes (only creds used to be awaited;
+  //      a truncated pre-key/sync-key file was the remaining "connection gone
+  //      after closing" class),
+  //   4. verify the credentials on disk one last time, then hold the whole
+  //      folder (creds + keys together) as the verified snapshot the next
+  //      start restores from if anything still got cut off.
   // Every step is capped and the whole sequence is bounded, so a wedged
   // socket can never hang the exit; main.ts' before-quit closes the DB first,
   // this handler runs after it and finishes the exit itself.
@@ -111,12 +115,14 @@ export function registerWhatsAppIpc(
     quitting = true;
     event.preventDefault();
     void (async () => {
-      const guard = new Promise((resolve) => setTimeout(resolve, 8000));
+      const guard = new Promise((resolve) => setTimeout(resolve, 9000));
       const work = (async () => {
         try {
           await flushAuthWrites();
           await stopEngine();
+          await drainAuthWrites(2000);
           await flushAuthWrites(1500);
+          snapshotAuthNow();
         } catch { /* best effort */ }
       })();
       await Promise.race([work, guard]);
