@@ -132,14 +132,15 @@ jobs:
           pattern: MMS-React-*-installers
           path: artifacts
           merge-multiple: true
-      # Release page carries ONLY the OS installers + the two updater feed
-      # files electron-updater actually reads (latest.yml for Windows NSIS,
-      # latest-linux.yml for AppImage). Debug/blockmap/mac-zip extras are
-      # removed so the office sees a clean download list (user request).
+      # Release page carries ONLY the 3 OS installers (exe + dmg + AppImage) —
+      # user request: "only executables, no other files". Updater feed ymls
+      # (latest.yml / latest-linux.yml) are stripped too, so in-app auto-update
+      # is disabled; users update by downloading the new installer from the
+      # website. Debug/blockmap/mac-zip extras are removed as well.
       - name: Remove non-installer artifacts from the release
         run: |
           rm -fv artifacts/builder-debug.yml artifacts/latest-mac.yml \
-                 artifacts/*.blockmap artifacts/*.zip
+                 artifacts/*.blockmap artifacts/*.zip artifacts/*.yml
           echo "--- remaining files:"
           ls -lh artifacts/
       - uses: softprops/action-gh-release@v2
