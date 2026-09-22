@@ -185,7 +185,8 @@ function receiptCard(r: ReceiptData, L: ReturnType<typeof labels>): string {
     </div>
     <footer class="rc-foot">
       <div class="rc-verify">
-        ${r.verificationCode ? `<div class="rc-verify-copy"><span class="rc-vcap">${esc(L.securityCode)}</span><span class="rc-vcode">${esc(r.verificationCode)}</span><span class="rc-vhint">${esc(L.verifyHint)}</span></div>` : ''}
+        ${r.verificationCode ? `<div class="rc-verify-copy"><span class="rc-vcap">${esc(L.securityCode)}</span><span class="rc-vcode">${esc(r.verificationCode)}</span></div>
+        <span class="rc-vhint">${esc(L.verifyHint)}</span>` : ''}
         <span class="rc-thanks">${esc(L.thanks)}</span>
       </div>
       <div class="rc-sign">
@@ -203,23 +204,26 @@ function baseCss(): string {
     *{margin:0;padding:0;box-sizing:border-box}
     html,body{background:#fff}
     body{font-family:Poppins,"Anek Malayalam Variable","Segoe UI",Arial,sans-serif;color:#101a14;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    .rc{width:105mm;height:148mm;display:flex;flex-direction:column;border:.35mm solid #bfcfc7;background:#fff;overflow:hidden}
+    /* 6mm bottom safe zone — printer hardware margins eat the last ~5mm of a
+       full-bleed page, so no text may sit there (was cutting the sign-off). */
+    .rc{width:105mm;height:148mm;display:flex;flex-direction:column;border:.35mm solid #bfcfc7;background:#fff;overflow:hidden;padding-bottom:6mm}
     /* Header: the receipt type is a SMALL caption in the top-LEFT corner;
        the mahallu name is the big CENTRED line under it, with the address
-       (and phone) centred underneath — the classic Kerala receipt head.
-       v2.4.3: sizes opened up so the card carries no dead whitespace. */
-    .rc-head{display:flex;flex-direction:column;align-items:stretch;background:#0d7a5f;color:#fff;padding:3.4mm 5mm 3.6mm}
+       (and phone) centred underneath — the classic Kerala receipt head. */
+    .rc-head{display:flex;flex-direction:column;align-items:stretch;background:#0d7a5f;color:#fff;padding:3.2mm 5mm 3mm}
     .rc-type{text-align:left;font-size:7.2pt;font-weight:700;letter-spacing:1px;text-transform:uppercase;opacity:.95}
     .rc-brand{margin-top:1.2mm;text-align:center}
     .rc-brand b{display:block;font-size:14.5pt;font-weight:800;letter-spacing:.3px;line-height:1.15}
     .rc-brand span{display:block;font-size:6.6pt;opacity:.92;margin-top:1mm;letter-spacing:.4px}
     .rc-meta{display:flex;border-bottom:.3mm solid #d9e5e0}
-    .rc-meta>div{flex:1;display:flex;justify-content:space-between;padding:2.8mm 5mm;border-right:.3mm solid #d9e5e0}
+    .rc-meta>div{flex:1;display:flex;justify-content:space-between;padding:2.4mm 5mm;border-right:.3mm solid #d9e5e0}
     .rc-meta>div:last-child{border-right:0}
     .rc-meta span{font-size:6.4pt;color:#5d6f67;letter-spacing:.3px}
     .rc-meta b{font-size:9pt}
-    .rc-body{flex:1;display:flex;flex-direction:column;padding:4.4mm 5.5mm;gap:3.4mm}
-    .rc-party{border-bottom:.2mm dashed #c9d8d2;padding-bottom:3mm}
+    /* min-height:0 + overflow:hidden — the body absorbs extreme content instead
+       of pushing the sign-off/security-code footer off the page. */
+    .rc-body{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;padding:3.8mm 5.5mm 2.8mm;gap:3mm}
+    .rc-party{border-bottom:.2mm dashed #c9d8d2;padding-bottom:2.6mm}
     .rc-party-cap{font-size:6.4pt;color:#84938c;letter-spacing:.3px}
     .rc-party-name{font-size:13.5pt;font-weight:800;line-height:1.2;margin-top:.8mm}
     .rc-party-sub{font-size:8pt;color:#5d6f67;margin-top:1mm}
@@ -227,26 +231,28 @@ function baseCss(): string {
     .rc-line{display:flex;justify-content:space-between;gap:4mm;font-size:8.6pt;border-bottom:.15mm solid #e7efeb;padding-bottom:1.5mm}
     .rc-line span{color:#5d6f67;font-size:7.4pt}
     .rc-line b{text-align:right}
-    .rc-amount{margin-top:auto;background:#f1f8f4;border:.3mm solid #9ec7b8;border-left:1.2mm solid #0d7a5f;border-radius:2mm;padding:3.4mm 4.2mm;display:flex;flex-direction:column;gap:.9mm}
+    .rc-amount{margin-top:auto;background:#f1f8f4;border:.3mm solid #9ec7b8;border-left:1.2mm solid #0d7a5f;border-radius:2mm;padding:2.8mm 4.2mm;display:flex;flex-direction:column;gap:.9mm}
     .rc-amount span{font-size:6.6pt;color:#4c5f56;letter-spacing:.5px}
-    .rc-amount b{font-size:18pt;font-weight:800;color:#0a5c47;line-height:1.05}
+    .rc-amount b{font-size:16pt;font-weight:800;color:#0a5c47;line-height:1.05}
     .rc-amount small{font-size:6.6pt;color:#4c5f56;font-style:italic}
     .rc-notes{font-size:7.2pt;color:#4c5f56;border-top:.2mm dashed #c9d8d2;padding-top:1.8mm}
     .rc-foot-note{font-size:7.6pt;color:#0a5c47;font-weight:600}
-    .rc-foot{display:flex;justify-content:space-between;align-items:flex-end;gap:3mm;padding:3.2mm 5.5mm 3mm;border-top:.3mm solid #d9e5e0;background:#fbfdfc}
-    .rc-verify{display:flex;flex-direction:column;gap:1.2mm;min-width:0}
-    .rc-verify-copy{display:flex;flex-direction:column;gap:.7mm;min-width:0}
-    .rc-vcap{font-size:6.2pt;font-weight:700;color:#0a5c47;letter-spacing:.8px}
-    .rc-vcode{font-size:11pt;font-weight:800;letter-spacing:1.2px;color:#0a5c47}
-    .rc-vhint{font-size:5.8pt;color:#5d6f67;max-width:54mm;line-height:1.25}
-    .rc-thanks{font-size:6.8pt;font-weight:600;color:#3c4a43}
+    .rc-foot{display:flex;justify-content:space-between;align-items:flex-end;gap:3mm;padding:2.6mm 5.5mm 2mm;border-top:.3mm solid #d9e5e0;background:#fbfdfc}
+    .rc-verify{display:flex;flex-direction:column;gap:1mm;min-width:0}
+    /* compact inline security code — caption + code share one line, smaller
+       type, so the footer stays short and nothing slides into the cut zone. */
+    .rc-verify-copy{display:flex;align-items:baseline;gap:1.6mm;min-width:0}
+    .rc-vcap{font-size:5.4pt;font-weight:700;color:#0a5c47;letter-spacing:.6px}
+    .rc-vcode{font-size:8.5pt;font-weight:800;letter-spacing:.8px;color:#0a5c47}
+    .rc-vhint{font-size:5.4pt;color:#5d6f67;max-width:56mm;line-height:1.25}
+    .rc-thanks{font-size:6.6pt;font-weight:600;color:#3c4a43}
     /* Signature block (bottom-right): the "signed" mark over the Secretary
        line over the mahallu name — the classic Kerala receipt sign-off. */
-    .rc-sign{text-align:right;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:.7mm;min-width:30mm}
-    .rc-sd{font-size:8.8pt;font-weight:600;font-style:italic;color:#2c3a33}
-    .rc-sec{font-size:8.4pt;font-weight:700;letter-spacing:.3px;color:#101a14}
-    .rc-for-line{font-size:7.8pt;color:#101a14;font-weight:700}
-    .rc-app{text-align:center;font-size:5pt;color:#9aaba2;letter-spacing:.5px;padding:1mm 0 1.2mm;border-top:.2mm solid #e7efeb;background:#fbfdfc}
+    .rc-sign{text-align:right;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:.6mm;min-width:30mm}
+    .rc-sd{font-size:8.4pt;font-weight:600;font-style:italic;color:#2c3a33}
+    .rc-sec{font-size:8pt;font-weight:700;letter-spacing:.3px;color:#101a14}
+    .rc-for-line{font-size:7.6pt;color:#101a14;font-weight:700}
+    .rc-app{text-align:center;font-size:5pt;color:#9aaba2;letter-spacing:.5px;padding:.9mm 0 1mm;border-top:.2mm solid #e7efeb;background:#fbfdfc}
   `;
 }
 
@@ -275,12 +281,14 @@ export function buildReceiptSheetHtml(list: ReceiptData[], lang: Lang): string {
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><style>
     @page{size:A4 portrait;margin:0}${font}${baseCss()}
     html,body{width:210mm}
-    .sheet{width:210mm;height:297mm;position:relative;display:grid;grid-template-columns:105mm 105mm;grid-template-rows:148.5mm 148.5mm;page-break-after:always;break-after:page}
+    /* rows 140.5mm → a 16mm printable strip stays free at the sheet bottom;
+       the counter sits at 7mm where paper-feed margins cannot cut it. */
+    .sheet{width:210mm;height:297mm;position:relative;display:grid;grid-template-columns:105mm 105mm;grid-template-rows:140.5mm 140.5mm;page-break-after:always;break-after:page}
     .sheet:last-child{page-break-after:auto;break-after:auto}
     .cell{position:relative}
-    .cell .rc{border:0;width:105mm;height:148mm}
+    .cell .rc{border:0;width:105mm;height:140.5mm}
     .cell:nth-child(odd){border-right:.25mm dashed #9db3aa}
     .cell:nth-child(-n+2){border-bottom:.25mm dashed #9db3aa}
-    .sheet-foot{position:absolute;right:5mm;bottom:1.2mm;font-size:5.5pt;color:#84938c;letter-spacing:.3px}
+    .sheet-foot{position:absolute;right:5mm;bottom:7mm;font-size:5.5pt;color:#84938c;letter-spacing:.3px}
   </style></head><body>${pages.join('')}</body></html>`;
 }
