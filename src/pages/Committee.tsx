@@ -372,7 +372,7 @@ export function Committee() {
         onClose={() => { setEditGateOpen(false); setPendingEditId(null); }}
         onConfirm={performEdit}
         danger={false}
-        title={tx("Edit committee member", "കമ്മിറ്റി അംഗത്തെ തിരുത്തുക")}
+        title={tx("Edit committee member", "കമ്മിറ്റി അംഗത്തിന്റെ വിവരങ്ങൾ തിരുത്തുക")}
         description={t("committee_edit_gate")}
         reasonPlaceholder={tx("Why is this committee record being edited?", "എന്തുകൊണ്ടാണ് ഈ കമ്മിറ്റി രേഖ തിരുത്തുന്നത്?")}
         confirmLabel={tx("Continue to edit", "തിരുത്തൽ തുടരുക")}

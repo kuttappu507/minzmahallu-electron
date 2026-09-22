@@ -51,6 +51,59 @@ function buildAnekMalayalamCss(): string {
 }
 
 /**
+ * Poppins @font-face CSS (400/500/600/700) for the print windows. The printed
+ * templates all declare font-family:"Poppins,…" but until now only Anek
+ * Malayalam was embedded — Latin text and digits fell back to Arial/Helvetica
+ * in every PDF that wasn't a receipt/certificate, so registers, the survey
+ * form and report exports visibly lost the app's typeface.
+ *
+ * The TTFs are the SAME files the renderer UI uses (src/assets/fonts, copied
+ * to resources/fonts — resources/** ships inside app.asar, see
+ * getPreviewScreenCss for the resolution pattern). Each face is embedded as a
+ * base64 data URI; no unicode-range needed because the font-family list puts
+ * "Anek Malayalam Variable" right after Poppins for the Malayalam block.
+ *
+ * Memoized like getAnekMalayalamCss. Returns '' defensively if not found.
+ */
+const POPPINS_FACES: Array<[number, string]> = [
+  [400, 'Poppins-Regular.ttf'],
+  [500, 'Poppins-Medium.ttf'],
+  [600, 'Poppins-SemiBold.ttf'],
+  [700, 'Poppins-Bold.ttf'],
+];
+
+let poppinsCssCache: string | null = null;
+
+export function getPoppinsCss(): string {
+  if (poppinsCssCache !== null) return poppinsCssCache;
+  poppinsCssCache = buildPoppinsCss();
+  return poppinsCssCache;
+}
+
+function buildPoppinsCss(): string {
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const dirs = [
+      resolve(here, '../../resources/fonts'),
+      resolve(here, '../../../resources/fonts'),
+      resolve(process.cwd(), 'resources/fonts'),
+    ];
+    const faces = POPPINS_FACES.map(([weight, file]) => {
+      for (const dir of dirs) {
+        try {
+          const base64 = readFileSync(resolve(dir, file)).toString('base64');
+          return `@font-face{font-family:Poppins;src:url("data:font/ttf;base64,${base64}") format("truetype");font-weight:${weight};font-style:normal;font-display:block}`;
+        } catch { /* next dir */ }
+      }
+      return '';
+    }).filter(Boolean);
+    return faces.join('\n');
+  } catch {
+    return '';
+  }
+}
+
+/**
  * On-screen styles for the certificate preview popup, authored as a SEPARATE
  * stylesheet (resources/templates/preview-screen.css) so no component injects
  * inline <style> markup. The path resolves both in dev (repo/resources) and

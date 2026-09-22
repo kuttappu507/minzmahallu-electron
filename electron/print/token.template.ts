@@ -1,5 +1,5 @@
 import { esc } from './utils.js';
-import { getAnekMalayalamCss } from './utils.js';
+import { getAnekMalayalamCss, getPoppinsCss } from './utils.js';
 import { getDB } from '../db/connection.js';
 
 function activeSettings(): { language: 'en' | 'ml'; mahalluName: string } {
@@ -38,7 +38,7 @@ export function buildTokenSheetHtml(tokenList: any[], event: any): string {
   // malayalam subsets) so Malayalam glyphs render correctly in the PDF
   // BrowserWindow. Without this, Malayalam text falls back to "Segoe UI"/Arial
   // which don't have the Malayalam unicode block.
-  const anekFontFace = getAnekMalayalamCss();
+  const anekFontFace = getPoppinsCss() + getAnekMalayalamCss();
   const eventOffset = Math.max(0, Number(event?.id || 1) - 1);
   const makeCard = (t:any,cardIndex:number)=>{
     const p=paletteForTokenIndex(cardIndex + eventOffset);

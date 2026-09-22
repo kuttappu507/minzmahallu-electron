@@ -1,5 +1,5 @@
 import { esc } from './utils.js';
-import { getAnekMalayalamCss } from './utils.js';
+import { getAnekMalayalamCss, getPoppinsCss } from './utils.js';
 import { istDateTimeDm } from '../services/ist-date.js';
 import { getDB } from '../db/connection.js';
 
@@ -68,7 +68,7 @@ const SOURCE_LABELS: Record<string, { en: string; ml: string }> = {
   transactions: { en: 'Manual Entry', ml: 'മാനുവൽ' },
   donations: { en: 'Donation', ml: 'സംഭാവന' },
   subscriptions: { en: 'Subscription', ml: 'വരിസംഖ്യ' },
-  welfare: { en: 'Welfare', ml: 'ക്ഷേമനിധി' },
+  welfare: { en: 'Welfare', ml: 'ക്ഷേമസഹായം' },
   salary: { en: 'Salary', ml: 'ശമ്പളം' },
 };
 
@@ -87,7 +87,7 @@ export function buildAccountStatementHtml(rows: LedgerRow[], summary: Summary, f
   const settings = activeSettings();
   const ml = settings.language === 'ml';
   const sym = settings.currencySymbol;
-  const anekCss = getAnekMalayalamCss();
+  const anekCss = getPoppinsCss() + getAnekMalayalamCss();
 
   const periodKey = filter.period || 'all';
   const periodLabel = (PERIOD_LABELS[periodKey] || PERIOD_LABELS.all)[ml ? 'ml' : 'en'];

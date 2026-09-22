@@ -1,4 +1,4 @@
-import { esc, getAnekMalayalamCss } from './utils.js';
+import { esc, getAnekMalayalamCss, getPoppinsCss } from './utils.js';
 import { getDB } from '../db/connection.js';
 import { istDateTimeDm } from '../services/ist-date.js';
 
@@ -316,7 +316,7 @@ function enrichCertificate(cert: any): CertData {
 
 // ===== Shared CSS (Kerala mahallu certificate styling) =====
 function sharedCss(ml: boolean, landscape = false): string {
-  const anekCss = getAnekMalayalamCss();
+  const anekCss = getPoppinsCss() + getAnekMalayalamCss();
   const pageW = landscape ? '297mm' : '210mm';
   const pageH = landscape ? '210mm' : '297mm';
   // Fixed height (not min-height) so a certificate can NEVER spill onto a
@@ -637,7 +637,7 @@ function buildResidenceCert(c: CertData, ml: boolean): string {
   const L = ml ? {
     title: 'താമസ സർട്ടിഫിക്കറ്റ്', subtitle: 'മഹല്ല് കുടുംബ രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയത്',
     familyHead: 'കുടുംബനാഥൻ', familyNo: 'കുടുംബ നമ്പർ', houseName: 'വീട്ടുപേര്',
-    houseNo: 'വീട്ടു നമ്പർ', ward: 'വാർഡ്', area: 'പ്രദേശം',
+    houseNo: 'വീട്ടുനമ്പർ', ward: 'വാർഡ്', area: 'പ്രദേശം',
     address: 'വിലാസം', pincode: 'പിൻകോഡ്', phone: 'ഫോൺ',
     certifyText: 'മേൽപ്പറഞ്ഞ കുടുംബം ഈ മഹല്ലിൽ താമസിക്കുന്നുവെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.',
   } : {

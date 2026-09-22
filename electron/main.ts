@@ -19,7 +19,7 @@ import { renderHtmlToPdf, prewarmPdfRenderer, disposePdfRenderer } from "./print
 import { buildAccountStatementHtml } from "./print/account-statement.template.js";
 import { buildAuditPackHtml } from "./print/audit-pack.template.js";
 import { buildRegisterBookHtml } from "./print/register-book.template.js";
-import { getAnekMalayalamCss } from "./print/utils.js";
+import { getAnekMalayalamCss, getPoppinsCss } from "./print/utils.js";
 import { registerSecurityIpc } from "./security-ipc.js";
 import { registerWhatsAppIpc } from "./whatsapp-ipc.js";
 import { sendWelfareDisbursedMessage } from "./services/whatsapp.service.js";
@@ -413,7 +413,9 @@ app.whenReady().then(() => {
 
   ipcMain.handle("pdf:getAnekFontCss", () => {
     if (!session.user) throw new Error("Authentication required");
-    return getAnekMalayalamCss();
+    // Poppins (Latin) + Anek Malayalam — report PDFs use the same composite
+    // face stack as the on-screen app, instead of falling back to Arial.
+    return getPoppinsCss() + getAnekMalayalamCss();
   });
   ipcMain.handle("certificates:generatePdf", async (_e, certId: number) => {
     if (!session.user) return { success: false, error: "Authentication required" };

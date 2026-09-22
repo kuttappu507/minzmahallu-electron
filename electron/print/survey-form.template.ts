@@ -11,7 +11,7 @@
  * fill it in — mirroring the receipt/certificate template contracts:
  * the mahallu name comes from Settings, never hardcoded.
  */
-import { esc } from './utils.js';
+import { esc, getAnekMalayalamCss, getPoppinsCss } from './utils.js';
 import { getDB } from '../db/connection.js';
 
 function activeLanguage(): 'en' | 'ml' {
@@ -43,7 +43,7 @@ export function buildSurveyFormHtml(): string {
     page1: ['Page 1 · Family & Family Head', 'പേജ് 1 · കുടുംബവും കുടുംബനാഥനും'],
     house: ['House / Family Details', 'വീട്ടുവിവരങ്ങൾ / കുടുംബവിവരങ്ങൾ'],
     houseName: ['House Name', 'വീട്ടുപേര്'],
-    houseNumber: ['House Number', 'വീട്ടു നമ്പർ'],
+    houseNumber: ['House Number', 'വീട്ടുനമ്പർ'],
     ward: ['Ward', 'വാർഡ്'],
     area: ['Area / Locality', 'പ്രദേശം'],
     pincode: ['Pincode', 'പിൻകോഡ്'],
@@ -104,6 +104,7 @@ export function buildSurveyFormHtml(): string {
      usable height ≈ 192mm. Header ≈ 12 + section ≈ 5 + note ≈ 7 + table
      (head ≈ 9 + 10 × 12.6 = 126) + hint ≈ 7 → ≈ 166mm, safely inside. */
   return `<!doctype html><html><head><meta charset="utf-8"><style>
+${getPoppinsCss()}${getAnekMalayalamCss()}
 @page{size:A4 portrait;margin:0}
 @page second{size:A4 landscape;margin:0}
 *{box-sizing:border-box}

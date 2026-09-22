@@ -111,7 +111,7 @@ const PREVIEW_FIELD_LABELS: Record<string, { en: string; ml: string }> = {
   txn_date: { en: "Date", ml: "തീയതി" },
   type: { en: "Type", ml: "തരം" },
   amount: { en: "Amount", ml: "തുക" },
-  payment_method: { en: "Payment method", ml: "പേയ്മെന്റ് രീതി" },
+  payment_method: { en: "Payment method", ml: "പണമടച്ച രീതി" },
   description: { en: "Description", ml: "വിവരണം" },
   category: { en: "Category", ml: "വിഭാഗം" },
   payee: { en: "Paid to (Payee)", ml: "സ്വീകർത്താവ് (Payee)" },

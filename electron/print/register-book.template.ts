@@ -9,7 +9,7 @@
  * and a proper signature block.
  */
 import { esc } from "./utils.js";
-import { getAnekMalayalamCss } from "./utils.js";
+import { getAnekMalayalamCss, getPoppinsCss } from "./utils.js";
 
 /** Raw register row as returned by data.service (marriages.registerRows / deaths.registerRows). */
 export type RegisterRow = Record<string, any>;
@@ -46,7 +46,7 @@ export function mapRegisterRow(type: "marriage" | "death", r: RegisterRow, ml: b
       { label: ml ? "പേര്" : "Name", value: r.deceased_name || "—" },
       { label: ml ? "പിതാവ് / ബന്ധു" : "Father / Kin", value: r.father_name || "—" },
       { label: ml ? "ലിംഗം" : "Sex", value: r.gender || "—" },
-      { label: ml ? "വയസ്സ്" : "Age", value: r.age != null ? String(r.age) : "—" },
+      { label: ml ? "പ്രായം" : "Age", value: r.age != null ? String(r.age) : "—" },
       { label: ml ? "മരണ തീയതി" : "Date of Death", value: fmtDate(r.date_of_death) },
       { label: ml ? "സ്ഥലം" : "Place", value: r.place_of_death || "—" },
       { label: ml ? "കബറടക്കം" : "Burial", value: `${fmtDate(r.burial_date)}${r.burial_place ? ` (${r.burial_place})` : ""}` },
@@ -68,7 +68,7 @@ export function buildRegisterBookHtml(data: RegisterData, lang: 'en' | 'ml' = 'e
   const title = ml
     ? (data.type === "marriage" ? "നികാഹ് രജിസ്റ്റർ" : "മരണ രജിസ്റ്റർ")
     : (data.type === "marriage" ? "MARRIAGE REGISTER" : "DEATH REGISTER");
-  const anekCss = getAnekMalayalamCss();
+  const anekCss = getPoppinsCss() + getAnekMalayalamCss();
   const css = `${anekCss}
   @page{size:A4 landscape;margin:0}
   *{margin:0;padding:0;box-sizing:border-box}

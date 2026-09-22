@@ -104,7 +104,11 @@ export function formatDateTime(date: string | null | undefined): string {
     hour: "2-digit", minute: "2-digit", hour12: false,
   });
   if (p === null) return String(date);
-  return `${p.day}-${p.month}-${p.year} ${p.hour}:${p.minute}`;
+  // 12-hour clock with AM/PM — the office convention (screen + PDF exports alike).
+  const h = parseInt(p.hour, 10);
+  const hh = h % 12 || 12;
+  const suffix = h >= 12 ? "PM" : "AM";
+  return `${p.day}-${p.month}-${p.year} ${String(hh).padStart(2, "0")}:${p.minute} ${suffix}`;
 }
 
 /** "HH:MM" in Indian Standard Time — dashboard recent-activity stamps. */

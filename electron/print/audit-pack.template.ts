@@ -4,7 +4,7 @@
  * plus a 65B-style certificate page describing the source system.
  */
 import { esc } from "./utils.js";
-import { getAnekMalayalamCss } from "./utils.js";
+import { getAnekMalayalamCss, getPoppinsCss } from "./utils.js";
 import { istDateTimeDm } from "../services/ist-date.js";
 
 interface PackData {
@@ -84,7 +84,7 @@ export function buildAuditPackHtml(pack: PackData, lang: 'en' | 'ml' = 'en', cur
     secretary: ml ? 'സെക്രട്ടറി' : 'Secretary',
     auditor: ml ? 'ഓഡിറ്റർ' : 'Auditor',
   };
-  const anekCss = getAnekMalayalamCss();
+  const anekCss = getPoppinsCss() + getAnekMalayalamCss();
   const css = `${anekCss}
   @page{size:A4 portrait;margin:0}
   *{margin:0;padding:0;box-sizing:border-box}

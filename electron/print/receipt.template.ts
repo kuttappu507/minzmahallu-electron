@@ -12,7 +12,7 @@
  * display convention. Pure module: no DB, no Electron — unit-testable.
  */
 import { esc } from './utils.js';
-import { getAnekMalayalamCss } from './utils.js';
+import { getAnekMalayalamCss, getPoppinsCss } from './utils.js';
 
 export interface ReceiptData {
   kind: 'DONATION' | 'SUBSCRIPTION';
@@ -259,7 +259,7 @@ function baseCss(): string {
 /** One receipt on its own A6 page — the WhatsApp PDF copy & single print. */
 export function buildReceiptHtml(r: ReceiptData, lang: Lang): string {
   const L = labels(lang);
-  const font = getAnekMalayalamCss();
+  const font = getPoppinsCss() + getAnekMalayalamCss();
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><style>
     @page{size:105mm 148mm;margin:0}${font}${baseCss()}
     html,body{width:105mm;height:148mm}
@@ -270,7 +270,7 @@ export function buildReceiptHtml(r: ReceiptData, lang: Lang): string {
 /** Four receipts per A4 page (2×2 grid, dashed cut guides between cells). */
 export function buildReceiptSheetHtml(list: ReceiptData[], lang: Lang): string {
   const L = labels(lang);
-  const font = getAnekMalayalamCss();
+  const font = getPoppinsCss() + getAnekMalayalamCss();
   const cells = list.map((r) => receiptCard(r, L));
   const pages: string[] = [];
   for (let i = 0; i < cells.length; i += 4) {
