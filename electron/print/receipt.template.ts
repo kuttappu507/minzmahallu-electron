@@ -104,8 +104,6 @@ export function stripIndiaPrefix(raw: string): string {
 // Labels (bilingual like the other print templates)
 // ---------------------------------------------------------------------------
 type Lang = 'en' | 'ml';
-/** App brand — printed in very small letters at the bottom of every receipt. */
-const APP_BRAND = 'Minz Mahallu Management System';
 function labels(lang: Lang) {
   return lang === 'ml' ? {
     titleDonation: 'സംഭാവന രസീത്',
@@ -113,6 +111,7 @@ function labels(lang: Lang) {
     no: 'രസീത് നമ്പർ',
     date: 'തീയതി',
     received: 'ഇവരിൽ നിന്ന് സ്വീകരിച്ചത്',
+    honorific: 'ജനാബ്',
     amount: 'തുക',
     method: 'അടവ് രീതി',
     ref: 'റഫറൻസ്',
@@ -130,6 +129,7 @@ function labels(lang: Lang) {
     no: 'Receipt No',
     date: 'Date',
     received: 'Received with thanks from',
+    honorific: 'Janab',
     amount: 'Amount',
     method: 'Payment',
     ref: 'Ref',
@@ -167,7 +167,7 @@ function receiptCard(r: ReceiptData, L: ReturnType<typeof labels>): string {
     <div class="rc-body">
       <div class="rc-party">
         <div class="rc-party-cap">${esc(L.received)}</div>
-        <div class="rc-party-name">${esc(r.payerName || '—')}</div>
+        <div class="rc-party-name">${esc(L.honorific)} ${esc(r.payerName || '—')}</div>
         ${r.payerDetail ? `<div class="rc-party-sub">${esc(stripIndiaPrefix(r.payerDetail))}</div>` : ''}
       </div>
       <div class="rc-lines">
@@ -187,15 +187,14 @@ function receiptCard(r: ReceiptData, L: ReturnType<typeof labels>): string {
       <div class="rc-verify">
         ${r.verificationCode ? `<div class="rc-verify-copy"><span class="rc-vcap">${esc(L.securityCode)}</span><span class="rc-vcode">${esc(r.verificationCode)}</span></div>
         <span class="rc-vhint">${esc(L.verifyHint)}</span>` : ''}
-        <span class="rc-thanks">${esc(L.thanks)}</span>
       </div>
       <div class="rc-sign">
+        <span class="rc-thanks">${esc(L.thanks)}</span>
         <span class="rc-sd">-sd-</span>
         <span class="rc-sec">${esc(L.secretary)}</span>
         <b class="rc-for-line">${esc(L.forMahallu)} ${esc(r.mahalluName || 'MAHALLU')}</b>
       </div>
     </footer>
-    <div class="rc-app">${esc(APP_BRAND)}</div>
   </article>`;
 }
 
@@ -245,14 +244,13 @@ function baseCss(): string {
     .rc-vcap{font-size:5.4pt;font-weight:700;color:#0a5c47;letter-spacing:.6px}
     .rc-vcode{font-size:8.5pt;font-weight:800;letter-spacing:.8px;color:#0a5c47}
     .rc-vhint{font-size:5.4pt;color:#5d6f67;max-width:56mm;line-height:1.25}
-    .rc-thanks{font-size:6.6pt;font-weight:600;color:#3c4a43}
+    .rc-thanks{font-size:6.6pt;font-weight:600;color:#3c4a43;margin-bottom:.4mm}
     /* Signature block (bottom-right): the "signed" mark over the Secretary
        line over the mahallu name — the classic Kerala receipt sign-off. */
     .rc-sign{text-align:right;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:.6mm;min-width:30mm}
     .rc-sd{font-size:8.4pt;font-weight:600;font-style:italic;color:#2c3a33}
     .rc-sec{font-size:8pt;font-weight:700;letter-spacing:.3px;color:#101a14}
     .rc-for-line{font-size:7.6pt;color:#101a14;font-weight:700}
-    .rc-app{text-align:center;font-size:5pt;color:#9aaba2;letter-spacing:.5px;padding:.9mm 0 1mm;border-top:.2mm solid #e7efeb;background:#fbfdfc}
   `;
 }
 

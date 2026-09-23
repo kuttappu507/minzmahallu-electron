@@ -195,7 +195,12 @@ export const subscriptions = {
     }
     return { rows: all<any>(sql, params), total: 0 };
   },
-  get: (id: number) => one<any>("SELECT * FROM subscriptions WHERE id = ?", [id]),
+  get: (id: number) => one<any>(
+    `SELECT s.*, f.family_number, f.house_name,
+      (SELECT sp.receipt_generated_at FROM subscription_payments sp WHERE sp.subscription_id = s.id AND sp.period_start = s.period_start AND sp.status = 'Active' LIMIT 1) AS wa_receipt_generated_at
+    FROM subscriptions s LEFT JOIN families f ON f.id = s.family_id WHERE s.id = ?`,
+    [id]
+  ),
   create: (data: any) => {
     // One subscription ACCOUNT per family — the recurring row. If the family
     // already has one, refuse and point the user at the existing row.
@@ -260,6 +265,26 @@ export const subscriptions = {
       throw new Error("The billing period is fixed by the recurring subscription. Payment edits only change how much was given.");
     }
     const cash = Math.max(0, Number(data.amountPaid ?? s.amount_paid ?? 0));
+    // Receipt freeze (user request): a month whose receipt was already
+    // GENERATED (printed, saved, or sent on WhatsApp) keeps its amount — the
+    // copy the payee received must keep matching the register. Date / method /
+    // reference / remarks corrections stay allowed, and re-recording the SAME
+    // amount is fine; a different amount needs the payment cancelled first.
+    try {
+      const paidRow = one<any>(
+        "SELECT amount, receipt_generated_at FROM subscription_payments WHERE subscription_id = ? AND period_start = ? LIMIT 1",
+        [s.id, s.period_start]
+      );
+      if (paidRow?.receipt_generated_at && Math.round(Number(cash) * 100) / 100 !== Math.round(Number(paidRow.amount) * 100) / 100) {
+        throw new Error(
+          "A receipt has already been generated for this month's payment (printed or sent on WhatsApp), so the amount can no longer be changed. Cancel the payment and record it again if the amount is wrong."
+        );
+      }
+    } catch (e: any) {
+      if (e?.message?.startsWith("A receipt has already")) throw e;
+      // Fresh databases may not carry the receipt columns yet — nothing can
+      // have been generated there, so the edit proceeds unguarded.
+    }
     const rate = Number(s.amount || 0);
     let arrears = Number(s.arrears || 0);
     let advance = Number(s.advance || 0);

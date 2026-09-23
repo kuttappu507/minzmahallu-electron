@@ -13,7 +13,7 @@ but using a modern web-based UI stack.
   Users, Audit Log, Backup & Restore
 - **Modern UI**: Tailwind CSS + custom theme system (light/dark)
 - **Bilingual**: English + Malayalam (മലയാളം) with live switching
-- **Secure auth**: PBKDF2-SHA256 password hashing (200,000 iterations)
+- **Secure auth**: strong password hashing + role-based access control
 - **Fast**: Synchronous SQLite via better-sqlite3 (no IPC roundtrips for DB ops)
 - **Cross-platform**: Windows, macOS, Linux builds via GitHub Actions
 - **Charts**: Recharts for dashboard visualizations
@@ -123,41 +123,6 @@ you create the real administrator account in place:
 The placeholder administrator is replaced on the same user id, so the audit
 trail stays intact. Subsequent launches show the normal login screen. As a
 brute-force safeguard, 5 failed attempts lock the account for 15 minutes.
-
-## Database
-
-The app stores its SQLite database at:
-- **Windows**: `%APPDATA%/Minz Mahallu Management System/mms.db`
-- **macOS**: `~/Library/Application Support/Minz Mahallu Management System/mms.db`
-- **Linux**: `~/.config/Minz Mahallu Management System/mms.db`
-
-On first launch, the schema and seed data are loaded automatically from
-`resources/sql/`. Subsequent launches apply any pending migrations from
-`resources/sql/migrations/`.
-
-## Migration from Qt Version
-
-This branch (`react-electron-port`) was created from the original Qt/QML `master`
-branch. The SQL schema, seed data, and migration files are identical, so the
-React/Electron edition is fully compatible with databases created by the Qt version.
-
-## Landing Page & Downloads
-
-The public landing page lives at `docs/index.html` — a self-contained bilingual
-(Malayalam + English) static site advertising every module, with download links
-wired to the GitHub Releases.
-
-**Hosting on Vercel** (recommended — short URL, auto-HTTPS, redeploys on push):
-
-1. Go to [vercel.com/new](https://vercel.com/new) and import this repository.
-2. In **Build & Output Settings**, set **Root Directory** to `docs`.
-3. Deploy — no build command, install, or framework is needed (`docs/vercel.json`
-   handles it). You get `minzmahallu-electron.vercel.app`; rename it to a short
-   domain under *Settings → Domains* (e.g. `minzmahallu.vercel.app`).
-
-**Hosting on GitHub Pages** (alternative): Settings → Pages → Source
-"GitHub Actions", then run the *Deploy Landing Page* workflow. URL will be
-`kuttappu507.github.io/minzmahallu-electron/`.
 
 ## Verification
 

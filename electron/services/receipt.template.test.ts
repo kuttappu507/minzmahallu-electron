@@ -8,8 +8,8 @@
  * design there is NO QR image on the printed receipt. The code must appear
  * in BOTH output shapes (they share one card design), the header must show
  * the mahallu name + address like the certificate, the title must say the
- * receipt type explicitly, and the app brand must appear in very small
- * letters at the bottom.
+ * receipt type explicitly, and the Jazakallahu Khairan line sits just above
+ * the signature block (no app-brand line at the bottom).
  */
 import { describe, it, expect } from "vitest";
 import { buildReceiptHtml, buildReceiptSheetHtml, amountInWords, type ReceiptData } from "../print/receipt.template.js";
@@ -61,17 +61,21 @@ describe("A6 receipt — security-code footer + classic signature sign-off (no Q
     expect(sub).toContain("SUBSCRIPTION RECEIPT");
   });
 
-  it("prints the app brand in very small letters at the bottom", () => {
-    expect(html).toContain('class="rc-app"');
-    expect(html).toContain("Minz Mahallu Management System");
+  it("no longer prints the app brand at the bottom (user request)", () => {
+    expect(html).not.toContain('class="rc-app"');
+    expect(html).not.toContain("Minz Mahallu Management System");
   });
 
-  it("closes with the classic sign-off: -sd- over Secretary over the mahallu line", () => {
+  it("closes with the classic sign-off: Jazakallahu Khairan above -sd- / Secretary / mahallu", () => {
     expect(html).toContain('class="rc-sign"');
     expect(html).toContain("-sd-");
     expect(html).toContain("Secretary");
     expect(html).toContain("For Minz Mahallu Jamath");
-    expect(html).toContain("Jazakallahu Khairan.");
+    // The thanks line sits JUST ABOVE the signature block (user request):
+    const thanksAt = html.indexOf("Jazakallahu Khairan.");
+    const sdAt = html.indexOf("-sd-");
+    expect(thanksAt).toBeGreaterThan(-1);
+    expect(thanksAt).toBeLessThan(sdAt);
     // The old "no signature required" disclaimer is gone — a signature line
     // is printed now.
     expect(html).not.toContain("no signature required");

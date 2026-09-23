@@ -108,7 +108,10 @@ let flapHalted = false;
 // Delivery tracking — the privacy lock needs to know the moment a message
 // ACTUALLY reached the recipient's phone. WhatsApp reports this as a receipt
 // status on the message (DELIVERY_ACK = 3, READ = 4, PLAYED = 5); Baileys
-// surfaces them as `messages.update` events. We keep the best status seen
+// surfaces them as `messages.update` events and — in multi-device sessions —
+// very often ONLY as the dedicated `message-receipt.update` event
+// (deliveredAt/readAt/playedAt). Both feed the same tracker: we keep the
+// best status seen
 // per message id so a send can wait for it (fast path) and LATE receipts
 // (recipient's phone was offline for hours) still land via the listener.
 // ---------------------------------------------------------------------------
@@ -739,6 +742,23 @@ async function connectInternal(): Promise<void> {
       const id = String(u?.key?.id || "");
       const st = Number(u?.update?.status ?? 0);
       if (id && st > 0 && u?.key?.fromMe !== false) noteMessageStatus(id, st);
+    }
+  });
+  // Dedicated receipt event — multi-device WhatsApp usually reports the
+  // recipient's delivery ack HERE, not on `messages.update`. Without this
+  // listener the receipt stayed "sent — delivery not confirmed" forever even
+  // though the message had actually reached the payee's phone (user report:
+  // the WhatsApp message goes out but the app never confirms its delivery).
+  // deliveredAt/readAt/playedAt map to the same WebMessageInfo.Status values.
+  sock.ev.on("message-receipt.update", (updates: any[]) => {
+    for (const u of updates || []) {
+      const id = String(u?.key?.id || "");
+      if (!id || u?.key?.fromMe === false) continue;
+      const rc = u?.receipt || {};
+      const st = rc.playedAt != null ? proto.WebMessageInfo.Status.PLAYED
+        : rc.readAt != null ? proto.WebMessageInfo.Status.READ
+        : rc.deliveredAt != null ? DELIVERED : 0;
+      if (st > 0) noteMessageStatus(id, st);
     }
   });
   if (state !== "QR_REQUIRED" && state !== "CONNECTED") setState("CONNECTING");

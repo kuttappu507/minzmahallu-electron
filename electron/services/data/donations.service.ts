@@ -60,8 +60,30 @@ export const donations = {
     );
     return { id, receiptNumber: receipt, approvalStatus };
   },
-  update: (id: number, data: any) =>
-    run(
+  update: (id: number, data: any) => {
+    // Receipt freeze (user request): the moment a receipt PDF exists for this
+    // donation (printed, saved, or sent on WhatsApp), the amount is FROZEN —
+    // the copy the donor already holds must keep matching the register.
+    // Contact details / remarks / purpose stay editable; they never print on
+    // the receipt's amount line. A wrong amount needs the donation cancelled
+    // and a fresh one recorded. Fresh databases may not carry the receipt
+    // columns yet — nothing can have been generated there, so the edit
+    // proceeds unguarded (the try/catch below).
+    let receiptFrozen = false;
+    let prevAmount: number | null = null;
+    try {
+      const prev = one<any>("SELECT amount, receipt_generated_at FROM donations WHERE id = ?", [id]);
+      if (prev?.receipt_generated_at) {
+        receiptFrozen = true;
+        prevAmount = Number(prev.amount);
+      }
+    } catch { /* no receipt columns yet -> no receipt can exist */ }
+    if (receiptFrozen && Number(data.amount) !== prevAmount) {
+      throw new Error(
+        "A receipt has already been generated for this donation (printed or sent on WhatsApp), so its amount can no longer be edited. Cancel this donation and record a new one if the amount is wrong."
+      );
+    }
+    return run(
       `UPDATE donations SET donor_name = ?, donor_phone = ?, donor_address = ?, family_id = ?, member_id = ?, category_id = ?, amount = ?, donation_date = ?, purpose = ?, payment_method = ?, transaction_ref = ?, remarks = ?, updated_at = datetime('now') WHERE id = ?`,
       [
         data.donorName, data.donorPhone, data.donorAddress,
@@ -69,7 +91,8 @@ export const donations = {
         data.donationDate, data.purpose, data.paymentMethod,
         data.transactionRef, data.remarks, id
       ]
-    ),
+    );
+  },
   remove: (id: number) => run("DELETE FROM donations WHERE id = ?", [id]),
   categories: () => all<any>("SELECT * FROM donation_categories WHERE is_active = 1 ORDER BY name"),
   categoriesAll: () => all<any>("SELECT dc.*, (SELECT COUNT(*) FROM donations d WHERE d.category_id = dc.id) AS donation_count FROM donation_categories dc ORDER BY dc.is_active DESC, dc.name"),

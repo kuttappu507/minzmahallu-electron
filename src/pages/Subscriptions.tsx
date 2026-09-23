@@ -37,6 +37,9 @@ interface Subscription {
   wa_sent_at?: string | null;
   wa_delivered_at?: string | null;
   wa_resends?: number;
+  /** Receipt PDF already generated for the current month's ledger payment —
+   *  when set, the paid amount is frozen (the payee's copy must match). */
+  wa_receipt_generated_at?: string | null;
   month_cash?: number | null;
   month_arrears_cleared?: number | null;
   month_advance_added?: number | null;
@@ -743,8 +746,10 @@ export function Subscriptions() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>{tx("How much was given", "എത്ര നൽകി")} *</Label>
-                    <Input type="number" min="0" value={form.amount_paid ?? 0} onChange={(e) => setForm({ ...form, amount_paid: Number(e.target.value) })} />
-                    <div className="text-xs text-muted mt-1.5">{tx("Family, head, month and rate are fixed — only this can be edited.", "കുടുംബം, കുടുംബനാഥൻ, മാസം, നിരക്ക് എന്നിവ മാറ്റാനാവില്ല — ഇത് മാത്രം തിരുത്താം.")}</div>
+                    <Input type="number" min="0" value={form.amount_paid ?? 0} disabled={!!form.wa_receipt_generated_at} onChange={(e) => setForm({ ...form, amount_paid: Number(e.target.value) })} />
+                    {form.wa_receipt_generated_at
+                      ? <div className="text-xs text-muted mt-1.5">{tx("A receipt was already generated for this payment (printed or sent on WhatsApp) — the amount is locked. Cancel the payment to record a different amount.", "ഈ അടവിന്റെ രസീത് ഇതിനകം തയ്യാറാക്കിയിട്ടുണ്ട് (പ്രിന്റ് ചെയ്തോ വാട്ട്സ്ആപ്പിൽ അയച്ചോ) — തുക മാറ്റാനാകില്ല. മറ്റൊരു തുക രേഖപ്പെടുത്തണമെങ്കിൽ ആദ്യം അടവ് റദ്ദാക്കുക.")}</div>
+                      : <div className="text-xs text-muted mt-1.5">{tx("Family, head, month and rate are fixed — only this can be edited.", "കുടുംബം, കുടുംബനാഥൻ, മാസം, നിരക്ക് എന്നിവ മാറ്റാനാവില്ല — ഇത് മാത്രം തിരുത്താം.")}</div>}
                   </div>
                   <div>
                     <Label>{t("sub_payment_date")}</Label>

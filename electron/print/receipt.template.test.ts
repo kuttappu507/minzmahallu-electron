@@ -38,24 +38,31 @@ const subscription: ReceiptData = {
 };
 
 describe("A6 receipt template", () => {
-  it("renders a single A6 receipt with dd-mm-yyyy date and key fields", () => {
+  it("renders a single A6 receipt with dd-mm-yyyy date, Janab honorific and key fields", () => {
     const html = buildReceiptHtml(donation, "en");
     expect(html).toContain("@page{size:105mm 148mm");
     expect(html).toContain("DON-042");
     expect(html).toContain("15-09-2026");
-    expect(html).toContain("Haji Abdulla");
+    expect(html).toContain("Janab Haji Abdulla");
     expect(html).toContain("Zakat");
     expect(html).toContain("DONATION RECEIPT");
     expect(html).not.toContain("2026-09-15"); // never the storage order
   });
 
-  it("carries the security-code footer, header address and bottom brand — and no QR", () => {
+  it("keeps the security code as the footer and thanks just above the sign-off — no app brand, no QR", () => {
     const html = buildReceiptHtml(donation, "en");
     expect(html).toContain("SECURITY CODE");
     expect(html).toContain("AB2C-3D4E-F6GH");
     expect(html).toContain("Minz Road, Malappuram");
-    expect(html).toContain('class="rc-app"');
-    expect(html).toContain("Minz Mahallu Management System");
+    // The 'Minz Mahallu Management System' brand line was removed (user request):
+    expect(html).not.toContain('class="rc-app"');
+    expect(html).not.toContain("Minz Mahallu Management System");
+    // Jazakallahu Khairan sits JUST ABOVE the signature block (user request):
+    const thanksAt = html.indexOf("Jazakallahu Khairan.");
+    const sdAt = html.indexOf("-sd-");
+    expect(thanksAt).toBeGreaterThan(-1);
+    expect(sdAt).toBeGreaterThan(-1);
+    expect(thanksAt).toBeLessThan(sdAt);
     expect(html).not.toContain("rc-qr");
     expect(html).not.toContain("data:image/svg+xml");
   });
@@ -107,10 +114,11 @@ describe("A6 receipt template", () => {
     expect(html).toContain("For Minz Mahallu");
   });
 
-  it("renders Malayalam labels for ml", () => {
+  it("renders Malayalam labels for ml — ജനാബ് honorific included", () => {
     const html = buildReceiptHtml(donation, "ml");
     expect(html).toContain("\u0d30\u0d38\u0d40\u0d24\u0d4d"); // രസീത്
     expect(html).toContain("\u0d24\u0d40\u0d2f\u0d24\u0d3f"); // തീയതി
+    expect(html).toContain("\u0d1c\u0d28\u0d3e\u0d2c\u0d4d Haji Abdulla"); // ജനാബ് + name
   });
 
   it("builds a 4-per-A4 sheet with exactly 4 cells per page", () => {
