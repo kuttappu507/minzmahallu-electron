@@ -254,6 +254,13 @@ export function Subscriptions() {
 
   const handleEdit = async (id: number) => {
     const s = await window.mms.subscriptions.get(id);
+    // Receipt-locked months cannot be edited at all (the service enforces it
+    // too): the receipt the payee already received must keep matching the
+    // register. Cancel the payment and record it again instead.
+    if (s?.wa_receipt_generated_at) {
+      toast.error(tx("A receipt has already been generated for this month's payment (printed or sent on WhatsApp), so it can no longer be edited. Cancel the payment and record it again if something is wrong.", "ഈ മാസത്തെ അടവിന്റെ രസീത് ഇതിനകം തയ്യാറാക്കിയിട്ടുണ്ട് (പ്രിന്റ് ചെയ്തോ വാട്ട്സ്ആപ്പിൽ അയച്ചോ) — ഇനി തിരുത്താനാകില്ല. എന്തെങ്കിലും തെറ്റാണെങ്കിൽ അടവ് റദ്ദാക്കി വീണ്ടും രേഖപ്പെടുത്തുക."));
+      return;
+    }
     setForm({ ...emptyForm, ...s, payment_date: s?.payment_date || todayIST() });
     setEditingId(id);
     setDialogOpen(true);
@@ -459,9 +466,20 @@ export function Subscriptions() {
               </button>
             )}
           </>}
-          <button className="act-btn act-edit" title={tx("Record payment", "അടവ് രേഖപ്പെടുത്തുക")} onClick={() => handleEdit(r.id)}>
-            <Edit2 className="h-4 w-4" />
-          </button>
+          {r.wa_receipt_generated_at ? (
+            <button
+              className="act-btn opacity-60"
+              style={{ cursor: "not-allowed" }}
+              disabled
+              title={tx("Receipt already generated and sent — editing is disabled. Cancel the payment to record it again.", "രസീത് ഇതിനകം തയ്യാറാക്കി അയച്ചു — തിരുത്താനാകില്ല. വീണ്ടും രേഖപ്പെടുത്തണമെങ്കിൽ അടവ് റദ്ദാക്കുക.")}
+            >
+              <Edit2 className="h-4 w-4" />
+            </button>
+          ) : (
+            <button className="act-btn act-edit" title={tx("Record payment", "അടവ് രേഖപ്പെടുത്തുക")} onClick={() => handleEdit(r.id)}>
+              <Edit2 className="h-4 w-4" />
+            </button>
+          )}
           <button
             className="act-btn act-del"
             title={tx("Cancel this month's payment", "ഈ മാസത്തെ അടവ് റദ്ദാക്കുക")}
@@ -748,7 +766,7 @@ export function Subscriptions() {
                     <Label>{tx("How much was given", "എത്ര നൽകി")} *</Label>
                     <Input type="number" min="0" value={form.amount_paid ?? 0} disabled={!!form.wa_receipt_generated_at} onChange={(e) => setForm({ ...form, amount_paid: Number(e.target.value) })} />
                     {form.wa_receipt_generated_at
-                      ? <div className="text-xs text-muted mt-1.5">{tx("A receipt was already generated for this payment (printed or sent on WhatsApp) — the amount is locked. Cancel the payment to record a different amount.", "ഈ അടവിന്റെ രസീത് ഇതിനകം തയ്യാറാക്കിയിട്ടുണ്ട് (പ്രിന്റ് ചെയ്തോ വാട്ട്സ്ആപ്പിൽ അയച്ചോ) — തുക മാറ്റാനാകില്ല. മറ്റൊരു തുക രേഖപ്പെടുത്തണമെങ്കിൽ ആദ്യം അടവ് റദ്ദാക്കുക.")}</div>
+                      ? <div className="text-xs text-muted mt-1.5">{tx("A receipt was already generated for this payment (printed or sent on WhatsApp) — editing is disabled. Cancel the payment to record it again.", "ഈ അടവിന്റെ രസീത് ഇതിനകം തയ്യാറാക്കിയിട്ടുണ്ട് (പ്രിന്റ് ചെയ്തോ വാട്ട്സ്ആപ്പിൽ അയച്ചോ) — തിരുത്താനാകില്ല. വീണ്ടും രേഖപ്പെടുത്തണമെങ്കിൽ അടവ് റദ്ദാക്കുക.")}</div>
                       : <div className="text-xs text-muted mt-1.5">{tx("Family, head, month and rate are fixed — only this can be edited.", "കുടുംബം, കുടുംബനാഥൻ, മാസം, നിരക്ക് എന്നിവ മാറ്റാനാവില്ല — ഇത് മാത്രം തിരുത്താം.")}</div>}
                   </div>
                   <div>

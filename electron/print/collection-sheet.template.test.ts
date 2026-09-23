@@ -12,6 +12,11 @@ import { describe, it, expect } from "vitest";
 import { buildCollectionSheetHtml } from "./collection-sheet.template.js";
 import { getDB } from "../db/connection.js";
 
+// v2.4.10: fresh installs now default to Malayalam (schema language = 'ml').
+// The column-contract tests below pin the ENGLISH branch, so the language is
+// pinned explicitly for this file; the Malayalam describe sets/restores its own.
+getDB().prepare("UPDATE settings SET language = 'en' WHERE id = 1").run();
+
 const event = { event_name: "Annual General Body", event_date: "2027-01-10" };
 
 const rows = [

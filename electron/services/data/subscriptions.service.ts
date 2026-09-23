@@ -265,19 +265,23 @@ export const subscriptions = {
       throw new Error("The billing period is fixed by the recurring subscription. Payment edits only change how much was given.");
     }
     const cash = Math.max(0, Number(data.amountPaid ?? s.amount_paid ?? 0));
-    // Receipt freeze (user request): a month whose receipt was already
-    // GENERATED (printed, saved, or sent on WhatsApp) keeps its amount — the
-    // copy the payee received must keep matching the register. Date / method /
-    // reference / remarks corrections stay allowed, and re-recording the SAME
-    // amount is fine; a different amount needs the payment cancelled first.
+    // Receipt freeze (user request, tightened twice): a month whose receipt
+    // was already GENERATED (printed, saved, or sent on WhatsApp) cannot be
+    // edited AT ALL — the copy the payee received must keep matching the
+    // register in every field, not just the amount (v2.4.9 froze the amount
+    // only). A wrong payment needs to be cancelled first, then recorded
+    // again — the cancelled row stops guarding, so re-recording works.
+    // The guard looks at the month's ACTIVE payment only: after a cancel the
+    // row stays in the ledger as 'Cancelled' with its old receipt timestamp,
+    // and that must not block the fresh record.
     try {
       const paidRow = one<any>(
-        "SELECT amount, receipt_generated_at FROM subscription_payments WHERE subscription_id = ? AND period_start = ? LIMIT 1",
+        "SELECT receipt_generated_at FROM subscription_payments WHERE subscription_id = ? AND period_start = ? AND status = 'Active' LIMIT 1",
         [s.id, s.period_start]
       );
-      if (paidRow?.receipt_generated_at && Math.round(Number(cash) * 100) / 100 !== Math.round(Number(paidRow.amount) * 100) / 100) {
+      if (paidRow?.receipt_generated_at) {
         throw new Error(
-          "A receipt has already been generated for this month's payment (printed or sent on WhatsApp), so the amount can no longer be changed. Cancel the payment and record it again if the amount is wrong."
+          "A receipt has already been generated for this month's payment (printed or sent on WhatsApp), so it can no longer be edited. Cancel the payment and record it again if something is wrong."
         );
       }
     } catch (e: any) {

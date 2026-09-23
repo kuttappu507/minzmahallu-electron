@@ -22,7 +22,7 @@ interface Settings {
 interface Category { id:number; name:string; description?:string; is_active:number; donation_count:number; }
 const emptySettings: Settings = {
   mahallu_name:"", phone:"", address:"", financial_year_start:"04-01", currency_symbol:"₹",
-  receipt_prefix:"RCP", language:"en", theme:"light", auto_backup:false, backup_interval_hours:24, backup_mirror_dir:"", backup_keep_count:30,
+  receipt_prefix:"RCP", language:"ml", theme:"light", auto_backup:false, backup_interval_hours:24, backup_mirror_dir:"", backup_keep_count:30,
   subscription_monthly_amount:100, subscription_frequency:"Monthly",
   affiliation_number:"",
   wakf_reg_no:"", society_reg_no:"", village:"", panchayath:"", taluk:"", district:"", pincode:"", state:"",

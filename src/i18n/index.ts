@@ -107,7 +107,7 @@ const translations: Record<string, { en: string; ml: string }> = {
   dash_all_funds: { en: "▲ all funds", ml: "▲ എല്ലാ ഫണ്ടുകളും" },
   dash_qa_add_family: { en: "Add Family", ml: "കുടുംബം ചേർക്കുക" },
   dash_qa_add_member: { en: "Add Member", ml: "അംഗത്തെ ചേർക്കുക" },
-  dash_qa_record_payment: { en: "Record Payment", ml: "അടവ് രേഖപ്പെടുത്തുക" },
+  dash_qa_record_payment: { en: "Record Payment", ml: "വരിസംഖ്യ രജിസ്റ്റർ ചെയ്യുക" },
   dash_qa_add_donation: { en: "Add Donation", ml: "സംഭാവന രേഖപ്പെടുത്തുക" },
   dash_qa_generate_report: { en: "Generate Report", ml: "റിപ്പോർട്ട് തയ്യാറാക്കുക" },
   dash_fund_balance_short: { en: "Fund Balance", ml: "നിധി ബാലൻസ്" },
@@ -761,7 +761,10 @@ interface I18nState {
 export const useI18n = create<I18nState>()(
   persist(
     (set, get) => ({
-      lang: "en",
+      // First launch runs in Malayalam (user request): the mahallu office's
+      // working language. The choice persists — anyone who switched to
+      // English keeps English via the persisted store.
+      lang: "ml",
       setLang: (l) => {
         set({ lang: l });
         // Apply lang-ml class to <html> so Malayalam font kicks in

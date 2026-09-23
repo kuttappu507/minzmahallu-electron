@@ -24,6 +24,10 @@
  *   · `disposePdfRenderer()` releases it when the app quits.
  */
 import { createRequire } from "node:module";
+import { writeFile, unlink } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import crypto from "node:crypto";
 
 const require = createRequire(import.meta.url);
 function electron(): typeof import("electron") {
@@ -129,8 +133,29 @@ function warmWindow(width: number, height: number): import("electron").BrowserWi
   }
 }
 
+/** Chromium refuses to navigate to a `data:` URL longer than ~2 MB
+ *  (net::ERR_INVALID_URL, error -300 — the "donation report PDF says -300"
+ *  user report: big reports embed the Malayalam font CSS as base64, and
+ *  encodeURIComponent nearly triples every Malayalam character, so a
+ *  few-hundred-KB report crosses the cap long before its rows run out).
+ *  Documents whose encoded data URL would come anywhere near the cap are
+ *  written to a temp file and loaded with loadFile instead — no length
+ *  limit, same rendering, same warm-window reuse. */
+const MAX_DATA_URL_CHARS = 1_000_000;
+
 async function renderInto(win: import("electron").BrowserWindow, html: string): Promise<Buffer> {
-  await win.loadURL("data:text/html;charset=UTF-8," + encodeURIComponent(html));
+  const dataUrl = "data:text/html;charset=UTF-8," + encodeURIComponent(html);
+  if (dataUrl.length <= MAX_DATA_URL_CHARS || typeof (win as any).loadFile !== "function") {
+    await win.loadURL(dataUrl);
+  } else {
+    const file = path.join(tmpdir(), `mms-print-${crypto.randomBytes(8).toString("hex")}.html`);
+    await writeFile(file, html, "utf8");
+    try {
+      await (win as any).loadFile(file);
+    } finally {
+      unlink(file).catch(() => { /* temp file cleanup is best-effort */ });
+    }
+  }
   await waitForFonts(win);
   return win.webContents.printToPDF(PDF_OPTIONS);
 }

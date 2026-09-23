@@ -172,3 +172,46 @@ describe("warm window reuse", () => {
     expect(rec.destroyed).toBe(2);         // …destroyed again straight away
   });
 });
+
+describe("oversized documents (report PDFs)", () => {
+  // Chromium rejects data: URLs beyond ~2 MB with ERR_INVALID_URL (-300) —
+  // the "donation report PDF says -300" bug. Documents past the renderer's
+  // safety threshold must go through loadFile (temp file) instead.
+  it("renders oversized HTML from a temp file instead of a data: URL", async () => {
+    const loadedFiles: string[] = [];
+    const factory = (_w: number, _h: number) => {
+      rec.created++;
+      const win: any = {
+        destroyed: false,
+        isDestroyed: () => win.destroyed,
+        destroy: () => { if (!win.destroyed) { win.destroyed = true; rec.destroyed++; } },
+        getContentSize: () => [794, 1123] as [number, number],
+        setContentSize: () => {},
+        loadURL: async (url: string) => { rec.loadedUrls.push(url); },
+        loadFile: async (file: string) => { loadedFiles.push(file); },
+        webContents: {
+          isDestroyed: () => win.destroyed,
+          isCrashed: () => false,
+          once: () => {},
+          executeJavaScript: async () => true,
+          printToPDF: async () => { rec.printed++; return Buffer.from(`PDF-${rec.printed}`); },
+        },
+      };
+      return win;
+    };
+    resetPdfRendererForTests(factory);
+    const big = "<html>" + "x".repeat(1_200_000) + "</html>";
+    const pdf = await renderHtmlToPdf(big);
+    expect(pdf.toString()).toBe("PDF-1");
+    expect(rec.loadedUrls).toHaveLength(0);     // data: URL never used
+    expect(loadedFiles).toHaveLength(1);        // temp file was loaded
+    expect(loadedFiles[0]).toMatch(/mms-print-.+\.html$/);
+  });
+
+  it("still uses the data: URL for normal-size documents", async () => {
+    resetPdfRendererForTests(fakeWindowFactory(rec));
+    await renderHtmlToPdf("<html>receipt</html>");
+    expect(rec.loadedUrls).toHaveLength(1);
+    expect(rec.loadedUrls[0]).toContain("data:text/html;charset=UTF-8,");
+  });
+});

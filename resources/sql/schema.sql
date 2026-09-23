@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS settings (
     wakf_reg_no TEXT, society_reg_no TEXT,
     village TEXT, panchayath TEXT, taluk TEXT, district TEXT, pincode TEXT, state TEXT,
     subscription_monthly_amount REAL NOT NULL DEFAULT 100,
-    theme TEXT NOT NULL DEFAULT 'light' CHECK (theme IN ('light','dark')), language TEXT NOT NULL DEFAULT 'en' CHECK (language IN ('en','ml')),
+    theme TEXT NOT NULL DEFAULT 'light' CHECK (theme IN ('light','dark')), language TEXT NOT NULL DEFAULT 'ml' CHECK (language IN ('en','ml')),
     backup_dir TEXT, auto_backup INTEGER NOT NULL DEFAULT 1, backup_interval_hours INTEGER NOT NULL DEFAULT 24,
     receipt_prefix TEXT NOT NULL DEFAULT 'RCP', updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
