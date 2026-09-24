@@ -47,8 +47,8 @@ describe("certificate security-code box renders on every certificate (no QR)", (
       // …and NO QR image — receipts/certificates carry the security code only.
       expect(html).not.toContain('class="verify-qr"');
       expect(html).not.toContain("data:image/svg+xml");
-      // …and the app-verification hint.
-      expect(html).toContain("Verify this security code using the Minz Mahallu app or at the mahallu office");
+      // …and the app-verification hint (non-imperative certificate English).
+      expect(html).toContain("This security code can be verified using the Minz Mahallu app or directly at the Mahallu office.");
     });
   }
 
@@ -113,6 +113,142 @@ describe("certificate security-code box renders on every certificate (no QR)", (
     expect(html).toMatch(/\.verify-code\{[^}]*font-size:8pt/);
     // Out of the document flow: no tinted panel any more.
     expect(boxCss).not.toContain("background:#f2faf6");
+  });
+});
+
+describe("certificate wording source of truth (user-ratified EN + ML)", () => {
+  beforeAll(() => { getDB(); });
+
+  const base = {
+    certificate_number: "MMJM/XX/26/09/001", type: "Membership",
+    member_id: null, family_id: null, marriage_id: null, death_id: null,
+    issued_to: "Wording Test Person", issued_date: "2026-09-03", issued_by: 1,
+    status: "Issued", notes: "", verification_code: "AB2C-3D4E-F6GH", reprint_count: 0,
+  };
+
+  it("NIKAH certificate: Nikah (never marriage) used consistently + new field names (EN)", () => {
+    const html = buildCertificateHtml({ ...base, type: "Marriage", marriage_id: 1 }, "en");
+    expect(html).toContain("NIKAH CERTIFICATE");
+    expect(html).toContain("Recorded in the Mahallu Nikah Register");
+    expect(html).not.toContain("MARRIAGE CERTIFICATE");
+    expect(html).toContain("Bridegroom's Name");
+    expect(html).toContain("Bride's Name");
+    expect(html).toContain("Father's Name");
+    expect(html).not.toContain("Son of");
+    expect(html).not.toContain("Daughter of");
+    expect(html).toContain("Place of Nikah");
+    expect(html).toContain("Date of Registration");
+    expect(html).toContain("This is to certify that the above Nikah is duly recorded in the Mahallu Nikah Register.");
+  });
+
+  it("നികാഹ് സർട്ടിഫിക്കറ്റ്: user-approved Malayalam field wording (ML)", () => {
+    const html = buildCertificateHtml({ ...base, type: "Marriage", marriage_id: 1 }, "ml");
+    expect(html).toContain("മഹല്ല് നികാഹ് രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയിരിക്കുന്നത്");
+    expect(html).toContain("നികാഹ് നടന്ന സ്ഥലം");
+    expect(html).toContain("മേൽപ്പറഞ്ഞ നികാഹ് മഹല്ല് നികാഹ് രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയിട്ടുണ്ടെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.");
+  });
+
+  it("MEMBERSHIP certificate: Member's Name / Mobile No. / above-named person (EN)", () => {
+    const html = buildCertificateHtml({ ...base, type: "Membership", member_id: 1 }, "en");
+    expect(html).toContain("Recorded in the Mahallu Membership Register");
+    expect(html).toContain("Member's Name");
+    expect(html).toContain("Mobile No.");
+    expect(html).not.toContain("Name of Member");
+    expect(html).toContain("This is to certify that the above-named person is a registered member of this Mahallu.");
+  });
+
+  it("അംഗത്വ സർട്ടിഫിക്കറ്റ്: user-approved Malayalam wording (ML)", () => {
+    const html = buildCertificateHtml({ ...base, type: "Membership", member_id: 1 }, "ml");
+    expect(html).toContain("മഹല്ല് അംഗത്വ രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയിരിക്കുന്നത്");
+    expect(html).toContain("രക്തഗ്രൂപ്പ്");
+    expect(html).toContain("മേൽപ്പറഞ്ഞ വ്യക്തി ഈ മഹല്ലിലെ അംഗമായി രജിസ്റ്റർ ചെയ്തിട്ടുണ്ടെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.");
+  });
+
+  it("RESIDENCE certificate: Head of Family / PIN Code / Phone No. (EN)", () => {
+    const html = buildCertificateHtml({ ...base, type: "Residence", family_id: 1 }, "en");
+    expect(html).toContain("Recorded in the Mahallu Family Register");
+    expect(html).toContain("Head of Family");
+    expect(html).toContain("PIN Code");
+    expect(html).toContain("Phone No.");
+    expect(html).not.toContain("Family Head");
+    expect(html).toContain("This is to certify that the above-named family resides within this Mahallu.");
+  });
+
+  it("താമസ സർട്ടിഫിക്കറ്റ്: user-approved Malayalam wording (ML)", () => {
+    const html = buildCertificateHtml({ ...base, type: "Residence", family_id: 1 }, "ml");
+    expect(html).toContain("മഹല്ല് കുടുംബ രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയിരിക്കുന്നത്");
+    expect(html).toContain("മേൽപ്പറഞ്ഞ കുടുംബം ഈ മഹല്ലിൽ താമസിക്കുന്നതായി സാക്ഷ്യപ്പെടുത്തുന്നു.");
+  });
+
+  it("DEATH certificate: clean opening statement + Local Body / PIN Code (EN)", () => {
+    const html = buildCertificateHtml({ ...base, type: "Death", death_id: 1 }, "en");
+    expect(html).toContain("Recorded in the Mahallu Death Register");
+    expect(html).toContain("This is to certify that the following particulars are recorded in the Mahallu Death Register.");
+    expect(html).not.toContain("has been taken from the original record of death");
+    expect(html).toContain("Permanent Address");
+    expect(html).toContain("Date of Death");
+    expect(html).toContain("Place of Death");
+    expect(html).toContain("Father / Mother / Husband / Wife");
+    // PIN Code + Local Body render with the jurisdiction rows (Settings-filled).
+    const db = getDB();
+    const prev = db.prepare("SELECT village, panchayath, taluk, district, pincode, state FROM settings WHERE id = 1").get() as any;
+    try {
+      db.prepare("UPDATE settings SET village = 'Test Village', panchayath = 'Test Panchayat', taluk = 'Test Taluk', district = 'Test District', pincode = '676304', state = 'Kerala' WHERE id = 1").run();
+      const withJuris = buildCertificateHtml({ ...base, type: "Death", death_id: 1 }, "en");
+      expect(withJuris).toContain("Local Body");
+      expect(withJuris).toContain("PIN Code");
+      expect(withJuris).not.toContain("Corporation / Municipality / Panchayat");
+      expect(withJuris).not.toContain("Pincode");
+    } finally {
+      db.prepare("UPDATE settings SET village = ?, panchayath = ?, taluk = ?, district = ?, pincode = ?, state = ? WHERE id = 1")
+        .run(prev?.village ?? null, prev?.panchayath ?? null, prev?.taluk ?? null, prev?.district ?? null, prev?.pincode ?? null, prev?.state ?? null);
+    }
+  });
+
+  it("മരണ സർട്ടിഫിക്കറ്റ്: user-approved Malayalam wording (ML)", () => {
+    const html = buildCertificateHtml({ ...base, type: "Death", death_id: 1 }, "ml");
+    expect(html).toContain("താഴെപ്പറയുന്ന മരണവിവരങ്ങൾ മഹല്ല് മരണ രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയിട്ടുള്ളതാണെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.");
+    expect(html).toContain("സ്ഥിര വിലാസം");
+    // ഗ്രാമം / തദ്ദേശ സ്വയംഭരണ സ്ഥാപനം render with the jurisdiction row.
+    const db = getDB();
+    const prev = db.prepare("SELECT village, panchayath, taluk, district, pincode, state FROM settings WHERE id = 1").get() as any;
+    try {
+      db.prepare("UPDATE settings SET village = 'ടെസ്റ്റ് ഗ്രാമം', panchayath = 'ടെസ്റ്റ് പഞ്ചായത്ത്', taluk = 'ടെസ്റ്റ് താലൂക്ക്', district = 'മലപ്പുറം', pincode = '676304', state = 'കേരളം' WHERE id = 1").run();
+      const withJuris = buildCertificateHtml({ ...base, type: "Death", death_id: 1 }, "ml");
+      expect(withJuris).toContain("ഗ്രാമം");
+      expect(withJuris).toContain("തദ്ദേശ സ്വയംഭരണ സ്ഥാപനം");
+      expect(withJuris).not.toContain("കോർപ്പറേഷൻ");
+      expect(withJuris).not.toContain("വില്ലേജ്");
+    } finally {
+      db.prepare("UPDATE settings SET village = ?, panchayath = ?, taluk = ?, district = ?, pincode = ?, state = ? WHERE id = 1")
+        .run(prev?.village ?? null, prev?.panchayath ?? null, prev?.taluk ?? null, prev?.district ?? null, prev?.pincode ?? null, prev?.state ?? null);
+    }
+  });
+
+  it("Registration number boxes carry full 'Registration No.' spelling (EN + ML)", () => {
+    const db = getDB();
+    const prev = db.prepare("SELECT society_reg_no, affiliation_number, wakf_reg_no FROM settings WHERE id = 1").get() as any;
+    try {
+      db.prepare("UPDATE settings SET society_reg_no = 'SOC/1975', affiliation_number = 'SMF/123', wakf_reg_no = 'WKF/45' WHERE id = 1").run();
+      const en = buildCertificateHtml({ ...base, type: "Membership" }, "en");
+      expect(en).toContain("Society Registration No.");
+      expect(en).toContain("SMF Registration No.");
+      expect(en).toContain("Waqf Registration No.");
+      expect(en).not.toContain("Wakaf");
+      expect(en).not.toContain("Society Reg. No.");
+      const ml = buildCertificateHtml({ ...base, type: "Membership" }, "ml");
+      expect(ml).toContain("സൊസൈറ്റി രജിസ്ട്രേഷൻ നമ്പർ");
+      expect(ml).toContain("വഖഫ് രജിസ്ട്രേഷൻ നമ്പർ");
+    } finally {
+      db.prepare("UPDATE settings SET society_reg_no = ?, affiliation_number = ?, wakf_reg_no = ? WHERE id = 1")
+        .run(prev?.society_reg_no ?? null, prev?.affiliation_number ?? null, prev?.wakf_reg_no ?? null);
+    }
+  });
+
+  it("signature block uses ONE organization name on every line", () => {
+    const html = buildCertificateHtml({ ...base, type: "Membership" }, "en");
+    expect(html).toContain("Mahallu Management Committee");
+    expect(html).not.toContain(">Mahallu Committee<");
   });
 });
 

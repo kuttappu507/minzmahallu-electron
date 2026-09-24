@@ -410,7 +410,7 @@ body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayala
 .dc-cols.c3{grid-template-columns:1.1fr 1.1fr 1fr}
 .dc-cols.c2{grid-template-columns:1fr 1fr}
 /* Gridded cells stack the label ABOVE the value so long labels
-   (e.g. Corporation / Municipality / Panchayat) wrap without
+   (e.g. തദ്ദേശ സ്വയംഭരണ സ്ഥാപനം / Local Body) wrap without
    pushing the value out of alignment with sibling columns. */
 .dc-cols .field-row{flex-direction:column;align-items:flex-start;gap:.3mm;padding:1mm 0}
 .dc-cols .field-label{width:100%;flex:none;font-size:7.5pt;line-height:1.3;color:#8ba096}
@@ -431,8 +431,8 @@ function buildRegStack(c: CertData, ml: boolean): string {
   // omitted entirely rather than shown blank.
   // Layout per user request: the SOCIETY register number goes to the LEFT
   // side of the header; SMF + Wakf stay stacked on the RIGHT side.
-  const L = ml ? { smf: 'SMF രജി. നമ്പർ', wakf: 'വഖഫ് രജി. നമ്പർ', society: 'സൊസൈറ്റി രജി. നമ്പർ' }
-               : { smf: 'SMF Reg. No.', wakf: 'Wakaf Reg. No.', society: 'Society Reg. No.' };
+  const L = ml ? { smf: 'SMF രജിസ്ട്രേഷൻ നമ്പർ', wakf: 'വഖഫ് രജിസ്ട്രേഷൻ നമ്പർ', society: 'സൊസൈറ്റി രജിസ്ട്രേഷൻ നമ്പർ' }
+               : { smf: 'SMF Registration No.', wakf: 'Waqf Registration No.', society: 'Society Registration No.' };
   const left: string[] = [];
   const right: string[] = [];
   if (c.society_reg_no) left.push(`<div class="reg-box">${L.society}: <b>${esc(c.society_reg_no)}</b></div>`);
@@ -458,7 +458,7 @@ function buildMetaRow(c: CertData, ml: boolean): string {
   const L = ml ? {
     certNo: 'സർട്ടിഫിക്കറ്റ് നമ്പർ', date: 'തീയതി', regNo: 'രജിസ്ട്രേഷൻ നമ്പർ',
   } : {
-    certNo: 'Certificate No.', date: 'Date of Issue', regNo: 'Reg. No.',
+    certNo: 'Certificate No.', date: 'Date of Issue', regNo: 'Registration No.',
   };
   return `<div class="meta-row">
     <div class="item">${L.certNo}: <b>${esc(c.certificate_number)}</b></div>
@@ -469,17 +469,19 @@ function buildMetaRow(c: CertData, ml: boolean): string {
 }
 
 function buildSignatures(ml: boolean): string {
+  // One official organization name everywhere (user request: pick ONE and use
+  // it consistently) — the full formal name, same as the NOC statement.
   const L = ml ? {
     president: 'പ്രസിഡന്റ്', secretary: 'സെക്രട്ടറി', imam: 'ഇമാം / ഖാസി',
-    committee: 'മഹല്ല് കമ്മിറ്റി', mahallu: 'മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റി',
+    committee: 'മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റി',
   } : {
     president: 'President', secretary: 'Secretary', imam: 'Imam / Qazi',
-    committee: 'Mahallu Committee', mahallu: 'Mahallu Management Committee',
+    committee: 'Mahallu Management Committee',
   };
   return `<div class="sig-area">
     <div class="sig-box"><div class="sig-line"></div><div class="sig-label">${L.president}</div><div class="sig-sub">${L.committee}</div></div>
     <div class="sig-box"><div class="sig-line"></div><div class="sig-label">${L.secretary}</div><div class="sig-sub">${L.committee}</div></div>
-    <div class="sig-box"><div class="sig-line"></div><div class="sig-label">${L.imam}</div><div class="sig-sub">${L.mahallu}</div></div>
+    <div class="sig-box"><div class="sig-line"></div><div class="sig-label">${L.imam}</div><div class="sig-sub">${L.committee}</div></div>
   </div>
   <div class="seal">${esc('MAHALLU\\nSEAL')}</div>
   <div class="cert-footer">${fmtDate(new Date().toISOString(), ml)}</div>`;
@@ -489,19 +491,19 @@ function buildSignatures(ml: boolean): string {
 
 function buildMarriageCert(c: CertData, ml: boolean): string {
   const L = ml ? {
-    title: 'നികാഹ് സർട്ടിഫിക്കറ്റ്', subtitle: 'മഹല്ല് നികാഹ് രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയത്',
+    title: 'നികാഹ് സർട്ടിഫിക്കറ്റ്', subtitle: 'മഹല്ല് നികാഹ് രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയിരിക്കുന്നത്',
     groom: 'വരന്റെ പേര്', groomFather: 'വരന്റെ പിതാവ്', groomAddr: 'വരന്റെ വിലാസം',
     bride: 'വധുവിന്റെ പേര്', brideFather: 'വധുവിന്റെ പിതാവ്', brideAddr: 'വധുവിന്റെ വിലാസം',
-    mahar: 'മഹർ', nikahDate: 'നികാഹ് തീയതി', place: 'സ്ഥലം', regDate: 'രജിസ്ട്രേഷൻ തീയതി',
+    mahar: 'മഹർ', nikahDate: 'നികാഹ് തീയതി', place: 'നികാഹ് നടന്ന സ്ഥലം', regDate: 'രജിസ്ട്രേഷൻ തീയതി',
     witnesses: 'സാക്ഷികൾ', witness: 'സാക്ഷി',
-    certifyText: 'മേൽപ്പറഞ്ഞ നികാഹ് മഹല്ല് രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയതായി സാക്ഷ്യപ്പെടുത്തുന്നു.',
+    certifyText: 'മേൽപ്പറഞ്ഞ നികാഹ് മഹല്ല് നികാഹ് രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയിട്ടുണ്ടെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.',
   } : {
-    title: 'MARRIAGE CERTIFICATE', subtitle: 'Registered in the Mahallu Marriage Register',
-    groom: 'Name of Bridegroom', groomFather: 'Son of', groomAddr: 'Address',
-    bride: 'Name of Bride', brideFather: 'Daughter of', brideAddr: 'Address',
-    mahar: 'Mahr', nikahDate: 'Date of Nikah', place: 'Place of Nikah', regDate: 'Registration Date',
+    title: 'NIKAH CERTIFICATE', subtitle: 'Recorded in the Mahallu Nikah Register',
+    groom: "Bridegroom's Name", groomFather: "Father's Name", groomAddr: "Bridegroom's Address",
+    bride: "Bride's Name", brideFather: "Father's Name", brideAddr: "Bride's Address",
+    mahar: 'Mahr', nikahDate: 'Date of Nikah', place: 'Place of Nikah', regDate: 'Date of Registration',
     witnesses: 'Witnesses', witness: 'Witness',
-    certifyText: 'This is to certify that the above marriage is recorded in the Mahallu register.',
+    certifyText: 'This is to certify that the above Nikah is duly recorded in the Mahallu Nikah Register.',
   };
   const witnesses = [c.witness1, c.witness2, c.witness3, c.witness4].filter(Boolean);
   return `<main class="cert">
@@ -529,30 +531,28 @@ function buildDeathCert(c: CertData, ml: boolean): string {
   // Our branded certificate design carrying the official SMF death register
   // texts and field structure (Village/Panchayath/Taluk … Secretary/Sign).
   const L = ml ? {
-    subtitle: 'മഹല്ല് മരണ രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയത്',
+    subtitle: 'മഹല്ല് മരണ രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയിരിക്കുന്നത്',
     title: 'മരണ സർട്ടിഫിക്കറ്റ്',
-    statement: 'മരണത്തെക്കുറിച്ചുള്ള താഴെ പറയുന്ന വിവരങ്ങൾ യഥാർത്ഥ മരണ രേഖയിൽ നിന്ന് എടുത്തതാണെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു. അത് രജിസ്റ്റർ ചെയ്തിരിക്കുന്നത്',
-    mahalluSuffix: '(മഹല്ല്) എന്നതിനു വേണ്ടിയുള്ള രജിസ്റ്ററാണ്',
-    village: 'വില്ലേജ്', panchayath: 'കോർപ്പറേഷൻ / മുനിസിപ്പാലിറ്റി / പഞ്ചായത്ത്', taluk: 'താലൂക്ക്', district: 'ജില്ല',
+    statement: 'താഴെപ്പറയുന്ന മരണവിവരങ്ങൾ മഹല്ല് മരണ രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയിട്ടുള്ളതാണെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.',
+    village: 'ഗ്രാമം', panchayath: 'തദ്ദേശ സ്വയംഭരണ സ്ഥാപനം', taluk: 'താലൂക്ക്', district: 'ജില്ല',
     pincode: 'പിൻകോഡ്', state: 'സംസ്ഥാനം',
     name: 'പേര്', sex: 'ലിംഗം', age: 'വയസ്സ്',
     kin: 'പിതാവിന്റെ / മാതാവിന്റെ / ഭർത്താവിന്റെ / ഭാര്യയുടെ പേര്',
-    address: 'മരണപ്പെട്ട വ്യക്തിയുടെ സ്ഥിര വിലാസം',
+    address: 'സ്ഥിര വിലാസം',
     dod: 'മരണ തീയതി', pod: 'മരണസ്ഥലം',
     regNo: 'രജിസ്ട്രേഷൻ നമ്പർ', regDate: 'രജിസ്ട്രേഷൻ തീയതി',
     secretary: 'മഹല്ല് സെക്രട്ടറി',
     male: 'പുരുഷൻ', female: 'സ്ത്രീ',
   } : {
-    subtitle: 'Registered in the Mahallu Death Register',
+    subtitle: 'Recorded in the Mahallu Death Register',
     title: 'DEATH CERTIFICATE',
-    statement: 'This is to Certify that the following information has been taken from the original record of death which is the register for',
-    mahalluSuffix: '(Mahallu)',
-    village: 'Village', panchayath: 'Corporation / Municipality / Panchayat', taluk: 'Taluk', district: 'District',
-    pincode: 'Pincode', state: 'State',
+    statement: 'This is to certify that the following particulars are recorded in the Mahallu Death Register.',
+    village: 'Village', panchayath: 'Local Body', taluk: 'Taluk', district: 'District',
+    pincode: 'PIN Code', state: 'State',
     name: 'Name', sex: 'Sex', age: 'Age',
-    kin: 'Name of Father / Mother / Husband / Wife',
-    address: 'Permanent address of deceased',
-    dod: 'Date of death', pod: 'Place of death',
+    kin: 'Father / Mother / Husband / Wife',
+    address: 'Permanent Address',
+    dod: 'Date of Death', pod: 'Place of Death',
     regNo: 'Registration No.', regDate: 'Date of Registration',
     secretary: 'Mahallu Secretary',
     male: 'Male', female: 'Female',
@@ -579,7 +579,7 @@ function buildDeathCert(c: CertData, ml: boolean): string {
   <div class="cert-title">${L.title}</div>
   <div class="cert-subtitle">${L.subtitle}</div>
   ${buildMetaRow(c, ml)}
-  <div class="dc-statement">${L.statement} <b>${esc(c.mahallu_name || 'Minz Mahallu')}</b> ${L.mahalluSuffix}</div>
+  <div class="dc-statement">${L.statement}</div>
   <div class="fields">
     ${juris1 ? `<div class="dc-cols c3">${fr(L.village, c.village)}${fr(L.panchayath, c.panchayath)}${fr(L.taluk, c.taluk)}</div>` : ''}
     ${juris2 ? `<div class="dc-cols c3">${fr(L.district, c.district)}${fr(L.pincode, c.pincode)}${fr(L.state, c.state)}</div>` : ''}
@@ -600,17 +600,17 @@ function buildDeathCert(c: CertData, ml: boolean): string {
 
 function buildMembershipCert(c: CertData, ml: boolean): string {
   const L = ml ? {
-    title: 'അംഗത്വ സർട്ടിഫിക്കറ്റ്', subtitle: 'മഹല്ല് അംഗത്വ രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയത്',
+    title: 'അംഗത്വ സർട്ടിഫിക്കറ്റ്', subtitle: 'മഹല്ല് അംഗത്വ രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയിരിക്കുന്നത്',
     name: 'അംഗത്തിന്റെ പേര്', memberCode: 'അംഗ നമ്പർ', dob: 'ജനന തീയതി',
-    blood: 'രക്ത ഗ്രൂപ്പ്', occupation: 'തൊഴിൽ', mobile: 'മൊബൈൽ',
+    blood: 'രക്തഗ്രൂപ്പ്', occupation: 'തൊഴിൽ', mobile: 'മൊബൈൽ',
     familyNo: 'കുടുംബ നമ്പർ', houseName: 'വീട്ടുപേര്', area: 'പ്രദേശം',
-    certifyText: 'മേൽപ്പറഞ്ഞ വ്യക്തി ഈ മഹല്ലിലെ രജിസ്റ്റർ ചെയ്ത അംഗമാണെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.',
+    certifyText: 'മേൽപ്പറഞ്ഞ വ്യക്തി ഈ മഹല്ലിലെ അംഗമായി രജിസ്റ്റർ ചെയ്തിട്ടുണ്ടെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.',
   } : {
-    title: 'MEMBERSHIP CERTIFICATE', subtitle: 'Registered in the Mahallu Membership Register',
-    name: 'Name of Member', memberCode: 'Member No.', dob: 'Date of Birth',
-    blood: 'Blood Group', occupation: 'Occupation', mobile: 'Mobile',
+    title: 'MEMBERSHIP CERTIFICATE', subtitle: 'Recorded in the Mahallu Membership Register',
+    name: "Member's Name", memberCode: 'Member No.', dob: 'Date of Birth',
+    blood: 'Blood Group', occupation: 'Occupation', mobile: 'Mobile No.',
     familyNo: 'Family No.', houseName: 'House Name', area: 'Area',
-    certifyText: 'This is to certify that the above person is a registered member of this Mahallu.',
+    certifyText: 'This is to certify that the above-named person is a registered member of this Mahallu.',
   };
   return `<main class="cert">
   <div class="frame-outer"></div><div class="frame-inner"></div>
@@ -635,17 +635,17 @@ function buildMembershipCert(c: CertData, ml: boolean): string {
 
 function buildResidenceCert(c: CertData, ml: boolean): string {
   const L = ml ? {
-    title: 'താമസ സർട്ടിഫിക്കറ്റ്', subtitle: 'മഹല്ല് കുടുംബ രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയത്',
+    title: 'താമസ സർട്ടിഫിക്കറ്റ്', subtitle: 'മഹല്ല് കുടുംബ രജിസ്റ്ററിൽ രേഖപ്പെടുത്തിയിരിക്കുന്നത്',
     familyHead: 'കുടുംബനാഥൻ', familyNo: 'കുടുംബ നമ്പർ', houseName: 'വീട്ടുപേര്',
     houseNo: 'വീട്ടുനമ്പർ', ward: 'വാർഡ്', area: 'പ്രദേശം',
     address: 'വിലാസം', pincode: 'പിൻകോഡ്', phone: 'ഫോൺ',
-    certifyText: 'മേൽപ്പറഞ്ഞ കുടുംബം ഈ മഹല്ലിൽ താമസിക്കുന്നുവെന്ന് സാക്ഷ്യപ്പെടുത്തുന്നു.',
+    certifyText: 'മേൽപ്പറഞ്ഞ കുടുംബം ഈ മഹല്ലിൽ താമസിക്കുന്നതായി സാക്ഷ്യപ്പെടുത്തുന്നു.',
   } : {
-    title: 'RESIDENCE CERTIFICATE', subtitle: 'Registered in the Mahallu Family Register',
-    familyHead: 'Family Head', familyNo: 'Family No.', houseName: 'House Name',
+    title: 'RESIDENCE CERTIFICATE', subtitle: 'Recorded in the Mahallu Family Register',
+    familyHead: 'Head of Family', familyNo: 'Family No.', houseName: 'House Name',
     houseNo: 'House No.', ward: 'Ward', area: 'Area',
-    address: 'Address', pincode: 'Pincode', phone: 'Phone',
-    certifyText: 'This is to certify that the above family resides within this Mahallu.',
+    address: 'Address', pincode: 'PIN Code', phone: 'Phone No.',
+    certifyText: 'This is to certify that the above-named family resides within this Mahallu.',
   };
   return `<main class="cert">
   <div class="frame-outer"></div><div class="frame-inner"></div>
@@ -727,7 +727,7 @@ export function buildCertificateHtml(cert: any, lang: 'en' | 'ml' = 'en', reprin
     <div class="verify-copy">
       <span class="verify-label">${ml ? 'സുരക്ഷാ കോഡ്' : 'SECURITY CODE'}</span>
       <span class="verify-code">${esc(c.verification_code)}</span>
-      <span class="verify-hint">${ml ? 'ഈ സുരക്ഷാ കോഡ് Minz Mahallu ആപ്പ് ഉപയോഗിച്ചോ മഹല്ല് ഓഫീസിലോ പരിശോധിക്കുക' : 'Verify this security code using the Minz Mahallu app or at the mahallu office'}</span>
+      <span class="verify-hint">${ml ? 'ഈ സുരക്ഷാ കോഡ് Minz Mahallu ആപ്പ് ഉപയോഗിച്ചോ മഹല്ല് ഓഫീസിൽ നേരിട്ടോ പരിശോധിക്കാവുന്നതാണ്.' : 'This security code can be verified using the Minz Mahallu app or directly at the Mahallu office.'}</span>
     </div>
   </div>` : '';
   body = body.replace('</main>', `${verifyBox}</main>`);
