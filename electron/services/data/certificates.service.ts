@@ -125,6 +125,18 @@ function findReceiptByCodeOrNumber(query: string): ReceiptLookup | null {
   return null;
 }
 
+/** Approval workflow (V037): register entries created by Staff/Member
+ *  accounts stay PENDING until an Administrator/Secretary approves them in
+ *  the Approvals queue. A certificate is an OFFICIAL document — it may be
+ *  issued only from an APPROVED register entry (user request: receipt/
+ *  certificate generation unlocks after approval). Stable English text is
+ *  mapped to a bilingual i18n key in the renderer (src/lib/ipc-error.ts). */
+function assertRegisterApproved(row: { approval_status?: string | null } | null | undefined, label: string): void {
+  if (String((row as any)?.approval_status || "approved") === "pending") {
+    throw new Error(`${label} is still WAITING FOR ADMIN APPROVAL — issue the certificate only after it is approved (Approvals page).`);
+  }
+}
+
 export const certificates = {
   list: (filter: { type?: string; page?: number; pageSize?: number } = {}) => {
     const where: string[] = ["1=1"];
@@ -177,6 +189,7 @@ export const certificates = {
   issueMembership: (memberCode: string, userId: number) => {
     const m = one<any>("SELECT * FROM members WHERE member_code = ?", [memberCode]);
     if (!m) throw new Error("Member not found");
+    assertRegisterApproved(m, "The member's register entry");
     const existing = certificates.findActiveDuplicate("Membership", "member_id = ?", [m.id]);
     if (existing) return certificates.issueResult(existing.id, existing.certificate_number, true);
     const certNum = nextCertificateNumber("Membership", nowDate());
@@ -189,6 +202,7 @@ export const certificates = {
   issueResidence: (familyNumber: string, issuedTo: string, userId: number) => {
     const f = one<any>("SELECT * FROM families WHERE family_number = ?", [familyNumber]);
     if (!f) throw new Error("Family not found");
+    assertRegisterApproved(f, "The family's register entry");
     const person = (issuedTo || "").trim() || f.house_name;
     const existing = certificates.findActiveDuplicate("Residence", "family_id = ? AND issued_to = ?", [f.id, person]);
     if (existing) return certificates.issueResult(existing.id, existing.certificate_number, true);
@@ -202,6 +216,7 @@ export const certificates = {
   issueMarriage: (marriageNumber: string, userId: number) => {
     const m = one<any>("SELECT * FROM marriages WHERE marriage_number = ?", [marriageNumber]);
     if (!m) throw new Error("Marriage record not found");
+    assertRegisterApproved(m, "The nikah register entry");
     const couple = m.bride_name + " & " + m.groom_name;
     // marriage_id is linked on new issues; legacy rows (NULL link) fall back to
     // matching the couple line so they still block duplicates.
@@ -221,6 +236,7 @@ export const certificates = {
   issueMarriageNoc: (marriageNum: string, userId: number) => {
     const marriage = one<any>("SELECT * FROM marriages WHERE marriage_number = ?", [marriageNum]);
     if (!marriage) throw new Error("Marriage record not found");
+    assertRegisterApproved(marriage, "The nikah register entry");
     const existing = certificates.findActiveDuplicate("NOC", "marriage_id = ?", [marriage.id]);
     if (existing) return certificates.issueResult(existing.id, existing.certificate_number, true);
     const certificateNumber = nextCertificateNumber("NOC", nowDate());
@@ -235,6 +251,7 @@ export const certificates = {
   issueDeath: (deathNumber: string, userId: number) => {
     const d = one<any>("SELECT * FROM deaths WHERE death_number = ?", [deathNumber]);
     if (!d) throw new Error("Death record not found");
+    assertRegisterApproved(d, "The death register entry");
     const existing = certificates.findActiveDuplicate("Death", "death_id = ?", [d.id]);
     if (existing) return certificates.issueResult(existing.id, existing.certificate_number, true);
     const certNum = nextCertificateNumber("Death", nowDate());

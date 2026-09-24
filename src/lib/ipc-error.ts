@@ -21,6 +21,10 @@ const RUNTIME_MESSAGE_MAP: Array<{ match: RegExp; key: string }> = [
   { match: /not connected yet|not paired yet|not connected\b/i, key: "wa_not_connected" },
   { match: /no internet/i, key: "wa_no_internet" },
   { match: /QR code is not available/i, key: "wa_not_connected" },
+  // Approval workflow (V037): receipts/payments blocked for PENDING entries —
+  // thrown by receipt.service, certificates.service and subscriptions.service
+  // with the stable phrase "WAITING FOR ADMIN APPROVAL".
+  { match: /waiting for admin approval|pending approval|approval page/i, key: "appr_receipt_blocked" },
 ];
 
 /** Turn a thrown send error into clean, localized guidance. Unknown errors

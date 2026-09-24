@@ -277,8 +277,30 @@ export interface GeneratedReceipt {
   paymentId: number | null;
 }
 
+/** Approval-workflow gate (V037). Entries created by Member/Staff accounts
+ *  stay PENDING until an Administrator/Secretary approves them; NO receipt
+ *  (PDF save, WhatsApp send, batch sheet) may exist for a pending entry,
+ *  because a receipt is an official document for money that is not counted
+ *  yet. Exported for unit tests. The stable English text is mapped to a
+ *  bilingual i18n key in the renderer (src/lib/ipc-error.ts). */
+export function assertReceiptAllowedFor(kind: "donation" | "subscription", approvalStatus: string | null | undefined): void {
+  if (String(approvalStatus || "approved").trim().toLowerCase() === "pending") {
+    throw new Error(
+      kind === "donation"
+        ? "This donation is still WAITING FOR ADMIN APPROVAL — generate or send its receipt only after it is approved (Approvals page)."
+        : "This subscription is still WAITING FOR ADMIN APPROVAL — generate or send its receipt only after it is approved (Approvals page)."
+    );
+  }
+}
+
 export async function generateDonationReceiptPdf(donationId: number): Promise<GeneratedReceipt> {
   ensureReceiptSchema();
+  // Approval workflow (V037): a receipt may leave the app ONLY for an
+  // APPROVED entry — a pending one (added by a Member/Staff account) has
+  // money that is not counted yet, so no PDF may be generated and nothing
+  // may be sent on WhatsApp until a full-power account approves it.
+  const approval = String((getDB().prepare("SELECT approval_status FROM donations WHERE id = ?").get(donationId) as any)?.approval_status || "approved");
+  assertReceiptAllowedFor("donation", approval);
   const data = await donationReceiptData(donationId);
   if (!data) throw new Error("Donation record not found. Refresh the donations page and try again.");
   const buffer = await renderReceiptPdf(data);
@@ -289,6 +311,10 @@ export async function generateDonationReceiptPdf(donationId: number): Promise<Ge
 
 export async function generateSubscriptionReceiptPdf(subscriptionId: number): Promise<GeneratedReceipt> {
   ensureReceiptSchema();
+  // Same approval gate as donations (see above) — a pending subscription
+  // (first payment parked) receipts nothing until it is approved.
+  const approval = String((getDB().prepare("SELECT approval_status FROM subscriptions WHERE id = ?").get(subscriptionId) as any)?.approval_status || "approved");
+  assertReceiptAllowedFor("subscription", approval);
   const data = await subscriptionReceiptData(subscriptionId);
   if (!data) throw new Error("No payment recorded for this subscription yet.");
   const buffer = await renderReceiptPdf(data);
@@ -490,10 +516,14 @@ export async function saveDonationBatchPdf(donationIds: number[], win: import("e
   const list: ReceiptData[] = [];
   const missing: number[] = [];
   for (const id of donationIds) {
+    // Pending entries (added by Member/Staff accounts) cannot be receipted —
+    // they are skipped here the same way the single-PDF path refuses them.
+    const approval = String((getDB().prepare("SELECT approval_status FROM donations WHERE id = ?").get(id) as any)?.approval_status || "approved");
+    try { assertReceiptAllowedFor("donation", approval); } catch { missing.push(id); continue; }
     const d = await donationReceiptData(id);
     if (d) list.push(d); else missing.push(id);
   }
-  if (!list.length) throw new Error("No donation receipts were found for the current filter.");
+  if (!list.length) throw new Error("No APPROVED donation receipts were found for the current filter (pending entries are receipted only after approval).");
   const html = buildReceiptSheetHtml(list, langPref());
   const buffer = await renderHtmlToPdf(html);
   const result = await savePdfWithDialog({
@@ -510,10 +540,13 @@ export async function saveSubscriptionBatchPdf(subscriptionIds: number[], win: i
   const list: ReceiptData[] = [];
   const skipped: number[] = [];
   for (const id of subscriptionIds) {
+    // Same approval gate as donations — pending subscriptions are skipped.
+    const approval = String((getDB().prepare("SELECT approval_status FROM subscriptions WHERE id = ?").get(id) as any)?.approval_status || "approved");
+    try { assertReceiptAllowedFor("subscription", approval); } catch { skipped.push(id); continue; }
     const d = await subscriptionReceiptData(id);
     if (d) list.push(d); else skipped.push(id);
   }
-  if (!list.length) throw new Error("No paid subscriptions were found for the current filter.");
+  if (!list.length) throw new Error("No APPROVED paid subscriptions were found for the current filter (pending entries are receipted only after approval).");
   const html = buildReceiptSheetHtml(list, langPref());
   const buffer = await renderHtmlToPdf(html);
   const result = await savePdfWithDialog({

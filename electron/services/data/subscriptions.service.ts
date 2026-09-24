@@ -257,6 +257,16 @@ export const subscriptions = {
     const db = getDB();
     const s = one<any>("SELECT * FROM subscriptions WHERE id = ?", [id]);
     if (!s) throw new Error("Subscription not found");
+    // Approval workflow (V037): a PENDING subscription (added by a Member/
+    // Staff account, first payment parked) takes NO payment until a full-
+    // power account approves it — money recorded before approval would be
+    // counted without any approval having happened. The Approvals queue
+    // applies the parked payment itself AFTER flipping the row to 'approved',
+    // so that flow passes this gate. Stable English text maps to a bilingual
+    // i18n key in the renderer (src/lib/ipc-error.ts).
+    if (String((s as any).approval_status || "approved") === "pending") {
+      throw new Error("This subscription is still WAITING FOR ADMIN APPROVAL — record the payment only after it is approved (Approvals page).");
+    }
     // Guard against attempts to move the account to another family/period.
     if (data.familyId != null && Number(data.familyId) !== Number(s.family_id)) {
       throw new Error("A subscription cannot be moved to another family. Payment edits only change how much was given.");

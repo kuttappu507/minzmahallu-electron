@@ -55,6 +55,7 @@ const translations: Record<string, { en: string; ml: string }> = {
   appr_reject_title: { en: "Reject this entry?", ml: "ഈ രേഖ നിരാകരിക്കണോ?" },
   appr_reject_hint: { en: "The entry will be removed — it was never counted. This decision is recorded in the audit log.", ml: "രേഖ നീക്കം ചെയ്യപ്പെടും — ഇതുവരെ കണക്കിൽ എടുത്തിട്ടില്ല. ഈ തീരുമാനം ഓഡിറ്റ് ലോഗിൽ രേഖപ്പെടുത്തുന്നു." },
   appr_pending_badge: { en: "Pending approval", ml: "അംഗീകാരം ആവശ്യമാണ്" },
+  appr_receipt_blocked: { en: "This entry is waiting for admin approval — receipts, WhatsApp sends and payments unlock after approval (Approvals page).", ml: "ഈ രേഖ അഡ്മിൻ അംഗീകാരത്തിനായി കാക്കുന്നു — അംഗീകരിച്ചതിനുശേഷം മാത്രം രസീത്, വാട്ട്സ്ആപ്പ്, അടവുകൾ ലഭ്യമാകും (അംഗീകാര പേജ്)." },
   ui_refresh: { en: "Refresh", ml: "പുതുക്കുക" },
   action_logout: { en: "Logout", ml: "ലോഗ്ഔട്ട്" },
 
