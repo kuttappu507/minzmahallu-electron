@@ -27,6 +27,7 @@ import { registerReceiptIpc } from "./receipt-ipc.js";
 import { verifyUninstallPassword, UNINSTALL_ADMIN_SQL } from "./services/uninstall-guard.js";
 import { registerUpdateIpc, scheduleMonthlyUpdateCheck } from "./update-check.js";
 import { registerAutoUpdater } from "./auto-update.js";
+import { fileNameSafe } from "./services/doc-number.service.js";
 // exceljs ships CommonJS only. Under the packaged ESM main process a named
 // import ({ Workbook }) crashes at startup because Node's cjs-module-lexer
 // cannot see through exceljs's bundled dist. Default-import and destructure
@@ -430,7 +431,12 @@ app.whenReady().then(() => {
       const expectedReprint = (cert.reprint_count || 0) + 1;
       ensureCertCode(cert);
       const html = buildCertificateHtml(cert, lang, expectedReprint, istDateTimeDm(new Date()));
-      const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Certificate PDF", defaultPath: `certificate-${cert.certificate_number || certId}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] });
+      // certificate_number carries slashes (PREFIX/CODE/YYYY/MM/NNN) — in a
+      // save dialog those become FOLDER separators and only the trailing
+      // serial ("001.pdf") survived as the filename (user report). fileNameSafe
+      // turns the number into PREFIX-CODE-YYYY-MM-NNN for the file name.
+      const certFileBase = fileNameSafe(cert.certificate_number || `certificate-${certId}`) || `certificate-${certId}`;
+      const saveResult = await dialog.showSaveDialog(mainWindow!, { title: "Save Certificate PDF", defaultPath: `certificate-${certFileBase}.pdf`, filters: [{ name: "PDF Document", extensions: ["pdf"] }] });
       if (saveResult.canceled || !saveResult.filePath) return { success: false, cancelled: true };
       const pdfBuffer = await renderHtmlToPdf(html);
       fs.writeFileSync(saveResult.filePath, pdfBuffer);
