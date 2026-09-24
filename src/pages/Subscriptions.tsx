@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { Edit2, AlertCircle, Wallet, Eye, Ban, History, RefreshCw, FileDown, MessageCircle, Lock } from "lucide-react";
+import { Edit2, AlertCircle, Wallet, Eye, Ban, History, RefreshCw, FileDown, MessageCircle, Lock, Check } from "lucide-react";
 import { useI18n } from "@/i18n";
+import { useAuth } from "@/lib/auth";
 import { useList, useAsync } from "@/hooks/useList";
 import { Card, CardContent, Button, Dialog, Input, Label, Select, Textarea, Badge, SectionLabel } from "@/components/ui";
 import { SecureActionDialog } from "@/components/SecureActionDialog";
@@ -97,6 +98,29 @@ export function Subscriptions() {
   const [resendTarget, setResendTarget] = useState<Subscription | null>(null);
   const [sendingId, setSendingId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false); // blocks double-click duplicate payments (user report)
+
+  // Approval workflow (V037): subscriptions added by Member/Staff accounts
+  // wait for a full-power account. Full-power users approve right on the row;
+  // until then receipt actions and payment recording stay locked (enforced
+  // in the main process too — this is the discoverable UI half).
+  const { user } = useAuth();
+  const canApprove = user?.role === "Administrator" || user?.role === "Secretary";
+  const [approvingId, setApprovingId] = useState<number | null>(null);
+  const isPendingRow = (r: any) => (r as any).approval_status === "pending";
+  const pendingLockTitle = tx("Waiting for admin approval — receipts and payments unlock after approval", "അഡ്മിൻ അംഗീകാരം വേണം — അംഗീകരണത്തിനുശേഷം രസീതും അടവും ലഭ്യമാകും");
+  const approveRow = async (id: number) => {
+    setApprovingId(id);
+    try {
+      await window.mms.approvals.approve("subscriptions", id);
+      toast.success(tx("Entry approved — the parked first payment is applied and receipts unlock", "രേഖ അംഗീകരിച്ചു — സൂക്ഷിച്ച ആദ്യ അടവ് ചേർക്കും, രസീതും ലഭ്യമാകും"));
+      refetch();
+      refreshCollected();
+    } catch (e: any) {
+      toast.error(e?.message || tx("Could not approve", "അംഗീകരിക്കാനായില്ല"));
+    } finally {
+      setApprovingId(null);
+    }
+  };
 
   const { rows, total, totalPages, loading, refetch, setFilters, search, setSearch } = useList(
     (filter) => window.mms.subscriptions.list(filter),
@@ -286,7 +310,9 @@ export function Subscriptions() {
     try {
       const r: any = await window.mms.receipts.saveSubscriptionPdf(id);
       if (r?.success) toast.success(tx("Receipt PDF saved", "\u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d4d PDF \u0d38\u0d47\u0d35\u0d4d \u0d1a\u0d46\u0d2f\u0d4d\u0d24\u0d41"));
-    } catch (e: any) { toast.error(e?.message || tx("Could not save the receipt PDF", "\u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d4d PDF \u0d38\u0d47\u0d35\u0d4d \u0d1a\u0d46\u0d2f\u0d4d\u0d2f\u0d3e\u0d28\u0d3e\u0d2f\u0d3f\u0d32\u0d4d\u0d32")); }
+    } catch (e: any) {
+      toast.error(friendlySendError(e, t) || tx("Could not save the receipt PDF", "രസീത് PDF സംരക്ഷിക്കാനായില്ല"));
+    }
   };
   const sendReceipt = async (id: number, adminPassword?: string) => {
     if (sendingId != null) return; // one message at a time, per privacy rule
@@ -439,8 +465,18 @@ export function Subscriptions() {
       header: "",
       accessor: (r) => (
         <div className="flex items-center gap-1 justify-end">
+          {isPendingRow(r) && canApprove && (
+            <button
+              className="act-btn act-view"
+              title={tx("Approve — the parked first payment is applied and receipts unlock", "അംഗീകരിക്കുക — സൂക്ഷിച്ച ആദ്യ അടവ് ചേർക്കും, രസീതും ലഭ്യമാകും")}
+              disabled={approvingId === r.id}
+              onClick={() => approveRow(r.id)}
+            >
+              <Check className="h-4 w-4 text-emerald-600" />
+            </button>
+          )}
           {Number(r.amount_paid) > 0 && <>
-            <button className="act-btn" title={tx("Save A6 receipt PDF", "\u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d4d PDF \u0d38\u0d47\u0d35\u0d4d \u0d1a\u0d46\u0d2f\u0d4d\u0d2f\u0d41\u0d15")} onClick={() => saveReceipt(r.id)}>
+            <button className="act-btn" disabled={isPendingRow(r) && !canApprove} title={isPendingRow(r) && !canApprove ? pendingLockTitle : tx("Save A6 receipt PDF", "\u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d4d PDF \u0d38\u0d47\u0d35\u0d4d \u0d1a\u0d46\u0d2f\u0d4d\u0d2f\u0d41\u0d15")} onClick={() => saveReceipt(r.id)}>
               <FileDown className="h-4 w-4 text-primary" />
             </button>
             {r.wa_delivered_at ? (
@@ -456,8 +492,10 @@ export function Subscriptions() {
             ) : (
               <button
                 className="act-btn"
-                disabled={sendingId === r.id}
-                title={r.wa_sent_at
+                disabled={sendingId === r.id || (isPendingRow(r) && !canApprove)}
+                title={isPendingRow(r) && !canApprove
+                  ? pendingLockTitle
+                  : r.wa_sent_at
                   ? tx("Sent earlier but delivery was never confirmed — sending again is allowed", "ഇതിനകം അയച്ചെങ്കിലും ഡെലിവറി ഉറപ്പായില്ല — വീണ്ടും അയയ്ക്കാം")
                   : tx("Send receipt on WhatsApp", "\u0d35\u0d3e\u0d1f\u0d4d\u0d38\u0d3e\u0d2a\u0d4d\u0d2a\u0d3f\u0d7d \u0d30\u0d38\u0d40\u0d1f\u0d4d\u0d1f\u0d4d \u0d05\u0d2f\u0d2f\u0d4d\u0d15\u0d4d\u0d15\u0d41\u0d15")}
                 onClick={() => sendReceipt(r.id)}
@@ -476,7 +514,12 @@ export function Subscriptions() {
               <Edit2 className="h-4 w-4" />
             </button>
           ) : (
-            <button className="act-btn act-edit" title={tx("Record payment", "അടവ് രേഖപ്പെടുത്തുക")} onClick={() => handleEdit(r.id)}>
+            <button
+              className="act-btn act-edit"
+              disabled={isPendingRow(r) && !canApprove}
+              title={isPendingRow(r) && !canApprove ? pendingLockTitle : tx("Record payment", "അടവ് രേഖപ്പെടുത്തുക")}
+              onClick={() => handleEdit(r.id)}
+            >
               <Edit2 className="h-4 w-4" />
             </button>
           )}

@@ -5,6 +5,7 @@ import {
 import QRCode from "qrcode";
 import { useI18n } from "@/i18n";
 import { useList } from "@/hooks/useList";
+import { friendlySendError } from "@/lib/ipc-error";
 import { Button, Dialog, Input, Label, Badge } from "@/components/ui";
 import { DataTable, type Column } from "@/components/DataTable";
 import { toast } from "@/lib/toast";
@@ -292,7 +293,7 @@ export function Certificates() {
       setIssueType(null);
       refetch();
     } catch (err: any) {
-      toast.error(err.message || t("ui_failed_save"));
+      toast.error(friendlySendError(err, t) || err.message || t("ui_failed_save"));
     } finally {
       setProcessing(false);
     }
