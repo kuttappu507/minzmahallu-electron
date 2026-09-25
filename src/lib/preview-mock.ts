@@ -107,6 +107,7 @@ export function installPreviewMock() {
     maximize: () => ({}),
     close: () => ({}),
     confirmClose: () => ({}),
+    rendererReady: () => ({}),
     onAskClose: (_cb: () => void) => () => ({}),
   };
 

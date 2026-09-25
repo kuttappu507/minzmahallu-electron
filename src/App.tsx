@@ -6,7 +6,6 @@ import { useI18n } from "@/i18n";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { ToastContainer } from "@/components/ToastContainer";
-import { Splash } from "@/components/Splash";
 import { CloseConfirmDialog } from "@/components/CloseConfirmDialog";
 import UpdateBanner from "@/components/UpdateBanner";
 import "@fontsource-variable/anek-malayalam/wght.css";
@@ -38,7 +37,7 @@ const Users = lazy(() => import("@/pages/Users").then(m => ({ default: m.Users }
 const AuditLog = lazy(() => import("@/pages/AuditLog").then(m => ({ default: m.AuditLog })));
 const Backup = lazy(() => import("@/pages/Backup").then(m => ({ default: m.Backup })));
 const Approvals = lazy(() => import("@/pages/Approvals").then(m => ({ default: m.Approvals })));
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { transliterateMalayalam } from "@/lib/malayalamTransliteration";
 import { setCurrencySymbol } from "@/lib/utils";
 
@@ -92,19 +91,28 @@ function LanguagePersistence() {
 }
 
 export default function App() {
-  const { apply } = useTheme(); const { user } = useAuth(); const [splashDone, setSplashDone] = useState(false);
-  useEffect(() => { apply(); }, [apply]); useEffect(() => { if (splashDone) document.body.classList.add("app-loaded"); }, [splashDone]);
+  const { apply } = useTheme(); const { user } = useAuth();
+  useEffect(() => { apply(); }, [apply]);
   /* Uninstaller mode (?uninstall=1): the NSIS gate launched us with
      --verify-uninstall — render ONLY the admin-password verify page.
-     No splash, no login, nothing else boots. The body gets "app-loaded"
-     directly because the splash never runs here (globals.css hides
-     #root's children until then). */
+     No splash, no login, nothing else boots. */
   const isUninstallMode = new URLSearchParams(window.location.search).get("uninstall") === "1";
-  useEffect(() => { if (isUninstallMode) document.body.classList.add("app-loaded"); }, [isUninstallMode]);
+  /* Task 47 — SINGLE-splash boot. The renderer-side splash overlay is GONE:
+     the only splash is the native one, which the main process shows before
+     any boot work. This window is created hidden (show:false) and stays
+     hidden until the REAL UI has mounted and painted; then we tell the main
+     process to reveal the complete window, so the user goes splash →
+     complete window with nothing in between (no dummy splash, no
+     semi-transparent frozen frame). */
+  useEffect(() => {
+    if (isUninstallMode) { document.body.classList.add("app-loaded"); return; }
+    document.body.classList.add("app-loaded");
+    const notify = () => { try { window.mms?.win?.rendererReady(); } catch { /* bridge absent (browser dev preview) */ } };
+    const t = setTimeout(notify, 120); // one beat past the first painted frame
+    return () => clearTimeout(t);
+  }, [isUninstallMode]);
   if (isUninstallMode) {
     return <UninstallConfirm />;
   }
-  /* The app mounts beneath the splash overlay so the splash can cross-fade
-     into it — the transparent frameless window never shows the desktop. */
-  return <><LanguagePersistence /><OfflineMalayalamLayer /><Routes><Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} /><Route path="/*" element={user ? <ProtectedLayout /> : <Navigate to="/login" />} /></Routes><ToastContainer /><UpdateBanner />{!splashDone && <Splash onDone={() => setSplashDone(true)} />}<CloseConfirmDialog /></>;
+  return <><LanguagePersistence /><OfflineMalayalamLayer /><Routes><Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} /><Route path="/*" element={user ? <ProtectedLayout /> : <Navigate to="/login" />} /></Routes><ToastContainer /><UpdateBanner /><CloseConfirmDialog /></>;
 }

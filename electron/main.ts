@@ -184,9 +184,24 @@ function createWindow() {
     title: "MMS — Minz Mahallu Management System", transparent: true, frame: false, hasShadow: false,
     webPreferences: { preload: path.join(__dirname, "preload.mjs"), contextIsolation: true, nodeIntegration: false, sandbox: false, zoomFactor: 1.0 },
   });
-  // Real window takes over: show it first, THEN drop the native splash, so
-  // the desktop never flashes through between the two surfaces.
-  mainWindow.once("ready-to-show", () => { mainWindow?.show(); closeSplash(); });
+  // Real window takes over (Task 47 — single-splash boot): the window stays
+  // HIDDEN until the renderer says the REAL UI has mounted and painted
+  // ("win:renderer-ready", sent by App after React commit + one beat). The
+  // renderer-side splash overlay is gone, so what appears is the complete
+  // window — no dummy splash, no semi-transparent in-between frame.
+  // Fallbacks keep a wedged renderer from stranding the app behind the
+  // splash forever: ready-to-show (+grace) then an absolute 12 s cap.
+  let revealed = false;
+  const revealMain = () => {
+    if (revealed || !mainWindow || mainWindow.isDestroyed()) return;
+    revealed = true;
+    try { mainWindow.show(); } catch { /* destroyed mid-flight */ }
+    closeSplash();
+  };
+  const unstrand = setTimeout(revealMain, 12000);
+  mainWindow.once("show", () => clearTimeout(unstrand));
+  mainWindow.once("ready-to-show", () => { setTimeout(revealMain, 800); });
+  mainWindow.on("closed", () => { clearTimeout(unstrand); mainWindow = null; });
   // Surface silent download failures (Reports page CSV/Excel/PDF blob downloads
   // go through Chromium's download pipeline). Success needs no extra handling;
   // a failed/interrupted download is reported so the UI can warn the user.
@@ -208,7 +223,6 @@ function createWindow() {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL || "http://localhost:5174");
     mainWindow.webContents.openDevTools({ mode: "detach" });
   } else mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
-  mainWindow.on("closed", () => { mainWindow = null; });
 }
 
 // Window-control IPC. Registered ONCE here (not inside createWindow) so a
@@ -219,6 +233,16 @@ ipcMain.handle("win:maximize", () => { if (mainWindow?.isMaximized()) mainWindow
 ipcMain.handle("win:close", () => mainWindow?.close());
 // Called by the close-confirm dialog after the user picks "Close app".
 ipcMain.handle("win:confirm-close", () => { closeConfirmed = true; try { mainWindow?.close(); } catch {} });
+// Task 47 — sent by App.tsx once the REAL UI has mounted and painted. The
+// complete window appears and the native splash drops in the same tick.
+// Registered ONCE (like the win: handlers above) so the macOS activate
+// re-open path cannot register it twice.
+ipcMain.on("win:renderer-ready", () => {
+  const w = mainWindow;
+  if (!w || w.isDestroyed()) return;
+  try { if (!w.isVisible()) w.show(); } catch { /* destroyed mid-flight */ }
+  closeSplash();
+});
 
 // Small frameless window for the uninstaller's admin-password gate.
 // Sits top-most so it is visible above the uninstaller wizard.

@@ -1,10 +1,11 @@
 /*
- * Task 44 — the native instant splash window.
+ * Task 44/47 — the native instant splash window.
  *
- * The HTML document is the only user-visible surface of the first ~1-3 s of
- * app life (everything else loads behind it), so its correctness matters:
- * brand strings must match the app's i18n byte-for-byte (the Malayalam text
- * is copy-pasted into many places by hand — a garbled variant here would be
+ * It is the only splash (the renderer-side overlay was removed in Task 47)
+ * and the only user-visible surface of the first ~1-3 s of app life
+ * (everything else loads behind it), so its correctness matters: brand
+ * strings must match the app's i18n byte-for-byte (the Malayalam text is
+ * copy-pasted into many places by hand — a garbled variant here would be
  * the FIRST thing a new user ever sees), every asset must be inline (one
  * network/file fetch at that moment defeats the whole point), and the
  * version must survive sanitisation.
@@ -25,17 +26,6 @@ function i18nAppName(): { en: string; ml: string } {
   return { en: m[1], ml: m[2] };
 }
 
-/** The 4th Malayalam boot-step caption ("preparing modules"), extracted from
- *  src/components/Splash.tsx — the native splash reuses that exact string. */
-function splashPreparingCaption(): string {
-  const src = readFileSync(fileURLToPath(new URL("../src/components/Splash.tsx", import.meta.url)), "utf8");
-  const mlBlock = src.match(/ml:\s*\[([\s\S]*?)\],/);
-  if (!mlBlock) throw new Error("ml boot steps not found in Splash.tsx");
-  const msgs = Array.from(mlBlock[1].matchAll(/msg:\s*"([^"]+)"/g)).map((m) => m[1]);
-  if (msgs.length < 4) throw new Error("unexpected boot-step count in Splash.tsx");
-  return msgs[3];
-}
-
 describe("buildSplashHtml", () => {
   it("renders the brand title and the i18n Malayalam app name byte-exactly", () => {
     const html = buildSplashHtml({ version: "2.4.11" });
@@ -43,14 +33,15 @@ describe("buildSplashHtml", () => {
     const name = i18nAppName();
     expect(html).toContain(name.ml);
     // The English i18n app name is longer than the display title; the
-    // subtitle line carries the Malayalam only (title matches the renderer
-    // splash's "Minz Mahallu" display brand).
+    // subtitle line carries the Malayalam only.
     expect(html).not.toContain(name.en);
   });
 
-  it("reuses the renderer splash's Malayalam preparing caption byte-exactly", () => {
+  it("keeps the Malayalam preparing-modules caption byte-exactly", () => {
     const html = buildSplashHtml({ version: "2.4.11" });
-    expect(html).toContain(splashPreparingCaption());
+    // Pinned literal (was byte-checked against the renderer splash's boot
+    // steps, which Task 47 removed — the native splash is the only splash).
+    expect(html).toContain("\u0d2e\u0d4a\u0d21\u0d4d\u0d2f\u0d42\u0d33\u0d41\u0d15\u0d7e \u0d24\u0d2f\u0d4d\u0d2f\u0d3e\u0d31\u0d3e\u0d15\u0d4d\u0d15\u0d41\u0d28\u0d4d\u0d28\u0d41");
   });
 
   it("embeds the sanitized version and strips unsafe characters", () => {
