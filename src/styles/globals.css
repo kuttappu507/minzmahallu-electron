@@ -915,14 +915,19 @@
   .toast.info > span { color: var(--c-sky); }
   html.dark .toast > span { color: var(--em); }
   .toast.out { animation: tOut 0.3s forwards; }
-  .toast-container { position: absolute; right: 18px; bottom: 42px; z-index: 10500; display: flex; flex-direction: column; gap: 9px; align-items: flex-end; }
+  /* no-drag: toasts (sibling of .login-wrap, with a close button) render above
+     the login screen's full-viewport drag region — without it their close
+     buttons are swallowed by window-drag (see .modal-root note below). */
+  .toast-container { position: absolute; right: 18px; bottom: 42px; z-index: 10500; display: flex; flex-direction: column; gap: 9px; align-items: flex-end; -webkit-app-region: no-drag; }
   .toast-close { background: none; border: 0; color: var(--fnt); cursor: pointer; padding: 0; margin-left: 4px; }
   .toast-ic-err { color: var(--c-rose); }
 
   /* Update banner — monthly GitHub release notice (UpdateBanner.tsx).
      Everything wraps: Malayalam labels are wider and the banner must never
      clip its buttons on a small window (see uninstall/token overflow fix). */
-  .upd-banner { position: fixed; top: 62px; right: 16px; z-index: 120; display: flex; align-items: flex-start; flex-wrap: wrap; gap: 11px; width: min(370px, calc(100vw - 32px)); background: var(--panel); color: var(--tx); border: 1.5px solid var(--line); border-left: 6px solid var(--em); border-radius: 14px; padding: 13px 14px; box-shadow: var(--shl); font: 500 12.5px Poppins, "Anek Malayalam Variable", sans-serif; animation: tIn 0.3s; }
+  /* no-drag: the update banner renders on the login screen too, above its
+     full-viewport drag region — its action buttons need real mouse events. */
+  .upd-banner { position: fixed; top: 62px; right: 16px; z-index: 120; -webkit-app-region: no-drag; display: flex; align-items: flex-start; flex-wrap: wrap; gap: 11px; width: min(370px, calc(100vw - 32px)); background: var(--panel); color: var(--tx); border: 1.5px solid var(--line); border-left: 6px solid var(--em); border-radius: 14px; padding: 13px 14px; box-shadow: var(--shl); font: 500 12.5px Poppins, "Anek Malayalam Variable", sans-serif; animation: tIn 0.3s; }
   .upd-ic { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 10px; background: var(--selbg); color: var(--em); }
   .upd-text { flex: 1 1 150px; min-width: 0; }
   .upd-title { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; font: 600 13px Poppins, "Anek Malayalam Variable", sans-serif; color: var(--tx); }
@@ -964,7 +969,7 @@
   .m-f { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; padding: 13px 18px; border-top: 1px solid var(--line); background: var(--panel2); border-radius: 0 0 16px 16px; }
 
   /* ===== Dropdown ===== */
-  .dropdown-fixed { position: fixed; top: 60px; z-index: 9999; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shl); overflow: hidden; animation: dropdownIn 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+  .dropdown-fixed { position: fixed; top: 60px; z-index: 9999; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shl); overflow: hidden; animation: dropdownIn 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2); -webkit-app-region: no-drag; }
   .dropdown-head { padding: 13px 16px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
   .dropdown-head b { font: 500 13px Poppins; }
   .dropdown-head button { border: 0; background: none; color: var(--em); font: 500 11.5px Poppins; cursor: pointer; }
@@ -1406,6 +1411,16 @@ html.lang-ml .btn { line-height: 20px !important; }
   background: rgba(13, 21, 33, 0.62);
   transform: translateZ(0);          /* own layer: no repaint of the app below */
   backface-visibility: hidden;
+  /* no-drag — CRITICAL for the login screen: .login-wrap makes the whole
+     viewport a window-drag region, and Chromium computes the drag region only
+     from elements that explicitly declare an app-region. The dialog portals
+     to <body> (a SIBLING of .login-wrap, so it inherits nothing), and a plain
+     overlay painted above a drag region does NOT cut a hole in it — every
+     click on the "Close MMS?" buttons was swallowed by window-drag. The main
+     routes never noticed because their only drag region is the thin .topbar
+     strip, which never reaches the centered dialog. Explicit no-drag makes
+     the full-screen overlay interactive wherever it opens. */
+  -webkit-app-region: no-drag;
 }
 .modal {
   width: 50vw;
