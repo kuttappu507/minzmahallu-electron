@@ -28,9 +28,9 @@ const BOOT_STEPS: Record<Lang, BootStep[]> = {
   ],
 };
 
-const STEP_INTERVAL = 340; // ms between boot steps
-const STEP_ANIM = 320; // ms progress easing per step
-const EXIT_ANIM = 460; // ms exit fade duration
+const STEP_INTERVAL = 150; // ms between boot steps (Task 44: snappy — real boot work now happens behind the NATIVE splash window, this overlay is a short brand moment, not a queue)
+const STEP_ANIM = 140; // ms progress easing per step
+const EXIT_ANIM = 340; // ms exit fade duration
 
 export function Splash({ onDone }: { onDone: () => void }) {
   const { lang, t } = useI18n();
@@ -78,7 +78,7 @@ export function Splash({ onDone }: { onDone: () => void }) {
       setTarget(100);
       setOut(true);
       setTimeout(onDone, EXIT_ANIM + 60);
-    }, steps.length * STEP_INTERVAL + 280);
+    }, steps.length * STEP_INTERVAL + 120);
     return () => {
       clearInterval(stepTimer);
       clearTimeout(finishTimer);

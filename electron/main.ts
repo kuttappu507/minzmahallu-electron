@@ -21,20 +21,20 @@ import { buildAuditPackHtml } from "./print/audit-pack.template.js";
 import { buildRegisterBookHtml } from "./print/register-book.template.js";
 import { getAnekMalayalamCss, getPoppinsCss } from "./print/utils.js";
 import { registerSecurityIpc } from "./security-ipc.js";
-import { registerWhatsAppIpc } from "./whatsapp-ipc.js";
-import { sendWelfareDisbursedMessage } from "./services/whatsapp.service.js";
 import { registerReceiptIpc } from "./receipt-ipc.js";
+import { createSplashWindow, closeSplash } from "./splash-window.js";
 import { verifyUninstallPassword, UNINSTALL_ADMIN_SQL } from "./services/uninstall-guard.js";
 import { registerUpdateIpc, scheduleMonthlyUpdateCheck } from "./update-check.js";
-import { registerAutoUpdater } from "./auto-update.js";
 import { fileNameSafe } from "./services/doc-number.service.js";
-// exceljs ships CommonJS only. Under the packaged ESM main process a named
-// import ({ Workbook }) crashes at startup because Node's cjs-module-lexer
-// cannot see through exceljs's bundled dist. Default-import and destructure
-// instead (Node's recommended interop pattern); types stay intact via
-// esModuleInterop.
-import ExcelJS from "exceljs";
-const { Workbook } = ExcelJS;
+// STARTUP ORDER (Task 44 — instant splash): the window must be the first
+// thing the user sees. Heavy modules (exceljs, the baileys-bearing
+// whatsapp-ipc / whatsapp.service chain, electron-updater) are deliberately
+// NOT imported at top level — they load under the native splash via dynamic
+// import below. electron-updater keeps the same interop note as before: it
+// ships CommonJS only, so under the packaged ESM main process it must be
+// default-imported and destructured (Node's recommended interop pattern);
+// types stay intact via esModuleInterop — all of which now happens inside
+// auto-update.js when its module is first imported.
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let mainWindow: BrowserWindow | null = null;
@@ -184,7 +184,9 @@ function createWindow() {
     title: "MMS — Minz Mahallu Management System", transparent: true, frame: false, hasShadow: false,
     webPreferences: { preload: path.join(__dirname, "preload.mjs"), contextIsolation: true, nodeIntegration: false, sandbox: false, zoomFactor: 1.0 },
   });
-  mainWindow.once("ready-to-show", () => mainWindow?.show());
+  // Real window takes over: show it first, THEN drop the native splash, so
+  // the desktop never flashes through between the two surfaces.
+  mainWindow.once("ready-to-show", () => { mainWindow?.show(); closeSplash(); });
   // Surface silent download failures (Reports page CSV/Excel/PDF blob downloads
   // go through Chromium's download pipeline). Success needs no extra handling;
   // a failed/interrupted download is reported so the UI can warn the user.
@@ -237,7 +239,7 @@ function createUninstallVerifyWindow() {
 // esc() lives in ./print/utils.js; renderHtmlToPdf() in ./print/pdf-renderer.js
 // (the duplicates that used to sit here were removed in the dead-code purge).
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // ===== Uninstall verification mode (launched by the NSIS uninstaller) =====
   // Only the tiny verify window + its IPC run. No main window, no WhatsApp
   // engine, no auto-backup timer, and — crucially — no DB creation: an
@@ -264,6 +266,13 @@ app.whenReady().then(() => {
     createUninstallVerifyWindow();
     return;
   }
+
+  // FIRST VISIBLE PIXEL (Task 44): the native splash goes up before ANY
+  // other boot work — schema/data-file chores, monthly subscription
+  // generation, IPC registration and the dynamic import of the heavy
+  // modules (baileys chain, exceljs, electron-updater) all now run while the
+  // user is already looking at the branded splash instead of a dead desktop.
+  createSplashWindow();
 
   // Normal boot: bilingual "do not delete" note inside the data folder, so
   // nobody tidies AppData and wipes the mahallu database + backups.
@@ -296,8 +305,9 @@ app.whenReady().then(() => {
   registerUpdateIpc(() => mainWindow);
   scheduleMonthlyUpdateCheck(() => mainWindow);
   // In-app download + install (electron-updater) — engages when the user
-  // accepts the banner; browser download stays as fallback.
-  registerAutoUpdater(() => mainWindow);
+  // accepts the banner; browser download stays as fallback. The module (and
+  // electron-updater with it) loads under the splash, not at process start.
+  { const { registerAutoUpdater } = await import("./auto-update.js"); registerAutoUpdater(() => mainWindow); }
   ipcMain.handle("auth:login", (_e, username: string, password: string) => { try { const user = login(username, password); session.user = { id: user.id, username: user.username, fullName: user.fullName, role: user.role }; try { data.audit.log(user.id, user.username, "LOGIN", "auth", user.id, "User logged in", ""); } catch {} return { success: true, user }; } catch (err: any) { return { success: false, error: err.message }; } });
   ipcMain.handle("auth:logout", () => { if (session.user) { try { data.audit.log(session.user.id, session.user.username, "LOGOUT", "auth", session.user.id, "User logged out", ""); } catch {} } session.user = null; return { success: true }; });
   ipcMain.handle("auth:currentUser", () => session.user);
@@ -384,8 +394,12 @@ app.whenReady().then(() => {
     // WhatsApp notification to the family — best-effort, fire-and-forget:
     // a missing number / opted-out family / unpaired session must never fail
     // the disbursement itself. The attempt (or its reason) lands in the
-    // WhatsApp message history either way.
-    void sendWelfareDisbursedMessage(Number(id)).catch(() => { /* recorded */ });
+    // WhatsApp message history either way. The whatsapp.service module (the
+    // whole baileys chain) is imported on demand so it never costs startup
+    // time (Task 44).
+    void import("./services/whatsapp.service.js")
+      .then(({ sendWelfareDisbursedMessage }) => sendWelfareDisbursedMessage(Number(id)))
+      .catch(() => { /* recorded */ });
     return result;
   });
   ipcMain.handle("welfare:remove", (_e, id) => data.welfare.remove(id));
@@ -530,6 +544,13 @@ app.whenReady().then(() => {
         summaryData.push({ "Metric": "Category Filter", "Value": String(filter.category) });
       }
 
+      // exceljs on demand (Task 44): the workbook library (~1MB CJS bundle)
+      // is only ever needed when an office user exports the ledger, so it is
+      // imported lazily instead of paying its load time on every app start.
+      // Default-import + destructure: cjs-module-lexer cannot see through
+      // exceljs's bundled dist, so a named import would crash the packaged
+      // ESM main process (same interop rule as electron-updater).
+      const { Workbook } = (await import("exceljs")).default;
       const wb = new Workbook();
       const LEDGER_HEADERS = ["Date", "Source", "Type", "Description", "Category", "Receipt No", "Voucher No", "Bill No", "Payee", "Payment Method", "Transaction Ref", "Status", "Void Reason", "Amount"];
       // Column widths sized from the actual content so no value is truncated.
@@ -797,10 +818,11 @@ app.whenReady().then(() => {
       return { success: true, user };
     } catch (err: any) { return { success: false, error: err.message }; }
   });
-  // The window getter lets WhatsApp push late receipt-delivery confirmations
-  // to the open page (the send itself returns as soon as WhatsApp accepts the
-  // message, so the lock badge flips on its own a moment later).
-  registerWhatsAppIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow);
+  // The whatsapp-ipc module pulls the whole baileys engine into the process
+  // (libsignal + socket stack is the heaviest import in the app) — loaded
+  // here, under the splash, right before its handlers register. Registration
+  // order relative to security-ipc/receipt-ipc is unchanged.
+  { const { registerWhatsAppIpc } = await import("./whatsapp-ipc.js"); registerWhatsAppIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow); }
   registerReceiptIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow);
   createWindow();
   // Warm the offscreen PDF window a moment after start-up: receipts,
