@@ -167,6 +167,13 @@ ManifestDPIAware true
 !endif
 
 ; ======================= uninstall password gate ==========================
+; BILINGUAL FORMATTING CONVENTION (user report: Malayalam in these dialogs
+; used to be crammed into a single parenthetical line after the English —
+; "paragraph is not there, formatting is not done"). The Malayalam now
+; gets its own full block, set off by the same "— — — മലയാളം — — —"
+; divider the KEEP-THIS-FOLDER.txt note uses, and mirrors the English
+; paragraph-for-paragraph ($\r$\n$\r$\n between paragraphs). Pinned by
+; electron/installer-notes.test.ts — keep the two in sync.
 
 !macro customUnInit
   ; Skip the gate in silent mode (updates reinstall-over-silently).
@@ -176,7 +183,7 @@ ManifestDPIAware true
     DetailPrint "MMS: verifying administrator password before uninstall..."
     ExecWait '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" --verify-uninstall' $0
     StrCmp "$0" "1" 0 mms_gate_passed
-      MessageBox MB_OK|MB_ICONSTOP "Uninstall cancelled: the MMS administrator password is required to uninstall this application.$\r$\n$\r$\n(ഈ ആപ്പ് നീക്കം ചെയ്യാൻ MMS അഡ്മിൻ പാസ്‌വേഡ് ആവശ്യമാണ്.)"
+      MessageBox MB_OK|MB_ICONSTOP "Uninstall cancelled: the MMS administrator password is required to uninstall this application.$\r$\n$\r$\n— — — മലയാളം — — —$\r$\n$\r$\nഅൺഇൻസ്റ്റോൾ തടഞ്ഞിരിക്കുന്നു: ഈ ആപ്പ് നീക്കം ചെയ്യാൻ MMS അഡ്മിൻ പാസ്‌വേഡ് ആവശ്യമാണ്."
       Abort
   mms_gate_passed:
 !macroend
@@ -188,7 +195,7 @@ ManifestDPIAware true
   ; same Windows user that uses MMS — the normal single-PC office case —
   ; $APPDATA points at that user's profile holding the data.)
   IfFileExists "$APPDATA\mms\mms.db" 0 mms_data_note_done
-    MessageBox MB_OK|MB_ICONINFORMATION "MMS was uninstalled — your DATA IS SAFE.$\r$\n$\r$\nKept untouched at:$\r$\n$APPDATA\mms$\r$\n(database + backups)$\r$\n$\r$\nPlease do NOT delete that folder.$\r$\n(നിങ്ങളുടെ ഡാറ്റയും ബാക്കപ്പുകളും $APPDATA\mms ഫോൾഡറിൽ സുരക്ഷിതമായി നിലനിർത്തിയിട്ടുണ്ട് — ഈ ഫോൾഡർ ഇല്ലാതാക്കരുത്.)"
+    MessageBox MB_OK|MB_ICONINFORMATION "MMS was uninstalled — your DATA IS SAFE.$\r$\n$\r$\nKept untouched at:$\r$\n$APPDATA\mms$\r$\n(database + backups)$\r$\n$\r$\nPlease do NOT delete that folder.$\r$\n$\r$\n— — — മലയാളം — — —$\r$\n$\r$\nMMS നീക്കം ചെയ്തിരിക്കുന്നു — നിങ്ങളുടെ ഡാറ്റ സുരക്ഷിതമാണ്.$\r$\n$\r$\nമാറ്റമില്ലാതെ സൂക്ഷിച്ചിരിക്കുന്ന സ്ഥലം:$\r$\n$APPDATA\mms$\r$\n(ഡാറ്റാബേസ് + ബാക്കപ്പ് ഫയലുകൾ)$\r$\n$\r$\nദയവായി ഈ ഫോൾഡർ ഇല്ലാതാക്കരുത്."
   mms_data_note_done:
 !macroend
 
