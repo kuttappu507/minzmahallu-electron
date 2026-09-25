@@ -47,10 +47,34 @@ describe("certificate security-code box renders on every certificate (no QR)", (
       // …and NO QR image — receipts/certificates carry the security code only.
       expect(html).not.toContain('class="verify-qr"');
       expect(html).not.toContain("data:image/svg+xml");
-      // …and the app-verification hint (non-imperative certificate English).
-      expect(html).toContain("This security code can be verified using the Minz Mahallu app or directly at the Mahallu office.");
+      // …and NO app-verification hint (user request: not all users have the
+      // app, so the paper carries only the code itself).
+      expect(html).not.toContain("can be verified using");
+      expect(html).not.toContain("Minz Mahallu app");
     });
   }
+
+  it("header: register stacks share the FIRST grid row with the mahallu name (no stranded second row)", () => {
+    const html = buildCertificateHtml(
+      {
+        certificate_number: "MMJM/MB/26/09/012",
+        type: "Membership",
+        issued_to: "Header Alignment Person",
+        issued_date: "2026-09-03",
+        issued_by: 1,
+        verification_code: "AB2C-3D4E-F6GH",
+      },
+      "en"
+    );
+    // The side reg stacks used to auto-place onto a SECOND grid row (their
+    // explicit column sits behind the auto-placement cursor after hdr-main),
+    // leaving the register numbers one full name-height below the top line.
+    // Both stacks are now pinned to row 1 — flush with the mahallu name.
+    expect(html).toMatch(/\.hdr\{[^}]*grid-template-columns:40mm 1fr 40mm/);
+    expect(html).not.toMatch(/\.hdr\{[^}]*padding-top/); // no dead space above
+    expect(html).toMatch(/\.hdr \.reg-stack\.right\{grid-column:3;grid-row:1\}/);
+    expect(html).toMatch(/\.hdr \.reg-stack\.left\{grid-column:1;grid-row:1/);
+  });
 
   it("keeps the code when the caller passes extra enriched fields (enrichment must not drop it)", () => {
     // This is the exact regression: enrichCertificate rebuilt the object and
@@ -107,10 +131,11 @@ describe("certificate security-code box renders on every certificate (no QR)", (
     const boxCss = /\.verify-box\{[^}]*\}/.exec(html)?.[0] ?? "";
     expect(boxCss).toContain("position:absolute");
     expect(boxCss).toContain("bottom:");
-    // Small text: label and hint 6pt, code 8pt (was a 10.5pt bordered box).
+    // Small text: label 6pt, code 8pt (was a 10.5pt bordered box); the hint
+    // rule is gone along with the hint line itself.
     expect(html).toMatch(/\.verify-label\{[^}]*font-size:6pt/);
-    expect(html).toMatch(/\.verify-hint\{[^}]*font-size:6pt/);
     expect(html).toMatch(/\.verify-code\{[^}]*font-size:8pt/);
+    expect(html).not.toContain("verify-hint");
     // Out of the document flow: no tinted panel any more.
     expect(boxCss).not.toContain("background:#f2faf6");
   });

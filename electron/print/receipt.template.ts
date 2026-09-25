@@ -39,8 +39,9 @@ export interface ReceiptData {
   currencySymbol?: string;
   /** Extra footer line (e.g. "Balance this month: ₹0"). */
   footNote?: string;
-  /** Anti-forgery: register SECURITY CODE printed in the footer (no QR —
-   *  the office verifies the code against the register / the app). */
+  /** Anti-forgery: register SECURITY CODE printed as one small full-width
+   *  line under the sign-off (no QR — the office verifies the code against
+   *  the register; no app hint — not every user has the app). */
   verificationCode?: string;
 }
 
@@ -121,7 +122,6 @@ function labels(lang: Lang) {
     cut: 'മുറിക്കുക',
     page: 'ഷീറ്റ്',
     securityCode: 'സുരക്ഷാ കോഡ്',
-    verifyHint: 'ഈ സുരക്ഷാ കോഡ് മഹല്ല് ഓഫീസിലോ Minz Mahallu ആപ്പിലോ പരിശോധിക്കുക.',
     secretary: 'സെക്രട്ടറി',
   } : {
     titleDonation: 'DONATION RECEIPT',
@@ -139,7 +139,6 @@ function labels(lang: Lang) {
     cut: 'cut',
     page: 'Sheet',
     securityCode: 'SECURITY CODE',
-    verifyHint: 'Verify this security code at the mahallu office or in the Minz Mahallu app.',
     secretary: 'Secretary',
   };
 }
@@ -147,9 +146,13 @@ function labels(lang: Lang) {
 // ---------------------------------------------------------------------------
 // The A6 receipt card
 // ---------------------------------------------------------------------------
-function receiptCard(r: ReceiptData, L: ReturnType<typeof labels>): string {
+function receiptCard(r: ReceiptData, L: ReturnType<typeof labels>, lang: Lang): string {
   const isDonation = r.kind === 'DONATION';
   const notes = String(r.notes || '').trim();
+  const name = r.mahalluName || 'MAHALLU';
+  // Sign-off word order is language-specific (user request): English reads
+  // "For <name>"; Malayalam puts the entity FIRST — "<name> മഹല്ലിന് വേണ്ടി".
+  const forLine = lang === 'ml' ? `${name} ${L.forMahallu}` : `${L.forMahallu} ${name}`;
   // Header identity block, mirroring the certificate: mahallu name on top,
   // address (+ phone) underneath. Phone numbers print WITHOUT the leading
   // 91 country code (see stripIndiaPrefix).
@@ -184,16 +187,13 @@ function receiptCard(r: ReceiptData, L: ReturnType<typeof labels>): string {
       ${r.footNote ? `<div class="rc-foot-note">${esc(r.footNote)}</div>` : ''}
     </div>
     <footer class="rc-foot">
-      <div class="rc-verify">
-        ${r.verificationCode ? `<div class="rc-verify-copy"><span class="rc-vcap">${esc(L.securityCode)}</span><span class="rc-vcode">${esc(r.verificationCode)}</span></div>
-        <span class="rc-vhint">${esc(L.verifyHint)}</span>` : ''}
-      </div>
       <div class="rc-sign">
         <span class="rc-thanks">${esc(L.thanks)}</span>
         <span class="rc-sd">-sd-</span>
         <span class="rc-sec">${esc(L.secretary)}</span>
-        <b class="rc-for-line">${esc(L.forMahallu)} ${esc(r.mahalluName || 'MAHALLU')}</b>
+        <b class="rc-for-line">${esc(forLine)}</b>
       </div>
+      ${r.verificationCode ? `<div class="rc-verify"><span class="rc-vcap">${esc(L.securityCode)}</span><span class="rc-vcode">${esc(r.verificationCode)}</span></div>` : ''}
     </footer>
   </article>`;
 }
@@ -236,14 +236,14 @@ function baseCss(): string {
     .rc-amount small{font-size:6.6pt;color:#4c5f56;font-style:italic}
     .rc-notes{font-size:7.2pt;color:#4c5f56;border-top:.2mm dashed #c9d8d2;padding-top:1.8mm}
     .rc-foot-note{font-size:7.6pt;color:#0a5c47;font-weight:600}
-    .rc-foot{display:flex;justify-content:space-between;align-items:flex-end;gap:3mm;padding:2.6mm 5.5mm 2mm;border-top:.3mm solid #d9e5e0;background:#fbfdfc}
-    .rc-verify{display:flex;flex-direction:column;gap:1mm;min-width:0}
-    /* compact inline security code — caption + code share one line, smaller
-       type, so the footer stays short and nothing slides into the cut zone. */
-    .rc-verify-copy{display:flex;align-items:baseline;gap:1.6mm;min-width:0}
-    .rc-vcap{font-size:5.4pt;font-weight:700;color:#0a5c47;letter-spacing:.6px}
-    .rc-vcode{font-size:8.5pt;font-weight:800;letter-spacing:.8px;color:#0a5c47}
-    .rc-vhint{font-size:5.4pt;color:#5d6f67;max-width:56mm;line-height:1.25}
+    .rc-foot{display:flex;flex-direction:column;justify-content:space-between;align-items:stretch;gap:1.4mm;padding:2.4mm 5.5mm 1.8mm;border-top:.3mm solid #d9e5e0;background:#fbfdfc}
+    /* Security code: one small full-width line UNDER the "For <mahallu>"
+       sign-off (user request), separated by a hairline. The old side-by-side
+       layout carried an app-verification hint — removed, because not every
+       user has the app; the paper only carries the code itself. */
+    .rc-verify{display:flex;justify-content:center;align-items:baseline;gap:1.6mm;border-top:.2mm dashed #c9d8d2;padding-top:1.4mm}
+    .rc-vcap{font-size:5.2pt;font-weight:700;color:#0a5c47;letter-spacing:.6px}
+    .rc-vcode{font-size:7.5pt;font-weight:800;letter-spacing:.8px;color:#0a5c47}
     .rc-thanks{font-size:6.6pt;font-weight:600;color:#3c4a43;margin-bottom:.4mm}
     /* Signature block (bottom-right): the "signed" mark over the Secretary
        line over the mahallu name — the classic Kerala receipt sign-off. */
@@ -262,14 +262,14 @@ export function buildReceiptHtml(r: ReceiptData, lang: Lang): string {
     @page{size:105mm 148mm;margin:0}${font}${baseCss()}
     html,body{width:105mm;height:148mm}
     .rc{border:0}
-  </style></head><body>${receiptCard(r, L)}</body></html>`;
+  </style></head><body>${receiptCard(r, L, lang)}</body></html>`;
 }
 
 /** Four receipts per A4 page (2×2 grid, dashed cut guides between cells). */
 export function buildReceiptSheetHtml(list: ReceiptData[], lang: Lang): string {
   const L = labels(lang);
   const font = getPoppinsCss() + getAnekMalayalamCss();
-  const cells = list.map((r) => receiptCard(r, L));
+  const cells = list.map((r) => receiptCard(r, L, lang));
   const pages: string[] = [];
   for (let i = 0; i < cells.length; i += 4) {
     const four = cells.slice(i, i + 4);

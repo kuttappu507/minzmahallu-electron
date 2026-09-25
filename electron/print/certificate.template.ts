@@ -344,19 +344,27 @@ body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayala
    BOTTOM of the page (office request): below the signature zone, above the
    page edge, centered. Absolute positioning keeps it out of the document
    flow on every certificate type — including the landscape death
-   certificate, where it used to compete with the SMF fields for space. */
+   certificate, where it used to compete with the SMF fields for space.
+   The app-verification hint line was removed (user request): not every
+   member uses the app, so the paper only carries the code itself. */
 .verify-box{position:absolute;left:16mm;right:16mm;bottom:10.5mm;text-align:center;z-index:40}
 .verify-copy{display:block}
 .verify-label{font-size:6pt;letter-spacing:.8px;color:#8ba096;text-transform:uppercase}
 .verify-code{display:inline;font-family:'Courier New',monospace;font-weight:700;font-size:8pt;letter-spacing:2px;color:#4f6a5d;margin:0 2.5mm}
-.verify-hint{display:inline;font-size:6pt;color:#8ba096;line-height:1.3}
 .reprint-note{position:fixed;left:14mm;bottom:8mm;font-size:7.5pt;color:#7d8f86;letter-spacing:.4px;pointer-events:none;z-index:50}
 .reprint-note b{color:#a33a3a;font-weight:700}
 /* Header: 3-column grid (spacer | centered name block | reg-no stack).
    The fixed side columns guarantee the mahallu name stays dead-center on the
    page and can NEVER slide under the reg-number boxes, no matter how long
-   the mahallu name or the registration numbers are. */
-.hdr{text-align:center;position:relative;z-index:1;padding-top:2mm;display:grid;grid-template-columns:40mm 1fr 40mm;column-gap:3mm;align-items:start}
+   the mahallu name or the registration numbers are.
+   Reg stacks are pinned to grid-row:1 — the side stacks appear in the DOM
+   AFTER hdr-main with an explicit column behind the auto-placement cursor,
+   so the grid used to strand them on a SECOND row: the register numbers
+   sat one full name-height below the top line and the dead space pushed
+   the whole header down (user report: reg numbers "spaced from top", name
+   area "spaced from bottom"). Row 1 + no header padding-top puts the name
+   and both register stacks on ONE flush horizontal line. */
+.hdr{text-align:center;position:relative;z-index:1;display:grid;grid-template-columns:40mm 1fr 40mm;column-gap:3mm;align-items:start}
 .hdr-main{grid-column:2;text-align:center;min-width:0}
 .mahallu-name{font-size:16pt;font-weight:700;color:#0e7c5b;letter-spacing:.3px;line-height:1.25}
 .mahallu-addr{font-size:8.5pt;color:#5f7268;margin-top:1mm;line-height:1.3}
@@ -393,9 +401,9 @@ body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayala
 /* ===== Registration number stacks (all certificates) — shown ONLY when filled.
    Society register number sits in the LEFT grid column (user request), the
    SMF + Wakf numbers stay stacked in the RIGHT column. ===== */
-.reg-stack{justify-self:end;align-self:start;display:flex;flex-direction:column;gap:1.2mm;align-items:flex-end;text-align:left}
-.hdr .reg-stack.right{grid-column:3}
-.hdr .reg-stack.left{grid-column:1;justify-self:start;align-items:flex-start}
+.reg-stack{grid-row:1;justify-self:end;align-self:start;display:flex;flex-direction:column;gap:1.2mm;align-items:flex-end;text-align:left}
+.hdr .reg-stack.right{grid-column:3;grid-row:1}
+.hdr .reg-stack.left{grid-column:1;grid-row:1;justify-self:start;align-items:flex-start}
 .reg-box{border:.25mm solid #9fcfbc;border-radius:1mm;padding:.7mm 2.2mm;font-size:7.5pt;color:#5f7268;background:#f6faf8;max-width:40mm;line-height:1.35}
 .reg-box b{color:#1a2b22;font-weight:600}
 /* ===== Death certificate — our design, official SMF register texts/format.
@@ -717,7 +725,8 @@ export function buildCertificateHtml(cert: any, lang: 'en' | 'ml' = 'en', reprin
     default: body = buildMembershipCert(c, ml); break; // fallback
   }
   // Anti-forgery: every certificate carries a SECURITY CODE (no QR — the
-  // office or the Minz Mahallu app verifies the code against the register);
+  // office verifies the code against the register; the old app-verification
+  // hint line is gone because not every user has the app);
   // reprints are stamped with a small corner note (bottom-left) recording the
   // reprint date and time, so a reprint is traceable without defacing the
   // certificate.
@@ -727,7 +736,6 @@ export function buildCertificateHtml(cert: any, lang: 'en' | 'ml' = 'en', reprin
     <div class="verify-copy">
       <span class="verify-label">${ml ? 'സുരക്ഷാ കോഡ്' : 'SECURITY CODE'}</span>
       <span class="verify-code">${esc(c.verification_code)}</span>
-      <span class="verify-hint">${ml ? 'ഈ സുരക്ഷാ കോഡ് Minz Mahallu ആപ്പ് ഉപയോഗിച്ചോ മഹല്ല് ഓഫീസിൽ നേരിട്ടോ പരിശോധിക്കാവുന്നതാണ്.' : 'This security code can be verified using the Minz Mahallu app or directly at the Mahallu office.'}</span>
     </div>
   </div>` : '';
   body = body.replace('</main>', `${verifyBox}</main>`);

@@ -57,6 +57,15 @@ describe("A6 receipt template", () => {
     // The 'Minz Mahallu Management System' brand line was removed (user request):
     expect(html).not.toContain('class="rc-app"');
     expect(html).not.toContain("Minz Mahallu Management System");
+    // The app-verification hint is gone too (user request: not all users have
+    // the app) — the paper carries only the code itself:
+    expect(html).not.toContain("Verify this security code");
+    expect(html).not.toContain("Minz Mahallu app");
+    // The code line sits UNDER the "For <mahallu>" sign-off (user request):
+    const forAt = html.indexOf("For Minz Mahallu");
+    const codeAt = html.indexOf("AB2C-3D4E-F6GH");
+    expect(forAt).toBeGreaterThan(-1);
+    expect(codeAt).toBeGreaterThan(forAt);
     // Jazakallahu Khairan sits JUST ABOVE the signature block (user request):
     const thanksAt = html.indexOf("Jazakallahu Khairan.");
     const sdAt = html.indexOf("-sd-");
@@ -65,6 +74,22 @@ describe("A6 receipt template", () => {
     expect(thanksAt).toBeLessThan(sdAt);
     expect(html).not.toContain("rc-qr");
     expect(html).not.toContain("data:image/svg+xml");
+  });
+
+  it("Malayalam sign-off puts the mahallu name FIRST, then മഹല്ലിന് വേണ്ടി (correct ML word order)", () => {
+    const html = buildReceiptHtml(donation, "ml");
+    const seg = html.slice(html.indexOf('class="rc-for-line"'));
+    const line = seg.slice(0, seg.indexOf("</b>"));
+    expect(line).toContain("Minz Mahallu");
+    // മഹല്ലിന് വേണ്ടി — byte-checked against the template labels
+    const forPhrase = "\u0d2e\u0d39\u0d32\u0d4d\u0d32\u0d3f\u0d28\u0d4d \u0d35\u0d47\u0d23\u0d4d\u0d1f\u0d3f";
+    expect(line).toContain(forPhrase);
+    expect(line.indexOf("Minz Mahallu")).toBeLessThan(line.indexOf(forPhrase));
+    // The old label-first order must not come back:
+    expect(line).not.toContain(": Minz");
+    // Security code stays on the paper, hint stays gone (ML):
+    expect(html).toContain("AB2C-3D4E-F6GH");
+    expect(html).not.toContain("Minz Mahallu \u0d06\u0d2a\u0d4d\u0d2a"); // 'Minz Mahallu ആപ്പ്'
   });
 
   it("renders the amount with the en-IN grouping and words", () => {

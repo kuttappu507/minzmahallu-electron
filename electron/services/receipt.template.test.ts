@@ -42,10 +42,19 @@ describe("A6 receipt — security-code footer + classic signature sign-off (no Q
     expect(html).not.toContain("data:image/svg+xml");
   });
 
-  it("prints the security code with its caption", () => {
+  it("prints the security code as a small full-width line under the sign-off (no app hint)", () => {
     expect(html).toContain("SECURITY CODE");
     expect(html).toContain("WK4M-8Q7Z-T3HD");
-    expect(html).toContain("Verify this security code at the mahallu office or in the Minz Mahallu app.");
+    // The app-verification hint was removed (user request: not all users
+    // have the app) — the paper carries only the code itself:
+    expect(html).not.toContain("Verify this security code");
+    expect(html).not.toContain("Minz Mahallu app");
+    // Full-width line UNDER the "For <mahallu>" sign-off, not beside it:
+    const forAt = html.indexOf("For Minz Mahallu Jamath");
+    const codeAt = html.indexOf("WK4M-8Q7Z-T3HD");
+    expect(forAt).toBeGreaterThan(-1);
+    expect(codeAt).toBeGreaterThan(forAt);
+    expect(html).toMatch(/\.rc-verify\{[^}]*justify-content:center/);
   });
 
   it("header shows the mahallu name with address (+ phone) like the certificate", () => {
