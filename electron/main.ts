@@ -37,7 +37,23 @@ import { fileNameSafe } from "./services/doc-number.service.js";
 // auto-update.js when its module is first imported.
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Windows-only Chromium switch (occasional-freeze fix, user report: freezes on
+// mid-range machines, smooth on low-end). Chromium's native window-occlusion
+// calculation has a long history of false-positives with frameless windows —
+// the renderer gets told "you are not visible", stops painting, and the app
+// sits frozen until a refocus repaints it. Machine-dependent by nature (it
+// depends on DWM/GPU/driver timing), which is exactly the reported pattern.
+// Disabling the feature is the standard mitigation shipped by many Electron
+// apps. On Chromium builds where the feature flag no longer exists the switch
+// is simply ignored — zero risk either way. Must run BEFORE app is ready.
+if (process.platform === "win32") {
+  app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion");
+}
+
 let mainWindow: BrowserWindow | null = null;
+// Rolling crash-reload guard for the main window's renderer (see createWindow).
+let rendererReloadTimestamps: number[] = [];
 const session = { user: null as null | { id: number; username: string; fullName: string; role: string } };
 
 // ---------------------------------------------------------------------------
@@ -178,10 +194,26 @@ async function saveExportFile(opts: { title: string; defaultName: string; ext: s
 }
 
 function createWindow() {
+  // OPAQUE ON WINDOWS (occasional-freeze fix, user report: freezes on
+  // mid-range machines, smooth on low-end). The main window used to be
+  // `transparent: true, backgroundColor: "#00000000"` on every platform.
+  // Transparent frameless windows are Electron's best-documented freeze
+  // vector on Windows: every frame goes through a per-pixel-alpha DWM blend
+  // (no opaque fast path), and the behaviour differs wildly by GPU/driver —
+  // hybrid-GPU (Optimus) mid-range laptops and Windows 11 24H2's DWM changes
+  // are the classic broken combinations, while basic single-iGPU low-end
+  // machines sail through. Transparency bought nothing here: .app-shell is a
+  // full-bleed SQUARE surface (no CSS rounded-corner window shape) and the
+  // boot phase is invisible anyway — the window stays HIDDEN until
+  // win:renderer-ready, with the native splash covering the screen. Windows
+  // therefore gets a normal opaque window (bg = the app's --bg #f6f8fa, which
+  // body.app-loaded paints anyway); macOS/Linux keep the exact previous look.
+  const win32 = process.platform === "win32";
   mainWindow = new BrowserWindow({
     width: 1600, height: 900, minWidth: 1024, minHeight: 640, show: false,
-    autoHideMenuBar: true, backgroundColor: "#00000000",
-    title: "MMS — Minz Mahallu Management System", transparent: true, frame: false, hasShadow: false,
+    autoHideMenuBar: true,
+    ...(win32 ? { backgroundColor: "#f6f8fa" } : { backgroundColor: "#00000000", transparent: true }),
+    title: "MMS — Minz Mahallu Management System", frame: false, hasShadow: false,
     webPreferences: { preload: path.join(__dirname, "preload.mjs"), contextIsolation: true, nodeIntegration: false, sandbox: false, zoomFactor: 1.0 },
   });
   // Real window takes over (Task 47 — single-splash boot): the window stays
@@ -202,6 +234,23 @@ function createWindow() {
   mainWindow.once("show", () => clearTimeout(unstrand));
   mainWindow.once("ready-to-show", () => { setTimeout(revealMain, 800); });
   mainWindow.on("closed", () => { clearTimeout(unstrand); mainWindow = null; });
+  // Occasional-freeze resilience (user report: freezes on mid-range machines,
+  // smooth on low-end). A crashed MAIN renderer leaves a blank or frozen-
+  // looking window — from the outside it IS a freeze. Revive it with one
+  // guarded reload: max 2 per rolling minute, so a genuine crash loop can
+  // never spin (the close gate and app state survive a reload; the user just
+  // logs back in). renderer gone for "clean-exit" is a normal teardown.
+  mainWindow.webContents.on("render-process-gone", (_e, details) => {
+    console.warn("[renderer] process gone:", details.reason, "exitCode:", details.exitCode);
+    if (details.exitCode === 0 || details.reason === "clean-exit") return;
+    const now = Date.now();
+    rendererReloadTimestamps = rendererReloadTimestamps.filter((t) => now - t < 60_000);
+    if (rendererReloadTimestamps.length >= 2) return;
+    rendererReloadTimestamps.push(now);
+    setTimeout(() => {
+      try { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.reload(); } catch { /* gone */ }
+    }, 300);
+  });
   // Surface silent download failures (Reports page CSV/Excel/PDF blob downloads
   // go through Chromium's download pipeline). Success needs no extra handling;
   // a failed/interrupted download is reported so the UI can warn the user.
@@ -242,6 +291,19 @@ ipcMain.on("win:renderer-ready", () => {
   if (!w || w.isDestroyed()) return;
   try { if (!w.isVisible()) w.show(); } catch { /* destroyed mid-flight */ }
   closeSplash();
+});
+
+// Occasional-freeze resilience (user report: freezes on mid-range machines).
+// A GPU process death (driver reset / Timeout Detection & Recovery — the
+// classic "froze a few seconds, then fine again" on hybrid-GPU laptops) can
+// leave the window wedged on a stale frame until something forces a repaint.
+// Chromium restarts the GPU process on its own; invalidate() immediately
+// pushes a fresh frame so the user never sees the wedge. Machine-dependent by
+// nature — exactly the reported symptom pattern.
+app.on("child-process-gone", (_event, details) => {
+  if (details.type !== "GPU") return;
+  console.warn("[gpu] process gone:", details.reason, "exitCode:", details.exitCode);
+  try { mainWindow?.webContents.invalidate(); } catch { /* window gone */ }
 });
 
 // Small frameless window for the uninstaller's admin-password gate.
