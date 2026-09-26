@@ -77,6 +77,37 @@ let closeConfirmed = false;
 const isUninstallVerify = process.argv.includes("--verify-uninstall");
 
 // ---------------------------------------------------------------------------
+// Single-instance lock (user report: "2 or 3 instance are seeing in task
+// manager if i clicked one time only"). Two separate things are true here:
+//   1. Several exe rows in Task Manager for ONE app launch are NORMAL for
+//      every Electron app — the main process, the GPU process and the
+//      renderer process each show as their own row of the same exe name.
+//   2. BUT a real second instance could spawn when the desktop icon is
+//      clicked again while the first launch is still on its splash screen
+//      (the main window stays hidden until "win:renderer-ready", which
+//      invites a second click). requestSingleInstanceLock() makes every
+//      later launch hand over to the running app: it quits itself and the
+//      running window is restored + focused instead.
+// Skipped in uninstall-verify mode: the NSIS uninstaller may legitimately run
+// the gate WHILE the main app is open, and the fail-open exit path (any code
+// other than 1) must stay intact. Must run BEFORE app.whenReady().
+// ---------------------------------------------------------------------------
+const gotSingleInstanceLock = isUninstallVerify || app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      try {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.show();
+        mainWindow.focus();
+      } catch { /* window destroyed mid-flight */ }
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Data folder: short "mms" directory inside the OS app-data area (hidden from
 // casual browsing on Windows). Must run BEFORE anything touches
 // app.getPath("userData") — DB, WhatsApp session, backups and settings all
@@ -525,12 +556,16 @@ app.whenReady().then(async () => {
       const cert = (listResult?.rows || []).find((c: any) => c.id === certId);
       if (!cert) return { success: false, error: "Certificate not found" };
       const lang = await mainWindow!.webContents.executeJavaScript("document.documentElement.classList.contains('lang-ml') ? 'ml' : 'en'");
-      // Anti-forgery: the NEXT print is a reprint, so it carries a bottom-left
-      // "Reprinted on <date time>" note even before the count is persisted
-      // (the count only increments if the PDF is actually saved).
-      const expectedReprint = (cert.reprint_count || 0) + 1;
+      // Anti-forgery reprint note (user report: the FIRST print also carried
+      // the "Reprinted on" badge). The note must appear only when the sheet
+      // being printed is genuinely a reprint — i.e. the stored count from the
+      // PREVIOUS successful save is > 0. The count increments via markReprint()
+      // below AFTER the PDF is actually saved, so a cancelled save never
+      // stamps a phantom reprint, and the first print of every certificate is
+      // always clean.
+      const reprintNo = cert.reprint_count || 0;
       ensureCertCode(cert);
-      const html = buildCertificateHtml(cert, lang, expectedReprint, istDateTimeDm(new Date()));
+      const html = buildCertificateHtml(cert, lang, reprintNo, istDateTimeDm(new Date()));
       // certificate_number carries slashes (PREFIX/CODE/YYYY/MM/NNN) — in a
       // save dialog those become FOLDER separators and only the trailing
       // serial ("001.pdf") survived as the filename (user report). fileNameSafe
@@ -541,7 +576,7 @@ app.whenReady().then(async () => {
       const pdfBuffer = await renderHtmlToPdf(html);
       fs.writeFileSync(saveResult.filePath, pdfBuffer);
       try { data.certificates.markReprint(certId); } catch (e) { console.warn("[certificates] reprint count not updated:", e); }
-      return { success: true, path: saveResult.filePath, reprint: expectedReprint > 1 };
+      return { success: true, path: saveResult.filePath, reprint: reprintNo > 0 };
     } catch (err: any) { return { success: false, error: err.message }; }
   });
   // Returns the certificate HTML so the renderer can show a print preview in an iframe.

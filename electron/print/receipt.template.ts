@@ -53,7 +53,10 @@ const TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 
 
 function twoDigitsToWords(n: number): string {
   if (n < 20) return ONES[n];
-  return (TENS[Math.floor(n / 10)] + (n % 10 ? ' ' + ONES[n % 10] : '')).trim();
+  // Tens-unit compounds are hyphenated ("Fifty-Six", "Twenty-Five") — the
+  // office's amount-words format is "Rupees One Thousand Two Hundred and
+  // Fifty-Six Only" (user request).
+  return (TENS[Math.floor(n / 10)] + (n % 10 ? '-' + ONES[n % 10] : '')).trim();
 }
 
 function numberToWordsIndian(n: number): string {
@@ -68,7 +71,11 @@ function numberToWordsIndian(n: number): string {
   if (lakh) parts.push(`${twoDigitsToWords(lakh)} Lakh`);
   if (thousand) parts.push(`${twoDigitsToWords(thousand)} Thousand`);
   if (hundred) parts.push(`${twoDigitsToWords(hundred)} Hundred`);
-  if (n) parts.push(twoDigitsToWords(n));
+  // "and" before the trailing sub-hundred part when higher groups exist —
+  // the office's format: "Rupees One Thousand Two Hundred and Fifty-Six
+  // Only" (user request). Round hundreds/thousands/crores stay bare
+  // ("One Thousand Five Hundred"), and a bare 0-99 amount takes no "and".
+  if (n) parts.push((parts.length ? 'and ' : '') + twoDigitsToWords(n));
   return parts.join(' ');
 }
 
@@ -111,10 +118,17 @@ function labels(lang: Lang) {
     titleSubscription: 'വരിസംഖ്യ രസീത്',
     no: 'രസീത് നമ്പർ',
     date: 'തീയതി',
+    // Donation caption (user request): "സംഭാവന നൽകിയത്" — the subscription
+    // receipt keeps its own "received from" wording.
+    donatedBy: 'സംഭാവന നൽകിയത്',
     received: 'ഇവരിൽ നിന്ന് സ്വീകരിച്ചത്',
+    nameLbl: 'പേര്',
+    phoneNo: 'ഫോൺ നമ്പർ',
     honorific: 'ജനാബ്',
     amount: 'തുക',
-    method: 'അടവ് രീതി',
+    // Mode-of-payment label (user request): പണമടച്ച രീതി — the natural
+    // Kerala receipt phrase, replacing the terse അടവ് രീതി.
+    method: 'പണമടച്ച രീതി',
     ref: 'റഫറൻസ്',
     forMahallu: 'മഹല്ലിന് വേണ്ടി',
     thanks: 'ജസാക്കല്ലാഹു ഖൈറൻ.',
@@ -122,13 +136,17 @@ function labels(lang: Lang) {
     cut: 'മുറിക്കുക',
     page: 'ഷീറ്റ്',
     securityCode: 'സുരക്ഷാ കോഡ്',
+    verifyWhere: 'ഇത് മഹല്ല് ഓഫീസിൽ പരിശോധിക്കാവുന്നതാണ്',
     secretary: 'സെക്രട്ടറി',
   } : {
     titleDonation: 'DONATION RECEIPT',
     titleSubscription: 'SUBSCRIPTION RECEIPT',
     no: 'Receipt No',
     date: 'Date',
+    donatedBy: 'Donated by',
     received: 'Received with thanks from',
+    nameLbl: 'Name',
+    phoneNo: 'Phone No.',
     honorific: 'Janab',
     amount: 'Amount',
     method: 'Payment',
@@ -139,6 +157,7 @@ function labels(lang: Lang) {
     cut: 'cut',
     page: 'Sheet',
     securityCode: 'SECURITY CODE',
+    verifyWhere: 'This can be verified at the Mahallu office',
     secretary: 'Secretary',
   };
 }
@@ -169,9 +188,14 @@ function receiptCard(r: ReceiptData, L: ReturnType<typeof labels>, lang: Lang): 
     </div>
     <div class="rc-body">
       <div class="rc-party">
-        <div class="rc-party-cap">${esc(L.received)}</div>
-        <div class="rc-party-name">${esc(L.honorific)} ${esc(r.payerName || '—')}</div>
-        ${r.payerDetail ? `<div class="rc-party-sub">${esc(stripIndiaPrefix(r.payerDetail))}</div>` : ''}
+        <div class="rc-party-cap">${esc(isDonation ? L.donatedBy : L.received)}</div>
+        <div class="rc-party-row">
+          <span class="rc-plabel">${esc(L.nameLbl)}</span>
+          <span class="rc-val"><span class="rc-hon">${esc(L.honorific)}</span> ${esc(r.payerName || '—')}</span>
+        </div>
+        ${isDonation
+          ? (r.payerDetail ? `<div class="rc-party-row phone"><span class="rc-plabel">${esc(L.phoneNo)}</span><span class="rc-val rc-val-sm">${esc(stripIndiaPrefix(r.payerDetail))}</span></div>` : '')
+          : (r.payerDetail ? `<div class="rc-party-sub">${esc(stripIndiaPrefix(r.payerDetail))}</div>` : '')}
       </div>
       <div class="rc-lines">
         <div class="rc-line"><span>${esc(r.line1Label)}</span><b>${esc(r.line1Value || '—')}</b></div>
@@ -193,7 +217,7 @@ function receiptCard(r: ReceiptData, L: ReturnType<typeof labels>, lang: Lang): 
         <span class="rc-sec">${esc(L.secretary)}</span>
         <b class="rc-for-line">${esc(forLine)}</b>
       </div>
-      ${r.verificationCode ? `<div class="rc-verify"><span class="rc-vcap">${esc(L.securityCode)}</span><span class="rc-vcode">${esc(r.verificationCode)}</span></div>` : ''}
+      ${r.verificationCode ? `<div class="rc-verify"><div class="rc-vc-line"><span class="rc-vcap">${esc(L.securityCode)}</span><span class="rc-vcode">${esc(r.verificationCode)}</span></div><div class="rc-vwhere">${esc(L.verifyWhere)}</div></div>` : ''}
     </footer>
   </article>`;
 }
@@ -224,7 +248,14 @@ function baseCss(): string {
     .rc-body{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;padding:3.8mm 5.5mm 2.8mm;gap:3mm}
     .rc-party{border-bottom:.2mm dashed #c9d8d2;padding-bottom:2.6mm}
     .rc-party-cap{font-size:6.4pt;color:#84938c;letter-spacing:.3px}
-    .rc-party-name{font-size:13.5pt;font-weight:800;line-height:1.2;margin-top:.8mm}
+    /* Labeled name/phone rows (user-requested format): small grey label,
+       bold value. The honorific span sits INSIDE the value at a visibly
+       smaller size than the name (like "Mr."), never dominating the line. */
+    .rc-party-row{display:flex;align-items:baseline;gap:2.4mm;margin-top:1mm}
+    .rc-plabel{font-size:7.4pt;color:#5d6f67;flex:none;min-width:14mm}
+    .rc-val{font-size:13pt;font-weight:800;line-height:1.2;color:#101a14}
+    .rc-hon{font-size:8.5pt;font-weight:600;color:#5d6f67;letter-spacing:.2px}
+    .rc-party-row.phone .rc-val-sm{font-size:9.5pt;font-weight:700}
     .rc-party-sub{font-size:8pt;color:#5d6f67;margin-top:1mm}
     .rc-lines{display:flex;flex-direction:column;gap:2mm}
     .rc-line{display:flex;justify-content:space-between;gap:4mm;font-size:8.6pt;border-bottom:.15mm solid #e7efeb;padding-bottom:1.5mm}
@@ -238,12 +269,16 @@ function baseCss(): string {
     .rc-foot-note{font-size:7.6pt;color:#0a5c47;font-weight:600}
     .rc-foot{display:flex;flex-direction:column;justify-content:space-between;align-items:stretch;gap:1.4mm;padding:2.4mm 5.5mm 1.8mm;border-top:.3mm solid #d9e5e0;background:#fbfdfc}
     /* Security code: one small full-width line UNDER the "For <mahallu>"
-       sign-off (user request), separated by a hairline. The old side-by-side
-       layout carried an app-verification hint — removed, because not every
-       user has the app; the paper only carries the code itself. */
-    .rc-verify{display:flex;justify-content:center;align-items:baseline;gap:1.6mm;border-top:.2mm dashed #c9d8d2;padding-top:1.4mm}
+       sign-off (user request), separated by a hairline — now with the
+       office-verification line under the code ("This can be verified at the
+       Mahallu office" / ഇത് മഹല്ല് ഓഫീസിൽ പരിശോധിക്കാവുന്നതാണ്). The old
+       side-by-side layout carried an app-verification hint — removed, because
+       not every user has the app; the paper only carries the code itself. */
+    .rc-verify{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:.5mm;border-top:.2mm dashed #c9d8d2;padding-top:1.4mm}
+    .rc-vc-line{display:flex;justify-content:center;align-items:baseline;gap:1.6mm}
     .rc-vcap{font-size:5.2pt;font-weight:700;color:#0a5c47;letter-spacing:.6px}
     .rc-vcode{font-size:7.5pt;font-weight:800;letter-spacing:.8px;color:#0a5c47}
+    .rc-vwhere{font-size:5.4pt;color:#5d6f67;letter-spacing:.3px}
     .rc-thanks{font-size:6.6pt;font-weight:600;color:#3c4a43;margin-bottom:.4mm}
     /* Signature block (bottom-right): the "signed" mark over the Secretary
        line over the mahallu name — the classic Kerala receipt sign-off. */

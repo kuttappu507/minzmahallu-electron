@@ -275,6 +275,55 @@ describe("certificate wording source of truth (user-ratified EN + ML)", () => {
     expect(html).toContain("Mahallu Management Committee");
     expect(html).not.toContain(">Mahallu Committee<");
   });
+
+  it("secretary-only signature on membership/residence/NOC; full panel ONLY on the Nikah certificate (user request)", () => {
+    for (const type of ["Membership", "Residence", "NOC"] as const) {
+      const html = buildCertificateHtml({ ...base, type, member_id: type === "Membership" ? 1 : null, family_id: type === "Residence" ? 1 : null, marriage_id: type === "NOC" ? 1 : null }, "en");
+      expect(html).toContain("Secretary");
+      expect(html).toContain('class="sig-area single"'); // one right-aligned box
+      expect(html).not.toContain(">President<");
+      expect(html).not.toContain(">Imam / Qazi<");
+    }
+    // The Nikah certificate keeps the full 3-sign panel:
+    const nikah = buildCertificateHtml({ ...base, type: "Marriage", marriage_id: 1 }, "en");
+    expect(nikah).toContain(">President<");
+    expect(nikah).toContain(">Secretary<");
+    expect(nikah).toContain(">Imam / Qazi<");
+    expect(nikah).not.toContain('class="sig-area single"');
+    // The death certificate has its own dedicated secretary block (unchanged):
+    const death = buildCertificateHtml({ ...base, type: "Death", death_id: 1 }, "en");
+    expect(death).toContain("Mahallu Secretary");
+    expect(death).not.toContain(">President<");
+  });
+
+  it("office-verification line sits under the security code (EN + ML)", () => {
+    const en = buildCertificateHtml({ ...base, type: "Membership" }, "en");
+    expect(en).toContain("This can be verified at the Mahallu office");
+    const codeAt = en.indexOf("AB2C-3D4E-F6GH");
+    // Match the rendered ELEMENT (the stylesheet comment may also mention the
+    // phrase — never order-check against <head> text):
+    const whereAt = en.indexOf('class="verify-where"');
+    expect(codeAt).toBeGreaterThan(-1);
+    expect(whereAt).toBeGreaterThan(codeAt);
+    // The removed APP hint must stay gone (this line points at the office):
+    expect(en).not.toContain("can be verified using");
+    expect(en).not.toContain("Minz Mahallu app");
+    const ml = buildCertificateHtml({ ...base, type: "Membership" }, "ml");
+    // ഇത് മഹല്ല് ഓഫീസിൽ പരിശോധിക്കാവുന്നതാണ്
+    expect(ml).toContain("\u0d07\u0d24\u0d4d \u0d2e\u0d39\u0d32\u0d4d\u0d32\u0d4d \u0d13\u0d2b\u0d40\u0d38\u0d3f\u0d7d \u0d2a\u0d30\u0d3f\u0d36\u0d4b\u0d27\u0d3f\u0d15\u0d4d\u0d15\u0d3e\u0d35\u0d41\u0d28\u0d4d\u0d28\u0d24\u0d3e\u0d23\u0d4d");
+  });
+
+  it("landscape death certificate pads the top like the portrait sheets (title clear of the frame)", () => {
+    // User report: the death certificate title sat too close to the border —
+    // "need some offset as in other certificate". Portrait pads 13mm; the
+    // landscape sheet must match (the old 9mm put the header ON the inner
+    // frame line, which is inset exactly 9mm).
+    const death = buildCertificateHtml({ ...base, type: "Death", death_id: 1 }, "en");
+    expect(death).toContain("padding:13mm 13mm 9mm");
+    const portrait = buildCertificateHtml({ ...base, type: "Membership" }, "en");
+    expect(portrait).toContain("padding:13mm 15mm");
+    expect(portrait).not.toContain("padding:9mm 13mm");
+  });
 });
 
 describe("every certificate fits ONE A4 page (no spill onto a second sheet)", () => {

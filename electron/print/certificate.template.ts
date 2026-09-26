@@ -329,7 +329,12 @@ function sharedCss(ml: boolean, landscape = false): string {
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:${pageW};height:${boxH};overflow:hidden;background:#fff}
 body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayalam Variable","Segoe UI",Arial,sans-serif;color:#1a2b22;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.cert{width:${pageW};height:${boxH};position:relative;padding:${landscape ? '9mm 13mm' : '13mm 15mm'};overflow:hidden}
+/* Landscape top padding matches the portrait sheets (user report: the death
+   certificate title sat too close to the frame border "need some offset as
+   in other certificate") — portrait pads 13mm from the page top, which keeps
+   the header 4mm clear of the inner frame line (inset 9mm). The old 9mm
+   landscape value put the mahallu name ON the inner frame edge. */
+.cert{width:${pageW};height:${boxH};position:relative;padding:${landscape ? '13mm 13mm 9mm' : '13mm 15mm'};overflow:hidden}
 /* Double border frame */
 .frame-outer{position:absolute;inset:6mm;border:1.2mm solid #0e7c5b;border-radius:3mm;pointer-events:none}
 .frame-inner{position:absolute;inset:9mm;border:.25mm solid #9fcfbc;border-radius:2mm;pointer-events:none}
@@ -351,6 +356,9 @@ body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayala
 .verify-copy{display:block}
 .verify-label{font-size:6pt;letter-spacing:.8px;color:#8ba096;text-transform:uppercase}
 .verify-code{display:inline;font-family:'Courier New',monospace;font-weight:700;font-size:8pt;letter-spacing:2px;color:#4f6a5d;margin:0 2.5mm}
+/* Office-verification line under the code (user request, replacing the old
+   removed app hint): "This can be verified at the Mahallu office". */
+.verify-where{font-size:6pt;color:#8ba096;margin-top:.9mm;letter-spacing:.3px}
 .reprint-note{position:fixed;left:14mm;bottom:8mm;font-size:7.5pt;color:#7d8f86;letter-spacing:.4px;pointer-events:none;z-index:50}
 .reprint-note b{color:#a33a3a;font-weight:700}
 /* Header: 3-column grid (spacer | centered name block | reg-no stack).
@@ -388,8 +396,13 @@ body{font-family:${ml ? '"Anek Malayalam Variable",' : ''}Poppins,"Anek Malayala
 /* Body text */
 .body-text{font-size:10.5pt;line-height:1.7;color:#2d3d35;text-align:justify;margin:3mm 0}
 .body-text b{color:#0e7c5b}
-/* Signatures */
+/* Signatures. The default panel is the 3-box President/Secretary/Imam grid;
+   .sig-area.single is the secretary-only variant (user request: every
+   certificate EXCEPT the Nikah certificate carries only the Secretary's
+   sign) — one box, right-aligned like the death certificate's sign block. */
 .sig-area{position:absolute;left:16mm;right:16mm;bottom:18mm;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8mm}
+.sig-area.single{grid-template-columns:1fr;justify-items:end}
+.sig-area.single .sig-box{width:58mm}
 .sig-box{text-align:center}
 .sig-line{border-top:.3mm solid #5f7268;margin:14mm 6mm 1mm}
 .sig-label{font-size:8.5pt;color:#5f7268;font-weight:600}
@@ -476,9 +489,13 @@ function buildMetaRow(c: CertData, ml: boolean): string {
   </div>`;
 }
 
-function buildSignatures(ml: boolean): string {
+function buildSignatures(ml: boolean, mode: 'full' | 'secretary' = 'full'): string {
   // One official organization name everywhere (user request: pick ONE and use
   // it consistently) — the full formal name, same as the NOC statement.
+  // mode (user request): the NIKAH certificate keeps the full 3-sign panel
+  // (President / Secretary / Imam-Qazi); every OTHER certificate carries
+  // ONLY the Secretary's sign — one right-aligned box, like the death
+  // certificate's signature block.
   const L = ml ? {
     president: 'പ്രസിഡന്റ്', secretary: 'സെക്രട്ടറി', imam: 'ഇമാം / ഖാസി',
     committee: 'മഹല്ല് മാനേജ്മെന്റ് കമ്മിറ്റി',
@@ -486,6 +503,13 @@ function buildSignatures(ml: boolean): string {
     president: 'President', secretary: 'Secretary', imam: 'Imam / Qazi',
     committee: 'Mahallu Management Committee',
   };
+  if (mode === 'secretary') {
+    return `<div class="sig-area single">
+    <div class="sig-box"><div class="sig-line"></div><div class="sig-label">${L.secretary}</div><div class="sig-sub">${L.committee}</div></div>
+  </div>
+  <div class="seal">${esc('MAHALLU\\nSEAL')}</div>
+  <div class="cert-footer">${fmtDate(new Date().toISOString(), ml)}</div>`;
+  }
   return `<div class="sig-area">
     <div class="sig-box"><div class="sig-line"></div><div class="sig-label">${L.president}</div><div class="sig-sub">${L.committee}</div></div>
     <div class="sig-box"><div class="sig-line"></div><div class="sig-label">${L.secretary}</div><div class="sig-sub">${L.committee}</div></div>
@@ -637,7 +661,7 @@ function buildMembershipCert(c: CertData, ml: boolean): string {
     <div class="field-row"><div class="field-label">${L.familyNo}</div><div class="field-value">${esc(c.family_number || '—')}<span class="sub">${L.houseName}: ${esc(c.house_name || '—')}</span><span class="sub">${L.area}: ${esc(c.area || '—')}</span></div></div>
   </div>
   <div class="body-text">${L.certifyText}</div>
-  ${buildSignatures(ml)}
+  ${buildSignatures(ml, 'secretary')}
 </main>`;
 }
 
@@ -674,7 +698,7 @@ function buildResidenceCert(c: CertData, ml: boolean): string {
     <div class="field-row"><div class="field-label">${L.phone}</div><div class="field-value">${esc(c.phone || '—')}</div></div>
   </div>
   <div class="body-text">${L.certifyText}</div>
-  ${buildSignatures(ml)}
+  ${buildSignatures(ml, 'secretary')}
 </main>`;
 }
 
@@ -704,7 +728,7 @@ function buildNocCert(c: CertData, ml: boolean): string {
     <div class="field-row"><div class="field-label">${L.place}</div><div class="field-value">${esc(c.place || '—')}</div></div>
   </div>
   <div class="body-text">${L.certifyText}</div>
-  ${buildSignatures(ml)}
+  ${buildSignatures(ml, 'secretary')}
 </main>`;
 }
 
@@ -725,18 +749,22 @@ export function buildCertificateHtml(cert: any, lang: 'en' | 'ml' = 'en', reprin
     default: body = buildMembershipCert(c, ml); break; // fallback
   }
   // Anti-forgery: every certificate carries a SECURITY CODE (no QR — the
-  // office verifies the code against the register; the old app-verification
-  // hint line is gone because not every user has the app);
+  // office verifies the code against the register), now with the office
+  // verification line UNDER the code (user request: "after security code
+  // write 'this can be verified at mahallu office'" — English on EN sheets,
+  // natural Malayalam on ML sheets);
   // reprints are stamped with a small corner note (bottom-left) recording the
   // reprint date and time, so a reprint is traceable without defacing the
   // certificate.
   const reprints = Math.max(0, reprintCount || c.reprint_count || 0);
+  const verifyWhere = ml ? 'ഇത് മഹല്ല് ഓഫീസിൽ പരിശോധിക്കാവുന്നതാണ്' : 'This can be verified at the Mahallu office';
   const verifyBox = c.verification_code ? `
   <div class="verify-box">
     <div class="verify-copy">
       <span class="verify-label">${ml ? 'സുരക്ഷാ കോഡ്' : 'SECURITY CODE'}</span>
       <span class="verify-code">${esc(c.verification_code)}</span>
     </div>
+    <div class="verify-where">${esc(verifyWhere)}</div>
   </div>` : '';
   body = body.replace('</main>', `${verifyBox}</main>`);
   const reprintNote = reprints > 0

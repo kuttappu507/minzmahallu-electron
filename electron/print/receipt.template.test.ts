@@ -43,10 +43,32 @@ describe("A6 receipt template", () => {
     expect(html).toContain("@page{size:105mm 148mm");
     expect(html).toContain("DON-042");
     expect(html).toContain("15-09-2026");
-    expect(html).toContain("Janab Haji Abdulla");
+    // The honorific is a small courtesy span BEFORE the name (user request:
+    // "Janab in front of name should be smaller than the name — like Mr./Shri"):
+    expect(html).toContain('<span class="rc-hon">Janab</span> Haji Abdulla');
     expect(html).toContain("Zakat");
     expect(html).toContain("DONATION RECEIPT");
     expect(html).not.toContain("2026-09-15"); // never the storage order
+  });
+
+  it("donation receipts use the user-requested party block: Donated by / Name / Phone No.", () => {
+    const html = buildReceiptHtml(donation, "en");
+    expect(html).toContain("Donated by");
+    expect(html).toContain('<span class="rc-plabel">Name</span>');
+    expect(html).toContain('<span class="rc-plabel">Phone No.</span>');
+    expect(html).toContain("9876543210");
+    // The old received-from caption belongs to subscription receipts only:
+    expect(html).not.toContain("Received with thanks from");
+  });
+
+  it("subscription receipts keep the received-from caption and NO Phone No. label", () => {
+    // payerDetail on subscription receipts is a family reference (house ·
+    // FAM no), not a phone number — labeling it "Phone No." would be wrong.
+    const html = buildReceiptHtml(subscription, "en");
+    expect(html).toContain("Received with thanks from");
+    expect(html).not.toContain("Donated by");
+    expect(html).not.toContain("Phone No.");
+    expect(html).toContain("FAM-012");
   });
 
   it("keeps the security code as the footer and thanks just above the sign-off — no app brand, no QR", () => {
@@ -99,8 +121,49 @@ describe("A6 receipt template", () => {
     expect(amountInWords(1500)).toBe("Rupees One Thousand Five Hundred Only");
     expect(amountInWords(0)).toBe("Rupees Zero Only");
     expect(amountInWords(10000000)).toBe("Rupees One Crore Only");
-    expect(amountInWords(125000)).toBe("Rupees One Lakh Twenty Five Thousand Only");
+    expect(amountInWords(125000)).toBe("Rupees One Lakh Twenty-Five Thousand Only");
     expect(formatReceiptAmount(1250.5)).toBe("\u20B91,250.5");
+  });
+
+  it("amount-in-words joins the trailing sub-hundred with 'and' (office format)", () => {
+    // "Rupees One Thousand Two Hundred and Fifty-Six Only" — the exact
+    // format the office asked for:
+    expect(amountInWords(1256)).toBe("Rupees One Thousand Two Hundred and Fifty-Six Only");
+    expect(amountInWords(105)).toBe("Rupees One Hundred and Five Only");
+    expect(amountInWords(1050)).toBe("Rupees One Thousand and Fifty Only");
+    // Round amounts stay bare (no trailing "and"):
+    expect(amountInWords(1200)).toBe("Rupees One Thousand Two Hundred Only");
+    expect(amountInWords(99)).toBe("Rupees Ninety-Nine Only");
+    // The paise branch keeps its own long-standing "and":
+    expect(amountInWords(10.5)).toBe("Rupees Ten and Fifty Paise Only");
+  });
+
+  it("carries the office-verification line under the security code (EN + ML)", () => {
+    const en = buildReceiptHtml(donation, "en");
+    expect(en).toContain("This can be verified at the Mahallu office");
+    const codeAt = en.indexOf("AB2C-3D4E-F6GH");
+    // Match the rendered ELEMENT (the stylesheet comment may also mention the
+    // phrase — never order-check against <head> text):
+    const whereAt = en.indexOf('class="rc-vwhere"');
+    expect(codeAt).toBeGreaterThan(-1);
+    expect(whereAt).toBeGreaterThan(codeAt); // line sits BELOW the code
+    // The removed app hint must stay gone:
+    expect(en).not.toContain("Verify this security code");
+    expect(en).not.toContain("Minz Mahallu app");
+    const ml = buildReceiptHtml(donation, "ml");
+    // ഇത് മഹല്ല് ഓഫീസിൽ പരിശോധിക്കാവുന്നതാണ്
+    const mlWhere = "\u0d07\u0d24\u0d4d \u0d2e\u0d39\u0d32\u0d4d\u0d32\u0d4d \u0d13\u0d2b\u0d40\u0d38\u0d3f\u0d7d \u0d2a\u0d30\u0d3f\u0d36\u0d4b\u0d27\u0d3f\u0d15\u0d4d\u0d15\u0d3e\u0d35\u0d41\u0d28\u0d4d\u0d28\u0d24\u0d3e\u0d23\u0d4d";
+    expect(ml).toContain(mlWhere);
+  });
+
+  it("ML payment line label is the natural 'പണമടച്ച രീതി' (never അടവ് രീതി)", () => {
+    const html = buildReceiptHtml(donation, "ml");
+    // പണമടച്ച രീതി — user-requested wording for the mode-of-payment line:
+    const method = "\u0d2a\u0d23\u0d2e\u0d1f\u0d1a\u0d4d\u0d1a \u0d30\u0d40\u0d24\u0d3f";
+    expect(html).toContain(method);
+    // അടവ് രീതി — the old label must not come back:
+    const oldMethod = "\u0d05\u0d1f\u0d35\u0d4d \u0d30\u0d40\u0d24\u0d3f";
+    expect(html).not.toContain(oldMethod);
   });
 
   it("escapes HTML in user-supplied fields", () => {
@@ -143,7 +206,13 @@ describe("A6 receipt template", () => {
     const html = buildReceiptHtml(donation, "ml");
     expect(html).toContain("\u0d30\u0d38\u0d40\u0d24\u0d4d"); // രസീത്
     expect(html).toContain("\u0d24\u0d40\u0d2f\u0d24\u0d3f"); // തീയതി
-    expect(html).toContain("\u0d1c\u0d28\u0d3e\u0d2c\u0d4d Haji Abdulla"); // ജനാബ് + name
+    // ജനാബ് as the small honorific span before the name:
+    expect(html).toContain('\u0d1c\u0d28\u0d3e\u0d2c\u0d4d</span> Haji Abdulla');
+    // സംഭാവന നൽകിയത് (chillu-spelled ൽ = U+0D7D) — the user-requested caption:
+    const caption = "\u0d38\u0d02\u0d2d\u0d3e\u0d35\u0d28 \u0d28\u0d7d\u0d15\u0d3f\u0d2f\u0d24\u0d4d";
+    expect(html).toContain(caption);
+    // ഫോൺ നമ്പർ label (chillu ൺ = U+0D7A):
+    expect(html).toContain("\u0d2b\u0d4b\u0d7a \u0d28\u0d2e\u0d4d\u0d2a\u0d7c");
   });
 
   it("builds a 4-per-A4 sheet with exactly 4 cells per page", () => {
