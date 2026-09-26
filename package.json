@@ -102,7 +102,7 @@
     },
     "nsis": {
       "oneClick": false,
-      "license": "build/license.txt",
+      "license": "build/license.rtf",
       "allowToChangeInstallationDirectory": true,
       "perMachine": true,
       "include": "build/installer.nsh",

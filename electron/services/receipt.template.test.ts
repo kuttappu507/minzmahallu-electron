@@ -85,9 +85,12 @@ describe("A6 receipt — security-code footer + classic signature sign-off (no Q
     const sdAt = html.indexOf("-sd-");
     expect(thanksAt).toBeGreaterThan(-1);
     expect(thanksAt).toBeLessThan(sdAt);
-    // The old "no signature required" disclaimer is gone — a signature line
-    // is printed now.
-    expect(html).not.toContain("no signature required");
+    // The -sd- / Secretary signature line is still printed, AND the tiny
+    // digital-note closes the receipt (user request): it clarifies that a
+    // digitally generated receipt needs no PHYSICAL signature — it replaced
+    // the old expectation that banned "no signature required" wording.
+    expect(html).toContain('class="rc-digital"');
+    expect(html.indexOf('class="rc-digital"')).toBeGreaterThan(sdAt);
   });
 
   it("renders the same footer bilingually", () => {

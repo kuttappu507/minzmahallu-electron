@@ -156,6 +156,33 @@ describe("A6 receipt template", () => {
     expect(ml).toContain(mlWhere);
   });
 
+  it("closes with the small digital-receipt note as the VERY last line (EN + ML)", () => {
+    const en = buildReceiptHtml(donation, "en");
+    expect(en).toContain('class="rc-digital"');
+    expect(en).toContain("Digitally generated receipt \u2014 no signature required");
+    // It is the last footer element — BELOW the office-verify line (user
+    // request: "at the very end of receipts write in small"):
+    const whereAt = en.indexOf('class="rc-vwhere"');
+    const digitalAt = en.indexOf('class="rc-digital"');
+    expect(whereAt).toBeGreaterThan(-1);
+    expect(digitalAt).toBeGreaterThan(whereAt);
+    // ML receipts carry the natural Malayalam wording (ഡിജിറ്റലായി
+    // തയ്യാറാക്കിയ രസീത് — ഒപ്പ് ആവശ്യമില്ല):
+    const ml = buildReceiptHtml(donation, "ml");
+    const mlNote =
+      "\u0d21\u0d3f\u0d1c\u0d3f\u0d31\u0d4d\u0d31\u0d32\u0d3e\u0d2f\u0d3f " +
+      "\u0d24\u0d2f\u0d4d\u0d2f\u0d3e\u0d31\u0d3e\u0d15\u0d4d\u0d15\u0d3f\u0d2f " +
+      "\u0d30\u0d38\u0d40\u0d24\u0d4d \u2014 \u0d12\u0d2a\u0d4d\u0d2a\u0d4d " +
+      "\u0d06\u0d35\u0d36\u0d4d\u0d2f\u0d2e\u0d3f\u0d32\u0d4d\u0d32";
+    expect(ml).toContain(mlNote);
+    // Receipts WITHOUT a security code still end with the note:
+    const bare = buildReceiptHtml(subscription, "en");
+    expect(bare).toContain("Digitally generated receipt \u2014 no signature required");
+    // The 4-per-A4 sheet shares the same card, so it carries it too:
+    const sheet = buildReceiptSheetHtml([donation, subscription, donation, subscription], "en");
+    expect(sheet).toContain("Digitally generated receipt \u2014 no signature required");
+  });
+
   it("ML payment line label is the natural 'പണമടച്ച രീതി' (never അടവ് രീതി)", () => {
     const html = buildReceiptHtml(donation, "ml");
     // പണമടച്ച രീതി — user-requested wording for the mode-of-payment line:

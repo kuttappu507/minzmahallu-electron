@@ -1,24 +1,26 @@
 #!/usr/bin/env python3
 """Generate the NSIS installer license page assets (build/license.rtf + build/license.txt).
 
-WHY (user report): the license agreement shown in the installation window
-rendered Malayalam as an unformatted blob. Two causes:
-  1. build/license.txt had LF-only line endings; NSIS's RichEdit license
-     control needs CRLF, so every line break vanished -> one giant paragraph.
-  2. A plain .txt license gets NO formatting at all in the RichEdit control
-     (no bold headings, hard-wrapped fragments, no Malayalam-capable font).
-
-THE FIX: electron-builder's license discovery (app-builder-lib
-out/util/license.js getNotLocalizedLicenseFile) checks "license.rtf" BEFORE
-"license.txt", and NSIS renders an RTF license with full rich formatting.
-This script is the single source of truth for the disclaimer text and emits:
+WHY (user report, v2.4.14 follow-up): the license agreement shown in the
+installation window rendered Malayalam as "some symbol words mixture" — the
+classic UTF-8-read-as-ANSI mojibake. The RTF produced by this script was
+NEVER LOADED in v2.4.14: package.json's build.nsis.license explicitly pointed
+at "build/license.txt" (a config leftover), and an EXPLICIT build.license key
+bypasses electron-builder's license.rtf-first discovery entirely
+(app-builder-lib license.js getNotLocalizedLicenseFile ->
+packager.getResource(custom, ...) uses the custom path directly). NSIS
+streams a non-RTF LicenseData as ANSI text, so the UTF-8 Malayalam bytes of
+license.txt rendered as cp1252 garbage ("à´®à´¹...").
+THE FIX: build.nsis.license now points at "build/license.rtf" (pinned by
+electron/installer-license.test.ts so the wiring cannot drift again), and
+this script remains the single source of truth for the disclaimer text:
   - build/license.rtf : professional page — Segoe UI body, Nirmala UI for
     Malayalam runs (Windows' Malayalam UI font, ships with Win8+), teal bold
     section headings (brand color #0d9488), flowing paragraphs with real
-    spacing. Single-line, pure-ASCII RTF (raw newlines would be read as
-    paragraph breaks by some RichEdit versions, so there are none).
-  - build/license.txt : CRLF, flowing-paragraph plain-text reference that
-    also renders correctly if it is ever used directly.
+    spacing. Single-line, pure-ASCII RTF (\uN escapes — raw newlines would be
+    read as paragraph breaks by some RichEdit versions, so there are none).
+  - build/license.txt : CRLF, flowing-paragraph plain-text reference only
+    (NOT loaded by the installer any more; kept for humans).
 
 Terminology follows the app's i18n authority (src/i18n/index.ts):
 നടത്തിപ്പ് (never ഭരണം), no ഫീസ്, വരിസംഖ്യ (never സബ്സ്ക്രിപ്ഷൻ), സംഭാവന.

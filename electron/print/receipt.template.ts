@@ -137,6 +137,8 @@ function labels(lang: Lang) {
     page: 'ഷീറ്റ്',
     securityCode: 'സുരക്ഷാ കോഡ്',
     verifyWhere: 'ഇത് മഹല്ല് ഓഫീസിൽ പരിശോധിക്കാവുന്നതാണ്',
+    // Very last line of every receipt (user request), small and unobtrusive:
+    digitalNote: 'ഡിജിറ്റലായി തയ്യാറാക്കിയ രസീത് — ഒപ്പ് ആവശ്യമില്ല',
     secretary: 'സെക്രട്ടറി',
   } : {
     titleDonation: 'DONATION RECEIPT',
@@ -158,6 +160,8 @@ function labels(lang: Lang) {
     page: 'Sheet',
     securityCode: 'SECURITY CODE',
     verifyWhere: 'This can be verified at the Mahallu office',
+    // Very last line of every receipt (user request), small and unobtrusive:
+    digitalNote: 'Digitally generated receipt — no signature required',
     secretary: 'Secretary',
   };
 }
@@ -218,6 +222,7 @@ function receiptCard(r: ReceiptData, L: ReturnType<typeof labels>, lang: Lang): 
         <b class="rc-for-line">${esc(forLine)}</b>
       </div>
       ${r.verificationCode ? `<div class="rc-verify"><div class="rc-vc-line"><span class="rc-vcap">${esc(L.securityCode)}</span><span class="rc-vcode">${esc(r.verificationCode)}</span></div><div class="rc-vwhere">${esc(L.verifyWhere)}</div></div>` : ''}
+      <div class="rc-digital">${esc(L.digitalNote)}</div>
     </footer>
   </article>`;
 }
@@ -280,6 +285,9 @@ function baseCss(): string {
     .rc-vcode{font-size:7.5pt;font-weight:800;letter-spacing:.8px;color:#0a5c47}
     .rc-vwhere{font-size:5.4pt;color:#5d6f67;letter-spacing:.3px}
     .rc-thanks{font-size:6.6pt;font-weight:600;color:#3c4a43;margin-bottom:.4mm}
+    /* Very last line of the receipt (user request): a tiny, quiet note that
+       the paper is system-generated and needs no physical signature. */
+    .rc-digital{font-size:5.4pt;color:#84938c;text-align:center;letter-spacing:.3px}
     /* Signature block (bottom-right): the "signed" mark over the Secretary
        line over the mahallu name — the classic Kerala receipt sign-off. */
     .rc-sign{text-align:right;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:.6mm;min-width:30mm}

@@ -4,13 +4,19 @@ import { describe, expect, it } from "vitest";
 
 // The installer's LICENSE AGREEMENT page used to render Malayalam as an
 // unformatted blob (user report: "paragraph is not there, formatting is not
-// done"). Two causes, both pinned here:
+// done"), and STILL rendered it as "some symbol words mixture" in v2.4.14.
+// TWO causes, both pinned here:
 //   1. build/license.txt had LF-only line endings — NSIS's RichEdit license
 //      control needs CRLF, so every break vanished into one giant paragraph.
-//   2. A plain .txt license gets no formatting at all. The fix ships a real
-//      RTF (electron-builder's discovery checks license.rtf BEFORE
-//      license.txt — see app-builder-lib out/util/license.js): Segoe UI body,
-//      Nirmala UI for Malayalam runs, teal bold headings, flowing paragraphs.
+//   2. THE v2.4.14 REGRESSION: package.json's build.nsis.license explicitly
+//      pointed at "build/license.txt" (config leftover). An EXPLICIT
+//      build.license key bypasses electron-builder's license.rtf-first
+//      discovery (app-builder-lib license.js -> packager.getResource(custom)
+//      uses the custom path directly), so the professional license.rtf was
+//      NEVER loaded — NSIS streamed the UTF-8 .txt as ANSI text and the
+//      Malayalam bytes rendered as cp1252 mojibake ("à´®à´¹...").
+// The wiring pin below (build.nsis.license === "build/license.rtf") exists
+// exactly so this drift can never ship again.
 // Content source of truth: scripts/gen-license-rtf.py (regenerates both).
 
 const read = (p: string) =>
@@ -42,6 +48,17 @@ const ML_BANNED = [
 ];
 
 describe("installer license page (license.rtf)", () => {
+  it("package.json build.nsis.license points at the RTF (v2.4.14 mojibake regression pin)", () => {
+    // v2.4.14 shipped the installer with build.license = "build/license.txt",
+    // so the RTF was never loaded and Malayalam rendered as ANSI mojibake.
+    const pkg = JSON.parse(read("../package.json"));
+    expect(pkg.build.nsis.license).toBe("build/license.rtf");
+    // ...and the pointed-at file really exists (an explicit build.license
+    // that 404s makes electron-builder throw InvalidConfigurationError at
+    // build time — better to catch it here, in CI, before that):
+    expect(() => read("../build/license.rtf")).not.toThrow();
+  });
+
   it("is a single-line pure-ASCII RTF document (deterministic in RichEdit)", () => {
     expect(RTF.startsWith("{\\rtf1")).toBe(true);
     expect(RTF.endsWith("}")).toBe(true);
