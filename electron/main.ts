@@ -119,13 +119,26 @@ function quitApp(): void {
   try { app.quit(); } catch { try { app.exit(0); } catch { /* already gone */ } }
 }
 
-function revealMainWindow(): void {
+function revealMainWindow(force = false): void {
   if (mainRevealed) return;
-  // Both halves: boot work finished, AND the renderer has painted (or the
+  // Both halves: boot work finished, AND the renderer has painted (or a
   // fallback decided not to wait any longer).
   if (!startupSettled || !revealRequested) return;
   const w = mainWindow;
   if (!w || w.isDestroyed()) return;
+  // FULL-PAINT GUARD (v2.6.1 — office report: the login page appeared half-
+  // painted and typing echoed late). Never show the window while its page is
+  // still loading. In the normal path the renderer sends "win:renderer-
+  // ready" only AFTER React has mounted, the fonts settled and two frames
+  // composited, so isLoading is already false here. The guard holds the
+  // splash for the forced fallback paths too — a page that is still loading
+  // is shown only when `force` decides a wedged renderer must not hold the
+  // splash forever.
+  if (!force) {
+    try {
+      if (w.webContents.isLoading()) { bootLog("window:reveal-held", "page still loading"); return; }
+    } catch { /* destroyed mid-flight */ }
+  }
   mainRevealed = true;
   bootLog("window:revealed");
   try { w.show(); } catch { /* destroyed mid-flight */ }
@@ -145,8 +158,30 @@ function markStartupSettled(reason: string): void {
   bootLog("startup:settled", reason);
   revealMainWindow();
   // Work is done but the renderer may still be mounting. Don't hold the
-  // splash forever waiting for a signal a wedged renderer never sends.
-  setTimeout(() => { if (!mainRevealed) armReveal("post-startup-fallback"); }, 4_000).unref?.();
+  // splash forever waiting for a signal a wedged renderer never sends —
+  // but ALSO don't flash a half-loaded page (v2.6.1: the old 4 s force-
+  // reveal showed an unpainted login page on first runs, which the office
+  // read as "slow and glitchy"). Poll instead:
+  //   - page loaded but renderer silent (JS error, missing bridge) →
+  //     reveal at 6 s — waiting longer cannot improve a dead UI;
+  //   - absolute 20 s cap no matter what (the splash can never strand).
+  let fallbackTicks = 0;
+  const fallbackTimer = setInterval(() => {
+    if (mainRevealed) { clearInterval(fallbackTimer); return; }
+    fallbackTicks += 2;
+    let loaded = false;
+    try {
+      const w = mainWindow;
+      loaded = !!w && !w.isDestroyed() && !w.webContents.isLoading();
+    } catch { loaded = false; }
+    if (fallbackTicks >= 20 || (fallbackTicks >= 6 && loaded)) {
+      clearInterval(fallbackTimer);
+      bootLog("window:fallback-reveal", `${fallbackTicks}s loaded=${loaded}`);
+      armReveal("post-startup-fallback");
+      if (!mainRevealed) revealMainWindow(true);
+    }
+  }, 2_000);
+  fallbackTimer.unref?.();
 }
 
 /** A wedged import must not strand the splash forever, but a normal boot
@@ -406,13 +441,20 @@ function createWindow() {
     bootLog("window:unstrand");
     startupSettled = true;
     armReveal("unstrand");
+    // Absolute last resort (100 s): force past the paint guard — a wedged
+    // renderer must never hold the splash hostage forever.
+    if (!mainRevealed) revealMainWindow(true);
   }, 100_000);
   mainWindow.once("show", () => clearTimeout(unstrand));
   mainWindow.once("ready-to-show", () => {
+    // v2.6.1: LOG ONLY — do NOT arm the reveal here. ready-to-show fires
+    // before React has mounted, and the old 400 ms grace still revealed a
+    // half-painted login page on slow first runs (office report: fields
+    // popped in late, typing echoed late). The reveal waits for the
+    // renderer's own full-paint signal (App.tsx → win:renderer-ready after
+    // fonts.ready + two composited frames) or the bounded fallback in
+    // markStartupSettled.
     bootLog("window:ready-to-show");
-    // Short grace so the first frame is committed. revealMainWindow no-ops
-    // until startup work has also settled, and markStartupSettled retries.
-    setTimeout(() => armReveal("ready-to-show"), 400);
   });
   mainWindow.on("closed", () => {
     clearTimeout(unstrand);
@@ -602,13 +644,21 @@ app.whenReady().then(async () => {
   // still degrades (WhatsApp / updates unavailable this session) instead of
   // stranding the splash — capStartupWork below is the backstop if a load
   // wedges on antivirus.
+  // The WhatsApp MODULE (baileys — the heaviest import in the app) loads
+  // here, under the splash. The engine SOCKET start is deferred to after the
+  // login page is revealed (autoStartEngine below): the baileys handshake is
+  // CPU-heavy and v2.6.0 started it exactly when the login page appeared —
+  // the office reported typing echoing late on first paint. The WhatsApp
+  // page still connects on demand (its status polling auto-starts a paired
+  // session), so nothing user-visible needs the socket earlier. A failed
+  // import still degrades (WhatsApp unavailable this session) instead of
+  // stranding the splash — capStartupWork below is the backstop if a load
+  // wedges on antivirus.
+  let whatsappApi: { autoStartEngine(): void } | null = null;
   const whatsappReady = import("./whatsapp-ipc.js")
     .then((m) => {
-      // registerWhatsAppIpc returns the initial engine-setup promise (socket
-      // create). Waiting for it — still under the splash — is what keeps
-      // that burst off the visible window. The server handshake is not part
-      // of this promise.
-      return m.registerWhatsAppIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow);
+      whatsappApi = m;
+      return m.registerWhatsAppIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow, { autoStart: false });
     })
     .then(() => { bootLog("whatsapp:registered"); })
     .catch((err) => { console.warn("[whatsapp] engine unavailable this session:", (err as Error)?.message || err); bootLog("whatsapp:failed", String((err as Error)?.message || err)); });
@@ -1218,6 +1268,16 @@ app.whenReady().then(async () => {
   markStartupSettled("work-done");
   bootLog("boot:complete");
   scheduleMonthlyUpdateCheck(() => mainWindow);
+  // WhatsApp engine socket start — DEFERRED (v2.6.1). The baileys handshake
+  // (crypto bursts + 8 s-bounded version fetch) used to run exactly at the
+  // login page's first paint; the office reported typing lag. Start it once
+  // the page has been on screen for a while instead. Opening the WhatsApp
+  // page starts it on demand immediately (status polling), so the only
+  // visible difference is a few seconds of "disconnected" on the status
+  // strip right after launch.
+  setTimeout(() => {
+    try { whatsappApi?.autoStartEngine(); bootLog("whatsapp:engine-autostart"); } catch { /* session degraded */ }
+  }, 8_000).unref?.();
 
   // ===== Auto-backup timer =====
   // Checks settings.auto_backup every 10 minutes. If enabled and the last
@@ -1270,11 +1330,12 @@ app.whenReady().then(async () => {
     }
   };
   autoBackupTimer = setInterval(runAutoBackup, 10 * 60 * 1000); // every 10 min
-  // First check shortly after the window is up. DB init already finished
-  // under the splash, so this no longer races the open. Cleared on quit so
-  // a pending kick cannot reopen the database during teardown and keep the
-  // process alive.
-  autoBackupKick = setTimeout(() => { autoBackupKick = null; void runAutoBackup(); }, 30_000);
+  // First check 90 seconds after the window is up. DB init already finished
+  // under the splash, and the login page gets a full quiet minute before any
+  // backup I/O can run in the main process (v2.6.1: 30 s janked the first
+  // minute of use on mid-range machines). Cleared on quit so a pending kick
+  // cannot reopen the database during teardown and keep the process alive.
+  autoBackupKick = setTimeout(() => { autoBackupKick = null; void runAutoBackup(); }, 90_000);
   autoBackupKick.unref?.();
 }).catch((err) => {
   // BOOT FAIL-SAFE: ANY throw inside the boot body — a duplicate handler

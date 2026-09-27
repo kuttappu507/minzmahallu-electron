@@ -108,8 +108,28 @@ export default function App() {
     if (isUninstallMode) { document.body.classList.add("app-loaded"); return; }
     document.body.classList.add("app-loaded");
     const notify = () => { try { window.mms?.win?.rendererReady(); } catch { /* bridge absent (browser dev preview) */ } };
-    const t = setTimeout(notify, 120); // one beat past the first painted frame
-    return () => clearTimeout(t);
+    // v2.6.1 — FULL-PAINT signal. The old "mount + 120 ms beat" fired before
+    // the Malayalam/Latin fonts had swapped in on slower machines, so the
+    // main process could reveal a HALF-PAINTED login page (office report:
+    // fields popped in late and typing echoed late while the page settled).
+    // The window is revealed only after the fonts are ready AND two frames
+    // have actually been composited. Bounded by a 3 s cap so a wedged
+    // fonts.ready can never strand the splash (the main-process fallback
+    // caps the reveal regardless).
+    let done = false;
+    let cap: ReturnType<typeof setTimeout> | null = null;
+    let beat: ReturnType<typeof setTimeout> | null = null;
+    const fire = () => { if (done) return; done = true; notify(); };
+    const go = () => {
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (done) return;
+        beat = setTimeout(fire, 120); // one beat past the second painted frame
+        if (cap) { clearTimeout(cap); cap = null; }
+      }));
+    };
+    cap = setTimeout(fire, 3000);
+    if (document.fonts?.ready) { document.fonts.ready.then(go, go); } else { go(); }
+    return () => { done = true; if (cap) clearTimeout(cap); if (beat) clearTimeout(beat); };
   }, [isUninstallMode]);
   if (isUninstallMode) {
     return <UninstallConfirm />;

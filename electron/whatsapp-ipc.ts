@@ -11,7 +11,8 @@ let registered = false;
 
 export function registerWhatsAppIpc(
   getActor: () => Actor | null,
-  getWindow?: () => Electron.BrowserWindow | null
+  getWindow?: () => Electron.BrowserWindow | null,
+  opts: { autoStart?: boolean } = {}
 ): Promise<void> {
   if (registered) return Promise.resolve();
   registered = true;
@@ -90,15 +91,6 @@ export function registerWhatsAppIpc(
   register("whatsapp:retryFailed", (id: number) => { requireAuth(); return whatsapp.retryFailed(id); });
   register("whatsapp:runtimeState", () => { requireAuth(); return whatsapp.runtimeState(); });
 
-  // The WhatsApp engine lives in-process — nothing to spawn. When a paired
-  // session exists on disk it logs back in silently with the app; an
-  // unpaired machine stays idle until the user presses Connect (no QR
-  // handshake churn). The returned promise settles when that initial socket
-  // setup finishes (module already loaded; version fetch + socket create),
-  // so boot can keep the splash up until the heavy part is done. The server
-  // handshake itself stays in the background — it must not hold the splash
-  // hostage on a dead network.
-  const engineBoot = maybeStartEngine();
   // GRACEFUL QUIT — the "pairing gone after closing the app" guard:
   //   1. persist the session WHILE the socket is still alive (Baileys writes
   //      creds asynchronously, so a key rotation can still be in flight),
@@ -133,5 +125,25 @@ export function registerWhatsAppIpc(
       app.exit(0);
     })();
   });
-  return engineBoot;
+
+  // The WhatsApp engine lives in-process — nothing to spawn. When a paired
+  // session exists on disk it logs back in silently with the app; an
+  // unpaired machine stays idle until the user presses Connect (no QR
+  // handshake churn). v2.6.1: main.ts passes { autoStart:false } at boot —
+  // the socket start (version fetch + baileys handshake, CPU-heavy) used to
+  // run exactly when the login page appeared and the office reported typing
+  // lag. main.ts calls autoStartEngine() once the page has settled; the
+  // WhatsApp page ALSO auto-starts on demand via status polling, so nothing
+  // user-visible needs the socket earlier.
+  if (opts.autoStart === false) return Promise.resolve();
+  return maybeStartEngine();
+}
+
+/** Deferred engine start (v2.6.1) — called by main.ts AFTER the login page
+ *  is revealed and settled. No-op when the module was never registered
+ *  (import failed) — WhatsApp simply stays unavailable this session, exactly
+ *  like any other failed import. */
+export function autoStartEngine(): void {
+  if (!registered) return;
+  void maybeStartEngine();
 }

@@ -209,3 +209,76 @@ describe("splash paints even when ready-to-show never fires", () => {
     expect(splashSrc).toContain('id="splash-cap"');
   });
 });
+
+// v2.6.1 — office report on v2.6.0: the login page appeared HALF-PAINTED
+// and typing echoed late. Two causes, both pinned here:
+//   1. ready-to-show (+400 ms) and the old 4 s post-startup fallback
+//      revealed the window before React had mounted and the fonts had
+//      settled — on a slow first run the user could type into a page that
+//      was still building itself.
+//   2. The WhatsApp engine socket start (baileys handshake, CPU-heavy)
+//      fired exactly when the login page appeared.
+describe("the first appearance of the login page is fully painted", () => {
+  it("ready-to-show must NOT arm the reveal (log only)", () => {
+    const handler = MAIN.slice(MAIN.indexOf('mainWindow.once("ready-to-show"'));
+    expect(handler).toContain('bootLog("window:ready-to-show")');
+    const handlerBody = handler.slice(0, handler.indexOf("});"));
+    expect(handlerBody).not.toContain("armReveal(");
+    expect(handlerBody).not.toContain("show()");
+  });
+
+  it("revealMainWindow holds the splash while the page is still loading", () => {
+    const fn = MAIN.slice(MAIN.indexOf("function revealMainWindow("), MAIN.indexOf("function armReveal("));
+    // The paint guard: a page that is still loading must not be shown
+    // (unless a forced fallback decides a wedged renderer must not hold
+    // the splash forever).
+    expect(fn).toContain("force = false");
+    expect(fn).toContain("w.webContents.isLoading()");
+    expect(fn).toContain("if (!force) {");
+  });
+
+  it("the post-startup fallback is a bounded poll, not a 4 s force-reveal", () => {
+    const fn = MAIN.slice(MAIN.indexOf("function markStartupSettled("), MAIN.indexOf("/** A wedged import"));
+    expect(fn).toContain("setInterval");
+    // Page loaded but renderer silent → reveal at 6 s; absolute cap 20 s.
+    expect(fn).toContain("fallbackTicks >= 20");
+    expect(fn).toContain("fallbackTicks >= 6 && loaded");
+    // The forced reveal past the paint guard exists ONLY in this fallback.
+    expect(fn).toContain("revealMainWindow(true)");
+    // The old unconditional 4 s force-reveal is gone.
+    expect(fn).not.toContain('armReveal("post-startup-fallback"); }, 4_000)');
+  });
+
+  it("the renderer signals FULL paint: fonts ready + two composited frames", () => {
+    const appSrc = readFileSync(
+      fileURLToPath(new URL("../src/App.tsx", import.meta.url)),
+      "utf8"
+    );
+    expect(appSrc).toContain("document.fonts?.ready");
+    // Two rAFs = one full frame actually composited past the commit.
+    expect(appSrc.match(/requestAnimationFrame\(\(\) => requestAnimationFrame/u)).toBeTruthy();
+    // Bounded: a wedged fonts.ready can never strand the splash.
+    expect(appSrc).toContain("setTimeout(fire, 3000)");
+  });
+
+  it("the WhatsApp engine socket start is deferred until the page has settled", () => {
+    // Registered WITHOUT engine autostart at boot.
+    expect(MAIN).toContain("{ autoStart: false }");
+    // The deferred start happens only after boot:complete, 8 s in.
+    const revealIdx = MAIN.indexOf('markStartupSettled("work-done")');
+    const deferIdx = MAIN.indexOf("whatsappApi?.autoStartEngine()");
+    expect(deferIdx).toBeGreaterThan(revealIdx);
+    expect(MAIN).toContain("8_000");
+    // And whatsapp-ipc exports the deferred-start hook.
+    const ipcSrc = readFileSync(
+      fileURLToPath(new URL("./whatsapp-ipc.ts", import.meta.url)),
+      "utf8"
+    );
+    expect(ipcSrc).toContain("export function autoStartEngine()");
+    expect(ipcSrc).toContain("opts.autoStart === false");
+  });
+
+  it("auto-backup cannot run in the first minute of the login page", () => {
+    expect(MAIN).toContain("autoBackupKick = setTimeout(() => { autoBackupKick = null; void runAutoBackup(); }, 90_000);");
+  });
+});
