@@ -248,9 +248,11 @@ function baseCss(): string {
     .rc-meta>div:last-child{border-right:0}
     .rc-meta span{font-size:6.4pt;color:#5d6f67;letter-spacing:.3px}
     .rc-meta b{font-size:9pt}
-    /* min-height:0 + overflow:hidden — the body absorbs extreme content instead
-       of pushing the sign-off/security-code footer off the page. */
-    .rc-body{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;padding:3.8mm 5.5mm 2.8mm;gap:3mm}
+    /* Compacted paddings/gaps (user report: the amount box was getting cut):
+       the footer grew line by line over the releases, so the body — and with
+       it the bottom-pinned amount box — was left with too little of the
+       fixed 148mm card. Every mm reclaimed here goes to the amount box. */
+    .rc-body{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;padding:3.4mm 5.5mm 2.4mm;gap:2.6mm}
     .rc-party{border-bottom:.2mm dashed #c9d8d2;padding-bottom:2.6mm}
     .rc-party-cap{font-size:6.4pt;color:#84938c;letter-spacing:.3px}
     /* Labeled name/phone rows (user-requested format): small grey label,
@@ -262,38 +264,47 @@ function baseCss(): string {
     .rc-hon{font-size:8.5pt;font-weight:600;color:#5d6f67;letter-spacing:.2px}
     .rc-party-row.phone .rc-val-sm{font-size:9.5pt;font-weight:700}
     .rc-party-sub{font-size:8pt;color:#5d6f67;margin-top:1mm}
-    .rc-lines{display:flex;flex-direction:column;gap:2mm}
-    .rc-line{display:flex;justify-content:space-between;gap:4mm;font-size:8.6pt;border-bottom:.15mm solid #e7efeb;padding-bottom:1.5mm}
+    .rc-lines{display:flex;flex-direction:column;gap:1.7mm}
+    .rc-line{display:flex;justify-content:space-between;gap:4mm;font-size:8.6pt;border-bottom:.15mm solid #e7efeb;padding-bottom:1.3mm}
     .rc-line span{color:#5d6f67;font-size:7.4pt}
     .rc-line b{text-align:right}
-    .rc-amount{margin-top:auto;background:#f1f8f4;border:.3mm solid #9ec7b8;border-left:1.2mm solid #0d7a5f;border-radius:2mm;padding:2.8mm 4.2mm;display:flex;flex-direction:column;gap:.9mm}
+    .rc-amount{margin-top:auto;background:#f1f8f4;border:.3mm solid #9ec7b8;border-left:1.2mm solid #0d7a5f;border-radius:2mm;padding:2.6mm 4mm;display:flex;flex-direction:column;gap:.8mm}
     .rc-amount span{font-size:6.6pt;color:#4c5f56;letter-spacing:.5px}
     .rc-amount b{font-size:16pt;font-weight:800;color:#0a5c47;line-height:1.05}
-    .rc-amount small{font-size:6.6pt;color:#4c5f56;font-style:italic}
-    .rc-notes{font-size:7.2pt;color:#4c5f56;border-top:.2mm dashed #c9d8d2;padding-top:1.8mm}
-    .rc-foot-note{font-size:7.6pt;color:#0a5c47;font-weight:600}
-    .rc-foot{display:flex;flex-direction:column;justify-content:space-between;align-items:stretch;gap:1.4mm;padding:2.4mm 5.5mm 1.8mm;border-top:.3mm solid #d9e5e0;background:#fbfdfc}
+    .rc-amount small{font-size:6.4pt;color:#4c5f56;font-style:italic;line-height:1.3}
+    /* Notes and the balance foot-note sit AFTER the amount box and are the
+       only flex-shrinkable text in the body (min-height:0 + overflow:hidden):
+       when content runs tall, flex squeezes THESE first — the amount box can
+       no longer be the thing that clips (user report). */
+    .rc-notes{min-height:0;overflow:hidden;font-size:7pt;color:#4c5f56;border-top:.2mm dashed #c9d8d2;padding-top:1.5mm}
+    .rc-foot-note{min-height:0;overflow:hidden;font-size:7.4pt;color:#0a5c47;font-weight:600}
+    .rc-foot{display:flex;flex-direction:column;justify-content:space-between;align-items:stretch;gap:1mm;padding:2mm 5.5mm 1.4mm;border-top:.3mm solid #d9e5e0;background:#fbfdfc}
     /* Security code: one small full-width line UNDER the "For <mahallu>"
        sign-off (user request), separated by a hairline — now with the
        office-verification line under the code ("This can be verified at the
        Mahallu office" / ഇത് മഹല്ല് ഓഫീസിൽ പരിശോധിക്കാവുന്നതാണ്). The old
        side-by-side layout carried an app-verification hint — removed, because
        not every user has the app; the paper only carries the code itself. */
-    .rc-verify{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:.5mm;border-top:.2mm dashed #c9d8d2;padding-top:1.4mm}
-    .rc-vc-line{display:flex;justify-content:center;align-items:baseline;gap:1.6mm}
-    .rc-vcap{font-size:5.2pt;font-weight:700;color:#0a5c47;letter-spacing:.6px}
-    .rc-vcode{font-size:7.5pt;font-weight:800;letter-spacing:.8px;color:#0a5c47}
-    .rc-vwhere{font-size:5.4pt;color:#5d6f67;letter-spacing:.3px}
-    .rc-thanks{font-size:6.6pt;font-weight:600;color:#3c4a43;margin-bottom:.4mm}
+    /* Verification code + everything under it (user request: "adjust the
+       verification code and below text size to see the amount box"): one
+       compact stack on a tight line-height — the browser default ~1.5 was
+       silently costing ~9mm of card height across its 4 lines. */
+    .rc-verify{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:.3mm;border-top:.2mm dashed #c9d8d2;padding-top:1mm;line-height:1.25}
+    .rc-vc-line{display:flex;justify-content:center;align-items:baseline;gap:1.4mm}
+    .rc-vcap{font-size:4.8pt;font-weight:700;color:#0a5c47;letter-spacing:.6px}
+    .rc-vcode{font-size:6.6pt;font-weight:800;letter-spacing:.8px;color:#0a5c47}
+    .rc-vwhere{font-size:4.8pt;color:#5d6f67;letter-spacing:.3px}
+    .rc-thanks{font-size:6.2pt;font-weight:600;color:#3c4a43;margin-bottom:.2mm}
     /* Very last line of the receipt (user request): a tiny, quiet note that
        the paper is system-generated and needs no physical signature. */
-    .rc-digital{font-size:5.4pt;color:#84938c;text-align:center;letter-spacing:.3px}
+    .rc-digital{font-size:4.8pt;color:#84938c;text-align:center;letter-spacing:.3px}
     /* Signature block (bottom-right): the "signed" mark over the Secretary
-       line over the mahallu name — the classic Kerala receipt sign-off. */
-    .rc-sign{text-align:right;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:.6mm;min-width:30mm}
-    .rc-sd{font-size:8.4pt;font-weight:600;font-style:italic;color:#2c3a33}
-    .rc-sec{font-size:8pt;font-weight:700;letter-spacing:.3px;color:#101a14}
-    .rc-for-line{font-size:7.6pt;color:#101a14;font-weight:700}
+       line over the mahallu name — the classic Kerala receipt sign-off.
+       Tight line-height + 0.4-0.6pt trims: same look, ~4mm less height. */
+    .rc-sign{text-align:right;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:.4mm;min-width:30mm;line-height:1.25}
+    .rc-sd{font-size:7.8pt;font-weight:600;font-style:italic;color:#2c3a33}
+    .rc-sec{font-size:7.4pt;font-weight:700;letter-spacing:.3px;color:#101a14}
+    .rc-for-line{font-size:7.2pt;color:#101a14;font-weight:700}
   `;
 }
 

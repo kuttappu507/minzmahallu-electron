@@ -253,4 +253,30 @@ describe("A6 receipt template", () => {
     expect(html).toContain("DON-045");
     expect(html).toContain("5 receipts"); // footer count
   });
+
+  it("footer stack is compact so the amount box is never cut (user report)", () => {
+    // User report (v2.6.1): "in receipt pdf the amount box is cut, adjust the
+    // verification code and below text size to see the amount box". The card
+    // is a fixed-height flex column — a tall footer squeezed the body until
+    // the bottom-pinned amount box clipped. These pins hold the reclaim:
+    const css = buildReceiptHtml(donation, "en").split("</style>")[0];
+    // Verification code line + everything under it, shrunk:
+    expect(css).toContain(".rc-vcode{font-size:6.6pt");
+    expect(css).toContain(".rc-vcap{font-size:4.8pt");
+    expect(css).toContain(".rc-vwhere{font-size:4.8pt");
+    expect(css).toContain(".rc-digital{font-size:4.8pt");
+    // …running on a tight line-height (the default ~1.5 was costing ~9mm):
+    expect(css).toContain(".rc-verify{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:.3mm;border-top:.2mm dashed #c9d8d2;padding-top:1mm;line-height:1.25}");
+    expect(css).toMatch(/\.rc-sign\{[^}]*line-height:1\.25\}/);
+    // Notes / balance foot-note sit AFTER the amount box and must be the
+    // flex shrink-absorbers — extreme notes squeeze first, never the amount:
+    expect(css).toMatch(/\.rc-notes\{min-height:0;overflow:hidden;/);
+    expect(css).toMatch(/\.rc-foot-note\{min-height:0;overflow:hidden;/);
+    // The amount figure itself stays the hero of the card:
+    expect(css).toContain(".rc-amount b{font-size:16pt");
+    // The compaction lives in baseCss, so the 4-per-A4 sheet inherits it:
+    const sheetCss = buildReceiptSheetHtml([donation], "en").split("</style>")[0];
+    expect(sheetCss).toContain(".rc-vcode{font-size:6.6pt");
+    expect(sheetCss).toMatch(/\.rc-notes\{min-height:0;overflow:hidden;/);
+  });
 });
