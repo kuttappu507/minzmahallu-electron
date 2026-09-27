@@ -22,7 +22,7 @@ import { buildRegisterBookHtml } from "./print/register-book.template.js";
 import { getAnekMalayalamCss, getPoppinsCss } from "./print/utils.js";
 import { registerSecurityIpc } from "./security-ipc.js";
 import { registerReceiptIpc } from "./receipt-ipc.js";
-import { createSplashWindow, closeSplash } from "./splash-window.js";
+import { createSplashWindow, closeSplash, showSplash } from "./splash-window.js";
 import { verifyUninstallPassword, UNINSTALL_ADMIN_SQL } from "./services/uninstall-guard.js";
 import { registerUpdateIpc, scheduleMonthlyUpdateCheck } from "./update-check.js";
 import { fileNameSafe } from "./services/doc-number.service.js";
@@ -52,6 +52,11 @@ if (process.platform === "win32") {
 }
 
 let mainWindow: BrowserWindow | null = null;
+// True once the first main window has been created (all IPC handlers are
+// registered by then). The "second-instance" handler uses it to tell a boot
+// still in progress (surface the splash) from a running-but-windowless
+// instance (revive the window) — see the zombie-guard comment there.
+let bootComplete = false;
 // Rolling crash-reload guard for the main window's renderer (see createWindow).
 let rendererReloadTimestamps: number[] = [];
 const session = { user: null as null | { id: number; username: string; fullName: string; role: string } };
@@ -103,6 +108,21 @@ if (!gotSingleInstanceLock) {
         mainWindow.show();
         mainWindow.focus();
       } catch { /* window destroyed mid-flight */ }
+    } else if (bootComplete) {
+      // WINDOWLESS REVIVAL (zombie guard): this instance still holds the
+      // single-instance lock but has no window — a wedged teardown, an
+      // aborted quit or a destroyed renderer could all leave that state.
+      // Without this branch every further click on the icon would die
+      // silently here ("splash not coming at all, app not coming, only
+      // Task Manager rows") until the user manually killed the process.
+      // Recreating the window is safe: every IPC handler is registered
+      // already (bootComplete), and createWindow is idempotent w.r.t. them.
+      try { createWindow(); } catch { /* next click retries */ }
+    } else {
+      // Boot still in progress (heavy modules still loading under the
+      // splash): a second click must never look dead — bring the splash to
+      // the front (or put one up if it failed to paint).
+      showSplash();
     }
   });
 }
@@ -357,6 +377,14 @@ function createUninstallVerifyWindow() {
 // (the duplicates that used to sit here were removed in the dead-code purge).
 
 app.whenReady().then(async () => {
+  // LOCKLESS GUARD (zombie guard): a launch that lost the single-instance
+  // race already called app.quit() at module level. If the ready event still
+  // fires while that quit is in flight, running the boot here could create a
+  // window mid-quit and abort it — leaving a second live instance (splash
+  // only, no real window, holding nothing) racing the first one for the DB.
+  // Exit hard instead: this process must never build windows or handlers.
+  if (!gotSingleInstanceLock) { app.exit(0); return; }
+
   // ===== Uninstall verification mode (launched by the NSIS uninstaller) =====
   // Only the tiny verify window + its IPC run. No main window, no WhatsApp
   // engine, no auto-backup timer, and — crucially — no DB creation: an
@@ -391,6 +419,20 @@ app.whenReady().then(async () => {
   // user is already looking at the branded splash instead of a dead desktop.
   createSplashWindow();
 
+  // BACKGROUND LOAD (slow-boot fix, user report: first launch after install
+  // "took too much time", later launches sometimes showed nothing at all):
+  // the baileys-bearing whatsapp-ipc module is the heaviest import in the
+  // app. Start it right here so it loads IN PARALLEL with the data-file
+  // chores and the dozens of ipcMain.handle registrations below, instead of
+  // the whole boot serially waiting for it. The registration happens inside
+  // the .then exactly once; further down the boot only RACES against this
+  // promise with a hard 15 s cap, so even a wedged import (antivirus scan,
+  // failing disk) can delay the first window by at most 15 s — never block
+  // it forever, and never leave the splash up with no window behind it.
+  const whatsappReady: Promise<void> = import("./whatsapp-ipc.js")
+    .then((m) => { m.registerWhatsAppIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow); })
+    .catch((err) => { console.warn("[whatsapp] engine unavailable this session:", (err as Error)?.message || err); });
+
   // Normal boot: bilingual "do not delete" note inside the data folder, so
   // nobody tidies AppData and wipes the mahallu database + backups.
   try {
@@ -424,7 +466,11 @@ app.whenReady().then(async () => {
   // In-app download + install (electron-updater) — engages when the user
   // accepts the banner; browser download stays as fallback. The module (and
   // electron-updater with it) loads under the splash, not at process start.
-  { const { registerAutoUpdater } = await import("./auto-update.js"); registerAutoUpdater(() => mainWindow); }
+  // Wrapped: an updater load failure (corrupt cache, AV interference) must
+  // degrade to "no update banner", never kill the boot chain — an unwrapped
+  // rejection here used to strand the app on the splash with no window.
+  try { const { registerAutoUpdater } = await import("./auto-update.js"); registerAutoUpdater(() => mainWindow); }
+  catch (err) { console.warn("[update] updater unavailable this session:", (err as Error)?.message || err); }
   ipcMain.handle("auth:login", (_e, username: string, password: string) => { try { const user = login(username, password); session.user = { id: user.id, username: user.username, fullName: user.fullName, role: user.role }; try { data.audit.log(user.id, user.username, "LOGIN", "auth", user.id, "User logged in", ""); } catch {} return { success: true, user }; } catch (err: any) { return { success: false, error: err.message }; } });
   ipcMain.handle("auth:logout", () => { if (session.user) { try { data.audit.log(session.user.id, session.user.username, "LOGOUT", "auth", session.user.id, "User logged out", ""); } catch {} } session.user = null; return { success: true }; });
   ipcMain.handle("auth:currentUser", () => session.user);
@@ -940,12 +986,17 @@ app.whenReady().then(async () => {
     } catch (err: any) { return { success: false, error: err.message }; }
   });
   // The whatsapp-ipc module pulls the whole baileys engine into the process
-  // (libsignal + socket stack is the heaviest import in the app) — loaded
-  // here, under the splash, right before its handlers register. Registration
-  // order relative to security-ipc/receipt-ipc is unchanged.
-  { const { registerWhatsAppIpc } = await import("./whatsapp-ipc.js"); registerWhatsAppIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow); }
+  // (libsignal + socket stack is the heaviest import in the app). It was
+  // STARTED at the top of whenReady (background, under the splash); here we
+  // only wait for it — capped at 15 s so a hung load can never keep the
+  // first window hidden. If the cap wins, the window is created anyway and
+  // the WhatsApp handlers register whenever the import finally completes.
+  await Promise.race([whatsappReady, new Promise((resolve) => setTimeout(resolve, 15_000))]);
   registerReceiptIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow);
   createWindow();
+  // From this tick on, a second-instance event can safely (re)create the
+  // window — every handler it may call is registered.
+  bootComplete = true;
   // Warm the offscreen PDF window a moment after start-up: receipts,
   // certificates and statements then render in an already-running hidden
   // window instead of spawning a renderer process on the first click
@@ -1012,12 +1063,31 @@ app.whenReady().then(async () => {
 app.on("window-all-closed", () => {
   // Uninstall gate: window closed without a decision means "declined".
   if (isUninstallVerify) { try { closeDB(); } catch {} app.exit(1); return; }
-  closeDB(); if (process.platform !== "darwin") app.quit();
+  // closeDB is guarded: better-sqlite3's close() throws when a statement or
+  // transaction is still in flight, and an unguarded throw here would skip
+  // the app.quit() below — leaving a WINDOWLESS PROCESS that still holds the
+  // single-instance lock. That is precisely the reported "splash not coming
+  // at all, app not coming, only Task Manager rows" zombie: every later
+  // launch loses the lock and quits silently. The database also closes in
+  // before-quit (and better-sqlite3 flushes on process exit), so a failed
+  // close here must never be allowed to keep the process alive.
+  try { closeDB(); } catch (err) { console.warn("[quit] closeDB failed during exit:", err); }
+  if (process.platform !== "darwin") {
+    app.quit();
+    // Hard-exit safety net: app.quit() is cooperative (listeners get a say).
+    // The WhatsApp graceful-quit handler is bounded at 9 s, so if this
+    // process is STILL alive 15 s after its last window closed, nothing good
+    // can happen anymore — exit unconditionally rather than linger as a
+    // lock-holding, invisible zombie.
+    setTimeout(() => { try { if (BrowserWindow.getAllWindows().length === 0) app.exit(0); } catch { app.exit(0); } }, 15_000).unref?.();
+  }
 });
 app.on("before-quit", () => {
   closeConfirmed = true;
   // Release the warm offscreen PDF window: the app is going down, and the
   // WhatsApp quit handler that runs next must not race a hidden renderer.
   try { disposePdfRenderer(); } catch { /* best effort */ }
-  closeDB();
+  // Guarded (see window-all-closed): a throwing closeDB here would abort the
+  // listener chain before the WhatsApp graceful-quit handler runs.
+  try { closeDB(); } catch (err) { console.warn("[quit] closeDB failed:", err); }
 });

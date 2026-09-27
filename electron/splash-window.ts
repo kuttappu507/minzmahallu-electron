@@ -142,6 +142,11 @@ export function createSplashWindow(): void {
     // Above everything while starting (the real window takes over when ready).
     splashWin.setAlwaysOnTop(true, "screen-saver");
     splashWin.once("ready-to-show", () => { try { splashWin?.show(); } catch { /* closing */ } });
+    // Paint fallback: "ready-to-show" depends on the splash's own renderer
+    // compositing. If it never fires on some GPU/driver, the user gets the
+    // exact reported "splash not coming at all" — force-show after 1.5 s so
+    // the splash is at least visible even if its content paints late.
+    setTimeout(() => { try { if (splashWin && !splashWin.isDestroyed() && !splashWin.isVisible()) splashWin.show(); } catch { /* closing */ } }, 1500);
     splashWin.on("closed", () => { splashWin = null; });
     void splashWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
   } catch (e) {
@@ -156,5 +161,19 @@ export function closeSplash(): void {
   splashWin = null;
   if (w && !w.isDestroyed()) {
     try { w.close(); } catch { /* already gone */ }
+  }
+}
+
+/** Surfaces the splash for the "second-instance" path: while the boot is
+ *  still running (heavy modules loading), a second click on the desktop icon
+ *  must never look dead — raise the existing splash, or create one if it
+ *  failed to open/paint. Pairs with the windowless-revival branch in
+ *  main.ts' second-instance handler (which recreates the REAL window once
+ *  the boot is complete). */
+export function showSplash(): void {
+  if (splashWin && !splashWin.isDestroyed()) {
+    try { splashWin.show(); splashWin.focus(); } catch { /* already closing */ }
+  } else {
+    createSplashWindow();
   }
 }

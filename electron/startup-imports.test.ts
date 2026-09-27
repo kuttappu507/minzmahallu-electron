@@ -41,7 +41,10 @@ describe("main.ts startup imports stay light (instant splash)", () => {
   });
 
   it("loads the heavy modules dynamically, under the splash", () => {
-    expect(mainSrc).toContain('await import("./whatsapp-ipc.js")');
+    // whatsapp-ipc is started in the BACKGROUND right after the splash goes
+    // up (see the zombie/slow-boot guard in main.ts) and awaited behind a
+    // hard race cap before createWindow — still a dynamic import either way.
+    expect(mainSrc).toContain('import("./whatsapp-ipc.js")');
     expect(mainSrc).toContain('import("./services/whatsapp.service.js")');
     expect(mainSrc).toContain('await import("./auto-update.js")');
     expect(mainSrc).toContain('await import("exceljs")');
