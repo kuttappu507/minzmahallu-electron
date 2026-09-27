@@ -23,6 +23,7 @@ import { getAnekMalayalamCss, getPoppinsCss } from "./print/utils.js";
 import { registerSecurityIpc } from "./security-ipc.js";
 import { registerReceiptIpc } from "./receipt-ipc.js";
 import { createSplashWindow, closeSplash, showSplash } from "./splash-window.js";
+import { bootLog, bootLogError } from "./boot-log.js";
 import { verifyUninstallPassword, UNINSTALL_ADMIN_SQL } from "./services/uninstall-guard.js";
 import { registerUpdateIpc, scheduleMonthlyUpdateCheck } from "./update-check.js";
 import { fileNameSafe } from "./services/doc-number.service.js";
@@ -126,6 +127,21 @@ if (!gotSingleInstanceLock) {
     }
   });
 }
+
+// STARTUP DIAGNOSTICS (v2.5.1): every launch records its boot steps (with
+// process.uptime() stamps, so even pre-JS init delays are visible) to
+// <userData>/logs/boot.log. Process-level handlers make sure a stray
+// rejection can never again kill the boot SILENTLY — the failure lands in
+// the log AND the window is still created by the whenReady .catch below.
+bootLog("main-module-loaded");
+process.on("unhandledRejection", (reason) => {
+  bootLogError("unhandledRejection", reason);
+  console.warn("[boot] unhandled rejection:", reason);
+});
+process.on("uncaughtException", (err) => {
+  bootLogError("uncaughtException", err);
+  console.warn("[boot] uncaught exception:", err);
+});
 
 // ---------------------------------------------------------------------------
 // Data folder: short "mms" directory inside the OS app-data area (hidden from
@@ -278,12 +294,13 @@ function createWindow() {
   const revealMain = () => {
     if (revealed || !mainWindow || mainWindow.isDestroyed()) return;
     revealed = true;
+    bootLog("window:revealed");
     try { mainWindow.show(); } catch { /* destroyed mid-flight */ }
     closeSplash();
   };
   const unstrand = setTimeout(revealMain, 12000);
   mainWindow.once("show", () => clearTimeout(unstrand));
-  mainWindow.once("ready-to-show", () => { setTimeout(revealMain, 800); });
+  mainWindow.once("ready-to-show", () => { bootLog("window:ready-to-show"); setTimeout(revealMain, 800); });
   mainWindow.on("closed", () => { clearTimeout(unstrand); mainWindow = null; });
   // Occasional-freeze resilience (user report: freezes on mid-range machines,
   // smooth on low-end). A crashed MAIN renderer leaves a blank or frozen-
@@ -384,6 +401,7 @@ app.whenReady().then(async () => {
   // only, no real window, holding nothing) racing the first one for the DB.
   // Exit hard instead: this process must never build windows or handlers.
   if (!gotSingleInstanceLock) { app.exit(0); return; }
+  bootLog("whenReady:enter");
 
   // ===== Uninstall verification mode (launched by the NSIS uninstaller) =====
   // Only the tiny verify window + its IPC run. No main window, no WhatsApp
@@ -418,20 +436,22 @@ app.whenReady().then(async () => {
   // modules (baileys chain, exceljs, electron-updater) all now run while the
   // user is already looking at the branded splash instead of a dead desktop.
   createSplashWindow();
+  bootLog("splash:created");
 
-  // BACKGROUND LOAD (slow-boot fix, user report: first launch after install
-  // "took too much time", later launches sometimes showed nothing at all):
+  // BACKGROUND LOAD (v2.5.1 — the WhatsApp engine NO LONGER GATES the first
+  // window; user report on v2.5.0: "splash comes then same", i.e. the splash
+  // sat on screen while the boot was still waiting for the heavy import):
   // the baileys-bearing whatsapp-ipc module is the heaviest import in the
-  // app. Start it right here so it loads IN PARALLEL with the data-file
-  // chores and the dozens of ipcMain.handle registrations below, instead of
-  // the whole boot serially waiting for it. The registration happens inside
-  // the .then exactly once; further down the boot only RACES against this
-  // promise with a hard 15 s cap, so even a wedged import (antivirus scan,
-  // failing disk) can delay the first window by at most 15 s — never block
-  // it forever, and never leave the splash up with no window behind it.
-  const whatsappReady: Promise<void> = import("./whatsapp-ipc.js")
-    .then((m) => { m.registerWhatsAppIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow); })
-    .catch((err) => { console.warn("[whatsapp] engine unavailable this session:", (err as Error)?.message || err); });
+  // app, so it starts right here IN PARALLEL with the data-file chores and
+  // the dozens of ipcMain.handle registrations below — and the boot simply
+  // never waits for it. Nothing the login window does needs WhatsApp: the
+  // handlers register whenever the import completes (typically a few seconds
+  // later, worst case minutes on a first run while antivirus scans every
+  // file — the WhatsApp page then works with no further wait), and a failed
+  // import degrades to "WhatsApp unavailable this session" exactly as before.
+  void import("./whatsapp-ipc.js")
+    .then((m) => { m.registerWhatsAppIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow); bootLog("whatsapp:registered"); })
+    .catch((err) => { console.warn("[whatsapp] engine unavailable this session:", (err as Error)?.message || err); bootLog("whatsapp:failed", String((err as Error)?.message || err)); });
 
   // Normal boot: bilingual "do not delete" note inside the data folder, so
   // nobody tidies AppData and wipes the mahallu database + backups.
@@ -459,18 +479,20 @@ app.whenReady().then(async () => {
     }
   } catch {}
 
-  try { data.subscriptions.ensureCurrentMonth(); } catch (err) { console.warn("[subscriptions] monthly generation deferred:", err); }
   // Monthly GitHub release check (Settings → About can also check on demand).
   registerUpdateIpc(() => mainWindow);
   scheduleMonthlyUpdateCheck(() => mainWindow);
   // In-app download + install (electron-updater) — engages when the user
   // accepts the banner; browser download stays as fallback. The module (and
   // electron-updater with it) loads under the splash, not at process start.
-  // Wrapped: an updater load failure (corrupt cache, AV interference) must
-  // degrade to "no update banner", never kill the boot chain — an unwrapped
-  // rejection here used to strand the app on the splash with no window.
-  try { const { registerAutoUpdater } = await import("./auto-update.js"); registerAutoUpdater(() => mainWindow); }
-  catch (err) { console.warn("[update] updater unavailable this session:", (err as Error)?.message || err); }
+  // v2.5.1: fire-and-forget — the boot no longer even awaits the MODULE LOAD
+  // (the previous `await import` was uncapped and sat on the critical path;
+  // the first window must never wait for electron-updater). A load failure
+  // (corrupt cache, AV interference) degrades to "no update banner" and is
+  // recorded in the boot log.
+  void import("./auto-update.js")
+    .then((m) => { m.registerAutoUpdater(() => mainWindow); bootLog("updater:wired"); })
+    .catch((err) => { console.warn("[update] updater unavailable this session:", (err as Error)?.message || err); bootLog("updater:failed", String((err as Error)?.message || err)); });
   ipcMain.handle("auth:login", (_e, username: string, password: string) => { try { const user = login(username, password); session.user = { id: user.id, username: user.username, fullName: user.fullName, role: user.role }; try { data.audit.log(user.id, user.username, "LOGIN", "auth", user.id, "User logged in", ""); } catch {} return { success: true, user }; } catch (err: any) { return { success: false, error: err.message }; } });
   ipcMain.handle("auth:logout", () => { if (session.user) { try { data.audit.log(session.user.id, session.user.username, "LOGOUT", "auth", session.user.id, "User logged out", ""); } catch {} } session.user = null; return { success: true }; });
   ipcMain.handle("auth:currentUser", () => session.user);
@@ -987,16 +1009,29 @@ app.whenReady().then(async () => {
   });
   // The whatsapp-ipc module pulls the whole baileys engine into the process
   // (libsignal + socket stack is the heaviest import in the app). It was
-  // STARTED at the top of whenReady (background, under the splash); here we
-  // only wait for it — capped at 15 s so a hung load can never keep the
-  // first window hidden. If the cap wins, the window is created anyway and
-  // the WhatsApp handlers register whenever the import finally completes.
-  await Promise.race([whatsappReady, new Promise((resolve) => setTimeout(resolve, 15_000))]);
+  // STARTED at the top of whenReady (background, under the splash) and — as
+  // of v2.5.1 — the boot does NOT wait for it AT ALL anymore: the old
+  // 15-second race against the WhatsApp load still made the first window
+  // wait up to 15 seconds behind the splash (user report: "splash comes then
+  // same"). Nothing the login window does needs WhatsApp, so the window is
+  // created immediately; the engine registers whenever its import finishes
+  // and simply answers calls from that moment on.
   registerReceiptIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow);
+  bootLog("ipc:registered");
   createWindow();
   // From this tick on, a second-instance event can safely (re)create the
   // window — every handler it may call is registered.
   bootComplete = true;
+  bootLog("boot:complete");
+  // Monthly subscription generation (v2.5.1: moved OFF the critical path —
+  // it used to run before the window and on a first run it pays for the
+  // first DB open + schema/migrations + row generation, all synchronous).
+  // Deferred until the window is up; the login screen buys minutes of slack,
+  // and the operation itself is guarded exactly as before.
+  setTimeout(() => {
+    try { data.subscriptions.ensureCurrentMonth(); bootLog("subscriptions:month-ensured"); }
+    catch (err) { console.warn("[subscriptions] monthly generation deferred:", err); }
+  }, 1500).unref?.();
   // Warm the offscreen PDF window a moment after start-up: receipts,
   // certificates and statements then render in an already-running hidden
   // window instead of spawning a renderer process on the first click
@@ -1059,6 +1094,16 @@ app.whenReady().then(async () => {
   autoBackupTimer = setInterval(runAutoBackup, 10 * 60 * 1000); // every 10 min
   // Also run once 30 seconds after startup (to let DB init finish).
   setTimeout(runAutoBackup, 30000);
+}).catch((err) => {
+  // BOOT FAIL-SAFE (v2.5.1): until now ANY throw inside the boot body — a
+  // duplicate handler registration, an unexpected data error — rejected this
+  // promise with no listener, and the app died SILENTLY on the splash with
+  // no window and no clue (the exact "splash comes then same" report).
+  // Record it and still try to put the window up: a half-booted app the user
+  // can SEE (and whose boot.log we can read) beats a silent splash forever.
+  bootLogError("whenReady", err);
+  console.error("[boot] whenReady failed:", err);
+  try { createWindow(); } catch { /* nothing further we can do */ }
 });
 app.on("window-all-closed", () => {
   // Uninstall gate: window closed without a decision means "declined".
@@ -1072,6 +1117,7 @@ app.on("window-all-closed", () => {
   // before-quit (and better-sqlite3 flushes on process exit), so a failed
   // close here must never be allowed to keep the process alive.
   try { closeDB(); } catch (err) { console.warn("[quit] closeDB failed during exit:", err); }
+  bootLog("quit:window-all-closed");
   if (process.platform !== "darwin") {
     app.quit();
     // Hard-exit safety net: app.quit() is cooperative (listeners get a say).
@@ -1084,6 +1130,7 @@ app.on("window-all-closed", () => {
 });
 app.on("before-quit", () => {
   closeConfirmed = true;
+  bootLog("quit:before-quit");
   // Release the warm offscreen PDF window: the app is going down, and the
   // WhatsApp quit handler that runs next must not race a hidden renderer.
   try { disposePdfRenderer(); } catch { /* best effort */ }

@@ -42,25 +42,34 @@ describe("main.ts startup imports stay light (instant splash)", () => {
 
   it("loads the heavy modules dynamically, under the splash", () => {
     // whatsapp-ipc is started in the BACKGROUND right after the splash goes
-    // up (see the zombie/slow-boot guard in main.ts) and awaited behind a
-    // hard race cap before createWindow — still a dynamic import either way.
+    // up (see the zombie/slow-boot guard in main.ts) and — since v2.5.1 — is
+    // never awaited by the boot: the first window does not wait for it.
     expect(mainSrc).toContain('import("./whatsapp-ipc.js")');
     expect(mainSrc).toContain('import("./services/whatsapp.service.js")');
-    expect(mainSrc).toContain('await import("./auto-update.js")');
+    expect(mainSrc).toContain('import("./auto-update.js")');
     expect(mainSrc).toContain('await import("exceljs")');
+  });
+
+  it("never awaits the whatsapp-ipc or auto-update imports on the boot path (v2.5.1)", () => {
+    expect(mainSrc).not.toContain('await import("./whatsapp-ipc.js")');
+    expect(mainSrc).not.toContain('await import("./auto-update.js")');
   });
 
   it("creates the native splash before any other boot work and closes it on first show", () => {
     const splashCreate = mainSrc.indexOf("createSplashWindow()");
     expect(splashCreate).toBeGreaterThan(-1);
-    // The splash must be created BEFORE the monthly subscription generation
-    // and every IPC registration — i.e. it is the first statement after the
-    // uninstall-verify branch inside whenReady.
+    // The splash must be created BEFORE every IPC registration — i.e. it is
+    // the first statement after the uninstall-verify branch inside whenReady.
+    // Monthly subscription generation is DEFERRED to after the first window
+    // (v2.5.1): on a first run it pays for the DB open + schema + generation
+    // synchronously and must never delay the window.
     const afterSplash = mainSrc.slice(splashCreate);
-    expect(afterSplash.indexOf("ensureCurrentMonth")).toBeGreaterThan(-1);
-    expect(afterSplash.indexOf("ensureCurrentMonth")).toBeLessThan(
-      afterSplash.indexOf("createWindow()")
-    );
+    const createWindowIdx = afterSplash.indexOf("createWindow()");
+    expect(createWindowIdx).toBeGreaterThan(-1);
+    // The unique marker of the DEFERRED generation call (the plain
+    // "ensureCurrentMonth" substring also appears in the IPC handler name
+    // registration, which legitimately sits before the window).
+    expect(afterSplash.indexOf('bootLog("subscriptions:month-ensured")')).toBeGreaterThan(createWindowIdx);
     expect(mainSrc).toContain("closeSplash()");
   });
 });

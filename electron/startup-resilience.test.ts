@@ -18,9 +18,13 @@ import { describe, expect, it } from "vitest";
 //   3. A second-instance click NEVER looks dead: boot in progress raises the
 //      splash, boot finished with no window revives the real window.
 //   4. The boot can no longer wedge before the first window: the heavy
-//      WhatsApp import starts in the background and is raced against a hard
-//      15 s cap, and a failed auto-updater import degrades instead of
-//      stranding the splash with no window behind it.
+//      WhatsApp import runs in the BACKGROUND and the first window is NOT
+//      gated on it at all (v2.5.1 — the old 15 s race still left the splash
+//      staring at the user for up to 15 s), the auto-updater import is
+//      fire-and-forget, and a throw anywhere in the boot body is caught by
+//      the whenReady .catch which still creates the window. Every step is
+//      recorded to <userData>/logs/boot.log so the next failure report can
+//      be diagnosed instead of guessed at.
 const MAIN = readFileSync(
   fileURLToPath(new URL("./main.ts", import.meta.url)),
   "utf8"
@@ -95,20 +99,42 @@ describe("the boot can never wedge before the first window", () => {
     expect(MAIN).toContain(".then((m) => { m.registerWhatsAppIpc(");
   });
 
-  it("races the WhatsApp load against a hard cap before creating the window", () => {
-    expect(MAIN).toContain(
-      "Promise.race([whatsappReady, new Promise((resolve) => setTimeout(resolve, 15_000))])"
-    );
-    const raceIdx = MAIN.indexOf("Promise.race([whatsappReady");
+  it("creates the first window WITHOUT waiting for the WhatsApp engine (v2.5.1)", () => {
+    // The old `Promise.race` against the engine load kept the splash up for
+    // up to 15 s; nothing the login window does needs WhatsApp, so there
+    // must be no await/gate of that import anywhere in the boot.
+    expect(MAIN).not.toContain("Promise.race([whatsappReady");
+    expect(MAIN).not.toMatch(/await[\s\S]{0,40}import\("\.\/whatsapp-ipc\.js"\)/);
+    // Receipt IPC (the last non-WhatsApp registration) still happens BEFORE
+    // the first createWindow, so a window can never call a missing handler.
+    const receiptIdx = MAIN.indexOf("registerReceiptIpc(");
     const createIdx = MAIN.indexOf("  createWindow();\n");
-    expect(raceIdx).toBeGreaterThan(-1);
-    expect(createIdx).toBeGreaterThan(raceIdx);
+    expect(receiptIdx).toBeGreaterThan(-1);
+    expect(receiptIdx).toBeLessThan(createIdx);
+  });
+
+  it("defers monthly subscription generation until after the window exists", () => {
+    const createIdx = MAIN.indexOf("  createWindow();\n");
+    const deferredIdx = MAIN.indexOf("setTimeout(() => {\n    try { data.subscriptions.ensureCurrentMonth();");
+    expect(deferredIdx).toBeGreaterThan(createIdx);
+  });
+
+  it("catches ANY throw in the boot body and still creates the window", () => {
+    // The whenReady chain must end in a .catch that records the failure and
+    // attempts createWindow — a silent rejection used to strand the splash.
+    expect(MAIN).toMatch(/\}\)\.catch\(\(err\) => \{[\s\S]*bootLogError\("whenReady", err\);[\s\S]*try \{ createWindow\(\); \} catch/);
+  });
+
+  it("logs stray rejections/exceptions instead of dying silently", () => {
+    expect(MAIN).toContain('process.on("unhandledRejection"');
+    expect(MAIN).toContain('process.on("uncaughtException"');
+    expect(MAIN).toContain('bootLog("main-module-loaded")');
   });
 
   it("wraps the auto-updater import so its failure cannot strand the splash", () => {
-    expect(MAIN).toMatch(
-      /try \{ const \{ registerAutoUpdater \} = await import\("\.\/auto-update\.js"\); registerAutoUpdater\(\(\) => mainWindow\); \}\s*\n\s*catch/
-    );
+    // v2.5.1: fire-and-forget — not even the module load is awaited.
+    expect(MAIN).toMatch(/void import\("\.\/auto-update\.js"\)\s*\n\s*\.then\(\(m\) => \{ m\.registerAutoUpdater/);
+    expect(MAIN).not.toContain('await import("./auto-update.js")');
   });
 });
 
