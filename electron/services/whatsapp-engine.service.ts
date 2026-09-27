@@ -1030,13 +1030,18 @@ export async function startEngine(voluntary = false): Promise<void> {
 /** Auto-start from status polling — only when a paired session exists (no
  *  pointless QR handshakes for unpaired machines), within the backoff, and
  *  not while the flap detector has halted automatic reconnects (a manual
- *  Connect is the deliberate retry then). */
-export function maybeStartEngine(): void {
-  if (sock || startPromise || intentionalStop || flapHalted) return;
-  if (!hasPersistedSession()) return;
-  if (Date.now() - lastAutoAttempt < AUTO_START_BACKOFF_MS) return;
+ *  Connect is the deliberate retry then).
+ *  Resolves when the initial socket setup has finished (or immediately when
+ *  there is nothing to start). Does NOT wait for the server handshake —
+ *  that can sit on CONNECTING for as long as the network wants. Callers that
+ *  ignore the promise keep the old fire-and-forget behaviour. */
+export function maybeStartEngine(): Promise<void> {
+  if (sock || intentionalStop || flapHalted) return Promise.resolve();
+  if (startPromise) return startPromise.then(() => undefined, () => undefined);
+  if (!hasPersistedSession()) return Promise.resolve();
+  if (Date.now() - lastAutoAttempt < AUTO_START_BACKOFF_MS) return Promise.resolve();
   lastAutoAttempt = Date.now();
-  startEngine().catch(() => { /* recorded in state */ });
+  return startEngine().then(() => undefined, () => { /* recorded in state */ });
 }
 
 /**** Graceful-quit auth flush — makes "connection gone after closing" impossible.
