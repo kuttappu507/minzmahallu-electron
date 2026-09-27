@@ -453,22 +453,25 @@ function createWindow() {
   // Once the close is real, drop hidden windows FIRST so they cannot keep
   // the process (and the single-instance lock) alive after the UI is gone.
   mainWindow.on("close", (e) => {
-    const crashed = !mainWindow || mainWindow.isDestroyed()
-      || mainWindow.webContents.isCrashed()
-      || !mainWindow.webContents
-      || mainWindow.webContents.isDestroyed();
+    // Local alias: TS cannot narrow the captured module-level `mainWindow`
+    // through the `crashed` predicate below (tsc -p electron: TS18047).
+    const w = mainWindow;
+    const crashed = !w || w.isDestroyed()
+      || w.webContents.isCrashed()
+      || !w.webContents
+      || w.webContents.isDestroyed();
     if (closeConfirmed || crashed) {
       releaseHiddenWindows();
       return;
     }
     e.preventDefault();
-    try { mainWindow.webContents.send("win:ask-close-confirm"); }
+    try { w.webContents.send("win:ask-close-confirm"); }
     catch {
       // Renderer can't show the dialog — don't trap a window the user can
       // never close. Quit.
       closeConfirmed = true;
       releaseHiddenWindows();
-      setImmediate(() => { try { mainWindow?.close(); } catch { /* gone */ } });
+      setImmediate(() => { try { w.close(); } catch { /* gone */ } });
     }
   });
   if (process.env.NODE_ENV === "development" || process.env.VITE_DEV_SERVER_URL) {
