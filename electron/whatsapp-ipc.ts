@@ -12,8 +12,8 @@ let registered = false;
 export function registerWhatsAppIpc(
   getActor: () => Actor | null,
   getWindow?: () => Electron.BrowserWindow | null
-) {
-  if (registered) return;
+): Promise<void> {
+  if (registered) return Promise.resolve();
   registered = true;
   whatsapp.init();
   // Push late receipt deliveries to the open window: the send returns as soon
@@ -93,8 +93,12 @@ export function registerWhatsAppIpc(
   // The WhatsApp engine lives in-process — nothing to spawn. When a paired
   // session exists on disk it logs back in silently with the app; an
   // unpaired machine stays idle until the user presses Connect (no QR
-  // handshake churn).
-  maybeStartEngine();
+  // handshake churn). The returned promise settles when that initial socket
+  // setup finishes (module already loaded; version fetch + socket create),
+  // so boot can keep the splash up until the heavy part is done. The server
+  // handshake itself stays in the background — it must not hold the splash
+  // hostage on a dead network.
+  const engineBoot = maybeStartEngine();
   // GRACEFUL QUIT — the "pairing gone after closing the app" guard:
   //   1. persist the session WHILE the socket is still alive (Baileys writes
   //      creds asynchronously, so a key rotation can still be in flight),
@@ -129,4 +133,5 @@ export function registerWhatsAppIpc(
       app.exit(0);
     })();
   });
+  return engineBoot;
 }

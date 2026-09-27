@@ -100,7 +100,7 @@ export function buildSplashHtml(opts: { version: string; logoDataUrl?: string | 
   .divider i { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,.55); }
   .spin { width: 30px; height: 30px; border-radius: 50%; border: 3px solid rgba(255,255,255,.18); border-top-color: #5eead4; animation: turn 0.9s linear infinite; }
   @keyframes turn { to { transform: rotate(360deg); } }
-  .cap { margin-top: 14px; font-size: 13px; color: rgba(220,243,234,.75); }
+  .cap { margin-top: 14px; max-width: 340px; font-size: 13px; line-height: 1.45; color: rgba(220,243,234,.75); }
   .foot { position: fixed; left: 0; right: 0; bottom: 18px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: rgba(220,243,234,.6); }
   .foot i { width: 3px; height: 3px; border-radius: 50%; background: rgba(255,255,255,.4); }
 </style>
@@ -116,7 +116,7 @@ export function buildSplashHtml(opts: { version: string; logoDataUrl?: string | 
     <div class="sub">മിൻസ് മഹല്ല് മാനേജ്മെന്റ്</div>
     <div class="divider"><span></span><i></i><span></span></div>
     <div class="spin"></div>
-    <div class="cap">മൊഡ്യൂളുകൾ തയ്യാറാക്കുന്നു</div>
+    <div class="cap" id="splash-cap">മൊഡ്യൂളുകൾ തയ്യാറാക്കുന്നു</div>
   </div>
   <div class="foot"><span>Version ${version}</span><i></i><span>MinZ</span></div>
 </body>
@@ -124,11 +124,54 @@ export function buildSplashHtml(opts: { version: string; logoDataUrl?: string | 
 }
 
 let splashWin: import("electron").BrowserWindow | null = null;
+/** Alt+F4 on the splash must not dismiss it while boot is still running —
+ *  that used to look like the app had closed while the process kept going.
+ *  closeSplash() (and only closeSplash) lifts this. */
+let splashCloseAllowed = false;
+let splashShownResolve: (() => void) | null = null;
+let splashShown: Promise<void> = new Promise((resolve) => { splashShownResolve = resolve; });
+let pendingStatus: string | null = null;
+
+function markSplashShown(): void {
+  const resolve = splashShownResolve;
+  splashShownResolve = null;
+  resolve?.();
+  applySplashStatus();
+}
+
+/** Resolves when the splash is on screen (or immediately if it could not be
+ *  created). Boot uses this so synchronous database work never runs in the
+ *  dead gap before the first pixel. */
+export function whenSplashShown(): Promise<void> {
+  return splashShown;
+}
+
+function applySplashStatus(): void {
+  const w = splashWin;
+  const text = pendingStatus;
+  if (!w || w.isDestroyed() || !text) return;
+  try {
+    if (w.webContents.isLoading()) return;
+    void w.webContents.executeJavaScript(
+      `(() => { const n = document.getElementById("splash-cap"); if (n) n.textContent = ${JSON.stringify(text)}; })()`
+    );
+  } catch { /* splash already closing */ }
+}
+
+/** Updates the splash caption (bilingual status while boot work runs). No-op
+ *  when the splash is gone. Never throws. */
+export function setSplashStatus(message: string): void {
+  const text = String(message ?? "").slice(0, 180);
+  if (!text) return;
+  pendingStatus = text;
+  applySplashStatus();
+}
 
 /** Creates the always-on-top splash if it does not exist yet. Never throws —
  *  a failed splash must not stop the app from booting. */
 export function createSplashWindow(): void {
-  if (splashWin) return;
+  if (splashWin && !splashWin.isDestroyed()) return;
+  splashCloseAllowed = false;
   try {
     const { BrowserWindow } = electron();
     const html = buildSplashHtml({ version: electron().app.getVersion(), logoDataUrl: findSplashLogoDataUrl() });
@@ -141,22 +184,34 @@ export function createSplashWindow(): void {
     });
     // Above everything while starting (the real window takes over when ready).
     splashWin.setAlwaysOnTop(true, "screen-saver");
-    splashWin.once("ready-to-show", () => { try { splashWin?.show(); } catch { /* closing */ } });
+    splashWin.on("close", (e) => {
+      if (!splashCloseAllowed) e.preventDefault();
+    });
+    splashWin.once("ready-to-show", () => {
+      try { splashWin?.show(); } catch { /* closing */ }
+      markSplashShown();
+    });
+    splashWin.webContents.once("did-finish-load", () => applySplashStatus());
     // Paint fallback: "ready-to-show" depends on the splash's own renderer
     // compositing. If it never fires on some GPU/driver, the user gets the
     // exact reported "splash not coming at all" — force-show after 1.5 s so
     // the splash is at least visible even if its content paints late.
-    setTimeout(() => { try { if (splashWin && !splashWin.isDestroyed() && !splashWin.isVisible()) splashWin.show(); } catch { /* closing */ } }, 1500);
+    setTimeout(() => {
+      try { if (splashWin && !splashWin.isDestroyed() && !splashWin.isVisible()) splashWin.show(); } catch { /* closing */ }
+      markSplashShown();
+    }, 1500);
     splashWin.on("closed", () => { splashWin = null; });
     void splashWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
   } catch (e) {
     console.warn("[splash] could not show the startup splash:", (e as Error)?.message || e);
     splashWin = null;
+    markSplashShown();
   }
 }
 
 /** Destroys the splash (no-op when it never opened or already closed). */
 export function closeSplash(): void {
+  splashCloseAllowed = true;
   const w = splashWin;
   splashWin = null;
   if (w && !w.isDestroyed()) {

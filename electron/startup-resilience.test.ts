@@ -8,51 +8,82 @@ import { describe, expect, it } from "vitest";
 //
 // That symptom is a WINDOWLESS PROCESS still holding the single-instance
 // lock: every later launch loses the lock and quits silently, so nothing
-// ever appears again until the user manually kills the process. Four
-// independent defenses are pinned here, all in electron/main.ts:
-//   1. A throwing closeDB() can no longer skip app.quit() (the classic way a
-//      windowless zombie is born), and a safety-net timer force-exits a
-//      windowless process 15 s after the last window closed.
+// ever appears again until the user manually kills the process. The same
+// shape showed up as "Close doesn't really close — it keeps running in the
+// background": the warm PDF BrowserWindow (show:false) counted toward
+// window-all-closed, so closing the main window never quit the process.
+//
+// Defenses pinned here, all in electron/main.ts:
+//   1. A throwing closeDB() can no longer skip the quit, and quitApp()
+//      disposes hidden windows then force-exits if the graceful quit
+//      (WhatsApp flush, bounded at 9s) never finishes.
 //   2. A launch that loses the lock can never build windows/handlers mid-quit
 //      (a window created during the quit sequence can abort that quit).
 //   3. A second-instance click NEVER looks dead: boot in progress raises the
 //      splash, boot finished with no window revives the real window.
-//   4. The boot can no longer wedge before the first window: the heavy
-//      WhatsApp import runs in the BACKGROUND and the first window is NOT
-//      gated on it at all (v2.5.1 — the old 15 s race still left the splash
-//      staring at the user for up to 15 s), the auto-updater import is
-//      fire-and-forget, and a throw anywhere in the boot body is caught by
-//      the whenReady .catch which still creates the window. Every step is
-//      recorded to <userData>/logs/boot.log so the next failure report can
-//      be diagnosed instead of guessed at.
+//   4. The splash stays up until startup work settles (heavy imports, DB
+//      open, this month's subscriptions, print-window prewarm). The main
+//      window is created hidden so its renderer can load in parallel, but
+//      it is not revealed — and the splash is not closed — before that.
+//      A cap keeps a wedged import from stranding the splash forever, and a
+//      throw anywhere in the boot body is caught by the whenReady .catch
+//      which still creates the window. Every step is recorded to
+//      <userData>/logs/boot.log.
 const MAIN = readFileSync(
   fileURLToPath(new URL("./main.ts", import.meta.url)),
   "utf8"
 );
 
 describe("quit path cannot leave a lock-holding windowless zombie", () => {
-  it("window-all-closed guards closeDB so app.quit() always runs", () => {
+  it("window-all-closed guards closeDB so quitApp() always runs", () => {
     const handler = MAIN.slice(MAIN.indexOf('app.on("window-all-closed"'));
     expect(handler).toContain("try { closeDB(); } catch");
     // The quit call must still follow the guarded close (not be replaced by
-    // an early return).
-    expect(handler.indexOf("app.quit();")).toBeGreaterThan(
+    // an early return). quitApp() is the single exit path — it disposes
+    // hidden windows and calls app.quit().
+    expect(handler.indexOf("quitApp()")).toBeGreaterThan(
       handler.indexOf("try { closeDB(); } catch")
     );
   });
 
-  it("window-all-closed installs a hard-exit safety net for windowless processes", () => {
-    const handler = MAIN.slice(MAIN.indexOf('app.on("window-all-closed"'));
-    expect(handler).toContain("app.exit(0)");
-    // The net must be longer than the WhatsApp graceful-quit bound (9 s) so
-    // a legitimate slow exit is never cut short.
-    expect(handler).toContain("15_000");
-    expect(handler).toContain("getAllWindows().length === 0");
+  it("quitApp disposes hidden windows and force-exits if graceful quit stalls", () => {
+    const fn = MAIN.slice(MAIN.indexOf("function quitApp()"), MAIN.indexOf("function revealMainWindow()"));
+    expect(fn).toContain("releaseHiddenWindows()");
+    expect(fn).toContain("app.quit()");
+    expect(fn).toContain("app.exit(0)");
+    // Longer than the WhatsApp graceful-quit bound (9 s) so a legitimate
+    // slow exit is never cut short, and NOT unref'd so a leftover handle
+    // cannot outlive Close.
+    expect(fn).toContain("12_000");
+    // The hard-exit timer must not be unref'd — an unref'd timer does not
+    // keep the process alive, so a leftover socket could outlive Close
+    // without the net ever firing.
+    expect(fn).toContain("setTimeout(() => { try { app.exit(0); } catch { /* already gone */ } }, 12_000);");
+    expect(fn).not.toContain("12_000).unref");
+    // The warm PDF window is the hidden BrowserWindow that used to keep
+    // the process alive after the main window closed.
+    const release = MAIN.slice(MAIN.indexOf("function releaseHiddenWindows()"), MAIN.indexOf("function quitApp()"));
+    expect(release).toContain("disposePdfRenderer()");
+    expect(release).toContain("closeSplash()");
+  });
+
+  it("confirm-close and the main window closed handler both quit for real", () => {
+    expect(MAIN).toContain('ipcMain.handle("win:confirm-close"');
+    const confirm = MAIN.slice(MAIN.indexOf('ipcMain.handle("win:confirm-close"'), MAIN.indexOf('ipcMain.on("win:renderer-ready"'));
+    expect(confirm).toContain("releaseHiddenWindows()");
+    expect(confirm).toContain("quitApp()");
+    expect(confirm).toContain("quitRequested = true");
+    // A click on the icon while teardown is in flight must not revive a
+    // window inside the process that is about to exit.
+    const second = MAIN.slice(MAIN.indexOf('app.on("second-instance"'), MAIN.indexOf("bootLog(\"main-module-loaded\")"));
+    expect(second.indexOf("if (quitRequested) return;")).toBeGreaterThan(-1);
+    expect(second.indexOf("if (quitRequested) return;")).toBeLessThan(second.indexOf("mainWindow.show()"));
   });
 
   it("before-quit guards closeDB too (a throw there aborts later quit listeners)", () => {
     const handler = MAIN.slice(MAIN.indexOf('app.on("before-quit"'));
     expect(handler).toContain("try { closeDB(); } catch");
+    expect(handler).toContain("releaseHiddenWindows()");
   });
 });
 
@@ -90,39 +121,59 @@ describe("second-instance clicks are never dead (splash or revival)", () => {
 });
 
 describe("the boot can never wedge before the first window", () => {
-  it("starts the WhatsApp engine import in the background, under the splash", () => {
+  it("starts the WhatsApp engine import under the splash, before the window is revealed", () => {
     const splashIdx = MAIN.indexOf("createSplashWindow();");
     const bgIdx = MAIN.indexOf('import("./whatsapp-ipc.js")');
     expect(splashIdx).toBeGreaterThan(-1);
     expect(bgIdx).toBeGreaterThan(splashIdx);
-    // Registration happens exactly once, inside the background .then chain.
-    expect(MAIN).toContain(".then((m) => { m.registerWhatsAppIpc(");
+    // Registration happens inside the dynamic-import .then, and that
+    // promise is part of the reveal gate (not fire-and-forget).
+    expect(MAIN).toContain("m.registerWhatsAppIpc(");
+    const gateIdx = MAIN.indexOf('capStartupWork(whatsappReady, "whatsapp"');
+    const settledIdx = MAIN.indexOf('markStartupSettled("work-done")');
+    expect(gateIdx).toBeGreaterThan(bgIdx);
+    expect(settledIdx).toBeGreaterThan(gateIdx);
   });
 
-  it("creates the first window WITHOUT waiting for the WhatsApp engine (v2.5.1)", () => {
-    // The old `Promise.race` against the engine load kept the splash up for
-    // up to 15 s; nothing the login window does needs WhatsApp, so there
-    // must be no await/gate of that import anywhere in the boot.
+  it("creates the hidden window in parallel, but does not reveal it until startup work settles", () => {
+    // No uncapped `await import(...)` before the splash, and no race that
+    // reveals early. The renderer loads while the splash is up; reveal is
+    // a separate step that requires startupSettled.
     expect(MAIN).not.toContain("Promise.race([whatsappReady");
     expect(MAIN).not.toMatch(/await[\s\S]{0,40}import\("\.\/whatsapp-ipc\.js"\)/);
+    expect(MAIN).toContain("if (!startupSettled || !revealRequested) return;");
+    // renderer-ready must NOT show the window on its own — that was the
+    // path that dropped the splash while boot work was still running.
+    const readyHandler = MAIN.slice(MAIN.indexOf('ipcMain.on("win:renderer-ready"'), MAIN.indexOf('app.on("child-process-gone"'));
+    expect(readyHandler).toContain('armReveal("renderer-ready")');
+    expect(readyHandler).not.toContain("closeSplash()");
     // Receipt IPC (the last non-WhatsApp registration) still happens BEFORE
     // the first createWindow, so a window can never call a missing handler.
     const receiptIdx = MAIN.indexOf("registerReceiptIpc(");
     const createIdx = MAIN.indexOf("  createWindow();\n");
     expect(receiptIdx).toBeGreaterThan(-1);
     expect(receiptIdx).toBeLessThan(createIdx);
+    expect(MAIN.indexOf('markStartupSettled("work-done")')).toBeGreaterThan(createIdx);
   });
 
-  it("defers monthly subscription generation until after the window exists", () => {
+  it("runs monthly subscription generation and PDF prewarm under the splash, before reveal", () => {
     const createIdx = MAIN.indexOf("  createWindow();\n");
-    const deferredIdx = MAIN.indexOf("setTimeout(() => {\n    try { data.subscriptions.ensureCurrentMonth();");
-    expect(deferredIdx).toBeGreaterThan(createIdx);
+    const monthIdx = MAIN.indexOf('bootLog("subscriptions:month-ensured")');
+    const prewarmIdx = MAIN.indexOf("try { prewarmPdfRenderer();");
+    const settledIdx = MAIN.indexOf('markStartupSettled("work-done")');
+    expect(monthIdx).toBeGreaterThan(createIdx);
+    expect(prewarmIdx).toBeGreaterThan(createIdx);
+    expect(settledIdx).toBeGreaterThan(monthIdx);
+    expect(settledIdx).toBeGreaterThan(prewarmIdx);
+    // The old post-reveal timers must be gone — they were the hitch.
+    expect(MAIN).not.toContain("setTimeout(() => { try { prewarmPdfRenderer(); }");
   });
 
   it("catches ANY throw in the boot body and still creates the window", () => {
-    // The whenReady chain must end in a .catch that records the failure and
-    // attempts createWindow — a silent rejection used to strand the splash.
-    expect(MAIN).toMatch(/\}\)\.catch\(\(err\) => \{[\s\S]*bootLogError\("whenReady", err\);[\s\S]*try \{ createWindow\(\); \} catch/);
+    // The whenReady chain must end in a .catch that records the failure,
+    // releases the reveal gate, and attempts createWindow — a silent
+    // rejection used to strand the splash.
+    expect(MAIN).toMatch(/\)\.catch\(\(err\) => \{[\s\S]*bootLogError\("whenReady", err\);[\s\S]*markStartupSettled\("whenReady-failed"\);[\s\S]*createWindow\(\);[\s\S]*\} catch/);
   });
 
   it("logs stray rejections/exceptions instead of dying silently", () => {
@@ -132,9 +183,13 @@ describe("the boot can never wedge before the first window", () => {
   });
 
   it("wraps the auto-updater import so its failure cannot strand the splash", () => {
-    // v2.5.1: fire-and-forget — not even the module load is awaited.
-    expect(MAIN).toMatch(/void import\("\.\/auto-update\.js"\)\s*\n\s*\.then\(\(m\) => \{ m\.registerAutoUpdater/);
+    // Loaded under the splash and included in the reveal gate, but a
+    // rejection is caught — a failed updater must not block the window.
+    expect(MAIN).toContain('import("./auto-update.js")');
+    expect(MAIN).toContain("m.registerAutoUpdater(");
+    expect(MAIN).toContain('capStartupWork(updaterReady, "updater"');
     expect(MAIN).not.toContain('await import("./auto-update.js")');
+    expect(MAIN).toContain('bootLog("updater:failed"');
   });
 });
 
@@ -146,5 +201,11 @@ describe("splash paints even when ready-to-show never fires", () => {
     );
     expect(splashSrc).toContain("!splashWin.isVisible()");
     expect(splashSrc).toContain("export function showSplash()");
+    // Boot waits on this so sync DB work cannot run before the first pixel,
+    // and the user cannot dismiss the splash (and think the app closed)
+    // while that work is still running.
+    expect(splashSrc).toContain("export function whenSplashShown()");
+    expect(splashSrc).toContain("splashCloseAllowed");
+    expect(splashSrc).toContain('id="splash-cap"');
   });
 });

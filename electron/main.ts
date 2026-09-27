@@ -22,20 +22,22 @@ import { buildRegisterBookHtml } from "./print/register-book.template.js";
 import { getAnekMalayalamCss, getPoppinsCss } from "./print/utils.js";
 import { registerSecurityIpc } from "./security-ipc.js";
 import { registerReceiptIpc } from "./receipt-ipc.js";
-import { createSplashWindow, closeSplash, showSplash } from "./splash-window.js";
+import { createSplashWindow, closeSplash, showSplash, setSplashStatus, whenSplashShown } from "./splash-window.js";
 import { bootLog, bootLogError } from "./boot-log.js";
 import { verifyUninstallPassword, UNINSTALL_ADMIN_SQL } from "./services/uninstall-guard.js";
 import { registerUpdateIpc, scheduleMonthlyUpdateCheck } from "./update-check.js";
 import { fileNameSafe } from "./services/doc-number.service.js";
-// STARTUP ORDER (Task 44 — instant splash): the window must be the first
-// thing the user sees. Heavy modules (exceljs, the baileys-bearing
-// whatsapp-ipc / whatsapp.service chain, electron-updater) are deliberately
-// NOT imported at top level — they load under the native splash via dynamic
-// import below. electron-updater keeps the same interop note as before: it
-// ships CommonJS only, so under the packaged ESM main process it must be
-// default-imported and destructured (Node's recommended interop pattern);
-// types stay intact via esModuleInterop — all of which now happens inside
-// auto-update.js when its module is first imported.
+// STARTUP ORDER: the splash must be the first thing the user sees, and it
+// must STAY up until boot work has finished. Heavy modules (exceljs, the
+// baileys-bearing whatsapp-ipc / whatsapp.service chain, electron-updater)
+// are deliberately NOT imported at top level — a top-level import runs
+// before any window exists and brings back the dead-desktop gap. They load
+// under the splash via dynamic import, and the main window is revealed only
+// once that work (plus the database open, this month's subscriptions and
+// the print-window prewarm) has settled. electron-updater keeps the same
+// interop note as before: it ships CommonJS only, so under the packaged ESM
+// main process it must be default-imported and destructured inside
+// auto-update.js when that module is first imported.
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -71,6 +73,103 @@ const session = { user: null as null | { id: number; username: string; fullName:
 let closeConfirmed = false;
 
 // ---------------------------------------------------------------------------
+// Startup gate. The splash stays on screen until this is set. The hidden
+// main window may load in parallel (so reveal is instant once the work is
+// done) but it is not shown — and the splash is not closed — before then.
+// That is what stops the "window appears, then hitches while background
+// boot catches up" glitch, and what keeps the splash up for the whole delay
+// so the user can see the app is opening.
+// ---------------------------------------------------------------------------
+let startupSettled = false;
+let revealRequested = false;
+let mainRevealed = false;
+let quitRequested = false;
+let quitStarted = false;
+let autoBackupTimer: ReturnType<typeof setInterval> | null = null;
+let autoBackupKick: ReturnType<typeof setTimeout> | null = null;
+
+function clearAutoBackupTimers(): void {
+  if (autoBackupTimer) { clearInterval(autoBackupTimer); autoBackupTimer = null; }
+  if (autoBackupKick) { clearTimeout(autoBackupKick); autoBackupKick = null; }
+}
+
+/** Hidden windows (warm PDF renderer, splash) must not outlive a Close.
+ *  They count toward window-all-closed, so leaving them up is how the
+ *  process used to keep running in the background with no UI — and hold the
+ *  single-instance lock so the next launch died silently. */
+function releaseHiddenWindows(): void {
+  try { disposePdfRenderer(); } catch { /* best effort */ }
+  try { closeSplash(); } catch { /* best effort */ }
+}
+
+function quitApp(): void {
+  if (quitStarted) return;
+  quitStarted = true;
+  quitRequested = true;
+  closeConfirmed = true;
+  bootLog("quit:requested");
+  clearAutoBackupTimers();
+  releaseHiddenWindows();
+  // WhatsApp's graceful quit preventDefault()s before-quit and calls
+  // app.exit itself, bounded at 9s. If that handler never runs (module
+  // failed to load) or a leftover handle keeps the loop alive, this net
+  // still ends the process. Intentionally NOT unref'd: a timer, socket or
+  // hidden window must not be able to outlive the user's Close.
+  setTimeout(() => { try { app.exit(0); } catch { /* already gone */ } }, 12_000);
+  try { app.quit(); } catch { try { app.exit(0); } catch { /* already gone */ } }
+}
+
+function revealMainWindow(): void {
+  if (mainRevealed) return;
+  // Both halves: boot work finished, AND the renderer has painted (or the
+  // fallback decided not to wait any longer).
+  if (!startupSettled || !revealRequested) return;
+  const w = mainWindow;
+  if (!w || w.isDestroyed()) return;
+  mainRevealed = true;
+  bootLog("window:revealed");
+  try { w.show(); } catch { /* destroyed mid-flight */ }
+  closeSplash();
+  try { w.focus(); } catch { /* destroyed mid-flight */ }
+}
+
+function armReveal(reason: string): void {
+  revealRequested = true;
+  bootLog("window:reveal-armed", reason);
+  revealMainWindow();
+}
+
+function markStartupSettled(reason: string): void {
+  if (startupSettled) return;
+  startupSettled = true;
+  bootLog("startup:settled", reason);
+  revealMainWindow();
+  // Work is done but the renderer may still be mounting. Don't hold the
+  // splash forever waiting for a signal a wedged renderer never sends.
+  setTimeout(() => { if (!mainRevealed) armReveal("post-startup-fallback"); }, 4_000).unref?.();
+}
+
+/** A wedged import must not strand the splash forever, but a normal boot
+ *  waits for the real work instead of opening early and glitching. */
+function capStartupWork(work: Promise<unknown>, label: string, ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      bootLog("startup:cap", `${label} ${ms}ms`);
+      console.warn(`[boot] ${label} still running after ${ms}ms — opening the window anyway`);
+      resolve();
+    }, ms);
+    work.then(
+      () => { clearTimeout(timer); resolve(); },
+      (err) => {
+        clearTimeout(timer);
+        bootLog("startup:work-failed", `${label}: ${String((err as Error)?.message || err)}`);
+        resolve();
+      },
+    );
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Uninstall verification mode. The Windows uninstaller (NSIS customUnInit in
 // build/installer.nsh) runs the installed exe with --verify-uninstall BEFORE
 // removing any file. The app then shows ONLY a small password window:
@@ -103,12 +202,25 @@ if (!gotSingleInstanceLock) {
   app.quit();
 } else {
   app.on("second-instance", () => {
+    // Close already started. Reviving a window here would make it look like
+    // the app "kept running in the background" — and the hard-exit timer
+    // would then kill that revived window. A new click after the process
+    // has actually exited starts a fresh instance (with the splash).
+    if (quitRequested) return;
     if (mainWindow && !mainWindow.isDestroyed()) {
-      try {
-        if (mainWindow.isMinimized()) mainWindow.restore();
-        mainWindow.show();
-        mainWindow.focus();
-      } catch { /* window destroyed mid-flight */ }
+      if (!mainRevealed) {
+        // Window exists but is still hidden behind the splash (boot work
+        // running, or the renderer has not painted yet). Showing it now is
+        // the glitch this gate exists to prevent — keep the splash up.
+        showSplash();
+        if (startupSettled) armReveal("second-instance");
+      } else {
+        try {
+          if (mainWindow.isMinimized()) mainWindow.restore();
+          mainWindow.show();
+          mainWindow.focus();
+        } catch { /* window destroyed mid-flight */ }
+      }
     } else if (bootComplete) {
       // WINDOWLESS REVIVAL (zombie guard): this instance still holds the
       // single-instance lock but has no window — a wedged teardown, an
@@ -283,25 +395,33 @@ function createWindow() {
     title: "MMS — Minz Mahallu Management System", frame: false, hasShadow: false,
     webPreferences: { preload: path.join(__dirname, "preload.mjs"), contextIsolation: true, nodeIntegration: false, sandbox: false, zoomFactor: 1.0 },
   });
-  // Real window takes over (Task 47 — single-splash boot): the window stays
-  // HIDDEN until the renderer says the REAL UI has mounted and painted
-  // ("win:renderer-ready", sent by App after React commit + one beat). The
-  // renderer-side splash overlay is gone, so what appears is the complete
-  // window — no dummy splash, no semi-transparent in-between frame.
-  // Fallbacks keep a wedged renderer from stranding the app behind the
-  // splash forever: ready-to-show (+grace) then an absolute 12 s cap.
-  let revealed = false;
-  const revealMain = () => {
-    if (revealed || !mainWindow || mainWindow.isDestroyed()) return;
-    revealed = true;
-    bootLog("window:revealed");
-    try { mainWindow.show(); } catch { /* destroyed mid-flight */ }
-    closeSplash();
-  };
-  const unstrand = setTimeout(revealMain, 12000);
+  // Real window takes over only when BOTH are true: boot work has settled
+  // (markStartupSettled) AND the renderer has painted (win:renderer-ready,
+  // or the ready-to-show grace). Until then the window stays HIDDEN and the
+  // splash stays up, so the user goes splash → complete window with nothing
+  // glitching in between. The long cap is a last resort for a wedged
+  // renderer/import — longer than the startup-work caps so it never wins
+  // the race and reveals a half-booted window.
+  const unstrand = setTimeout(() => {
+    bootLog("window:unstrand");
+    startupSettled = true;
+    armReveal("unstrand");
+  }, 100_000);
   mainWindow.once("show", () => clearTimeout(unstrand));
-  mainWindow.once("ready-to-show", () => { bootLog("window:ready-to-show"); setTimeout(revealMain, 800); });
-  mainWindow.on("closed", () => { clearTimeout(unstrand); mainWindow = null; });
+  mainWindow.once("ready-to-show", () => {
+    bootLog("window:ready-to-show");
+    // Short grace so the first frame is committed. revealMainWindow no-ops
+    // until startup work has also settled, and markStartupSettled retries.
+    setTimeout(() => armReveal("ready-to-show"), 400);
+  });
+  mainWindow.on("closed", () => {
+    clearTimeout(unstrand);
+    mainWindow = null;
+    // A closed main window must take the process with it. Hidden windows
+    // (the warm PDF renderer) do not emit window-all-closed by themselves,
+    // which is how Close used to leave MMS running in the background.
+    if (!isUninstallVerify && process.platform !== "darwin") quitApp();
+  });
   // Occasional-freeze resilience (user report: freezes on mid-range machines,
   // smooth on low-end). A crashed MAIN renderer leaves a blank or frozen-
   // looking window — from the outside it IS a freeze. Revive it with one
@@ -330,11 +450,26 @@ function createWindow() {
     });
   });
   // Close gate: ask the renderer to confirm before the window goes away.
+  // Once the close is real, drop hidden windows FIRST so they cannot keep
+  // the process (and the single-instance lock) alive after the UI is gone.
   mainWindow.on("close", (e) => {
-    if (closeConfirmed || !mainWindow || mainWindow.isDestroyed()) return;
-    if (mainWindow.webContents.isCrashed() || !mainWindow.webContents || mainWindow.webContents.isDestroyed()) return; // crashed renderer: let it close
+    const crashed = !mainWindow || mainWindow.isDestroyed()
+      || mainWindow.webContents.isCrashed()
+      || !mainWindow.webContents
+      || mainWindow.webContents.isDestroyed();
+    if (closeConfirmed || crashed) {
+      releaseHiddenWindows();
+      return;
+    }
     e.preventDefault();
-    try { mainWindow.webContents.send("win:ask-close-confirm"); } catch {}
+    try { mainWindow.webContents.send("win:ask-close-confirm"); }
+    catch {
+      // Renderer can't show the dialog — don't trap a window the user can
+      // never close. Quit.
+      closeConfirmed = true;
+      releaseHiddenWindows();
+      setImmediate(() => { try { mainWindow?.close(); } catch { /* gone */ } });
+    }
   });
   if (process.env.NODE_ENV === "development" || process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL || "http://localhost:5174");
@@ -349,16 +484,32 @@ ipcMain.handle("win:minimize", () => mainWindow?.minimize());
 ipcMain.handle("win:maximize", () => { if (mainWindow?.isMaximized()) mainWindow.unmaximize(); else mainWindow?.maximize(); });
 ipcMain.handle("win:close", () => mainWindow?.close());
 // Called by the close-confirm dialog after the user picks "Close app".
-ipcMain.handle("win:confirm-close", () => { closeConfirmed = true; try { mainWindow?.close(); } catch {} });
-// Task 47 — sent by App.tsx once the REAL UI has mounted and painted. The
-// complete window appears and the native splash drops in the same tick.
+// Closing the window is not enough: a hidden print window used to keep the
+// process running in the background. confirm-close always starts a real quit
+// on Windows/Linux; the closed handler does the same if close() wins the race.
+ipcMain.handle("win:confirm-close", () => {
+  closeConfirmed = true;
+  // Set before close() so a second click during teardown cannot revive a
+  // window inside the process that is about to exit.
+  quitRequested = true;
+  releaseHiddenWindows();
+  try { mainWindow?.close(); } catch { /* already gone */ }
+  if (process.platform !== "darwin") {
+    // If close() was swallowed, don't leave a "closed" app running.
+    setTimeout(() => {
+      if (quitStarted) return;
+      try { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy(); } catch { /* gone */ }
+      quitApp();
+    }, 400);
+  }
+});
+// Sent by App.tsx once the REAL UI has mounted and painted. Revealing is
+// gated: if boot work is still running the splash stays up and this just
+// arms the reveal, which markStartupSettled performs the moment work ends.
 // Registered ONCE (like the win: handlers above) so the macOS activate
 // re-open path cannot register it twice.
 ipcMain.on("win:renderer-ready", () => {
-  const w = mainWindow;
-  if (!w || w.isDestroyed()) return;
-  try { if (!w.isVisible()) w.show(); } catch { /* destroyed mid-flight */ }
-  closeSplash();
+  armReveal("renderer-ready");
 });
 
 // Occasional-freeze resilience (user report: freezes on mid-range machines).
@@ -437,21 +588,31 @@ app.whenReady().then(async () => {
   // user is already looking at the branded splash instead of a dead desktop.
   createSplashWindow();
   bootLog("splash:created");
+  const bootStartedAt = Date.now();
 
-  // BACKGROUND LOAD (v2.5.1 — the WhatsApp engine NO LONGER GATES the first
-  // window; user report on v2.5.0: "splash comes then same", i.e. the splash
-  // sat on screen while the boot was still waiting for the heavy import):
-  // the baileys-bearing whatsapp-ipc module is the heaviest import in the
-  // app, so it starts right here IN PARALLEL with the data-file chores and
-  // the dozens of ipcMain.handle registrations below — and the boot simply
-  // never waits for it. Nothing the login window does needs WhatsApp: the
-  // handlers register whenever the import completes (typically a few seconds
-  // later, worst case minutes on a first run while antivirus scans every
-  // file — the WhatsApp page then works with no further wait), and a failed
-  // import degrades to "WhatsApp unavailable this session" exactly as before.
-  void import("./whatsapp-ipc.js")
-    .then((m) => { m.registerWhatsAppIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow); bootLog("whatsapp:registered"); })
+  // Heavy modules load UNDER the splash (not at process start — that was
+  // the dead-desktop gap) and the boot WAITS for them before the main
+  // window is revealed. v2.5.1 stopped waiting so the window could appear
+  // sooner; the office then got a window that hitched and glitched while
+  // baileys, the database and the print window caught up, and Close left
+  // that hidden print window running in the background. A failed import
+  // still degrades (WhatsApp / updates unavailable this session) instead of
+  // stranding the splash — capStartupWork below is the backstop if a load
+  // wedges on antivirus.
+  const whatsappReady = import("./whatsapp-ipc.js")
+    .then((m) => {
+      // registerWhatsAppIpc returns the initial engine-setup promise (socket
+      // create). Waiting for it — still under the splash — is what keeps
+      // that burst off the visible window. The server handshake is not part
+      // of this promise.
+      return m.registerWhatsAppIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow);
+    })
+    .then(() => { bootLog("whatsapp:registered"); })
     .catch((err) => { console.warn("[whatsapp] engine unavailable this session:", (err as Error)?.message || err); bootLog("whatsapp:failed", String((err as Error)?.message || err)); });
+
+  // Let the splash paint before the synchronous registrations below. The
+  // user should already be looking at it while the rest of boot runs.
+  await whenSplashShown();
 
   // Normal boot: bilingual "do not delete" note inside the data folder, so
   // nobody tidies AppData and wipes the mahallu database + backups.
@@ -480,17 +641,15 @@ app.whenReady().then(async () => {
   } catch {}
 
   // Monthly GitHub release check (Settings → About can also check on demand).
+  // The delayed network tick itself is started only after the window is
+  // revealed (below) so it cannot hitch the first paint.
   registerUpdateIpc(() => mainWindow);
-  scheduleMonthlyUpdateCheck(() => mainWindow);
   // In-app download + install (electron-updater) — engages when the user
   // accepts the banner; browser download stays as fallback. The module (and
-  // electron-updater with it) loads under the splash, not at process start.
-  // v2.5.1: fire-and-forget — the boot no longer even awaits the MODULE LOAD
-  // (the previous `await import` was uncapped and sat on the critical path;
-  // the first window must never wait for electron-updater). A load failure
-  // (corrupt cache, AV interference) degrades to "no update banner" and is
-  // recorded in the boot log.
-  void import("./auto-update.js")
+  // electron-updater with it) loads under the splash, not at process start,
+  // and the reveal gate waits for this load (capped) so it cannot hitch the
+  // window after it appears. A load failure degrades to "no update banner".
+  const updaterReady = import("./auto-update.js")
     .then((m) => { m.registerAutoUpdater(() => mainWindow); bootLog("updater:wired"); })
     .catch((err) => { console.warn("[update] updater unavailable this session:", (err as Error)?.message || err); bootLog("updater:failed", String((err as Error)?.message || err)); });
   ipcMain.handle("auth:login", (_e, username: string, password: string) => { try { const user = login(username, password); session.user = { id: user.id, username: user.username, fullName: user.fullName, role: user.role }; try { data.audit.log(user.id, user.username, "LOGIN", "auth", user.id, "User logged in", ""); } catch {} return { success: true, user }; } catch (err: any) { return { success: false, error: err.message }; } });
@@ -1009,42 +1168,58 @@ app.whenReady().then(async () => {
   });
   // The whatsapp-ipc module pulls the whole baileys engine into the process
   // (libsignal + socket stack is the heaviest import in the app). It was
-  // STARTED at the top of whenReady (background, under the splash) and — as
-  // of v2.5.1 — the boot does NOT wait for it AT ALL anymore: the old
-  // 15-second race against the WhatsApp load still made the first window
-  // wait up to 15 seconds behind the splash (user report: "splash comes then
-  // same"). Nothing the login window does needs WhatsApp, so the window is
-  // created immediately; the engine registers whenever its import finishes
-  // and simply answers calls from that moment on.
+  // STARTED at the top of whenReady, under the splash. The hidden window is
+  // created now so its renderer can load in parallel, but it is not shown
+  // until whatsappReady / updaterReady / dataReady settle (see the gate
+  // below). Waiting here — with the splash up — is the point: the running
+  // app must not hitch while that work catches up.
   registerReceiptIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow);
   bootLog("ipc:registered");
   createWindow();
   // From this tick on, a second-instance event can safely (re)create the
-  // window — every handler it may call is registered.
+  // window — every handler it may call is registered. Reveal stays gated
+  // on startupSettled, so a second click during boot raises the splash
+  // instead of flashing the hidden window.
   bootComplete = true;
-  bootLog("boot:complete");
-  // Monthly subscription generation (v2.5.1: moved OFF the critical path —
-  // it used to run before the window and on a first run it pays for the
-  // first DB open + schema/migrations + row generation, all synchronous).
-  // Deferred until the window is up; the login screen buys minutes of slack,
-  // and the operation itself is guarded exactly as before.
-  setTimeout(() => {
-    try { data.subscriptions.ensureCurrentMonth(); bootLog("subscriptions:month-ensured"); }
-    catch (err) { console.warn("[subscriptions] monthly generation deferred:", err); }
-  }, 1500).unref?.();
-  // Warm the offscreen PDF window a moment after start-up: receipts,
-  // certificates and statements then render in an already-running hidden
-  // window instead of spawning a renderer process on the first click
-  // (user report: receipt sending took too long). Delayed so it never
-  // competes with the login window and the database opening.
-  setTimeout(() => { try { prewarmPdfRenderer(); } catch { /* best effort */ } }, 2500);
+  bootLog("boot:handlers-ready");
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+
+  // Database open + this month's subscriptions + print-window prewarm.
+  // All of these used to run AFTER the window was on screen (1.5s / 2.5s
+  // timers) and were the hitch the office saw as a glitch while using the
+  // app. They now run while the splash is already up. The hidden main
+  // window is loading its renderer at the same time.
+  const dataReady = (async () => {
+    setSplashStatus("ഡാറ്റാബേസ് തുറക്കുന്നു · Opening database");
+    try { getDB(); bootLog("db:opened"); }
+    catch (err) { bootLogError("db:open", err); console.warn("[boot] database open failed:", err); }
+    setSplashStatus("ഈ മാസം തയ്യാറാക്കുന്നു · Preparing this month");
+    try { data.subscriptions.ensureCurrentMonth(); bootLog("subscriptions:month-ensured"); }
+    catch (err) { console.warn("[subscriptions] monthly generation failed:", err); bootLog("subscriptions:month-failed", String((err as Error)?.message || err)); }
+    setSplashStatus("പ്രിന്റ് തയ്യാറാക്കുന്നു · Preparing print");
+    try { prewarmPdfRenderer(); bootLog("pdf:prewarmed"); }
+    catch (err) { bootLog("pdf:prewarm-failed", String((err as Error)?.message || err)); }
+    setSplashStatus("സേവനങ്ങൾ തുടങ്ങുന്നു · Starting services");
+  })();
+
+  await Promise.all([
+    capStartupWork(whatsappReady, "whatsapp", 90_000),
+    capStartupWork(updaterReady, "updater", 30_000),
+    capStartupWork(dataReady, "data", 60_000),
+  ]);
+  // Floor so a warm, cached launch still shows the splash long enough for
+  // the user to see that the app is opening — not a flash and a glitch.
+  // Slow launches are not padded: the splash already covered the real work.
+  const splashHoldMs = 800 - (Date.now() - bootStartedAt);
+  if (splashHoldMs > 0) await new Promise((r) => setTimeout(r, splashHoldMs));
+  markStartupSettled("work-done");
+  bootLog("boot:complete");
+  scheduleMonthlyUpdateCheck(() => mainWindow);
 
   // ===== Auto-backup timer =====
   // Checks settings.auto_backup every 10 minutes. If enabled and the last
   // backup is older than backup_interval_hours, creates a .mmbak file in the
   // userData directory automatically (no user interaction needed).
-  let autoBackupTimer: NodeJS.Timeout | null = null;
   const runAutoBackup = async () => {
     try {
       const settings = data.settings.load();
@@ -1092,18 +1267,20 @@ app.whenReady().then(async () => {
     }
   };
   autoBackupTimer = setInterval(runAutoBackup, 10 * 60 * 1000); // every 10 min
-  // Also run once 30 seconds after startup (to let DB init finish).
-  setTimeout(runAutoBackup, 30000);
+  // First check shortly after the window is up. DB init already finished
+  // under the splash, so this no longer races the open. Cleared on quit so
+  // a pending kick cannot reopen the database during teardown and keep the
+  // process alive.
+  autoBackupKick = setTimeout(() => { autoBackupKick = null; void runAutoBackup(); }, 30_000);
+  autoBackupKick.unref?.();
 }).catch((err) => {
-  // BOOT FAIL-SAFE (v2.5.1): until now ANY throw inside the boot body — a
-  // duplicate handler registration, an unexpected data error — rejected this
-  // promise with no listener, and the app died SILENTLY on the splash with
-  // no window and no clue (the exact "splash comes then same" report).
-  // Record it and still try to put the window up: a half-booted app the user
-  // can SEE (and whose boot.log we can read) beats a silent splash forever.
+  // BOOT FAIL-SAFE: ANY throw inside the boot body — a duplicate handler
+  // registration, an unexpected data error — must not strand the splash.
+  // Record it, release the reveal gate, and still try to put the window up.
   bootLogError("whenReady", err);
   console.error("[boot] whenReady failed:", err);
-  try { createWindow(); } catch { /* nothing further we can do */ }
+  markStartupSettled("whenReady-failed");
+  try { if (!mainWindow || mainWindow.isDestroyed()) createWindow(); } catch { /* nothing further we can do */ }
 });
 app.on("window-all-closed", () => {
   // Uninstall gate: window closed without a decision means "declined".
@@ -1118,22 +1295,17 @@ app.on("window-all-closed", () => {
   // close here must never be allowed to keep the process alive.
   try { closeDB(); } catch (err) { console.warn("[quit] closeDB failed during exit:", err); }
   bootLog("quit:window-all-closed");
-  if (process.platform !== "darwin") {
-    app.quit();
-    // Hard-exit safety net: app.quit() is cooperative (listeners get a say).
-    // The WhatsApp graceful-quit handler is bounded at 9 s, so if this
-    // process is STILL alive 15 s after its last window closed, nothing good
-    // can happen anymore — exit unconditionally rather than linger as a
-    // lock-holding, invisible zombie.
-    setTimeout(() => { try { if (BrowserWindow.getAllWindows().length === 0) app.exit(0); } catch { app.exit(0); } }, 15_000).unref?.();
-  }
+  if (process.platform !== "darwin") quitApp();
 });
 app.on("before-quit", () => {
   closeConfirmed = true;
   bootLog("quit:before-quit");
-  // Release the warm offscreen PDF window: the app is going down, and the
-  // WhatsApp quit handler that runs next must not race a hidden renderer.
-  try { disposePdfRenderer(); } catch { /* best effort */ }
+  clearAutoBackupTimers();
+  // Release the warm offscreen PDF window and the splash: the app is going
+  // down, and the WhatsApp quit handler that runs next must not race a
+  // hidden renderer. A leftover hidden window is also what used to keep
+  // this process running in the background after Close.
+  releaseHiddenWindows();
   // Guarded (see window-all-closed): a throwing closeDB here would abort the
   // listener chain before the WhatsApp graceful-quit handler runs.
   try { closeDB(); } catch (err) { console.warn("[quit] closeDB failed:", err); }

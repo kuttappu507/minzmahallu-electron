@@ -70,6 +70,10 @@ function newHiddenWindow(width: number, height: number): import("electron").Brow
   const { BrowserWindow } = electron();
   return new BrowserWindow({
     show: false,
+    // A show:false window still counts for window-all-closed and, without
+    // skipTaskbar, can leave a taskbar button after the user has "closed"
+    // the app. This window must never be a reason the process stays up.
+    skipTaskbar: true,
     width,
     height,
     useContentSize: true,
