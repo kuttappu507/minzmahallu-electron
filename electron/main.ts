@@ -1,7 +1,7 @@
 /*
  * Electron main process — window creation + IPC handlers
  */
-import { app, BrowserWindow, ipcMain, nativeTheme, dialog } from "electron";
+import { app, BrowserWindow, ipcMain, nativeTheme, dialog, powerMonitor } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -83,6 +83,12 @@ let closeConfirmed = false;
 let startupSettled = false;
 let revealRequested = false;
 let mainRevealed = false;
+// v2.6.3 — set by the renderer's very first IPC ping (App.tsx mount, BEFORE
+// its behind-the-splash chunk warm-up). The ready signal now legitimately
+// arrives seconds later than page load (the warm-up is the whole point), so
+// the post-startup fallback uses this to tell "alive renderer, still
+// warming — keep waiting" from "page loaded but renderer silent = broken".
+let rendererAnnouncedAlive = false;
 let quitRequested = false;
 let quitStarted = false;
 let autoBackupTimer: ReturnType<typeof setInterval> | null = null;
@@ -157,14 +163,19 @@ function markStartupSettled(reason: string): void {
   startupSettled = true;
   bootLog("startup:settled", reason);
   revealMainWindow();
-  // Work is done but the renderer may still be mounting. Don't hold the
-  // splash forever waiting for a signal a wedged renderer never sends —
-  // but ALSO don't flash a half-loaded page (v2.6.1: the old 4 s force-
-  // reveal showed an unpainted login page on first runs, which the office
-  // read as "slow and glitchy"). Poll instead:
-  //   - page loaded but renderer silent (JS error, missing bridge) →
-  //     reveal at 6 s — waiting longer cannot improve a dead UI;
-  //   - absolute 20 s cap no matter what (the splash can never strand).
+  // Work is done but the renderer may still be mounting + warming (v2.6.3:
+  // it pre-parses every lazy page chunk behind the splash before sending
+  // win:renderer-ready — that warm-up is what makes the login page and the
+  // post-login dashboard freeze-free, and it can legitimately take several
+  // seconds on a low-end machine). Don't hold the splash forever waiting
+  // for a signal a wedged renderer never sends — but ALSO don't flash a
+  // half-loaded page (v2.6.1) or cut a healthy warm-up short. Poll instead:
+  //   - page loaded but renderer NEVER announced itself (JS error, missing
+  //     bridge → no warm-up is running) → reveal at 6 s — waiting longer
+  //     cannot improve a dead UI;
+  //   - renderer announced alive → keep waiting for its full ready signal
+  //     (its own 12 s warm budget + 15 s fire cap beat the cap below) and
+  //     only force past at the absolute 20 s cap (the splash can never strand).
   let fallbackTicks = 0;
   const fallbackTimer = setInterval(() => {
     if (mainRevealed) { clearInterval(fallbackTimer); return; }
@@ -174,9 +185,9 @@ function markStartupSettled(reason: string): void {
       const w = mainWindow;
       loaded = !!w && !w.isDestroyed() && !w.webContents.isLoading();
     } catch { loaded = false; }
-    if (fallbackTicks >= 20 || (fallbackTicks >= 6 && loaded)) {
+    if (fallbackTicks >= 20 || (fallbackTicks >= 6 && loaded && !rendererAnnouncedAlive)) {
       clearInterval(fallbackTimer);
-      bootLog("window:fallback-reveal", `${fallbackTicks}s loaded=${loaded}`);
+      bootLog("window:fallback-reveal", `${fallbackTicks}s loaded=${loaded} alive=${rendererAnnouncedAlive}`);
       armReveal("post-startup-fallback");
       if (!mainRevealed) revealMainWindow(true);
     }
@@ -556,6 +567,16 @@ ipcMain.handle("win:confirm-close", () => {
 ipcMain.on("win:renderer-ready", () => {
   armReveal("renderer-ready");
 });
+// Sent by App.tsx the moment the renderer mounts (BEFORE its splash-time
+// chunk warm-up). Latches a health flag the post-startup fallback consults:
+// a live renderer that is legitimately still warming gets the full ready-
+// wait; a page that loads yet never pings (broken bridge/JS error) is
+// force-revealed at 6 s as before. Registered ONCE at module level for the
+// same activate re-open reason as the handlers above.
+ipcMain.on("win:renderer-alive", () => {
+  if (!rendererAnnouncedAlive) bootLog("renderer:alive");
+  rendererAnnouncedAlive = true;
+});
 
 // Occasional-freeze resilience (user report: freezes on mid-range machines).
 // A GPU process death (driver reset / Timeout Detection & Recovery — the
@@ -645,22 +666,22 @@ app.whenReady().then(async () => {
   // stranding the splash — capStartupWork below is the backstop if a load
   // wedges on antivirus.
   // The WhatsApp MODULE (baileys — the heaviest import in the app) loads
-  // here, under the splash. The engine SOCKET start is deferred to after the
-  // login page is revealed (autoStartEngine below): the baileys handshake is
-  // CPU-heavy and v2.6.0 started it exactly when the login page appeared —
-  // the office reported typing echoing late on first paint. The WhatsApp
-  // page still connects on demand (its status polling auto-starts a paired
-  // session), so nothing user-visible needs the socket earlier. A failed
-  // import still degrades (WhatsApp unavailable this session) instead of
-  // stranding the splash — capStartupWork below is the backstop if a load
-  // wedges on antivirus.
-  let whatsappApi: { autoStartEngine(): void } | null = null;
+  // here, under the splash, AND the engine socket start runs here too
+  // (v2.6.3 — user report: typing freezes at the login page on mid-range
+  // machines). v2.6.1 deferred the baileys handshake to 8 s after the reveal
+  // so it could not hitch the first paint — but on mid-range machines that
+  // timer landed exactly while the office was typing their password. The
+  // handshake (8 s-bounded version fetch + crypto bursts in THIS process)
+  // is precisely the kind of background work that must finish behind the
+  // splash: it is started now, and the reveal gate below AWAITS it (via
+  // whatsappReady → capStartupWork). maybeStartEngine() resolves instantly
+  // on unpaired machines and never rejects, so this cannot strand the boot.
+  // A failed import still degrades (WhatsApp unavailable this session)
+  // instead of stranding the splash — capStartupWork below is the backstop
+  // if a load wedges on antivirus.
   const whatsappReady = import("./whatsapp-ipc.js")
-    .then((m) => {
-      whatsappApi = m;
-      return m.registerWhatsAppIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow, { autoStart: false });
-    })
-    .then(() => { bootLog("whatsapp:registered"); })
+    .then((m) => m.registerWhatsAppIpc(() => session.user ? { id: session.user.id, username: session.user.username, role: session.user.role } : null, () => mainWindow, { autoStart: false })
+      .then(() => { bootLog("whatsapp:registered"); bootLog("whatsapp:engine-autostart"); return m.autoStartEngine(); }))
     .catch((err) => { console.warn("[whatsapp] engine unavailable this session:", (err as Error)?.message || err); bootLog("whatsapp:failed", String((err as Error)?.message || err)); });
 
   // Let the splash paint before the synchronous registrations below. The
@@ -1265,19 +1286,19 @@ app.whenReady().then(async () => {
   // Slow launches are not padded: the splash already covered the real work.
   const splashHoldMs = 800 - (Date.now() - bootStartedAt);
   if (splashHoldMs > 0) await new Promise((r) => setTimeout(r, splashHoldMs));
+  // The main-process work is done; the splash now stays up only while the
+  // hidden renderer mounts the login page and warms every lazy page chunk
+  // (v2.6.3 — the warm-up is what makes the post-login dashboard jank
+  // impossible). Say so instead of looking hung on the last data status.
+  setSplashStatus("അവസാന സ്പർശം · Final touches");
   markStartupSettled("work-done");
   bootLog("boot:complete");
   scheduleMonthlyUpdateCheck(() => mainWindow);
-  // WhatsApp engine socket start — DEFERRED (v2.6.1). The baileys handshake
-  // (crypto bursts + 8 s-bounded version fetch) used to run exactly at the
-  // login page's first paint; the office reported typing lag. Start it once
-  // the page has been on screen for a while instead. Opening the WhatsApp
-  // page starts it on demand immediately (status polling), so the only
-  // visible difference is a few seconds of "disconnected" on the status
-  // strip right after launch.
-  setTimeout(() => {
-    try { whatsappApi?.autoStartEngine(); bootLog("whatsapp:engine-autostart"); } catch { /* session degraded */ }
-  }, 8_000).unref?.();
+  // NOTE: the WhatsApp engine socket is started INSIDE the whatsappReady
+  // gate above (v2.6.3) — never on a post-reveal timer. The v2.6.1
+  // "+8 s after the window" deferral was the login-page typing freeze: on a
+  // mid-range machine that timer fired in the middle of the first minute of
+  // use. Nothing CPU-heavy may be scheduled into the post-reveal window.
 
   // ===== Auto-backup timer =====
   // Checks settings.auto_backup every 10 minutes. If enabled and the last
@@ -1294,10 +1315,22 @@ app.whenReady().then(async () => {
       const backups = listBackups(userData);
       const lastBackup = backups[0]; // sorted by time desc
       const now = Date.now();
-      if (lastBackup) {
-        const lastTime = new Date(lastBackup.time).getTime();
-        const elapsedHours = (now - lastTime) / (1000 * 60 * 60);
-        if (elapsedHours < intervalHours) return; // too soon
+      const elapsedHours = lastBackup ? (now - new Date(lastBackup.time).getTime()) / (1000 * 60 * 60) : Number.POSITIVE_INFINITY;
+      if (elapsedHours < intervalHours) return; // too soon
+      // IDLE-ONLY BACKUP (v2.6.3 — the same freeze-fix family as the splash
+      // warm-up): a backup is a full DB copy + SHA-256 + mirror write in
+      // THIS process. The 90 s first kick used to land right around login,
+      // and a 10-min tick could land mid-typing — the office felt both as a
+      // seconds-long input freeze. Never run backup I/O while the user has
+      // touched the machine in the last 30 s; the next 10-min tick retries.
+      // Exception: a backup overdue by more than 2× the interval (or no
+      // backup at all) runs regardless — data safety beats one quiet hitch.
+      const grosslyOverdue = !lastBackup || elapsedHours > intervalHours * 2;
+      let idleSecs = 0;
+      try { idleSecs = powerMonitor.getSystemIdleTime(); } catch { idleSecs = 0; }
+      if (idleSecs < 30 && !grosslyOverdue) {
+        bootLog("auto-backup:deferred", `user active (idle ${idleSecs}s), retry next tick`);
+        return;
       }
       const name = `backup-auto-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.mmbak`;
       const filePath = path.join(userData, name);
@@ -1330,11 +1363,13 @@ app.whenReady().then(async () => {
     }
   };
   autoBackupTimer = setInterval(runAutoBackup, 10 * 60 * 1000); // every 10 min
-  // First check 90 seconds after the window is up. DB init already finished
-  // under the splash, and the login page gets a full quiet minute before any
-  // backup I/O can run in the main process (v2.6.1: 30 s janked the first
-  // minute of use on mid-range machines). Cleared on quit so a pending kick
-  // cannot reopen the database during teardown and keep the process alive.
+  // First check 90 seconds after the work settles. DB init already finished
+  // under the splash, and runAutoBackup itself is IDLE-GATED (v2.6.3): even
+  // when a backup is due it cannot start while the user has touched the
+  // machine in the last 30 s, so neither this kick nor any 10-min tick can
+  // freeze typing/scrolling again (v2.6.1: 30 s janked the first minute of
+  // use on mid-range machines). Cleared on quit so a pending kick cannot
+  // reopen the database during teardown and keep the process alive.
   autoBackupKick = setTimeout(() => { autoBackupKick = null; void runAutoBackup(); }, 90_000);
   autoBackupKick.unref?.();
 }).catch((err) => {

@@ -129,21 +129,27 @@ export function registerWhatsAppIpc(
   // The WhatsApp engine lives in-process — nothing to spawn. When a paired
   // session exists on disk it logs back in silently with the app; an
   // unpaired machine stays idle until the user presses Connect (no QR
-  // handshake churn). v2.6.1: main.ts passes { autoStart:false } at boot —
-  // the socket start (version fetch + baileys handshake, CPU-heavy) used to
-  // run exactly when the login page appeared and the office reported typing
-  // lag. main.ts calls autoStartEngine() once the page has settled; the
-  // WhatsApp page ALSO auto-starts on demand via status polling, so nothing
-  // user-visible needs the socket earlier.
+  // handshake churn). main.ts passes { autoStart:false } at boot and calls
+  // autoStartEngine() itself, INSIDE the startup gate (v2.6.3): the socket
+  // start (version fetch + baileys handshake, CPU-heavy) used to run when
+  // the login page appeared — first at reveal (v2.6.0), then 8 s after it
+  // (v2.6.1) — and the office reported typing lag at exactly that moment.
+  // It now runs UNDER the splash with the reveal gated on it, so the burst
+  // is over before the user can type. The WhatsApp page ALSO auto-starts on
+  // demand via status polling, so nothing user-visible needs the socket earlier.
   if (opts.autoStart === false) return Promise.resolve();
   return maybeStartEngine();
 }
 
-/** Deferred engine start (v2.6.1) — called by main.ts AFTER the login page
- *  is revealed and settled. No-op when the module was never registered
- *  (import failed) — WhatsApp simply stays unavailable this session, exactly
- *  like any other failed import. */
-export function autoStartEngine(): void {
-  if (!registered) return;
-  void maybeStartEngine();
+/** Splash-time engine start (v2.6.3) — called by main.ts from INSIDE the
+ *  startup gate, and awaited (bounded by capStartupWork) so the baileys
+ *  connect burst finishes while the splash is up instead of landing in the
+ *  middle of the login page's first minute. maybeStartEngine() self-bounds
+ *  (8 s version-fetch race; unpaired machines resolve instantly) and never
+ *  rejects. Resolves early when the module was never registered (import
+ *  failed) — WhatsApp simply stays unavailable this session, exactly like
+ *  any other failed import. */
+export function autoStartEngine(): Promise<void> {
+  if (!registered) return Promise.resolve();
+  return maybeStartEngine();
 }
