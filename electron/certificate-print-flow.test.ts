@@ -5,15 +5,17 @@ import { describe, expect, it } from "vitest";
 // Certificate print flow (user report: "first print of certificate also
 // mention reprint badge which is to be avoided").
 //
-// The "certificates:generatePdf" handler in electron/main.ts used to pass
-// reprint_count + 1 into buildCertificateHtml(), so even the FIRST print of
-// a brand-new certificate carried the bottom-left "Reprinted on <date>" note.
-// The note must appear only when the sheet being printed is genuinely a
-// reprint — i.e. the count stored by a PREVIOUS successful save is > 0
-// (markReprint() increments AFTER the PDF is actually written, so a
-// cancelled save never stamps a phantom reprint either).
+// The "certificates:generatePdf" handler (which used to live in
+// electron/main.ts and since the v2.6.3 split lives in
+// electron/export-ipc.ts) used to pass reprint_count + 1 into
+// buildCertificateHtml(), so even the FIRST print of a brand-new certificate
+// carried the bottom-left "Reprinted on <date>" note. The note must appear
+// only when the sheet being printed is genuinely a reprint — i.e. the count
+// stored by a PREVIOUS successful save is > 0 (markReprint() increments
+// AFTER the PDF is actually written, so a cancelled save never stamps a
+// phantom reprint either).
 const MAIN = readFileSync(
-  fileURLToPath(new URL("./main.ts", import.meta.url)),
+  fileURLToPath(new URL("./export-ipc.ts", import.meta.url)),
   "utf8"
 );
 

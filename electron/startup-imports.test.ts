@@ -8,36 +8,64 @@
  * whatsapp-ipc chain / electron-updater and silently bring back the
  * "double-click and nothing happens for seconds" experience.
  *
+ * v2.6.3 NOTE: main.ts was split — the IPC handlers and boot helpers moved
+ * into crud-ipc.ts / export-ipc.ts / backup-ipc.ts / session.ts /
+ * data-dir.ts / auto-backup.ts / uninstall-verify.ts. Those modules are
+ * STATICALLY imported by main.ts, so they run pre-splash too: the
+ * anti-static-import rule below applies to them exactly as to main.ts
+ * (ENTRY_MODULES). exceljs may only ever be dynamically imported.
+ *
  * The counterpart behaviour tests live in splash-window.test.ts.
  */
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-const mainSrc = readFileSync(fileURLToPath(new URL("./main.ts", import.meta.url)), "utf8");
+const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
+const mainSrc = read("./main.ts");
+// Everything main.ts statically imports that runs before the splash exists.
+const ENTRY_MODULES: Array<[string, string]> = [
+  ["main.ts", mainSrc],
+  ["session.ts", read("./session.ts")],
+  ["data-dir.ts", read("./data-dir.ts")],
+  ["auto-backup.ts", read("./auto-backup.ts")],
+  ["uninstall-verify.ts", read("./uninstall-verify.ts")],
+  ["crud-ipc.ts", read("./crud-ipc.ts")],
+  ["export-ipc.ts", read("./export-ipc.ts")],
+  ["backup-ipc.ts", read("./backup-ipc.ts")],
+];
+const allEntrySrc = ENTRY_MODULES.map(([, src]) => src).join("\n");
 
 /** A static top-level import of the given specifier (start-of-line `import`,
  *  which dynamic `await import(...)` calls never match). */
-function hasStaticImport(specifier: string): boolean {
-  const re = new RegExp(`^import\\s[^;]*["']${specifier.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&")}["']`, "m");
-  return re.test(mainSrc);
+function hasStaticImportIn(src: string, specifier: string): boolean {
+  const re = new RegExp(`^import\\s[^;]*["']${specifier.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["']`, "m");
+  return re.test(src);
 }
 
-describe("main.ts startup imports stay light (instant splash)", () => {
-  it("does not statically import exceljs", () => {
-    expect(hasStaticImport("exceljs")).toBe(false);
+describe("boot-chain imports stay light (instant splash)", () => {
+  it("does not statically import exceljs anywhere in the pre-splash chain", () => {
+    for (const [name, src] of ENTRY_MODULES) {
+      expect(hasStaticImportIn(src, "exceljs"), `${name} must only ever dynamically import exceljs`).toBe(false);
+    }
   });
 
   it("does not statically import the whatsapp-ipc module (baileys chain)", () => {
-    expect(hasStaticImport("./whatsapp-ipc.js")).toBe(false);
+    for (const [name, src] of ENTRY_MODULES) {
+      expect(hasStaticImportIn(src, "./whatsapp-ipc.js"), name).toBe(false);
+    }
   });
 
   it("does not statically import whatsapp.service either (welfare notify path)", () => {
-    expect(hasStaticImport("./services/whatsapp.service.js")).toBe(false);
+    for (const [name, src] of ENTRY_MODULES) {
+      expect(hasStaticImportIn(src, "./services/whatsapp.service.js"), name).toBe(false);
+    }
   });
 
   it("does not statically import auto-update (electron-updater chain)", () => {
-    expect(hasStaticImport("./auto-update.js")).toBe(false);
+    for (const [name, src] of ENTRY_MODULES) {
+      expect(hasStaticImportIn(src, "./auto-update.js"), name).toBe(false);
+    }
   });
 
   it("loads the heavy modules dynamically, under the splash", () => {
@@ -45,9 +73,9 @@ describe("main.ts startup imports stay light (instant splash)", () => {
     // The boot DOES wait for these promises before revealing the window
     // (capStartupWork), so the wait happens while the splash is up.
     expect(mainSrc).toContain('import("./whatsapp-ipc.js")');
-    expect(mainSrc).toContain('import("./services/whatsapp.service.js")');
+    expect(allEntrySrc).toContain('import("./services/whatsapp.service.js")');
     expect(mainSrc).toContain('import("./auto-update.js")');
-    expect(mainSrc).toContain('await import("exceljs")');
+    expect(allEntrySrc).toContain('await import("exceljs")');
   });
 
   it("does not statically await the heavy imports before the splash exists", () => {
@@ -66,14 +94,20 @@ describe("main.ts startup imports stay light (instant splash)", () => {
     const splashCreate = mainSrc.indexOf("createSplashWindow()");
     expect(splashCreate).toBeGreaterThan(-1);
     const afterSplash = mainSrc.slice(splashCreate);
-    // Splash paints before the synchronous IPC registrations.
+    // Splash paints before the synchronous IPC registrations. (v2.6.3: the
+    // registrations live in crud-ipc.ts / export-ipc.ts / backup-ipc.ts and
+    // are wired from main.ts — the call sites carry the ordering guarantee.)
+    const registerIdx = afterSplash.indexOf("registerCrudIpc(");
     expect(afterSplash.indexOf("await whenSplashShown()")).toBeGreaterThan(-1);
-    expect(afterSplash.indexOf("await whenSplashShown()")).toBeLessThan(afterSplash.indexOf("ipcMain.handle(\"auth:login\""));
+    expect(afterSplash.indexOf("await whenSplashShown()")).toBeLessThan(registerIdx);
+    expect(registerIdx).toBeLessThan(afterSplash.indexOf("registerBackupIpc("));
+    // The auth:login handler itself must exist in the CRUD module.
+    expect(allEntrySrc).toContain('ipcMain.handle("auth:login"');
     // Hidden window is created so the renderer can load in parallel, but
     // the reveal gate is awaited AFTER that, and only then is the splash
     // allowed to drop (markStartupSettled → revealMainWindow).
     const createWindowIdx = afterSplash.indexOf("createWindow()");
-    const gateIdx = afterSplash.indexOf("capStartupWork(whatsappReady, \"whatsapp\"");
+    const gateIdx = afterSplash.indexOf('capStartupWork(whatsappReady, "whatsapp"');
     const settledIdx = afterSplash.indexOf('markStartupSettled("work-done")');
     expect(createWindowIdx).toBeGreaterThan(-1);
     expect(gateIdx).toBeGreaterThan(createWindowIdx);

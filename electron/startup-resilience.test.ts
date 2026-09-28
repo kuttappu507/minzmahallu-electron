@@ -308,11 +308,17 @@ describe("the first appearance of the login page is fully painted", () => {
   });
 
   it("auto-backup is idle-gated: it can never freeze an active user", () => {
+    // The timers live in main.ts (cleared on quit so a pending kick cannot
+    // reopen the DB during teardown); the runner lives in auto-backup.ts.
     expect(MAIN).toContain("autoBackupKick = setTimeout(() => { autoBackupKick = null; void runAutoBackup(); }, 90_000);");
     // v2.6.3: neither the 90 s kick nor any 10-min tick may run backup I/O
     // while the user touched the machine in the last 30 s (unless grossly
     // overdue). powerMonitor is the main-process source of system idle time.
-    const fn = MAIN.slice(MAIN.indexOf("const runAutoBackup = async () =>"), MAIN.indexOf("autoBackupTimer = setInterval("));
+    const backupSrc = readFileSync(
+      fileURLToPath(new URL("./auto-backup.ts", import.meta.url)),
+      "utf8"
+    );
+    const fn = backupSrc.slice(backupSrc.indexOf("export async function runAutoBackup"));
     expect(fn).toContain("powerMonitor.getSystemIdleTime()");
     expect(fn).toContain("grosslyOverdue");
   });
