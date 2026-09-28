@@ -237,19 +237,22 @@ describe("the first appearance of the login page is fully painted", () => {
     expect(fn).toContain("if (!force) {");
   });
 
-  it("the post-startup fallback is a bounded poll, not a 4 s force-reveal", () => {
+  it("the post-startup fallback is a bounded poll that never cuts a healthy warm-up short", () => {
     const fn = MAIN.slice(MAIN.indexOf("function markStartupSettled("), MAIN.indexOf("/** A wedged import"));
     expect(fn).toContain("setInterval");
-    // Page loaded but renderer silent → reveal at 6 s; absolute cap 20 s.
+    // Page loaded but renderer ALWAYS silent (no alive ping = broken bridge
+    // or JS error → no warm-up running) → reveal at 6 s; a renderer that
+    // announced itself keeps warming until its own caps fire; absolute 20 s
+    // cap no matter what (the splash can never strand).
     expect(fn).toContain("fallbackTicks >= 20");
-    expect(fn).toContain("fallbackTicks >= 6 && loaded");
+    expect(fn).toContain("fallbackTicks >= 6 && loaded && !rendererAnnouncedAlive");
     // The forced reveal past the paint guard exists ONLY in this fallback.
     expect(fn).toContain("revealMainWindow(true)");
     // The old unconditional 4 s force-reveal is gone.
     expect(fn).not.toContain('armReveal("post-startup-fallback"); }, 4_000)');
   });
 
-  it("the renderer signals FULL paint: fonts ready + two composited frames", () => {
+  it("the renderer announces alive at mount, then signals FULL boot: fonts + two frames + all chunks warmed", () => {
     const appSrc = readFileSync(
       fileURLToPath(new URL("../src/App.tsx", import.meta.url)),
       "utf8"
@@ -257,28 +260,66 @@ describe("the first appearance of the login page is fully painted", () => {
     expect(appSrc).toContain("document.fonts?.ready");
     // Two rAFs = one full frame actually composited past the commit.
     expect(appSrc.match(/requestAnimationFrame\(\(\) => requestAnimationFrame/u)).toBeTruthy();
-    // Bounded: a wedged fonts.ready can never strand the splash.
-    expect(appSrc).toContain("setTimeout(fire, 3000)");
+    // v2.6.3: before win:renderer-ready the renderer pre-parses EVERY lazy
+    // page chunk behind the splash (that parse used to freeze the app for
+    // seconds right after login), and pings win:renderer-alive at mount so
+    // the main-process fallback can tell warming from wedged.
+    expect(appSrc).toContain("warmAppChunks(");
+    expect(appSrc).toContain("rendererAlive");
+    // Bounded twice: the warm-up budget AND the overall fire cap (which must
+    // stay below the main process's 20 s fallback) can never strand the splash.
+    expect(appSrc).toContain("budgetMs: 12_000");
+    expect(appSrc).toContain("setTimeout(fire, 15_000)");
+    // The warm-up orders the post-login landing FIRST (Dashboard + recharts).
+    const warmSrc = readFileSync(
+      fileURLToPath(new URL("../src/lib/boot-warm.ts", import.meta.url)),
+      "utf8"
+    );
+    expect(warmSrc.indexOf('import("@/pages/Dashboard")')).toBeGreaterThan(-1);
+    expect(warmSrc.indexOf('import("@/pages/dashboard/DashboardCharts")')).toBeGreaterThan(warmSrc.indexOf('import("@/pages/Dashboard")'));
   });
 
-  it("the WhatsApp engine socket start is deferred until the page has settled", () => {
-    // Registered WITHOUT engine autostart at boot.
+  it("the WhatsApp engine socket start runs under the splash, awaited by the reveal gate", () => {
+    // Registered WITHOUT the module-level autostart…
     expect(MAIN).toContain("{ autoStart: false }");
-    // The deferred start happens only after boot:complete, 8 s in.
-    const revealIdx = MAIN.indexOf('markStartupSettled("work-done")');
-    const deferIdx = MAIN.indexOf("whatsappApi?.autoStartEngine()");
-    expect(deferIdx).toBeGreaterThan(revealIdx);
-    expect(MAIN).toContain("8_000");
-    // And whatsapp-ipc exports the deferred-start hook.
+    // …because main.ts starts the engine itself INSIDE the gated
+    // whatsappReady chain — the baileys handshake finishes (bounded) while
+    // the splash is up, so it can never again land in the login page's
+    // first minute (the v2.6.1 "+8 s after reveal" timer was the freeze).
+    const bgIdx = MAIN.indexOf('import("./whatsapp-ipc.js")');
+    const startIdx = MAIN.indexOf("m.autoStartEngine()");
+    const gateIdx = MAIN.indexOf('capStartupWork(whatsappReady, "whatsapp"');
+    const settledIdx = MAIN.indexOf('markStartupSettled("work-done")');
+    expect(bgIdx).toBeGreaterThan(-1);
+    expect(startIdx).toBeGreaterThan(bgIdx);
+    expect(startIdx).toBeLessThan(gateIdx);
+    expect(gateIdx).toBeLessThan(settledIdx);
+    // No post-reveal engine-start timer may survive anywhere.
+    const afterSettle = MAIN.slice(settledIdx);
+    expect(afterSettle).not.toContain("autoStartEngine()");
+    // And whatsapp-ipc exports the awaited splash-time start hook.
     const ipcSrc = readFileSync(
       fileURLToPath(new URL("./whatsapp-ipc.ts", import.meta.url)),
       "utf8"
     );
-    expect(ipcSrc).toContain("export function autoStartEngine()");
+    expect(ipcSrc).toContain("export function autoStartEngine(): Promise<void>");
+    expect(ipcSrc).toContain("return maybeStartEngine();");
     expect(ipcSrc).toContain("opts.autoStart === false");
   });
 
-  it("auto-backup cannot run in the first minute of the login page", () => {
+  it("auto-backup is idle-gated: it can never freeze an active user", () => {
+    // The timers live in main.ts (cleared on quit so a pending kick cannot
+    // reopen the DB during teardown); the runner lives in auto-backup.ts.
     expect(MAIN).toContain("autoBackupKick = setTimeout(() => { autoBackupKick = null; void runAutoBackup(); }, 90_000);");
+    // v2.6.3: neither the 90 s kick nor any 10-min tick may run backup I/O
+    // while the user touched the machine in the last 30 s (unless grossly
+    // overdue). powerMonitor is the main-process source of system idle time.
+    const backupSrc = readFileSync(
+      fileURLToPath(new URL("./auto-backup.ts", import.meta.url)),
+      "utf8"
+    );
+    const fn = backupSrc.slice(backupSrc.indexOf("export async function runAutoBackup"));
+    expect(fn).toContain("powerMonitor.getSystemIdleTime()");
+    expect(fn).toContain("grosslyOverdue");
   });
 });

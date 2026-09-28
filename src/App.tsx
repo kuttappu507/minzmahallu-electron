@@ -40,6 +40,7 @@ const Approvals = lazy(() => import("@/pages/Approvals").then(m => ({ default: m
 import { useEffect } from "react";
 import { transliterateMalayalam } from "@/lib/malayalamTransliteration";
 import { setCurrencySymbol } from "@/lib/utils";
+import { warmAppChunks } from "@/lib/boot-warm";
 
 /** Auto-capitalization lives in src/lib/auto-capitalize.ts (wired from
  *  main.tsx, v2.2.1): one document-level focusout listener with data-nocap
@@ -108,14 +109,22 @@ export default function App() {
     if (isUninstallMode) { document.body.classList.add("app-loaded"); return; }
     document.body.classList.add("app-loaded");
     const notify = () => { try { window.mms?.win?.rendererReady(); } catch { /* bridge absent (browser dev preview) */ } };
-    // v2.6.1 — FULL-PAINT signal. The old "mount + 120 ms beat" fired before
-    // the Malayalam/Latin fonts had swapped in on slower machines, so the
-    // main process could reveal a HALF-PAINTED login page (office report:
-    // fields popped in late and typing echoed late while the page settled).
-    // The window is revealed only after the fonts are ready AND two frames
-    // have actually been composited. Bounded by a 3 s cap so a wedged
-    // fonts.ready can never strand the splash (the main-process fallback
-    // caps the reveal regardless).
+    // v2.6.3 — tell the main process immediately that a HEALTHY renderer is
+    // up. Its post-startup fallback force-reveals ~6 s after page load when
+    // the renderer stays silent (dead bridge / early JS error); with the
+    // warm-up below the ready signal now legitimately takes longer than that,
+    // so the fallback must be able to tell "alive and warming" from "wedged".
+    try { window.mms?.win?.rendererAlive?.(); } catch { /* bridge absent (browser dev preview) */ }
+    // v2.6.1 — FULL-PAINT signal (extended v2.6.3 — FULL-BOOT signal). The
+    // old "mount + 120 ms beat" fired before the fonts had swapped in on
+    // slower machines; the window is now revealed only after
+    //   1. fonts are ready AND two frames have composited, AND
+    //   2. warmAppChunks() has pre-parsed every lazy page chunk (recharts,
+    //      framer-motion, …) BEHIND the splash — that parse used to run
+    //      right after login and freeze typing/scrolling on mid-range PCs.
+    // Both halves are bounded: the warm-up has its own budget, and the 15 s
+    // absolute cap below still beats the main process's 20 s fallback, so a
+    // wedged fonts.ready or a pathological chunk can never strand the splash.
     let done = false;
     let cap: ReturnType<typeof setTimeout> | null = null;
     let beat: ReturnType<typeof setTimeout> | null = null;
@@ -123,11 +132,20 @@ export default function App() {
     const go = () => {
       requestAnimationFrame(() => requestAnimationFrame(() => {
         if (done) return;
-        beat = setTimeout(fire, 120); // one beat past the second painted frame
-        if (cap) { clearTimeout(cap); cap = null; }
+        void (async () => {
+          // Dev keeps lazy chunks lazy (vite serves them on demand and dev
+          // iteration values fast reloads); packaged builds warm everything.
+          if (!import.meta.env.DEV) {
+            try { await warmAppChunks({ budgetMs: 12_000 }); }
+            catch { /* best effort — a failed chunk lazy-loads on demand later */ }
+          }
+          if (done) return;
+          beat = setTimeout(fire, 120); // one beat past the second painted frame
+          if (cap) { clearTimeout(cap); cap = null; }
+        })();
       }));
     };
-    cap = setTimeout(fire, 3000);
+    cap = setTimeout(fire, 15_000);
     if (document.fonts?.ready) { document.fonts.ready.then(go, go); } else { go(); }
     return () => { done = true; if (cap) clearTimeout(cap); if (beat) clearTimeout(beat); };
   }, [isUninstallMode]);
