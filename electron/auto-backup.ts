@@ -10,19 +10,30 @@
 import { app, powerMonitor } from "electron";
 import path from "node:path";
 import fs from "node:fs";
-import * as data from "./services/data.service.js";
-import { createBackup, listBackups, mirrorBackup } from "./services/backup.service.js";
 import { bootLog } from "./boot-log.js";
+
+// INSTANT-SPLASH PASS (v2.7.0): this module is part of main.ts's pre-splash
+// import chain (main.ts arms the timers), so its service imports must be
+// lazy — a static import of data.service (better-sqlite3's native binding)
+// or backup.service would delay the first visible pixel on every launch.
+// The runner only needs them once a backup is actually due, minutes after
+// boot, so a dynamic import inside runAutoBackup is free.
+type DataModule = typeof import("./services/data.service.js");
+type BackupServiceModule = typeof import("./services/backup.service.js");
+let dataMod: DataModule | null = null;
+let backupMod: BackupServiceModule | null = null;
 
 export async function runAutoBackup(): Promise<void> {
   try {
-    const settings = data.settings.load();
+    if (!dataMod) dataMod = await import("./services/data.service.js");
+    if (!backupMod) backupMod = await import("./services/backup.service.js");
+    const settings = dataMod.settings.load();
     if (!settings?.auto_backup) return;
     const intervalHours = Number(settings.backup_interval_hours || 24);
     if (intervalHours <= 0) return;
     const userData = app.getPath("userData");
     // Check existing backups to see if the last one is older than the interval.
-    const backups = listBackups(userData);
+    const backups = backupMod.listBackups(userData);
     const lastBackup = backups[0]; // sorted by time desc
     const now = Date.now();
     const elapsedHours = lastBackup ? (now - new Date(lastBackup.time).getTime()) / (1000 * 60 * 60) : Number.POSITIVE_INFINITY;
@@ -44,7 +55,7 @@ export async function runAutoBackup(): Promise<void> {
     }
     const name = `backup-auto-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.mmbak`;
     const filePath = path.join(userData, name);
-    await createBackup(filePath);
+    await backupMod.createBackup(filePath);
     console.log(`[auto-backup] Created: ${name}`);
     // Retention: keep only the newest N auto-backups in the app data folder
     // (manual/verified backups and mirrored copies are NEVER touched).
@@ -64,7 +75,7 @@ export async function runAutoBackup(): Promise<void> {
     // Mirror the auto-backup to the configured second location (best-effort).
     const mirrorDir = String((settings as any)?.backup_mirror_dir || "").trim();
     if (mirrorDir) {
-      const r = mirrorBackup(filePath, mirrorDir);
+      const r = backupMod.mirrorBackup(filePath, mirrorDir);
       if (r.ok) console.log(`[auto-backup] Mirrored to: ${r.path}`);
       else console.warn("[auto-backup] Mirror failed:", r.error);
     }

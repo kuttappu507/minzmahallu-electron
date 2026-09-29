@@ -44,8 +44,10 @@ describe("A6 receipt template", () => {
     expect(html).toContain("DON-042");
     expect(html).toContain("15-09-2026");
     // The honorific is a small courtesy span BEFORE the name (user request:
-    // "Janab in front of name should be smaller than the name — like Mr./Shri"):
-    expect(html).toContain('<span class="rc-hon">Janab</span> Haji Abdulla');
+    // "Janab in front of name should be smaller than the name — like Mr./Shri"),
+    // with the single space INSIDE the small span (user request: the space
+    // between Janab and the name must not render at the name's 13pt size):
+    expect(html).toContain('<span class="rc-hon">Janab </span>Haji Abdulla');
     expect(html).toContain("Zakat");
     expect(html).toContain("DONATION RECEIPT");
     expect(html).not.toContain("2026-09-15"); // never the storage order
@@ -69,6 +71,18 @@ describe("A6 receipt template", () => {
     expect(html).not.toContain("Donated by");
     expect(html).not.toContain("Phone No.");
     expect(html).toContain("FAM-012");
+  });
+
+  it("Malayalam subscription caption reads like the donation one (user request)", () => {
+    // User request: the old caption "ഇവരിൽ നിന്ന് സ്വീകരിച്ചത്" was not
+    // correct/natural Malayalam — the subscription receipt must use the same
+    // construction as the donation receipt (സംഭാവന നൽകിയത്): വരിസംഖ്യ നൽകിയത്.
+    const html = buildReceiptHtml(subscription, "ml");
+    const caption = "\u0d35\u0d30\u0d3f\u0d38\u0d02\u0d16\u0d4d\u0d2f \u0d28\u0d7d\u0d15\u0d3f\u0d2f\u0d24\u0d4d"; // വരിസംഖ്യ നൽകിയത് (ഖ = U+0D16)
+    expect(html).toContain(caption);
+    // The awkward "received from" wording must never come back:
+    const oldCaption = "\u0d07\u0d35\u0d30\u0d3f\u0d7d \u0d28\u0d3f\u0d28\u0d4d\u0d28\u0d4d \u0d38\u0d4d\u0d35\u0d40\u0d15\u0d30\u0d3f\u0d1a\u0d4d\u0d1a\u0d24\u0d4d"; // ഇവരിൽ നിന്ന് സ്വീകരിച്ചത്
+    expect(html).not.toContain(oldCaption);
   });
 
   it("keeps the security code as the footer and thanks just above the sign-off — no app brand, no QR", () => {
@@ -233,8 +247,8 @@ describe("A6 receipt template", () => {
     const html = buildReceiptHtml(donation, "ml");
     expect(html).toContain("\u0d30\u0d38\u0d40\u0d24\u0d4d"); // രസീത്
     expect(html).toContain("\u0d24\u0d40\u0d2f\u0d24\u0d3f"); // തീയതി
-    // ജനാബ് as the small honorific span before the name:
-    expect(html).toContain('\u0d1c\u0d28\u0d3e\u0d2c\u0d4d</span> Haji Abdulla');
+    // ജനാബ് as the small honorific span before the name (space inside the span):
+    expect(html).toContain('\u0d1c\u0d28\u0d3e\u0d2c\u0d4d </span>Haji Abdulla');
     // സംഭാവന നൽകിയത് (chillu-spelled ൽ = U+0D7D) — the user-requested caption:
     const caption = "\u0d38\u0d02\u0d2d\u0d3e\u0d35\u0d28 \u0d28\u0d7d\u0d15\u0d3f\u0d2f\u0d24\u0d4d";
     expect(html).toContain(caption);
@@ -252,6 +266,28 @@ describe("A6 receipt template", () => {
     expect(cells.length).toBe(8); // padded to full 2x2 grids
     expect(html).toContain("DON-045");
     expect(html).toContain("5 receipts"); // footer count
+  });
+
+  it("sheet cells are FULL A6 height with cutting marks (user report)", () => {
+    // User report: the batch sheet's cells were 140.5mm (7.5mm shorter than
+    // a real A6) — the subscription receipt's amount box clipped in the
+    // sheet, and a large vacant strip stayed at the A4 bottom. Cells are now
+    // full 148mm A6 (296 of the 297mm page filled) with solid crop ticks at
+    // the sheet edges on both cut lines.
+    const html = buildReceiptSheetHtml([donation, subscription], "en");
+    expect(html).toContain("grid-template-rows:148mm 148mm");
+    expect(html).toContain(".cell .rc{border:0;width:105mm;height:148mm}");
+    // No shrunken 140.5mm cells anywhere:
+    expect(html).not.toContain("140.5mm");
+    // Cutting marks: 4 solid ticks per sheet, on the two cut lines:
+    expect(html).toContain('.tk-l{left:0;top:147.8mm;width:5mm;height:.4mm}');
+    expect(html).toContain('.tk-r{right:0;top:147.8mm;width:5mm;height:.4mm}');
+    expect(html).toContain('.tk-t{top:0;left:104.8mm;width:.4mm;height:5mm}');
+    expect(html).toContain('.tk-b{bottom:0;left:104.8mm;width:.4mm;height:5mm}');
+    expect(html.match(/<i class="tk tk-l"><\/i>/g)?.length).toBe(1);
+    // Dashed inner guides still span the full rows:
+    expect(html).toContain(".cell:nth-child(odd){border-right:.25mm dashed #9db3aa}");
+    expect(html).toContain(".cell:nth-child(-n+2){border-bottom:.25mm dashed #9db3aa}");
   });
 
   it("footer stack is compact so the amount box is never cut (user report)", () => {

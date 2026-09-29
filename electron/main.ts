@@ -12,27 +12,51 @@
  *   security-ipc.ts     the secured channel layer (auth + audit + guards)
  *   receipt-ipc.ts      donation/subscription receipt printing
  * What lives HERE is only what must: window/boot/reveal orchestration,
- * single-instance, quit paths, and the whenReady wiring of the modules above.
+ * single-instance, quit paths, and the whenReady wiring of the modules
+ * above. EVERYTHING heavy — the data-service graph (better-sqlite3 native
+ * binding), the IPC modules, the PDF renderer, update-check, the baileys
+ * chain and electron-updater — loads dynamically UNDER the splash (the
+ * coreReady gate + the whatsappReady/updaterReady promises), so the splash
+ * is the first visible pixel after the double-click and the main window is
+ * revealed only after all preliminary work has settled (no freeze after).
  */
 import { app, BrowserWindow, ipcMain, dialog } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import * as data from "./services/data.service.js";
-import { closeDB, getDB } from "./db/connection.js";
-import { prewarmPdfRenderer, disposePdfRenderer } from "./print/pdf-renderer.js";
-import { registerSecurityIpc } from "./security-ipc.js";
-import { registerReceiptIpc } from "./receipt-ipc.js";
 import { createSplashWindow, closeSplash, showSplash, setSplashStatus, whenSplashShown } from "./splash-window.js";
 import { bootLog, bootLogError } from "./boot-log.js";
-import { registerUpdateIpc, scheduleMonthlyUpdateCheck } from "./update-check.js";
 import { getActor } from "./session.js";
 import { ensureShortDataDir } from "./data-dir.js";
 import { isUninstallVerify, runUninstallVerifyMode } from "./uninstall-verify.js";
-import { registerCrudIpc, registerAuthRetakeIpc } from "./crud-ipc.js";
-import { registerExportIpc } from "./export-ipc.js";
-import { registerBackupIpc } from "./backup-ipc.js";
 import { runAutoBackup } from "./auto-backup.js";
+
+// INSTANT-SPLASH PASS (v2.7.0): ONLY genuinely light modules stay in the
+// static import chain above — this file, splash-window, boot-log, session,
+// data-dir, uninstall-verify (itself lazified) and auto-backup (itself
+// lazified). Everything else — the data-service graph with better-sqlite3's
+// native binding, every IPC layer module, the PDF renderer, update-check,
+// the baileys-bearing whatsapp-ipc chain and electron-updater — loads
+// UNDER the splash via dynamic import, so the first visible pixel lands as
+// close to the double-click as Electron itself allows, and ALL preliminary
+// work (DB open, monthly subscriptions, print prewarm, engine handshake,
+// handler registration) settles behind the splash before the main window
+// is revealed — no freeze after it. The handles below reach those lazily
+// loaded modules from the quit paths and the boot gates.
+type DataModule = typeof import("./services/data.service.js");
+type DbModule = typeof import("./db/connection.js");
+type PdfModule = typeof import("./print/pdf-renderer.js");
+type UpdateModule = typeof import("./update-check.js");
+let dataMod: DataModule | null = null;
+let dbMod: DbModule | null = null;
+let pdfMod: PdfModule | null = null;
+let updateMod: UpdateModule | null = null;
+
+/** Thin local alias so the quit paths keep their guarded
+ *  `try { closeDB(); } catch` shape while the real connection module is
+ *  loaded lazily under the splash. Before that load finishes there is no
+ *  open database to close — a no-op is then exactly right. */
+function closeDB(): void { dbMod?.closeDB(); }
 // STARTUP ORDER: the splash must be the first thing the user sees, and it
 // must STAY up until boot work has finished. Heavy modules (exceljs, the
 // baileys-bearing whatsapp-ipc / whatsapp.service chain, electron-updater)
@@ -111,7 +135,7 @@ function clearAutoBackupTimers(): void {
  *  process used to keep running in the background with no UI — and hold the
  *  single-instance lock so the next launch died silently. */
 function releaseHiddenWindows(): void {
-  try { disposePdfRenderer(); } catch { /* best effort */ }
+  try { pdfMod?.disposePdfRenderer(); } catch { /* best effort */ }
   try { closeSplash(); } catch { /* best effort */ }
 }
 
@@ -554,6 +578,14 @@ app.whenReady().then(async () => {
       .then(() => { bootLog("whatsapp:registered"); bootLog("whatsapp:engine-autostart"); return m.autoStartEngine(); }))
     .catch((err) => { console.warn("[whatsapp] engine unavailable this session:", (err as Error)?.message || err); bootLog("whatsapp:failed", String((err as Error)?.message || err)); });
 
+  // In-app download + install (electron-updater) — engages when the user
+  // accepts the banner. Like whatsapp-ipc it loads under the splash (started
+  // here, awaited by the reveal gate below via capStartupWork) and a load
+  // failure degrades to "no update banner" instead of stranding the boot.
+  const updaterReady = import("./auto-update.js")
+    .then((m) => { m.registerAutoUpdater(() => mainWindow); bootLog("updater:wired"); })
+    .catch((err) => { console.warn("[update] updater unavailable this session:", (err as Error)?.message || err); bootLog("updater:failed", String((err as Error)?.message || err)); });
+
   // Let the splash paint before the synchronous registrations below. The
   // user should already be looking at it while the rest of boot runs.
   await whenSplashShown();
@@ -584,30 +616,44 @@ app.whenReady().then(async () => {
     }
   } catch {}
 
-  // Monthly GitHub release check (Settings → About can also check on demand).
-  // The delayed network tick itself is started only after the window is
-  // revealed (below) so it cannot hitch the first paint.
-  registerUpdateIpc(() => mainWindow);
-  // In-app download + install (electron-updater) — engages when the user
-  // accepts the banner; browser download stays as fallback. The module (and
-  // electron-updater with it) loads under the splash, not at process start,
-  // and the reveal gate waits for this load (capped) so it cannot hitch the
-  // window after it appears. A load failure degrades to "no update banner".
-  const updaterReady = import("./auto-update.js")
-    .then((m) => { m.registerAutoUpdater(() => mainWindow); bootLog("updater:wired"); })
-    .catch((err) => { console.warn("[update] updater unavailable this session:", (err as Error)?.message || err); bootLog("updater:failed", String((err as Error)?.message || err)); });
-  registerCrudIpc(() => mainWindow);
-  registerExportIpc(() => mainWindow);
-  registerBackupIpc(() => mainWindow);
-
-  registerSecurityIpc(getActor);
-  registerAuthRetakeIpc(); // re-takes auth:createInitialAdministrator (see crud-ipc.ts)
-  // Receipt IPC is the LAST registration before the window is created (a
-  // window can never call a missing handler — pinned in
+  // CORE MODULES + IPC REGISTRATION (v2.7.0 — all under the splash). The
+  // data-service graph (better-sqlite3 native binding included), every IPC
+  // layer module, the PDF renderer and update-check load HERE, after the
+  // splash is already on screen — the same handlers register in the same
+  // order as before: crud → export → backup → security → auth-retake →
+  // receipt LAST (a window can never call a missing handler — pinned in
   // startup-resilience.test.ts). The hidden window's renderer then loads in
   // parallel while whatsappReady / updaterReady / dataReady settle.
-  registerReceiptIpc(getActor, () => mainWindow);
-  bootLog("ipc:registered");
+  const coreReady = (async () => {
+    setSplashStatus("സർവീസുകൾ ലോഡ് ചെയ്യുന്നു · Loading services");
+    const [upd, crud, exp, bk, sec, rec, ds, dbc, pdf] = await Promise.all([
+      import("./update-check.js"),
+      import("./crud-ipc.js"),
+      import("./export-ipc.js"),
+      import("./backup-ipc.js"),
+      import("./security-ipc.js"),
+      import("./receipt-ipc.js"),
+      import("./services/data.service.js"),
+      import("./db/connection.js"),
+      import("./print/pdf-renderer.js"),
+    ]);
+    updateMod = upd; dataMod = ds; dbMod = dbc; pdfMod = pdf;
+    // Monthly GitHub release check (Settings → About can also check on demand).
+    // The delayed network tick itself is started only after the window is
+    // revealed (below) so it cannot hitch the first paint.
+    upd.registerUpdateIpc(() => mainWindow);
+    crud.registerCrudIpc(() => mainWindow);
+    exp.registerExportIpc(() => mainWindow);
+    bk.registerBackupIpc(() => mainWindow);
+    sec.registerSecurityIpc(getActor);
+    crud.registerAuthRetakeIpc(); // re-takes auth:createInitialAdministrator (see crud-ipc.ts)
+    // Receipt IPC is the LAST registration before the window is created (a
+    // window can never call a missing handler — pinned in
+    // startup-resilience.test.ts).
+    rec.registerReceiptIpc(getActor, () => mainWindow);
+    bootLog("ipc:registered");
+  })();
+  await coreReady;
   createWindow();
   // From this tick on, a second-instance event can safely (re)create the
   // window — every handler it may call is registered. Reveal stays gated
@@ -623,11 +669,13 @@ app.whenReady().then(async () => {
   // app. They now run while the splash is already up. The hidden main
   // window is loading its renderer at the same time.
   const dataReady = (async () => {
+    if (!dbMod || !dataMod || !pdfMod) throw new Error("core modules failed to load");
+    const { prewarmPdfRenderer } = pdfMod;
     setSplashStatus("ഡാറ്റാബേസ് തുറക്കുന്നു · Opening database");
-    try { getDB(); bootLog("db:opened"); }
+    try { dbMod.getDB(); bootLog("db:opened"); }
     catch (err) { bootLogError("db:open", err); console.warn("[boot] database open failed:", err); }
     setSplashStatus("ഈ മാസം തയ്യാറാക്കുന്നു · Preparing this month");
-    try { data.subscriptions.ensureCurrentMonth(); bootLog("subscriptions:month-ensured"); }
+    try { dataMod.subscriptions.ensureCurrentMonth(); bootLog("subscriptions:month-ensured"); }
     catch (err) { console.warn("[subscriptions] monthly generation failed:", err); bootLog("subscriptions:month-failed", String((err as Error)?.message || err)); }
     setSplashStatus("പ്രിന്റ് തയ്യാറാക്കുന്നു · Preparing print");
     try { prewarmPdfRenderer(); bootLog("pdf:prewarmed"); }
@@ -652,7 +700,7 @@ app.whenReady().then(async () => {
   setSplashStatus("അവസാന സ്പർശം · Final touches");
   markStartupSettled("work-done");
   bootLog("boot:complete");
-  scheduleMonthlyUpdateCheck(() => mainWindow);
+  updateMod?.scheduleMonthlyUpdateCheck(() => mainWindow);
   // NOTE: the WhatsApp engine socket is started INSIDE the whatsappReady
   // gate above (v2.6.3) — never on a post-reveal timer. The v2.6.1
   // "+8 s after the window" deferral was the login-page typing freeze: on a

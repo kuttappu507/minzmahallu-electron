@@ -118,10 +118,13 @@ function labels(lang: Lang) {
     titleSubscription: 'വരിസംഖ്യ രസീത്',
     no: 'രസീത് നമ്പർ',
     date: 'തീയതി',
-    // Donation caption (user request): "സംഭാവന നൽകിയത്" — the subscription
-    // receipt keeps its own "received from" wording.
+    // Caption above the payer name, both receipts now use the same natural
+    // Kerala-receipt construction (user request: the subscription wording
+    // "ഇവരിൽ നിന്ന് സ്വീകരിച്ചത്" was awkward Malayalam — it must read like
+    // the donation one): സംഭാവന നൽകിയത് / വരിസംഖ്യ നൽകിയത് — "the one who
+    // gave the donation / paid the subscription".
     donatedBy: 'സംഭാവന നൽകിയത്',
-    received: 'ഇവരിൽ നിന്ന് സ്വീകരിച്ചത്',
+    received: 'വരിസംഖ്യ നൽകിയത്',
     nameLbl: 'പേര്',
     phoneNo: 'ഫോൺ നമ്പർ',
     honorific: 'ജനാബ്',
@@ -176,6 +179,13 @@ function receiptCard(r: ReceiptData, L: ReturnType<typeof labels>, lang: Lang): 
   // Sign-off word order is language-specific (user request): English reads
   // "For <name>"; Malayalam puts the entity FIRST — "<name> മഹല്ലിന് വേണ്ടി".
   const forLine = lang === 'ml' ? `${name} ${L.forMahallu}` : `${L.forMahallu} ${name}`;
+  // Honorific spacing (user request): the literal space between the small
+  // honorific and the name used to render at the NAME's 13pt size — a wide
+  // unintended gap on paper. The single space now lives INSIDE the small
+  // honorific span (an 8.5pt space) and the name itself is whitespace-
+  // collapsed + trimmed, so "Janab" sits tight against the name exactly
+  // like the handwritten Kerala receipts: Janab Haji Abdulla / ജനാബ് മുഹമ്മദ്.
+  const payerName = String(r.payerName || '').replace(/\s+/g, ' ').trim();
   // Header identity block, mirroring the certificate: mahallu name on top,
   // address (+ phone) underneath. Phone numbers print WITHOUT the leading
   // 91 country code (see stripIndiaPrefix).
@@ -195,7 +205,7 @@ function receiptCard(r: ReceiptData, L: ReturnType<typeof labels>, lang: Lang): 
         <div class="rc-party-cap">${esc(isDonation ? L.donatedBy : L.received)}</div>
         <div class="rc-party-row">
           <span class="rc-plabel">${esc(L.nameLbl)}</span>
-          <span class="rc-val"><span class="rc-hon">${esc(L.honorific)}</span> ${esc(r.payerName || '—')}</span>
+          <span class="rc-val"><span class="rc-hon">${esc(L.honorific)} </span>${esc(payerName || '—')}</span>
         </div>
         ${isDonation
           ? (r.payerDetail ? `<div class="rc-party-row phone"><span class="rc-plabel">${esc(L.phoneNo)}</span><span class="rc-val rc-val-sm">${esc(stripIndiaPrefix(r.payerDetail))}</span></div>` : '')
@@ -242,19 +252,25 @@ function baseCss(): string {
     .rc-type{text-align:left;font-size:7.2pt;font-weight:700;letter-spacing:1px;text-transform:uppercase;opacity:.95}
     .rc-brand{margin-top:1.2mm;text-align:center}
     .rc-brand b{display:block;font-size:14.5pt;font-weight:800;letter-spacing:.3px;line-height:1.15}
-    .rc-brand span{display:block;font-size:6.6pt;opacity:.92;margin-top:1mm;letter-spacing:.4px}
+    .rc-brand span{display:block;font-size:6.6pt;opacity:.92;margin-top:1mm;letter-spacing:.4px;line-height:1.3}
     .rc-meta{display:flex;border-bottom:.3mm solid #d9e5e0}
-    .rc-meta>div{flex:1;display:flex;justify-content:space-between;padding:2.4mm 5mm;border-right:.3mm solid #d9e5e0}
+    .rc-meta>div{flex:1;display:flex;justify-content:space-between;padding:2.1mm 5mm;border-right:.3mm solid #d9e5e0}
     .rc-meta>div:last-child{border-right:0}
-    .rc-meta span{font-size:6.4pt;color:#5d6f67;letter-spacing:.3px}
-    .rc-meta b{font-size:9pt}
+    .rc-meta span{font-size:6.8pt;color:#5d6f67;letter-spacing:.3px;line-height:1.25}
+    .rc-meta b{font-size:9.5pt;line-height:1.25}
     /* Compacted paddings/gaps (user report: the amount box was getting cut):
        the footer grew line by line over the releases, so the body — and with
        it the bottom-pinned amount box — was left with too little of the
-       fixed 148mm card. Every mm reclaimed here goes to the amount box. */
-    .rc-body{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;padding:3.4mm 5.5mm 2.4mm;gap:2.6mm}
-    .rc-party{border-bottom:.2mm dashed #c9d8d2;padding-bottom:2.6mm}
-    .rc-party-cap{font-size:6.4pt;color:#84938c;letter-spacing:.3px}
+       fixed 148mm card. Every mm reclaimed here goes to the amount box.
+       FILL-THE-CARD pass (user report: "a large portion is vacant after the
+       last word"): short receipts used to leave ONE big hole above the
+       amount box (margin-top:auto). The body now distributes its blocks
+       evenly (space-between), so the party block, the detail lines and the
+       amount box share the free height and the card reads full at any
+       content length; the body font sizes were opened up a step to match. */
+    .rc-body{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;padding:3mm 5.5mm 2mm;gap:2.2mm}
+    .rc-party{border-bottom:.2mm dashed #c9d8d2;padding-bottom:2.2mm}
+    .rc-party-cap{font-size:6.8pt;color:#84938c;letter-spacing:.3px;line-height:1.3}
     /* Labeled name/phone rows (user-requested format): small grey label,
        bold value. The honorific span sits INSIDE the value at a visibly
        smaller size than the name (like "Mr."), never dominating the line. */
@@ -263,21 +279,28 @@ function baseCss(): string {
     .rc-val{font-size:13pt;font-weight:800;line-height:1.2;color:#101a14}
     .rc-hon{font-size:8.5pt;font-weight:600;color:#5d6f67;letter-spacing:.2px}
     .rc-party-row.phone .rc-val-sm{font-size:9.5pt;font-weight:700}
-    .rc-party-sub{font-size:8pt;color:#5d6f67;margin-top:1mm}
+    .rc-party-sub{font-size:8.6pt;color:#5d6f67;margin-top:1mm;line-height:1.3}
     .rc-lines{display:flex;flex-direction:column;gap:1.7mm}
-    .rc-line{display:flex;justify-content:space-between;gap:4mm;font-size:8.6pt;border-bottom:.15mm solid #e7efeb;padding-bottom:1.3mm}
-    .rc-line span{color:#5d6f67;font-size:7.4pt}
+    /* line-height:1.3 — Malayalam labels in the Anek font carry very tall
+       default line boxes; without this the meta/lines/footnote rows silently
+       grow ~10px each and the balance foot-note clips at the body edge. */
+    .rc-line{display:flex;justify-content:space-between;gap:4mm;font-size:9.2pt;line-height:1.3;border-bottom:.15mm solid #e7efeb;padding-bottom:1.1mm}
+    .rc-line span{color:#5d6f67;font-size:7.8pt}
     .rc-line b{text-align:right}
-    .rc-amount{margin-top:auto;background:#f1f8f4;border:.3mm solid #9ec7b8;border-left:1.2mm solid #0d7a5f;border-radius:2mm;padding:2.6mm 4mm;display:flex;flex-direction:column;gap:.8mm}
-    .rc-amount span{font-size:6.6pt;color:#4c5f56;letter-spacing:.5px}
+    /* flex:none — the amount box itself can NEVER shrink (the old clip was
+       the box being squeezed); overflow of extreme content is absorbed by
+       the notes/foot-note shrinkers below. The even distribution above
+       replaces the old margin-top:auto (the single big hole). */
+    .rc-amount{flex:none;background:#f1f8f4;border:.3mm solid #9ec7b8;border-left:1.2mm solid #0d7a5f;border-radius:2mm;padding:2.6mm 4mm;display:flex;flex-direction:column;gap:.8mm}
+    .rc-amount span{font-size:6.8pt;color:#4c5f56;letter-spacing:.5px}
     .rc-amount b{font-size:16pt;font-weight:800;color:#0a5c47;line-height:1.05}
-    .rc-amount small{font-size:6.4pt;color:#4c5f56;font-style:italic;line-height:1.3}
+    .rc-amount small{font-size:7pt;color:#4c5f56;font-style:italic;line-height:1.3}
     /* Notes and the balance foot-note sit AFTER the amount box and are the
        only flex-shrinkable text in the body (min-height:0 + overflow:hidden):
        when content runs tall, flex squeezes THESE first — the amount box can
        no longer be the thing that clips (user report). */
-    .rc-notes{min-height:0;overflow:hidden;font-size:7pt;color:#4c5f56;border-top:.2mm dashed #c9d8d2;padding-top:1.5mm}
-    .rc-foot-note{min-height:0;overflow:hidden;font-size:7.4pt;color:#0a5c47;font-weight:600}
+    .rc-notes{min-height:0;overflow:hidden;font-size:7pt;color:#4c5f56;border-top:.2mm dashed #c9d8d2;padding-top:1.5mm;line-height:1.3}
+    .rc-foot-note{min-height:0;overflow:hidden;font-size:7.4pt;color:#0a5c47;font-weight:600;line-height:1.3}
     .rc-foot{display:flex;flex-direction:column;justify-content:space-between;align-items:stretch;gap:1mm;padding:2mm 5.5mm 1.4mm;border-top:.3mm solid #d9e5e0;background:#fbfdfc}
     /* Security code: one small full-width line UNDER the "For <mahallu>"
        sign-off (user request), separated by a hairline — now with the
@@ -319,7 +342,8 @@ export function buildReceiptHtml(r: ReceiptData, lang: Lang): string {
   </style></head><body>${receiptCard(r, L, lang)}</body></html>`;
 }
 
-/** Four receipts per A4 page (2×2 grid, dashed cut guides between cells). */
+/** Four receipts per A4 page (2×2 grid, full-height cells, dashed cut guides
+ *  between cells + solid crop ticks at the sheet edges). */
 export function buildReceiptSheetHtml(list: ReceiptData[], lang: Lang): string {
   const L = labels(lang);
   const font = getPoppinsCss() + getAnekMalayalamCss();
@@ -328,19 +352,35 @@ export function buildReceiptSheetHtml(list: ReceiptData[], lang: Lang): string {
   for (let i = 0; i < cells.length; i += 4) {
     const four = cells.slice(i, i + 4);
     while (four.length < 4) four.push('');
-    pages.push(`<section class="sheet">${four.map((c) => `<div class="cell">${c || ''}</div>`).join('')}<div class="sheet-foot">${esc(L.page)} ${pages.length + 1} · ${esc(String(list.length))} ${lang === 'ml' ? 'രസീതുകൾ' : 'receipts'} · 4 / A4</div></section>`);
+    pages.push(`<section class="sheet">${four.map((c) => `<div class="cell">${c || ''}</div>`).join('')}<i class="tk tk-l"></i><i class="tk tk-r"></i><i class="tk tk-t"></i><i class="tk tk-b"></i><div class="sheet-foot">${esc(L.page)} ${pages.length + 1} · ${esc(String(list.length))} ${lang === 'ml' ? 'രസീതുകൾ' : 'receipts'} · 4 / A4</div></section>`);
   }
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><style>
     @page{size:A4 portrait;margin:0}${font}${baseCss()}
     html,body{width:210mm}
-    /* rows 140.5mm → a 16mm printable strip stays free at the sheet bottom;
-       the counter sits at 7mm where paper-feed margins cannot cut it. */
-    .sheet{width:210mm;height:297mm;position:relative;display:grid;grid-template-columns:105mm 105mm;grid-template-rows:140.5mm 140.5mm;page-break-after:always;break-after:page}
+    /* FULL-HEIGHT SHEET (user report: the A4 had a large vacant strip at the
+       bottom AND the subscription receipt's amount box was cut in the batch
+       sheet). The cells used to be 7.5mm shorter than a real
+       A6 — which squeezed every card's body AND left a 16mm dead strip at
+       the sheet bottom. Two full 148mm rows now fill 296 of the 297mm page:
+       every cell is a true A6 card (identical to the single-receipt PDF, so
+       nothing clips) and the bottom vacancy is gone. The sheet counter sits
+       in the last card's own 6mm printer-safe blank strip, where no text
+       ever prints. */
+    .sheet{width:210mm;height:297mm;position:relative;display:grid;grid-template-columns:105mm 105mm;grid-template-rows:148mm 148mm;page-break-after:always;break-after:page}
     .sheet:last-child{page-break-after:auto;break-after:auto}
     .cell{position:relative}
-    .cell .rc{border:0;width:105mm;height:140.5mm}
+    .cell .rc{border:0;width:105mm;height:148mm}
     .cell:nth-child(odd){border-right:.25mm dashed #9db3aa}
     .cell:nth-child(-n+2){border-bottom:.25mm dashed #9db3aa}
-    .sheet-foot{position:absolute;right:5mm;bottom:7mm;font-size:5.5pt;color:#84938c;letter-spacing:.3px}
+    /* CUTTING MARKS (user request): solid crop ticks at the sheet edges,
+       exactly on the cut lines (sheet mid at 148mm from the top, sheet mid
+       at 105mm from the left), so the four receipts can be cut apart with a
+       straight-edge even after the dashed inner guides are trimmed away. */
+    .tk{position:absolute;background:#6b7f76}
+    .tk-l{left:0;top:147.8mm;width:5mm;height:.4mm}
+    .tk-r{right:0;top:147.8mm;width:5mm;height:.4mm}
+    .tk-t{top:0;left:104.8mm;width:.4mm;height:5mm}
+    .tk-b{bottom:0;left:104.8mm;width:.4mm;height:5mm}
+    .sheet-foot{position:absolute;right:5mm;bottom:2.2mm;font-size:5.5pt;color:#84938c;letter-spacing:.3px}
   </style></head><body>${pages.join('')}</body></html>`;
 }

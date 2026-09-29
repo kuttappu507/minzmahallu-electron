@@ -14,8 +14,17 @@ import { app, BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import { closeDB, getDB } from "./db/connection.js";
-import { verifyUninstallPassword, UNINSTALL_ADMIN_SQL } from "./services/uninstall-guard.js";
+
+// INSTANT-SPLASH PASS (v2.7.0): the db/connection (better-sqlite3 native
+// binding) and uninstall-guard (→ auth.service → db/connection) modules
+// load LAZILY, inside the verify handler. This module sits in main.ts's
+// pre-splash import chain, and a static import here would delay the first
+// visible pixel of the splash on every NORMAL launch. The uninstaller gate
+// itself needs the database only when a password is actually verified.
+type DbModule = typeof import("./db/connection.js");
+type GuardModule = typeof import("./services/uninstall-guard.js");
+let dbMod: DbModule | null = null;
+let guardMod: GuardModule | null = null;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -45,17 +54,19 @@ function createUninstallVerifyWindow() {
  *  isUninstallVerify branch of main.ts' whenReady (which returns immediately
  *  after this; window-all-closed there decides the exit code). */
 export function runUninstallVerifyMode(): void {
-  const exitWith = (code: number) => { try { closeDB(); } catch {} app.exit(code); };
+  const exitWith = (code: number) => { try { dbMod?.closeDB(); } catch {} app.exit(code); };
   ipcMain.handle("uninstall:dbStatus", () => {
     try { return { hasDb: fs.existsSync(path.join(app.getPath("userData"), "mms.db")) }; }
     catch { return { hasDb: false }; }
   });
-  ipcMain.handle("uninstall:verify", (_e, password: string) => {
+  ipcMain.handle("uninstall:verify", async (_e, password: string) => {
     try {
       const dbFile = path.join(app.getPath("userData"), "mms.db");
       if (!fs.existsSync(dbFile)) return { ok: false, reason: "no-database" };
-      const rows = getDB().prepare(UNINSTALL_ADMIN_SQL).all() as Array<{ id: number; username: string; password_hash: string }>;
-      return verifyUninstallPassword(rows, String(password ?? ""));
+      if (!dbMod) dbMod = await import("./db/connection.js");
+      if (!guardMod) guardMod = await import("./services/uninstall-guard.js");
+      const rows = dbMod.getDB().prepare(guardMod.UNINSTALL_ADMIN_SQL).all() as Array<{ id: number; username: string; password_hash: string }>;
+      return guardMod.verifyUninstallPassword(rows, String(password ?? ""));
     } catch (err: any) {
       console.warn("[uninstall-verify] failed:", err?.message || err);
       return { ok: false, reason: "wrong-password" };

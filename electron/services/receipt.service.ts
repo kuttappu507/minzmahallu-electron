@@ -172,7 +172,7 @@ async function donationReceiptData(donationId: number): Promise<ReceiptData | nu
 function subscriptionPaymentRow(subscriptionId: number): any | null {
   const db = getDB();
   const paid = db.prepare(
-    `SELECT sp.*, f.house_name, f.family_number,
+    `SELECT sp.*, f.house_name, f.area, f.family_number,
        (SELECT m.name FROM members m WHERE m.id = sp.member_id) AS member_name
      FROM subscription_payments sp LEFT JOIN families f ON f.id = sp.family_id
      WHERE sp.subscription_id = ? AND sp.status = 'Active' AND sp.amount > 0
@@ -180,7 +180,7 @@ function subscriptionPaymentRow(subscriptionId: number): any | null {
   ).get(subscriptionId) as any;
   if (paid) return { source: "ledger", row: paid };
   const s = db.prepare(
-    `SELECT s.*, f.house_name, f.family_number,
+    `SELECT s.*, f.house_name, f.area, f.family_number,
        (SELECT m.name FROM members m WHERE m.id = s.member_id) AS member_name
      FROM subscriptions s LEFT JOIN families f ON f.id = s.family_id WHERE s.id = ?`
   ).get(subscriptionId) as any;
@@ -236,12 +236,16 @@ async function subscriptionReceiptData(subscriptionId: number): Promise<ReceiptD
       : (ml ? "ഈ മാസത്തെ വരിസംഖ്യ പൂർണമായി അടച്ചു കഴിഞ്ഞു" : "This month's subscription is fully paid");
   const footNote = appliedNote ? `${appliedNote}. ${balanceNote}` : balanceNote;
   const identity = mahalluIdentity();
+  // Address line under the name (user request): house name, THEN the area
+  // name, then the family number — the order the office actually uses to
+  // locate a house in the field.
+  const payerDetailBits = [r.house_name, r.area, r.family_number].map((v: unknown) => String(v ?? '').trim()).filter(Boolean);
   return {
     kind: "SUBSCRIPTION",
     receiptNumber,
     date: fmtDdMmYyyy(dateStr),
     payerName: String(r.member_name || r.house_name || r.family_number || "—"),
-    payerDetail: String(r.family_number ? `${r.house_name ? r.house_name + " · " : ""}${r.family_number}` : ""),
+    payerDetail: payerDetailBits.join(" · "),
     line1Label: ml ? "മാസം" : "Month",
     line1Value: monthLabel(String(r.period_start || "")),
     line2Label: ml ? "പ്രതിമാസ വരിസംഖ്യ" : "Monthly due",
