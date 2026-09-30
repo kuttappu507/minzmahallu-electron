@@ -53,23 +53,29 @@ describe("A6 receipt template", () => {
     expect(html).not.toContain("2026-09-15"); // never the storage order
   });
 
-  it("donation receipts use the user-requested party block: Donated by / Name / Phone No.", () => {
+  it("donation receipts use the user-requested party block: Donated by / Name: / Phone:", () => {
     const html = buildReceiptHtml(donation, "en");
     expect(html).toContain("Donated by");
-    expect(html).toContain('<span class="rc-plabel">Name</span>');
-    expect(html).toContain('<span class="rc-plabel">Phone No.</span>');
+    // v2.6.8 (user report: "after Name there is space — it should be
+    // Name: (name)"): the labels carry a colon and the value follows them
+    // immediately — no wide label column between label and value.
+    expect(html).toContain('<span class="rc-plabel">Name:</span>');
+    expect(html).toContain('<span class="rc-plabel">Phone:</span>');
     expect(html).toContain("9876543210");
+    // The label must keep only its own width (the old min-width:14mm
+    // column was the wide gap the office saw after "Name").
+    expect(html).not.toMatch(/\.rc-plabel\{[^}]*min-width/);
     // The old received-from caption belongs to subscription receipts only:
     expect(html).not.toContain("Received with thanks from");
   });
 
-  it("subscription receipts keep the received-from caption and NO Phone No. label", () => {
+  it("subscription receipts keep the received-from caption and NO Phone label", () => {
     // payerDetail on subscription receipts is a family reference (house ·
-    // FAM no), not a phone number — labeling it "Phone No." would be wrong.
+    // FAM no), not a phone number — labeling it "Phone" would be wrong.
     const html = buildReceiptHtml(subscription, "en");
     expect(html).toContain("Received with thanks from");
     expect(html).not.toContain("Donated by");
-    expect(html).not.toContain("Phone No.");
+    expect(html).not.toContain('<span class="rc-plabel">Phone:</span>');
     expect(html).toContain("FAM-012");
   });
 

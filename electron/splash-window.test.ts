@@ -93,19 +93,55 @@ describe("buildSplashHtml", () => {
     expect(html).toContain("radial-gradient");
   });
 
-  it("shows the window the moment it exists — white-box fix (v2.6.5)", () => {
-    // Source pin: createSplashWindow() must call splashWin.show() at
-    // CREATION, before the loadURL — the solid backgroundColor is the
-    // first pixel (painted natively, no renderer), and the HTML paints
-    // over it. The old wait-for-ready-to-show path was exactly where the
-    // mid-range machines showed a white box instead of the splash.
+  it("reveals the window only after its content has painted — no empty frame before the splash (v2.6.8)", () => {
+    // Field report (v2.6.8): "one outer frame comes before splash, then
+    // splash come". v2.6.5-2.6.7 called show() at CREATION, before the HTML
+    // load — the user saw an empty brand-colour rectangle first and the
+    // real splash seconds later, as two events. The verdict: the first
+    // visible thing must be the COMPLETE splash; latency (even 5-10 s) is
+    // acceptable, an intermediate empty frame is not. Source pin: there is
+    // NO show() call between window creation and the ready-to-show handler
+    // (the loadURL must also come before any show — the content paints
+    // while hidden, then ready-to-show presents it in one step), and the
+    // only bare show() calls live inside the ready-to-show handler and the
+    // 2.5 s wedged-renderer fallback (both guarded by isVisible()).
     const src = readFileSync(fileURLToPath(new URL("./splash-window.ts", import.meta.url)), "utf8");
     const createIdx = src.indexOf("splashWin = new BrowserWindow");
-    const showIdx = src.indexOf("splashWin.show()", createIdx);
     const loadIdx = src.indexOf("splashWin.loadURL", createIdx);
+    const readyIdx = src.indexOf('splashWin.once("ready-to-show"', createIdx);
+    const fallbackIdx = src.indexOf("setTimeout(() => {", src.indexOf("// Paint fallback"));
     expect(createIdx).toBeGreaterThan(-1);
-    expect(showIdx).toBeGreaterThan(createIdx);
-    expect(loadIdx).toBeGreaterThan(showIdx);
+    expect(loadIdx).toBeGreaterThan(createIdx);
+    expect(readyIdx).toBeGreaterThan(-1);
+    expect(readyIdx).toBeLessThan(loadIdx);
+    expect(fallbackIdx).toBeGreaterThan(-1);
+    // Between creation and the ready-to-show registration there must be NO
+    // eager show() — the v2.6.5 "show the moment it exists" is what
+    // produced the outer frame. The only show() calls live inside the
+    // ready-to-show handler and the 2.5 s fallback, both after this point.
+    const eager = src.slice(createIdx, readyIdx);
+    expect(eager).not.toContain("splashWin.show()");
+    // Both reveal points show ONLY when the window is not visible yet.
+    const readyHandler = src.slice(readyIdx, src.indexOf("markSplashShown", readyIdx));
+    expect(readyHandler).toContain("isVisible()");
+    expect(readyHandler).toContain("splashWin.show()");
+    const fallbackBody = src.slice(fallbackIdx, src.indexOf("markSplashShown", fallbackIdx));
+    expect(fallbackBody).toContain("isVisible()");
+    expect(fallbackBody).toContain("splashWin.show()");
+  });
+
+  it("keeps a painted-fallback show so a wedged renderer can never hide the splash", () => {
+    // The ready-to-show milestone depends on the splash renderer actually
+    // compositing. If it stalls on some GPU/driver the 2.5 s fallback shows
+    // the window anyway (hidden windows keep painting, so it is virtually
+    // always the finished content by then) — and the boot gate resolves
+    // either way. There must be exactly one such fallback timer.
+    const src = readFileSync(fileURLToPath(new URL("./splash-window.ts", import.meta.url)), "utf8");
+    const createIdx = src.indexOf("splashWin = new BrowserWindow");
+    const fnEnd = src.indexOf("export function closeSplash");
+    const body = src.slice(createIdx, fnEnd);
+    expect(body).toContain("2500");
+    expect(body).toContain("isVisible()");
   });
 
   it("builds nothing and reads no files before the window exists (v2.6.6)", () => {

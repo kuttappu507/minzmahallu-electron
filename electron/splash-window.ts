@@ -73,7 +73,10 @@ export function buildSplashHtml(opts: { version: string; logoDataUrl?: string | 
   html, body { height: 100%; }
   body {
     display: flex; align-items: center; justify-content: center;
-    background: linear-gradient(165deg, #12a396 0%, #0d9488 52%, #0a5f5a 100%);
+    /* background-color is the BrowserWindow's own brush tone (see
+     * createSplashWindow) — document and native fallback always agree. */
+    background-color: #0d9488;
+    background-image: linear-gradient(165deg, #12a396 0%, #0d9488 52%, #0a5f5a 100%);
     color: #eaf7f3; font-family: "Segoe UI", Poppins, "Anek Malayalam", sans-serif;
     overflow: hidden; user-select: none; cursor: default;
   }
@@ -207,53 +210,54 @@ export function createSplashWindow(): void {
       width: 440, height: 480, show: false, frame: false, resizable: false,
       minimizable: false, maximizable: false, fullscreenable: false,
       skipTaskbar: true, autoHideMenuBar: true, hasShadow: false,
-      backgroundColor: "#0a5f5a", title: "MMS",
+      // The brush matches the splash gradient's dominant tone (#0d9488 —
+      // its 52% stop), so in the rare fallback case below the bare window
+      // reads as the splash's own background, not as a foreign box.
+      backgroundColor: "#0d9488", title: "MMS",
       webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false },
     });
     // Above everything while starting (the real window takes over when ready).
     splashWin.setAlwaysOnTop(true, "screen-saver");
-    // FIRST-PIXEL GUARANTEE (v2.6.5 — office report: a WHITE BOX of the
-    // splash's size appeared right before the splash on mid-range machines,
-    // and the splash itself could take seconds to show). The window is now
-    // shown the moment it EXISTS, before its HTML even loads: the solid
-    // backgroundColor below is painted natively — no renderer, no HTML,
-    // no white default-brush frame — so the user sees a full brand-teal
-    // panel essentially instantly, and the splash HTML (logo, spinner,
-    // caption) paints over it a few frames later. The old path waited for
-    // ready-to-show — a renderer-compositing milestone that is exactly what
-    // stalls on flaky drivers — and fell back to a 1.5 s force-show, which
-    // on a wedged GPU is where the white box came from. ready-to-show still
-    // marks the content-visible milestone for the boot gate, and the force
-    // fallback stays as belt-and-braces.
-    // v2.6.6 ADDITION: NOTHING runs before `new BrowserWindow` any more --
-    // not even the splash HTML string build or the logo file read (both used
-    // to precede window creation and delayed the first native pixel by the
-    // cost of a filesystem hit under an antivirus scan). The window exists,
-    // is shown, and ONLY THEN is the (tiny) HTML built and loaded; the logo
-    // is injected after the content paints (injectSplashLogo). The show ->
-    // loadURL order is pinned by splash-window.test.ts.
-    try { splashWin.show(); } catch { /* closing */ }
+    // CONTENT-FIRST REVEAL (v2.6.8 — the field report changed shape again:
+    // "one outer frame comes before splash, then splash come"). v2.6.5-2.6.7
+    // showed the window the moment it existed, BEFORE its HTML loaded — the
+    // solid brand brush was the "first pixel". On the office machines that
+    // empty rectangle is visible long enough to read as a separate event:
+    // an empty window frame first, the real splash seconds later. The user
+    // verdict is explicit: the FIRST visible thing must be the COMPLETE
+    // splash (logo, name, spinner) — "if splash takes 5 s or 10 s no issue"
+    // — latency is acceptable, an intermediate empty frame is not.
+    //
+    // So the window now stays HIDDEN until its content has actually
+    // rendered (the standard Electron ready-to-show pattern). While hidden
+    // it still paints offscreen (paintWhenInitiallyHidden defaults to
+    // true), so showing it at ready-to-show presents the finished splash in
+    // one step. Nothing heavy competes with its first paint either — main
+    // .ts starts all boot work only after whenSplashShown() resolves below.
     splashWin.on("close", (e) => {
       if (!splashCloseAllowed) e.preventDefault();
     });
     splashWin.once("ready-to-show", () => {
-      try { splashWin?.show(); } catch { /* closing */ }
+      try { if (splashWin && !splashWin.isDestroyed() && !splashWin.isVisible()) splashWin.show(); } catch { /* closing */ }
       markSplashShown();
     });
     splashWin.webContents.once("did-finish-load", () => { applySplashStatus(); injectSplashLogo(); });
-    // Paint fallback: "ready-to-show" depends on the splash's own renderer
-    // compositing. If it never fires on some GPU/driver, the user gets the
-    // exact reported "splash not coming at all" — force-show after 1.5 s so
-    // the splash is at least visible even if its content paints late.
+    // Paint fallback: if the splash renderer never reaches ready-to-show
+    // (wedged GPU/driver), the user must not stare at a dead desktop. After
+    // 2.5 s the window is shown anyway — by then the hidden renderer has
+    // almost always composited the content (hidden windows keep painting),
+    // so this presents the COMPLETE splash; only a truly wedged renderer
+    // reveals the bare brand brush — which still looks like the splash's
+    // own background, never a white frame.
     setTimeout(() => {
       try { if (splashWin && !splashWin.isDestroyed() && !splashWin.isVisible()) splashWin.show(); } catch { /* closing */ }
       markSplashShown();
-    }, 1500);
+    }, 2500);
     splashWin.on("closed", () => { splashWin = null; });
-    // Built AFTER the window exists and is visible (v2.6.6) — building the
-    // document must never stand between the double-click and the first
-    // native pixel. No logo data URL up front: the letter mark paints now,
-    // the real logo is injected once the content is on screen.
+    // Built AFTER the window exists (v2.6.6 pin kept) — building the
+    // document must never stand before window creation. No logo data URL
+    // up front: the letter mark paints with the first content, the real
+    // logo is injected once the content is on screen (injectSplashLogo).
     const html = buildSplashHtml({ version: electron().app.getVersion(), logoDataUrl: null });
     void splashWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
   } catch (e) {

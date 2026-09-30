@@ -125,8 +125,10 @@ function labels(lang: Lang) {
     // gave the donation / paid the subscription".
     donatedBy: 'സംഭാവന നൽകിയത്',
     received: 'വരിസംഖ്യ നൽകിയത്',
-    nameLbl: 'പേര്',
-    phoneNo: 'ഫോൺ നമ്പർ',
+    // Label + value sit TIGHT on one line (user request: "Name: (name)" —
+    // the value must follow the label immediately, no wide column gap).
+    nameLbl: 'പേര്:',
+    phoneNo: 'ഫോൺ നമ്പർ:',
     honorific: 'ജനാബ്',
     amount: 'തുക',
     // Mode-of-payment label (user request): പണമടച്ച രീതി — the natural
@@ -150,8 +152,10 @@ function labels(lang: Lang) {
     date: 'Date',
     donatedBy: 'Donated by',
     received: 'Received with thanks from',
-    nameLbl: 'Name',
-    phoneNo: 'Phone No.',
+    // Label + value sit TIGHT on one line (user request: "Name: (name)" —
+    // the value must follow the label immediately, no wide column gap).
+    nameLbl: 'Name:',
+    phoneNo: 'Phone:',
     honorific: 'Janab',
     amount: 'Amount',
     method: 'Payment',
@@ -273,9 +277,15 @@ function baseCss(): string {
     .rc-party-cap{font-size:6.8pt;color:#84938c;letter-spacing:.3px;line-height:1.3}
     /* Labeled name/phone rows (user-requested format): small grey label,
        bold value. The honorific span sits INSIDE the value at a visibly
-       smaller size than the name (like "Mr."), never dominating the line. */
-    .rc-party-row{display:flex;align-items:baseline;gap:2.4mm;margin-top:1mm}
-    .rc-plabel{font-size:7.4pt;color:#5d6f67;flex:none;min-width:14mm}
+       smaller size than the name (like "Mr."), never dominating the line.
+       TIGHT LABEL FORMAT (user report v2.6.8: "after Name there is space —
+       it should be Name: (name)"): the old min-width:14mm label column
+       left a wide hole between "Name" and the value. The label now takes
+       only its own width and the value follows after a 1.4mm breathing
+       gap — Name: Janab Haji Abdulla, exactly like a handwritten Kerala
+       receipt. */
+    .rc-party-row{display:flex;align-items:baseline;gap:1.4mm;margin-top:1mm}
+    .rc-plabel{font-size:7.4pt;color:#5d6f67;flex:none}
     .rc-val{font-size:13pt;font-weight:800;line-height:1.2;color:#101a14}
     .rc-hon{font-size:8.5pt;font-weight:600;color:#5d6f67;letter-spacing:.2px}
     .rc-party-row.phone .rc-val-sm{font-size:9.5pt;font-weight:700}
