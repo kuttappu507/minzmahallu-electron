@@ -71,24 +71,21 @@ function closeDB(): void { dbMod?.closeDB(); }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// UNIFORM RENDERING PATH (v2.6.5 — office report: mid-range machines still
-// opened badly — no splash for a long time after the double-click, a white
-// box of the splash's size right before it, then a freeze for some time
-// after the login page opened — while LOW-end machines were smooth).
-// That split is the fingerprint of GPU-driver variance, not of hardware
-// speed: Chromium's blocklist silently forces SOFTWARE rendering on basic
-// low-end iGPUs (one deterministic path — smooth), while mid-range hybrid-
-// GPU machines keep a hardware path whose first composite, DWM blend and
-// occasional driver reset (TDR) stall exactly the moments the office saw:
-// the first visible pixel, the splash paint, the first frames after reveal.
-// The codebase has already been fighting individual GPU symptoms (v2.4.15
-// opaque window, the occlusion switch below, the GPU-crash invalidate
-// handler). v2.6.5 removes the machine-dependent variable itself: MMS is a
-// forms / tables / text application, so the software compositor is fast on
-// every class of machine — and forcing it everywhere means low, mid and
-// high end now run the IDENTICAL rendering pipeline and therefore the
-// identical speed and feel. Must run BEFORE app is ready.
-app.disableHardwareAcceleration();
+// NATIVE RENDERING PATH RESTORED (v2.6.7 — field verdict on the v2.6.5 and
+// v2.6.6 builds: the mid-range machines STILL opened badly, and the office
+// confirmed the decisive fact — the EARLIER builds, which rendered on each
+// machine's real GPU path, had none of these problems on the same
+// hardware). That falsifies the v2.6.5 software-everywhere hypothesis:
+// the v2.6.5 blanket hardware-acceleration disable traded a fast, working
+// hardware pipeline for a slower software one on exactly the machines that
+// complained, while low-end machines never needed the switch — Chromium's
+// own GPU blocklist already pins old/basic iGPUs to the software path with
+// or without it. Every symptom-specific guard stays in place: the opaque
+// win32 main window (v2.4.15), the occlusion switch below, the GPU-crash
+// invalidate handler, the show-before-load splash with its solid
+// backgroundColor, disable-renderer-backgrounding and spellcheck:false.
+// MMS keeps the machine's native path — fast on mid and high end,
+// deterministic software rendering on blocklisted low end.
 
 // Windows-only Chromium switch (occasional-freeze fix, user report: freezes on
 // mid-range machines, smooth on low-end). Chromium's native window-occlusion
@@ -208,8 +205,12 @@ function revealMainWindow(force = false): void {
   mainRevealed = true;
   bootLog("window:revealed");
   try { w.show(); } catch { /* destroyed mid-flight */ }
-  closeSplash();
   try { w.focus(); } catch { /* destroyed mid-flight */ }
+  // One settle beat between the main window's show() and the splash's exit
+  // (v2.6.7): the splash keeps covering the screen until the login window
+  // has composited underneath, so the handover can never flash a
+  // half-painted or unpainted frame. closeSplash is idempotent.
+  setTimeout(() => { try { closeSplash(); } catch { /* gone */ } }, 80);
 }
 
 function armReveal(reason: string): void {
@@ -234,8 +235,13 @@ function markStartupSettled(reason: string): void {
   //     bridge → no warm-up is running) → reveal at 6 s — waiting longer
   //     cannot improve a dead UI;
   //   - renderer announced alive → keep waiting for its full ready signal
-  //     (its own 12 s warm budget + 15 s fire cap beat the cap below) and
-  //     only force past at the absolute 20 s cap (the splash can never strand).
+  //     (its own 9 s warm budget + 15 s fire cap beat the cap below) and
+  //     only force past at the absolute 30 s cap (the splash can never
+  //     strand). v2.6.7: the force used to fire at 20 s — INSIDE the
+  //     window where a slow-fonts + full-warm-up renderer was still parsing
+  //     chunks (budget starts only after fonts.ready). Revealing mid-warm-up
+  //     put the chunk parses exactly under the user's first keystrokes —
+  //     the reported "one time freeze when inputing login details".
   let fallbackTicks = 0;
   const fallbackTimer = setInterval(() => {
     if (mainRevealed) { clearInterval(fallbackTimer); return; }
@@ -245,7 +251,7 @@ function markStartupSettled(reason: string): void {
       const w = mainWindow;
       loaded = !!w && !w.isDestroyed() && !w.webContents.isLoading();
     } catch { loaded = false; }
-    if (fallbackTicks >= 20 || (fallbackTicks >= 6 && loaded && !rendererAnnouncedAlive)) {
+    if (fallbackTicks >= 30 || (fallbackTicks >= 6 && loaded && !rendererAnnouncedAlive)) {
       clearInterval(fallbackTimer);
       bootLog("window:fallback-reveal", `${fallbackTicks}s loaded=${loaded} alive=${rendererAnnouncedAlive}`);
       armReveal("post-startup-fallback");
@@ -594,6 +600,17 @@ app.whenReady().then(async () => {
   bootLog("splash:created");
   const bootStartedAt = Date.now();
 
+  // SPLASH-CONTENT FIRST (v2.6.7 — the mid-range field reports were precise:
+  // "double click has some seconds time to come splash"). v2.6.6 already
+  // made the splash window itself zero-work, but the two heaviest dynamic
+  // imports used to START right here, BEFORE the splash content had painted
+  // — the baileys chain (hundreds of module files under an antivirus scan,
+  // a native binding load, JIT) and electron-updater saturate the CPU and
+  // the disk exactly while the splash's own renderer is trying its first
+  // paint. The splash frame came up seconds late on mid-range machines.
+  // Nothing heavy may start until the splash is actually ON SCREEN.
+  await whenSplashShown();
+
   // Heavy modules load UNDER the splash (not at process start — that was
   // the dead-desktop gap) and the boot WAITS for them before the main
   // window is revealed. v2.5.1 stopped waiting so the window could appear
@@ -626,10 +643,6 @@ app.whenReady().then(async () => {
   const updaterReady = import("./auto-update.js")
     .then((m) => { m.registerAutoUpdater(() => mainWindow); bootLog("updater:wired"); })
     .catch((err) => { console.warn("[update] updater unavailable this session:", (err as Error)?.message || err); bootLog("updater:failed", String((err as Error)?.message || err)); });
-
-  // Let the splash paint before the synchronous registrations below. The
-  // user should already be looking at it while the rest of boot runs.
-  await whenSplashShown();
 
   // Normal boot: bilingual "do not delete" note inside the data folder, so
   // nobody tidies AppData and wipes the mahallu database + backups.

@@ -81,7 +81,8 @@ export function buildSplashHtml(opts: { version: string; logoDataUrl?: string | 
    * v2.6.5: these are pure radial-gradients — the old 90px gaussian-blur
    * glow layers were among the most expensive paint ops available and had
    * to run on the software rasterizer on the very first frames of app life
-   * (hardware acceleration is disabled app-wide). A radial gradient with a
+   * (on the software path Chromium's blocklist gives low-end machines). A
+   * radial gradient with a
    * long falloff renders the same soft look in a single cheap pass, so the
    * splash composites in 1-2 frames even on old office CPUs. */
   .glow-a, .glow-b { position: fixed; border-radius: 50%; pointer-events: none; }
@@ -214,10 +215,9 @@ export function createSplashWindow(): void {
     // FIRST-PIXEL GUARANTEE (v2.6.5 — office report: a WHITE BOX of the
     // splash's size appeared right before the splash on mid-range machines,
     // and the splash itself could take seconds to show). The window is now
-    // shown the moment it EXISTS, before its HTML even loads: with hardware
-    // acceleration disabled (main.ts) the solid backgroundColor below is
-    // painted by the software compositor / DWM natively — no renderer, no
-    // GPU, no white default-brush frame — so the user sees a full brand-teal
+    // shown the moment it EXISTS, before its HTML even loads: the solid
+    // backgroundColor below is painted natively — no renderer, no HTML,
+    // no white default-brush frame — so the user sees a full brand-teal
     // panel essentially instantly, and the splash HTML (logo, spinner,
     // caption) paints over it a few frames later. The old path waited for
     // ready-to-show — a renderer-compositing milestone that is exactly what

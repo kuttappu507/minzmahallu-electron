@@ -122,9 +122,16 @@ export default function App() {
     //   2. warmAppChunks() has pre-parsed every lazy page chunk (recharts,
     //      framer-motion, …) BEHIND the splash — that parse used to run
     //      right after login and freeze typing/scrolling on mid-range PCs.
-    // Both halves are bounded: the warm-up has its own budget, and the 15 s
-    // absolute cap below still beats the main process's 20 s fallback, so a
-    // wedged fonts.ready or a pathological chunk can never strand the splash.
+    // Both halves are bounded so the reveal can NEVER land mid-warm-up
+    // (v2.6.7 — the reported "one time freeze when inputing login details"):
+    // the warm-up budget (9 s) only STARTS after fonts.ready, so a slow
+    // fonts phase used to push the chunk parses past the 15 s cap below —
+    // the cap fired, the window revealed, and the user typed into a renderer
+    // that was still parsing recharts. fonts (≤ ~4 s under an antivirus
+    // scan) + warm-up (≤ 9 s) now always finish inside the 15 s cap, and
+    // the main process's alive-renderer force fallback sits even further
+    // out at 30 s. A wedged fonts.ready or a pathological chunk can never
+    // strand the splash.
     let done = false;
     let cap: ReturnType<typeof setTimeout> | null = null;
     let beat: ReturnType<typeof setTimeout> | null = null;
@@ -136,7 +143,7 @@ export default function App() {
           // Dev keeps lazy chunks lazy (vite serves them on demand and dev
           // iteration values fast reloads); packaged builds warm everything.
           if (!import.meta.env.DEV) {
-            try { await warmAppChunks({ budgetMs: 12_000 }); }
+            try { await warmAppChunks({ budgetMs: 9_000 }); }
             catch { /* best effort — a failed chunk lazy-loads on demand later */ }
           }
           if (done) return;

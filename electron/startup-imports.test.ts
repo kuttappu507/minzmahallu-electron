@@ -90,20 +90,41 @@ describe("boot-chain imports stay light (instant splash)", () => {
     expect(mainSrc).not.toContain('await import("./auto-update.js")');
   });
 
-  it("forces the uniform software rendering path on every machine class (v2.6.5)", () => {
-    // Office report: low-end machines were smooth while mid-range machines
-    // opened late (no splash for a long time), flashed a white box of the
-    // splash's size and froze for a while after login — the fingerprint of
-    // GPU-driver variance (Chromium blocklists basic low-end iGPUs into the
-    // deterministic software path, while mid-range hybrid-GPU machines keep
-    // a flaky hardware path). app.disableHardwareAcceleration() gives low,
-    // mid and high end the IDENTICAL rendering pipeline. It must stay at
-    // module level, BEFORE app.whenReady(), or the first windows would come
-    // up on whatever GPU path the driver picks.
-    const disableIdx = mainSrc.indexOf("app.disableHardwareAcceleration()");
-    const readyIdx = mainSrc.indexOf("app.whenReady()");
-    expect(disableIdx).toBeGreaterThan(-1);
-    expect(readyIdx).toBeGreaterThan(disableIdx);
+  it("restores the machine's native rendering path (v2.6.7 field verdict)", () => {
+    // v2.6.5 forced app.disableHardwareAcceleration() to give low/mid/high
+    // an identical software pipeline. Field verdict on the v2.6.5 + v2.6.6
+    // builds: mid-range machines STILL opened badly, and the office
+    // confirmed the earlier builds (native GPU path) had none of these
+    // problems on the same hardware. Low-end machines never needed the
+    // switch — Chromium's own blocklist pins old/basic iGPUs to software
+    // rendering with or without it. The blanket disable is therefore a
+    // pure mid/high-end slowdown and must NEVER come back; the
+    // symptom-specific guards (opaque win32 window, occlusion switch,
+    // GPU-crash invalidate, show-before-load splash) stay.
+    expect(mainSrc).not.toContain("app.disableHardwareAcceleration()");
+  });
+
+  it("starts no heavy import before the splash content is on screen (v2.6.7)", () => {
+    // The baileys + electron-updater dynamic imports saturate CPU/disk
+    // while running; if they start before the splash has painted, the
+    // splash's own renderer is starved and the splash content lands
+    // seconds late (the mid-range "double click has some seconds time to
+    // come splash" report). Both imports must appear AFTER the
+    // `await whenSplashShown()` gate in the whenReady body.
+    const splashGate = mainSrc.indexOf("await whenSplashShown()");
+    expect(splashGate).toBeGreaterThan(-1);
+    expect(mainSrc.indexOf('import("./whatsapp-ipc.js")')).toBeGreaterThan(splashGate);
+    expect(mainSrc.indexOf('import("./auto-update.js")')).toBeGreaterThan(splashGate);
+  });
+
+  it("reveals never mid-warm-up: alive renderers get the 30 s cap (v2.6.7)", () => {
+    // The renderer's warm-up budget only starts after fonts.ready; a slow
+    // fonts phase used to make the main process force-reveal at 20 s while
+    // chunks were still parsing — the one-time freeze exactly when login
+    // typing started. A renderer that announced alive must never be
+    // force-revealed before 30 s (its own 9 s budget + 15 s cap beat it).
+    expect(mainSrc).toContain("fallbackTicks >= 30");
+    expect(mainSrc).not.toContain("fallbackTicks >= 20");
   });
 
   it("keeps hidden-window renderers at full priority during boot (v2.6.6)", () => {

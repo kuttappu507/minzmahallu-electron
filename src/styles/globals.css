@@ -1284,12 +1284,13 @@ body:not(.app-loaded) #root > * { visibility: hidden; }
 .login-win-controls .win-close:hover { background: var(--rose-bg); color: var(--c-rose); }
 .login-left { flex: 0 0 45%; position: relative; overflow: hidden; background: linear-gradient(135deg, #0d9488 0%, #0b7e74 45%, #0a5f5a 100%); }
 /* v2.6.6: the two deco circles used `filter: blur(40px/30px)` — the most
- * expensive paint ops available, and with hardware acceleration disabled
- * app-wide (v2.6.5 uniform-rendering fix) they ran on the SOFTWARE
- * rasterizer during the login page's first composites, right when the user
- * starts typing. Radial gradients with a long falloff render the same soft
- * glow in one cheap pass (the identical swap the native splash got in
- * v2.6.5). Visual output is equivalent: a soft white haze at the corner. */
+ * expensive paint ops available, and on the software path that Chromium's
+ * blocklist gives low-end machines (plus any machine under first-paint
+ * load) they rasterize slowly during the login page's first composites,
+ * right when the user starts typing. Radial gradients with a long falloff
+ * render the same soft glow in one cheap pass (the identical swap the
+ * native splash got in v2.6.5). Visual output is equivalent: a soft white
+ * haze at the corner. */
 .login-deco-1 { position: absolute; top: -60px; left: -60px; width: 280px; height: 280px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.16) 0%, rgba(255,255,255,.10) 34%, transparent 66%); }
 .login-deco-2 { position: absolute; bottom: -80px; right: -40px; width: 320px; height: 320px; border-radius: 50%; border: 30px solid rgba(255, 255, 255, 0.06); }
 .login-deco-3 { position: absolute; top: 30%; right: 10%; width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.11) 0%, rgba(255,255,255,.07) 34%, transparent 66%); }

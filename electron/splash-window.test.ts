@@ -83,11 +83,11 @@ describe("buildSplashHtml", () => {
   });
 
   it("pays no blur-filter cost on the critical first paint (v2.6.5)", () => {
-    // The splash is composited by the software rasterizer on EVERY machine
-    // (hardware acceleration is disabled app-wide, main.ts) — gaussian
-    // blur layers on the brand glows were among the most expensive paint
-    // ops and ran on the very first frames of app life. The soft look now
-    // comes from radial gradients only.
+    // Gaussian blur layers on the brand glows are among the most expensive
+    // paint ops and ran on the very first frames of app life (on the
+    // software path that Chromium's blocklist gives low-end machines).
+    // The soft look comes from radial gradients only — cheap on every
+    // rendering path, native or software.
     const html = buildSplashHtml({ version: "2.6.5" });
     expect(html).not.toMatch(/filter:\s*blur/);
     expect(html).toContain("radial-gradient");

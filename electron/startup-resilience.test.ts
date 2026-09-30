@@ -242,9 +242,12 @@ describe("the first appearance of the login page is fully painted", () => {
     expect(fn).toContain("setInterval");
     // Page loaded but renderer ALWAYS silent (no alive ping = broken bridge
     // or JS error → no warm-up running) → reveal at 6 s; a renderer that
-    // announced itself keeps warming until its own caps fire; absolute 20 s
-    // cap no matter what (the splash can never strand).
-    expect(fn).toContain("fallbackTicks >= 20");
+    // announced itself keeps warming until its own caps fire; absolute 30 s
+    // cap no matter what (the splash can never strand). v2.6.7: 20 s landed
+    // INSIDE a slow-fonts + full-warm-up boot — revealing mid-warm-up put
+    // the chunk parses exactly under the first login keystrokes.
+    expect(fn).toContain("fallbackTicks >= 30");
+    expect(fn).not.toContain("fallbackTicks >= 20");
     expect(fn).toContain("fallbackTicks >= 6 && loaded && !rendererAnnouncedAlive");
     // The forced reveal past the paint guard exists ONLY in this fallback.
     expect(fn).toContain("revealMainWindow(true)");
@@ -267,8 +270,12 @@ describe("the first appearance of the login page is fully painted", () => {
     expect(appSrc).toContain("warmAppChunks(");
     expect(appSrc).toContain("rendererAlive");
     // Bounded twice: the warm-up budget AND the overall fire cap (which must
-    // stay below the main process's 20 s fallback) can never strand the splash.
-    expect(appSrc).toContain("budgetMs: 12_000");
+    // stay below the main process's 30 s fallback) can never strand the
+    // splash — and, v2.6.7, the budget (9 s, starting after fonts.ready)
+    // plus a slow fonts phase always finishes INSIDE the 15 s cap so the
+    // reveal can never land while chunks are still parsing.
+    expect(appSrc).toContain("budgetMs: 9_000");
+    expect(appSrc).not.toContain("budgetMs: 12_000");
     expect(appSrc).toContain("setTimeout(fire, 15_000)");
     // The warm-up orders the post-login landing FIRST (Dashboard + recharts).
     const warmSrc = readFileSync(
