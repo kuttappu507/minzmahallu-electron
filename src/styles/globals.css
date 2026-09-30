@@ -1283,9 +1283,16 @@ body:not(.app-loaded) #root > * { visibility: hidden; }
 .login-win-controls .win-btn:hover { background: var(--selbg); color: var(--em); }
 .login-win-controls .win-close:hover { background: var(--rose-bg); color: var(--c-rose); }
 .login-left { flex: 0 0 45%; position: relative; overflow: hidden; background: linear-gradient(135deg, #0d9488 0%, #0b7e74 45%, #0a5f5a 100%); }
-.login-deco-1 { position: absolute; top: -60px; left: -60px; width: 280px; height: 280px; border-radius: 50%; background: rgba(255, 255, 255, 0.08); filter: blur(40px); }
+/* v2.6.6: the two deco circles used `filter: blur(40px/30px)` — the most
+ * expensive paint ops available, and with hardware acceleration disabled
+ * app-wide (v2.6.5 uniform-rendering fix) they ran on the SOFTWARE
+ * rasterizer during the login page's first composites, right when the user
+ * starts typing. Radial gradients with a long falloff render the same soft
+ * glow in one cheap pass (the identical swap the native splash got in
+ * v2.6.5). Visual output is equivalent: a soft white haze at the corner. */
+.login-deco-1 { position: absolute; top: -60px; left: -60px; width: 280px; height: 280px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.16) 0%, rgba(255,255,255,.10) 34%, transparent 66%); }
 .login-deco-2 { position: absolute; bottom: -80px; right: -40px; width: 320px; height: 320px; border-radius: 50%; border: 30px solid rgba(255, 255, 255, 0.06); }
-.login-deco-3 { position: absolute; top: 30%; right: 10%; width: 180px; height: 180px; border-radius: 50%; background: rgba(255, 255, 255, 0.05); filter: blur(30px); }
+.login-deco-3 { position: absolute; top: 30%; right: 10%; width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.11) 0%, rgba(255,255,255,.07) 34%, transparent 66%); }
 .login-grid-overlay { position: absolute; inset: 0; opacity: 0.04; background-image: linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px); background-size: 40px 40px; }
 .login-content { position: relative; z-index: 10; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 48px; color: #fff; }
 .login-logo-row { display: flex; align-items: center; gap: 14px; }
@@ -1491,7 +1498,7 @@ html.lang-ml .btn { line-height: 20px !important; }
 /* ===== Uninstall protection window (launched by the NSIS uninstaller) ===== */
 /* Fills the small frameless 470x540 verify window. Brand green, one card. */
 .uc-root { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; background: linear-gradient(160deg, #12a396 0%, #0d9488 55%, #0a5f5a 100%); }
-.uc-glow { position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none; }
+.uc-glow { position: absolute; border-radius: 50%; pointer-events: none; }
 .uc-glow-a { width: 420px; height: 420px; top: -200px; left: 50%; transform: translateX(-60%); background: radial-gradient(circle, rgba(45, 212, 191, 0.35), transparent 65%); }
 .uc-glow-b { width: 360px; height: 360px; bottom: -180px; right: -120px; background: radial-gradient(circle, rgba(125, 227, 200, 0.22), transparent 65%); }
 .uc-card { position: relative; z-index: 1; width: 374px; max-height: calc(100vh - 48px); overflow-y: auto; background: var(--panel, #fff); border-radius: 18px; border: 1px solid var(--line, rgba(0,0,0,0.08)); box-shadow: 0 32px 80px -20px rgba(4, 30, 27, 0.55); padding: 30px 28px 22px; display: flex; flex-direction: column; align-items: center; text-align: center; }

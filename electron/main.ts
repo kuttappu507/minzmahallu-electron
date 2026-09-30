@@ -103,6 +103,16 @@ if (process.platform === "win32") {
   app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion");
 }
 
+// RENDERER PRIORITY (v2.6.6): during the whole splash-time boot the main
+// window exists but is HIDDEN (show:false) — and Chromium puts hidden
+// renderers into a low-priority "backgrounded" state (lower raster
+// priority, slower timers). On office CPUs that stretches the renderer's
+// mount + chunk warm-up and the first post-reveal frames — the exact
+// window where the office felt the machine lag. This switch keeps every
+// renderer at full priority; the hidden main window and the warm print
+// window are all doing boot work for us, not idle background tabs.
+app.commandLine.appendSwitch("disable-renderer-backgrounding");
+
 let mainWindow: BrowserWindow | null = null;
 // True once the first main window has been created (all IPC handlers are
 // registered by then). The "second-instance" handler uses it to tell a boot
@@ -386,7 +396,19 @@ function createWindow() {
     autoHideMenuBar: true,
     ...(win32 ? { backgroundColor: "#f6f8fa" } : { backgroundColor: "#00000000", transparent: true }),
     title: "MMS — Minz Mahallu Management System", frame: false, hasShadow: false,
-    webPreferences: { preload: path.join(__dirname, "preload.mjs"), contextIsolation: true, nodeIntegration: false, sandbox: false, zoomFactor: 1.0 },
+    webPreferences: {
+      preload: path.join(__dirname, "preload.mjs"), contextIsolation: true, nodeIntegration: false, sandbox: false, zoomFactor: 1.0,
+      // v2.6.6 — the office report "one time freeze when inputing login
+      // details" is Chromium's spellchecking service spinning up on the
+      // FIRST keystroke of the first focused input (Electron's spellcheck
+      // default is true; on Windows it hooks the OS spellcheck provider and
+      // loads its dictionary exactly then — a one-time 0.5-2 s stall, never
+      // again afterwards). A mahallu admin app's inputs are usernames,
+      // passwords, names and amounts — spellcheck is pure cost here.
+      // Disabled app-wide; LoginPage additionally pins spellCheck={false}
+      // per input as belt-and-braces.
+      spellcheck: false,
+    },
   });
   // Real window takes over only when BOTH are true: boot work has settled
   // (markStartupSettled) AND the renderer has painted (win:renderer-ready,

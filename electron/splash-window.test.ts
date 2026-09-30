@@ -58,14 +58,14 @@ describe("buildSplashHtml", () => {
 
   it("shows the logo image when a data URL is provided", () => {
     const html = buildSplashHtml({ version: "2.4.11", logoDataUrl: "data:image/png;base64,QUJD" });
-    expect(html).toContain('<img class="logo" src="data:image/png;base64,QUJD"');
+    expect(html).toContain('<img class="logo" id="splash-logo" src="data:image/png;base64,QUJD"');
     // The fallback DIV (not its CSS rule) must be absent.
-    expect(html).not.toContain('logo-fallback">M</div>');
+    expect(html).not.toContain('logo-fallback" id="splash-logo">M</div>');
   });
 
   it("falls back to the letter mark when no logo is available", () => {
     const html = buildSplashHtml({ version: "2.4.11", logoDataUrl: null });
-    expect(html).toContain('logo-fallback">M</div>');
+    expect(html).toContain('logo-fallback" id="splash-logo">M</div>');
     expect(html).not.toContain('<img class="logo"');
   });
 
@@ -106,5 +106,43 @@ describe("buildSplashHtml", () => {
     expect(createIdx).toBeGreaterThan(-1);
     expect(showIdx).toBeGreaterThan(createIdx);
     expect(loadIdx).toBeGreaterThan(showIdx);
+  });
+
+  it("builds nothing and reads no files before the window exists (v2.6.6)", () => {
+    // Office report: "double click have a some second time to come splash".
+    // createSplashWindow used to read + base64-encode the logo and build the
+    // whole document BEFORE `new BrowserWindow` — a filesystem hit (subject
+    // to antivirus scan latency) stood between the double-click and the
+    // first native pixel. Now the window is created and shown first; the
+    // (tiny) HTML is built after, and the logo is injected once the content
+    // has painted.
+    const src = readFileSync(fileURLToPath(new URL("./splash-window.ts", import.meta.url)), "utf8");
+    const fnIdx = src.indexOf("export function createSplashWindow");
+    const createIdx = src.indexOf("splashWin = new BrowserWindow");
+    // Everything between the function's first line and window creation must
+    // be free of work (the injectSplashLogo DEFINITION above the function is
+    // fine — it only RUNS after did-finish-load).
+    const before = src.slice(fnIdx, createIdx);
+    expect(before).not.toContain("findSplashLogoDataUrl()");
+    expect(before).not.toContain("buildSplashHtml(");
+    // The HTML build and loadURL both come after the first show().
+    const showIdx = src.indexOf("splashWin.show()", createIdx);
+    const htmlIdx = src.indexOf("const html = buildSplashHtml(", createIdx);
+    const loadIdx = src.indexOf("splashWin.loadURL", createIdx);
+    expect(htmlIdx).toBeGreaterThan(showIdx);
+    expect(loadIdx).toBeGreaterThan(htmlIdx);
+    // The logo is injected after the content paints, not loaded upfront.
+    expect(src).toContain("did-finish-load");
+    expect(src).toContain("injectSplashLogo()");
+    const finishIdx = src.indexOf('webContents.once("did-finish-load"');
+    expect(finishIdx).toBeGreaterThan(-1);
+    expect(src.slice(finishIdx, finishIdx + 120)).toContain("injectSplashLogo()");
+  });
+
+  it("disables the splash spellchecker (v2.6.6)", () => {
+    // No input exists in the splash; the spellcheck service must never be
+    // initialised for it (consistency with the main window's login fix).
+    const src = readFileSync(fileURLToPath(new URL("./splash-window.ts", import.meta.url)), "utf8");
+    expect(src).toContain("spellcheck: false");
   });
 });

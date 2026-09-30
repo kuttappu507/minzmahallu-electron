@@ -106,6 +106,27 @@ describe("boot-chain imports stay light (instant splash)", () => {
     expect(readyIdx).toBeGreaterThan(disableIdx);
   });
 
+  it("keeps hidden-window renderers at full priority during boot (v2.6.6)", () => {
+    // The main window spends the whole splash-time boot HIDDEN, and
+    // Chromium backgrounded renderers raster and run timers at lower
+    // priority — stretching the mount + chunk warm-up on office CPUs.
+    // disable-renderer-backgrounding must be registered at module level,
+    // before whenReady.
+    const bgIdx = mainSrc.indexOf('app.commandLine.appendSwitch("disable-renderer-backgrounding")');
+    const readyIdx = mainSrc.indexOf("app.whenReady()");
+    expect(bgIdx).toBeGreaterThan(-1);
+    expect(readyIdx).toBeGreaterThan(bgIdx);
+  });
+
+  it("disables the main window spellchecker (v2.6.6 login-typing freeze)", () => {
+    // Office report: "one time freeze is there when inputing login details".
+    // Chromium's spellcheck service initialises on the FIRST keystroke of
+    // the first focused input (Electron default: enabled) — a one-time
+    // stall exactly at the start of login typing. The app's inputs are
+    // usernames, passwords, names and amounts; spellcheck is pure cost.
+    expect(mainSrc).toContain("spellcheck: false");
+  });
+
   it("holds the splash until startup work settles, then reveals the main window", () => {
     const splashCreate = mainSrc.indexOf("createSplashWindow()");
     expect(splashCreate).toBeGreaterThan(-1);

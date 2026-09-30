@@ -91,10 +91,10 @@ export function LoginPage() {
             <div className="mb-4"><h2 className="login-form-title"><UserPlus size={21} className="inline mr-2 align-[-3px]"/>{copy.setupTitle}</h2><p className="login-form-sub">{copy.setupSub}</p></div>
             {error&&<div className="login-error"><AlertTriangle size={16} className="toast-ic-err flex-shrink-0 mt-1"/><p>{error}</p></div>}
             <form onSubmit={handleSetup} className="login-form">
-              <div><label className="lbl">{copy.fullName}</label><input className="inp login-submit" value={fullName} onChange={e=>setFullName(e.target.value)} required autoFocus/></div>
-              <div><label className="lbl">{copy.username}</label><input className="inp login-submit" data-nocap="1" value={username} onChange={e=>setUsername(e.target.value)} minLength={3} maxLength={32} autoComplete="username" required/></div>
-              <div><label className="lbl">{copy.password}</label><input className="inp login-submit" type={showPassword?"text":"password"} value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password" required/></div>
-              <div><label className="lbl">{copy.confirm}</label><input className="inp login-submit" type="password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} autoComplete="new-password" required/></div>
+              <div><label className="lbl">{copy.fullName}</label><input spellCheck={false} className="inp login-submit" value={fullName} onChange={e=>setFullName(e.target.value)} required autoFocus/></div>
+              <div><label className="lbl">{copy.username}</label><input spellCheck={false} className="inp login-submit" data-nocap="1" value={username} onChange={e=>setUsername(e.target.value)} minLength={3} maxLength={32} autoComplete="username" required/></div>
+              <div><label className="lbl">{copy.password}</label><input spellCheck={false} className="inp login-submit" type={showPassword?"text":"password"} value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password" required/></div>
+              <div><label className="lbl">{copy.confirm}</label><input spellCheck={false} className="inp login-submit" type="password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} autoComplete="new-password" required/></div>
               <p className="text-xs opacity-70">{copy.requirements}</p>
               <button type="submit" className="btn bp bblock login-submit" disabled={loading}>{loading?<><Loader2 size={16} className="animate-spin"/>{copy.creating}</>:<><UserPlus size={16}/>{copy.create}</>}</button>
             </form>
@@ -102,8 +102,8 @@ export function LoginPage() {
             <div className="mb-4"><h2 className="login-form-title"><ShieldCheck size={21} className="inline mr-2 align-[-3px]"/>{copy.rotateTitle}</h2><p className="login-form-sub">{copy.rotateSub}</p></div>
             {error&&<div className="login-error"><AlertTriangle size={16} className="toast-ic-err flex-shrink-0 mt-1"/><p>{error}</p></div>}
             <form onSubmit={handleRotate} className="login-form">
-              <div><label className="lbl">{copy.rotateNew}</label><input className="inp login-submit" type={showPassword?"text":"password"} value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password" required autoFocus/></div>
-              <div><label className="lbl">{copy.confirm}</label><input className="inp login-submit" type="password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} autoComplete="new-password" required/></div>
+              <div><label className="lbl">{copy.rotateNew}</label><input spellCheck={false} className="inp login-submit" type={showPassword?"text":"password"} value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password" required autoFocus/></div>
+              <div><label className="lbl">{copy.confirm}</label><input spellCheck={false} className="inp login-submit" type="password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} autoComplete="new-password" required/></div>
               <p className="text-xs opacity-70">{copy.requirements}</p>
               <button type="submit" className="btn bp bblock login-submit" disabled={loading}>{loading?<><Loader2 size={16} className="animate-spin"/>...</>:<><ShieldCheck size={16}/>{copy.rotate}</>}</button>
             </form>
@@ -111,8 +111,8 @@ export function LoginPage() {
             <div className="mb-4"><h2 className="login-form-title">{t("login_title")}</h2><p className="login-form-sub">{copy.welcomeBack}</p></div>
             {error&&<div className="login-error"><AlertTriangle size={16} className="toast-ic-err flex-shrink-0 mt-1"/><p>{error}</p></div>}
             <form onSubmit={handleLogin} className="login-form">
-              <div><label className="lbl">{t("login_username")}</label><input className="inp login-submit" data-nocap="1" value={username} onChange={e=>setUsername(e.target.value)} autoFocus autoComplete="username" required/></div>
-              <div><label className="lbl">{t("login_password")}</label><div className="login-pwd-wrap"><input className="inp login-submit" type={showPassword?"text":"password"} value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" required/><button type="button" onClick={()=>setShowPassword(!showPassword)} className="login-pwd-toggle">{showPassword?<EyeOff size={16}/>:<Eye size={16}/>}</button></div></div>
+              <div><label className="lbl">{t("login_username")}</label><input spellCheck={false} className="inp login-submit" data-nocap="1" value={username} onChange={e=>setUsername(e.target.value)} autoFocus autoComplete="username" required/></div>
+              <div><label className="lbl">{t("login_password")}</label><div className="login-pwd-wrap"><input spellCheck={false} className="inp login-submit" type={showPassword?"text":"password"} value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" required/><button type="button" onClick={()=>setShowPassword(!showPassword)} className="login-pwd-toggle">{showPassword?<EyeOff size={16}/>:<Eye size={16}/>}</button></div></div>
               <button type="submit" className="btn bp bblock login-submit" disabled={loading}>{loading?<><Loader2 size={16} className="animate-spin"/>{copy.signing}</>:<><LogIn size={16}/>{t("login_button")}</>}</button>
             </form>
           </> }

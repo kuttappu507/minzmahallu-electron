@@ -36,7 +36,8 @@ function electron(): typeof import("electron") {
  * Both in dev and packaged the electron out dir sits beside dist/, and asar
  * archives are transparent to fs.readFileSync, so one relative path covers
  * every layout. Best-effort: without a logo the splash still renders (the
- * initial letter takes its place). */
+ * initial letter takes its place). v2.6.6: the read happens AFTER the splash
+ * content has painted (injectSplashLogo), never on the first-pixel path. */
 export function findSplashLogoDataUrl(): string | null {
   const candidates = [path.join(__dirname, "..", "dist", "logo.png"), path.join(process.cwd(), "dist", "logo.png")];
   for (const p of candidates) {
@@ -60,8 +61,8 @@ export function findSplashLogoDataUrl(): string | null {
 export function buildSplashHtml(opts: { version: string; logoDataUrl?: string | null }): string {
   const version = String(opts.version ?? "").replace(/[^0-9A-Za-z.\-+]/g, "");
   const logo = opts.logoDataUrl
-    ? `<img class="logo" src="${opts.logoDataUrl}" alt="" />`
-    : `<div class="logo logo-fallback">M</div>`;
+    ? `<img class="logo" id="splash-logo" src="${opts.logoDataUrl}" alt="" />`
+    : `<div class="logo logo-fallback" id="splash-logo">M</div>`;
   return `<!doctype html>
 <html>
 <head>
@@ -173,6 +174,27 @@ export function setSplashStatus(message: string): void {
   applySplashStatus();
 }
 
+/**
+ * Loads the brand logo and swaps it into the painted splash document.
+ * v2.6.6 — the readFileSync + base64 encode of the logo used to run BEFORE
+ * `new BrowserWindow` (delaying the first native pixel by however long the
+ * file system took under an antivirus scan). It now runs AFTER the splash
+ * content has painted; until then the letter-mark "M" circle represents the
+ * brand, and the real logo pops in a beat later. Called from
+ * createSplashWindow on did-finish-load; never throws.
+ */
+function injectSplashLogo(): void {
+  try {
+    const logoDataUrl = findSplashLogoDataUrl();
+    if (!logoDataUrl) return;
+    void splashWin?.webContents.executeJavaScript(
+      `(() => { const n = document.getElementById("splash-logo"); if (!n) return;` +
+      ` const img = document.createElement("img"); img.className = n.className; img.id = n.id;` +
+      ` img.src = ${JSON.stringify(logoDataUrl)}; img.alt = ""; n.replaceWith(img); })()`
+    );
+  } catch { /* splash already closing — the letter mark stays, by design */ }
+}
+
 /** Creates the always-on-top splash if it does not exist yet. Never throws —
  *  a failed splash must not stop the app from booting. */
 export function createSplashWindow(): void {
@@ -180,13 +202,12 @@ export function createSplashWindow(): void {
   splashCloseAllowed = false;
   try {
     const { BrowserWindow } = electron();
-    const html = buildSplashHtml({ version: electron().app.getVersion(), logoDataUrl: findSplashLogoDataUrl() });
     splashWin = new BrowserWindow({
       width: 440, height: 480, show: false, frame: false, resizable: false,
       minimizable: false, maximizable: false, fullscreenable: false,
       skipTaskbar: true, autoHideMenuBar: true, hasShadow: false,
       backgroundColor: "#0a5f5a", title: "MMS",
-      webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+      webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false },
     });
     // Above everything while starting (the real window takes over when ready).
     splashWin.setAlwaysOnTop(true, "screen-saver");
@@ -204,6 +225,13 @@ export function createSplashWindow(): void {
     // on a wedged GPU is where the white box came from. ready-to-show still
     // marks the content-visible milestone for the boot gate, and the force
     // fallback stays as belt-and-braces.
+    // v2.6.6 ADDITION: NOTHING runs before `new BrowserWindow` any more --
+    // not even the splash HTML string build or the logo file read (both used
+    // to precede window creation and delayed the first native pixel by the
+    // cost of a filesystem hit under an antivirus scan). The window exists,
+    // is shown, and ONLY THEN is the (tiny) HTML built and loaded; the logo
+    // is injected after the content paints (injectSplashLogo). The show ->
+    // loadURL order is pinned by splash-window.test.ts.
     try { splashWin.show(); } catch { /* closing */ }
     splashWin.on("close", (e) => {
       if (!splashCloseAllowed) e.preventDefault();
@@ -212,7 +240,7 @@ export function createSplashWindow(): void {
       try { splashWin?.show(); } catch { /* closing */ }
       markSplashShown();
     });
-    splashWin.webContents.once("did-finish-load", () => applySplashStatus());
+    splashWin.webContents.once("did-finish-load", () => { applySplashStatus(); injectSplashLogo(); });
     // Paint fallback: "ready-to-show" depends on the splash's own renderer
     // compositing. If it never fires on some GPU/driver, the user gets the
     // exact reported "splash not coming at all" — force-show after 1.5 s so
@@ -222,6 +250,11 @@ export function createSplashWindow(): void {
       markSplashShown();
     }, 1500);
     splashWin.on("closed", () => { splashWin = null; });
+    // Built AFTER the window exists and is visible (v2.6.6) — building the
+    // document must never stand between the double-click and the first
+    // native pixel. No logo data URL up front: the letter mark paints now,
+    // the real logo is injected once the content is on screen.
+    const html = buildSplashHtml({ version: electron().app.getVersion(), logoDataUrl: null });
     void splashWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
   } catch (e) {
     console.warn("[splash] could not show the startup splash:", (e as Error)?.message || e);
