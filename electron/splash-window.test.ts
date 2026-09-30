@@ -81,4 +81,30 @@ describe("buildSplashHtml", () => {
     expect(html).toContain('class="spin"');
     expect(html).toContain("@keyframes turn");
   });
+
+  it("pays no blur-filter cost on the critical first paint (v2.6.5)", () => {
+    // The splash is composited by the software rasterizer on EVERY machine
+    // (hardware acceleration is disabled app-wide, main.ts) — gaussian
+    // blur layers on the brand glows were among the most expensive paint
+    // ops and ran on the very first frames of app life. The soft look now
+    // comes from radial gradients only.
+    const html = buildSplashHtml({ version: "2.6.5" });
+    expect(html).not.toMatch(/filter:\s*blur/);
+    expect(html).toContain("radial-gradient");
+  });
+
+  it("shows the window the moment it exists — white-box fix (v2.6.5)", () => {
+    // Source pin: createSplashWindow() must call splashWin.show() at
+    // CREATION, before the loadURL — the solid backgroundColor is the
+    // first pixel (painted natively, no renderer), and the HTML paints
+    // over it. The old wait-for-ready-to-show path was exactly where the
+    // mid-range machines showed a white box instead of the splash.
+    const src = readFileSync(fileURLToPath(new URL("./splash-window.ts", import.meta.url)), "utf8");
+    const createIdx = src.indexOf("splashWin = new BrowserWindow");
+    const showIdx = src.indexOf("splashWin.show()", createIdx);
+    const loadIdx = src.indexOf("splashWin.loadURL", createIdx);
+    expect(createIdx).toBeGreaterThan(-1);
+    expect(showIdx).toBeGreaterThan(createIdx);
+    expect(loadIdx).toBeGreaterThan(showIdx);
+  });
 });

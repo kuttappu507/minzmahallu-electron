@@ -90,6 +90,22 @@ describe("boot-chain imports stay light (instant splash)", () => {
     expect(mainSrc).not.toContain('await import("./auto-update.js")');
   });
 
+  it("forces the uniform software rendering path on every machine class (v2.6.5)", () => {
+    // Office report: low-end machines were smooth while mid-range machines
+    // opened late (no splash for a long time), flashed a white box of the
+    // splash's size and froze for a while after login — the fingerprint of
+    // GPU-driver variance (Chromium blocklists basic low-end iGPUs into the
+    // deterministic software path, while mid-range hybrid-GPU machines keep
+    // a flaky hardware path). app.disableHardwareAcceleration() gives low,
+    // mid and high end the IDENTICAL rendering pipeline. It must stay at
+    // module level, BEFORE app.whenReady(), or the first windows would come
+    // up on whatever GPU path the driver picks.
+    const disableIdx = mainSrc.indexOf("app.disableHardwareAcceleration()");
+    const readyIdx = mainSrc.indexOf("app.whenReady()");
+    expect(disableIdx).toBeGreaterThan(-1);
+    expect(readyIdx).toBeGreaterThan(disableIdx);
+  });
+
   it("holds the splash until startup work settles, then reveals the main window", () => {
     const splashCreate = mainSrc.indexOf("createSplashWindow()");
     expect(splashCreate).toBeGreaterThan(-1);

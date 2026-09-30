@@ -71,6 +71,25 @@ function closeDB(): void { dbMod?.closeDB(); }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// UNIFORM RENDERING PATH (v2.6.5 — office report: mid-range machines still
+// opened badly — no splash for a long time after the double-click, a white
+// box of the splash's size right before it, then a freeze for some time
+// after the login page opened — while LOW-end machines were smooth).
+// That split is the fingerprint of GPU-driver variance, not of hardware
+// speed: Chromium's blocklist silently forces SOFTWARE rendering on basic
+// low-end iGPUs (one deterministic path — smooth), while mid-range hybrid-
+// GPU machines keep a hardware path whose first composite, DWM blend and
+// occasional driver reset (TDR) stall exactly the moments the office saw:
+// the first visible pixel, the splash paint, the first frames after reveal.
+// The codebase has already been fighting individual GPU symptoms (v2.4.15
+// opaque window, the occlusion switch below, the GPU-crash invalidate
+// handler). v2.6.5 removes the machine-dependent variable itself: MMS is a
+// forms / tables / text application, so the software compositor is fast on
+// every class of machine — and forcing it everywhere means low, mid and
+// high end now run the IDENTICAL rendering pipeline and therefore the
+// identical speed and feel. Must run BEFORE app is ready.
+app.disableHardwareAcceleration();
+
 // Windows-only Chromium switch (occasional-freeze fix, user report: freezes on
 // mid-range machines, smooth on low-end). Chromium's native window-occlusion
 // calculation has a long history of false-positives with frameless windows —

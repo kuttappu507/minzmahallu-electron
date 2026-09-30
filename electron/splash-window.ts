@@ -76,10 +76,16 @@ export function buildSplashHtml(opts: { version: string; logoDataUrl?: string | 
     color: #eaf7f3; font-family: "Segoe UI", Poppins, "Anek Malayalam", sans-serif;
     overflow: hidden; user-select: none; cursor: default;
   }
-  /* Soft brand glows + the same star lattice the renderer splash uses. */
-  .glow-a, .glow-b { position: fixed; border-radius: 50%; filter: blur(90px); pointer-events: none; }
-  .glow-a { width: 560px; height: 560px; top: -300px; left: 50%; transform: translateX(-58%); background: radial-gradient(circle, rgba(13,148,136,.45), transparent 65%); }
-  .glow-b { width: 480px; height: 480px; bottom: -260px; right: -180px; background: radial-gradient(circle, rgba(45,212,191,.28), transparent 65%); }
+  /* Soft brand glows + the same star lattice the renderer splash uses.
+   * v2.6.5: these are pure radial-gradients — the old 90px gaussian-blur
+   * glow layers were among the most expensive paint ops available and had
+   * to run on the software rasterizer on the very first frames of app life
+   * (hardware acceleration is disabled app-wide). A radial gradient with a
+   * long falloff renders the same soft look in a single cheap pass, so the
+   * splash composites in 1-2 frames even on old office CPUs. */
+  .glow-a, .glow-b { position: fixed; border-radius: 50%; pointer-events: none; }
+  .glow-a { width: 760px; height: 760px; top: -400px; left: 50%; transform: translateX(-58%); background: radial-gradient(circle, rgba(13,148,136,.42) 0%, rgba(13,148,136,.16) 36%, transparent 68%); }
+  .glow-b { width: 660px; height: 660px; bottom: -320px; right: -240px; background: radial-gradient(circle, rgba(45,212,191,.26) 0%, rgba(45,212,191,.11) 40%, transparent 70%); }
   .pattern { position: fixed; inset: -40px; pointer-events: none; opacity: .05;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='1'%3E%3Cpath d='M36 6 L42 30 L66 36 L42 42 L36 66 L30 42 L6 36 L30 30 Z'/%3E%3Ccircle cx='36' cy='36' r='6'/%3E%3C/g%3E%3C/svg%3E");
     background-size: 72px 72px; }
@@ -184,6 +190,21 @@ export function createSplashWindow(): void {
     });
     // Above everything while starting (the real window takes over when ready).
     splashWin.setAlwaysOnTop(true, "screen-saver");
+    // FIRST-PIXEL GUARANTEE (v2.6.5 — office report: a WHITE BOX of the
+    // splash's size appeared right before the splash on mid-range machines,
+    // and the splash itself could take seconds to show). The window is now
+    // shown the moment it EXISTS, before its HTML even loads: with hardware
+    // acceleration disabled (main.ts) the solid backgroundColor below is
+    // painted by the software compositor / DWM natively — no renderer, no
+    // GPU, no white default-brush frame — so the user sees a full brand-teal
+    // panel essentially instantly, and the splash HTML (logo, spinner,
+    // caption) paints over it a few frames later. The old path waited for
+    // ready-to-show — a renderer-compositing milestone that is exactly what
+    // stalls on flaky drivers — and fell back to a 1.5 s force-show, which
+    // on a wedged GPU is where the white box came from. ready-to-show still
+    // marks the content-visible milestone for the boot gate, and the force
+    // fallback stays as belt-and-braces.
+    try { splashWin.show(); } catch { /* closing */ }
     splashWin.on("close", (e) => {
       if (!splashCloseAllowed) e.preventDefault();
     });
