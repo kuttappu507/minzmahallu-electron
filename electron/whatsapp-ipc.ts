@@ -81,6 +81,9 @@ export function registerWhatsAppIpc(
   // renderer's promise alone is never enough.
   register("whatsapp:sendDonationReceipt", (donationId: number, adminPassword?: string) => { requireAuth(); return whatsapp.sendDonationReceipt(donationId, { adminPassword }); });
   register("whatsapp:sendSubscriptionReceipt", (subscriptionId: number, adminPassword?: string) => { requireAuth(); return whatsapp.sendSubscriptionReceipt(subscriptionId, { adminPassword }); });
+  // One click: receipts to every family whose month the ADVANCE settled on
+  // its own (Subscriptions-page popup). Partial months are never included.
+  register("whatsapp:sendSubscriptionReceiptsBulk", () => { requireAuth(); return whatsapp.sendAdvanceReceiptsBulk(); });
   register("whatsapp:recipientStats", (type: "ANNOUNCEMENT" | "SUBSCRIPTION_REMINDER") => { requireAuth(); return recipientStats(type); });
   register("whatsapp:createSubscriptionCampaign", () => { requireAuth(); return whatsapp.createSubscriptionCampaign(); });
   register("whatsapp:createAnnouncementCampaign", (text: string) => { requireAuth(); return whatsapp.createAnnouncementCampaign(text); });

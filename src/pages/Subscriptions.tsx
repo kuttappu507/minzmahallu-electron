@@ -146,6 +146,47 @@ export function Subscriptions() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ADVANCE SETTLES THE MONTH BY ITSELF: after the roll-over, families whose
+  // credit covered the fresh month with NO cash are listed here. One popup,
+  // one click — all their receipts go out. Partial months (credit ran out,
+  // cash still needed) are NEVER offered: their receipt only exists once
+  // the month is actually completed.
+  const [advanceRows, setAdvanceRows] = useState<any[]>([]);
+  const [advanceOpen, setAdvanceOpen] = useState(false);
+  const [advanceSending, setAdvanceSending] = useState(false);
+  const loadAdvanceReady = () => {
+    window.mms.subscriptions.advanceReady().then((r: any) => {
+      const list: any[] = r || [];
+      setAdvanceRows(list);
+      if (list.length) setAdvanceOpen(true);
+    }).catch(() => {});
+  };
+  useEffect(() => { loadAdvanceReady(); }, []);
+  const sendAdvanceReceipts = async () => {
+    setAdvanceSending(true);
+    try {
+      const r: any = await window.mms.whatsapp.sendSubscriptionReceiptsBulk();
+      const bits: string[] = [];
+      if (r?.sent) bits.push(tx(`${r.sent} sent on WhatsApp`, `${r.sent} വാട്ട്സ്ആപ്പിൽ അയച്ചു`));
+      if (r?.savedNotSent) bits.push(tx(`${r.savedNotSent} saved as PDF only — WhatsApp not connected`, `${r.savedNotSent} PDF ആയി സേവ് ചെയ്തു — വാട്ട്സ്ആപ്പ് കണക്റ്റ് ആയിട്ടില്ല`));
+      if (r?.noPhone) bits.push(tx(`${r.noPhone} without a number — receipt saved for printing`, `${r.noPhone} നമ്പറില്ലാത്തവർ — പ്രിന്റിനായി സേവ് ചെയ്തു`));
+      if (r?.alreadySent) bits.push(tx(`${r.alreadySent} already sent earlier`, `${r.alreadySent} ഇതിനകം അയച്ചു`));
+      if (r?.failed) bits.push(tx(`${r.failed} failed`, `${r.failed} പരാജയപ്പെട്ടു`));
+      const summary = bits.join(" · ") || tx("nothing to send", "അയയ്ക്കാനുള്ളത് ഒന്നുമില്ല");
+      if (r?.failed) toast.warning(tx(`Finished: ${summary}`, `പൂർത്തിയായി: ${summary}`));
+      else toast.success(tx(`Finished: ${summary}`, `പൂർത്തിയായി: ${summary}`));
+      if (r?.failed && Array.isArray(r.failures) && r.failures.length) console.warn("Advance receipt failures:", r.failures);
+      setAdvanceOpen(false);
+      loadAdvanceReady();
+      refetch();
+      refreshCollected();
+    } catch (e: any) {
+      toast.error(e?.message || tx("Could not send the receipts", "രസീതുകൾ അയയ്ക്കാനായില്ല"));
+    } finally {
+      setAdvanceSending(false);
+    }
+  };
+
   // Late WhatsApp delivery ack. The receipt send returns the moment WhatsApp
   // ACCEPTS the message; the confirmation that lands a moment later is PUSHED
   // here, so the row turns "delivered — locked" by itself instead of sitting
@@ -459,7 +500,16 @@ export function Subscriptions() {
     },
     {
       header: t("family_status"),
-      accessor: (r) => <Badge variant={statusVariant(r.status)}>{r.status}</Badge>,
+      accessor: (r) => (
+        <span className="inline-flex items-center gap-1">
+          <Badge variant={statusVariant(r.status)}>{r.status}</Badge>
+          {(r as any).advance_covered ? (
+            <span title={tx("This month was settled from the family's advance balance — no cash received", "ഈ മാസം കുടുംബത്തിന്റെ മുൻകൂർ തുകയിൽ നിന്ന് തീർന്നു — പണം ലഭിച്ചിട്ടില്ല")}>
+              <Badge variant="info">{tx("advance", "മുൻകൂർ")}</Badge>
+            </span>
+          ) : null}
+        </span>
+      ),
     },
     {
       header: "",
@@ -583,6 +633,12 @@ export function Subscriptions() {
             <AlertCircle className="h-4 w-4" />
             {t("sub_mark_overdue")}
           </Button>
+          {advanceRows.length > 0 && (
+            <Button variant="secondary" onClick={() => setAdvanceOpen(true)} title={tx("Families whose subscription this month is fully covered by their advance balance — send their receipts in one click", "മുൻകൂർ തുക കൊണ്ട് ഈ മാസത്തെ വരിസംഖ്യ പൂർണമായി തീർന്ന കുടുംബങ്ങൾ — ഒരു ക്ലിക്കിൽ രസീതുകൾ അയയ്ക്കുക")}>
+              <MessageCircle className="h-4 w-4" />
+              {tx(`Advance receipts (${advanceRows.length})`, `മുൻകൂർ രസീതുകൾ (${advanceRows.length})`)}
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => { window.mms.subscriptions.ensureCurrentMonth().then(() => refetch()).catch(() => {}); }}>
             <RefreshCw className="h-4 w-4" />
             {tx("Sync month", "മാസം സമന്വയിക്കുക")}
@@ -930,6 +986,59 @@ export function Subscriptions() {
         confirmLabel={tx("Re-send once", "ഒരിക്കൽ കൂടി അയയ്ക്കുക")}
         danger={false}
       />
+
+      {/* Advance-settled months: receipts ready to go out in ONE click.
+          Partial months are never here — a month that still needs cash has
+          no finished receipt to send. */}
+      <Dialog
+        open={advanceOpen}
+        onClose={() => setAdvanceOpen(false)}
+        title={tx("Advance-paid subscriptions — receipts ready", "മുൻകൂർ തുക കൊണ്ട് തീർന്ന വരിസംഖ്യകൾ — രസീതുകൾ തയ്യാർ")}
+        className="max-w-xl"
+      >
+        <div className="dlg-pad">
+          <p className="text-sm text-muted mb-3">
+            {tx(
+              `${advanceRows.length} family(ies) paid MORE earlier, so this month's subscription is already settled from their advance balance — no cash is due. Send their receipts now? Families with a PARTIAL payment are not included (their month is not complete yet).`,
+              `${advanceRows.length} കുടുംബങ്ങൾ മുമ്പ് കൂടുതൽ അടച്ചിട്ടുണ്ട്; ഈ മാസത്തെ വരിസംഖ്യ മുൻകൂർ ബാലൻസിൽ നിന്ന് തീർന്നു — പണം കൊടുക്കേണ്ടതില്ല. രസീതുകൾ ഇപ്പോൾ അയയ്ക്കണോ? പകുതി അടച്ച (പാഷ്യൽ) കുടുംബങ്ങൾ ഇതിൽ ഇല്ല — അവരുടെ മാസം ഇനിയും പൂർത്തിയായിട്ടില്ല.`
+            )}
+          </p>
+          <div className="max-h-64 overflow-y-auto mb-4">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-muted">
+                  <th className="py-1 pr-2">{t("member_family")}</th>
+                  <th className="py-1 pr-2">{t("sub_amount")}</th>
+                  <th className="py-1">{tx("Advance left", "മുൻകൂർ ബാക്കി")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {advanceRows.map((r) => (
+                  <tr key={r.id} className="border-t border-base">
+                    <td className="py-1.5 pr-2">
+                      <b>{r.house_name || r.family_number || "—"}</b>
+                      {r.family_number ? <span className="text-muted"> · {r.family_number}</span> : null}
+                    </td>
+                    <td className="py-1.5 pr-2">{formatCurrency(r.amount)}</td>
+                    <td className="py-1.5">{formatCurrency(r.advance)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setAdvanceOpen(false)}>
+              {t("action_cancel")}
+            </Button>
+            <Button onClick={sendAdvanceReceipts} disabled={advanceSending || !advanceRows.length}>
+              <MessageCircle className="h-4 w-4" />
+              {advanceSending
+                ? tx("Sending…", "അയയ്ക്കുന്നു…")
+                : tx(`Send all ${advanceRows.length} receipts`, `എല്ലാ ${advanceRows.length} രസീതുകളും അയയ്ക്കുക`)}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

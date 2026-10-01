@@ -168,14 +168,17 @@ async function donationReceiptData(donationId: number): Promise<ReceiptData | nu
 }
 
 /** The most recent ACTIVE payment on a subscription (ledger first, then the
- * subscription row for accounts whose first payment predates the ledger). */
+ * subscription row for accounts whose first payment predates the ledger).
+ * A zero-cash advance row (the month the credit settled on its own) backs a
+ * receipt too — that is exactly the receipt the "advance families" popup
+ * sends (amount > 0 OR advance_used > 0). */
 function subscriptionPaymentRow(subscriptionId: number): any | null {
   const db = getDB();
   const paid = db.prepare(
     `SELECT sp.*, f.house_name, f.area, f.family_number,
        (SELECT m.name FROM members m WHERE m.id = sp.member_id) AS member_name
      FROM subscription_payments sp LEFT JOIN families f ON f.id = sp.family_id
-     WHERE sp.subscription_id = ? AND sp.status = 'Active' AND sp.amount > 0
+     WHERE sp.subscription_id = ? AND sp.status = 'Active' AND (sp.amount > 0 OR COALESCE(sp.advance_used, 0) > 0)
      ORDER BY sp.period_start DESC, sp.id DESC LIMIT 1`
   ).get(subscriptionId) as any;
   if (paid) return { source: "ledger", row: paid };
@@ -202,6 +205,9 @@ async function subscriptionReceiptData(subscriptionId: number): Promise<ReceiptD
   const cash = resolved.source === "ledger" ? Number(r.amount || 0) : Number(r.amount_paid ?? 0);
   const arrearsCleared = Number(r.arrears_cleared || 0);
   const advanceAdded = Number(r.advance_added || 0);
+  // Advance the month itself consumed (the credit settled the shortfall or
+  // the whole month) — its own line in the money story below.
+  const advanceUsed = resolved.source === "ledger" ? Number(r.advance_used || 0) : 0;
   const monthPart = Math.max(0, Math.min(round2(cash - arrearsCleared), rate));
   const arrearsAfter = Number(sub?.arrears || 0);
   const advanceAfter = Number(sub?.advance || 0);
@@ -221,6 +227,7 @@ async function subscriptionReceiptData(subscriptionId: number): Promise<ReceiptD
   const appliedBits: string[] = [];
   if (arrearsCleared > 0) appliedBits.push(ml ? `${inr(arrearsCleared)} പഴയ മാസങ്ങൾ` : `${inr(arrearsCleared)} previous months`);
   if (monthPart > 0) appliedBits.push(ml ? `${inr(monthPart)} ഈ മാസം` : `${inr(monthPart)} this month`);
+  if (advanceUsed > 0) appliedBits.push(ml ? `${inr(advanceUsed)} മുൻകൂർ ബാലൻസിൽ നിന്ന്` : `${inr(advanceUsed)} from advance balance`);
   if (advanceAdded > 0) appliedBits.push(ml ? `${inr(advanceAdded)} മുൻകൂർ അടവ്` : `${inr(advanceAdded)} advance`);
   const appliedNote = appliedBits.length
     ? (ml ? "തുക കണക്കാക്കിയത്: " : "Amount applied: ") + appliedBits.join(" · ")
@@ -250,7 +257,10 @@ async function subscriptionReceiptData(subscriptionId: number): Promise<ReceiptD
     line1Value: monthLabel(String(r.period_start || "")),
     line2Label: ml ? "പ്രതിമാസ വരിസംഖ്യ" : "Monthly due",
     line2Value: inr(rate),
-    amount: cash,
+    // What the month SETTLED: cash given + advance the credit covered (an
+    // advance-only month receipts at the full rate with the footnote
+    // telling where it came from — a ₹0 receipt would confuse everyone).
+    amount: round2(cash + advanceUsed),
     paymentMethod: String(r.payment_method || ""),
     transactionRef: String(r.transaction_ref || ""),
     notes: String(r.remarks || ""),

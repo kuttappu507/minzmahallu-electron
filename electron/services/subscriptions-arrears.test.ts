@@ -127,12 +127,18 @@ describe("month roll-over carries dues and credit (multi-month accounts)", () =>
     expect(clean(account().advance)).toBe(40);
     expect(clean(account().arrears)).toBe(0);
     expect(clean(account().amount_paid)).toBe(0);
-    // …then closes THAT month half-paid (50 of 150)…
+    // …then closes THAT month with a 50 cash payment. NEW (user request):
+    // the standing advance now tops up the month's shortfall immediately —
+    // 50 cash + 40 credit = 90 of 150 settled (still Partial, 60 short), the
+    // credit is gone, and ONLY the uncovered 60 becomes arrears at the roll.
     subscriptions.applyPayment(subId, { amountPaid: 50, paymentDate: "2026-09-06", paymentMethod: "Cash" });
-    expect(clean(account().amount_paid)).toBe(50);
-    expect(clean(account().advance)).toBe(40);
-    // …and the next roll turns the unpaid ₹100 into arrears, netting the
-    // standing ₹40 advance first → exactly ₹60 carried.
+    expect(clean(account().amount_paid)).toBe(90);
+    expect(clean(account().advance)).toBe(0);
+    const topup = ledgerRow();
+    expect(clean(topup.amount)).toBe(50);          // cash actually given
+    expect(clean(topup.advance_used)).toBe(40);    // credit the month consumed
+    // …and the next roll carries only the truly-uncovered ₹60 (150 − 90
+    // settled) into arrears — the credit is already spent, nothing to net.
     rewindOneMonth();
     subscriptions.ensureCurrentMonth();
     const s = account();

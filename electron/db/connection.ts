@@ -92,6 +92,13 @@ function ensureRuntimeSchema(database: DB) {
     ["subscriptions","advance","REAL NOT NULL DEFAULT 0"],
     ["subscription_payments","arrears_cleared","REAL NOT NULL DEFAULT 0"],
     ["subscription_payments","advance_added","REAL NOT NULL DEFAULT 0"],
+    // Advance pays BY ITSELF (user request): when a roll-over finds the
+    // standing advance ≥ the monthly rate, the fresh month is settled from
+    // the credit with NO cash moving — advance_covered marks that state on
+    // the account, and the zero-cash ledger row stores how much advance the
+    // month consumed (advance_used) so a cancel / re-record restores it.
+    ["subscriptions","advance_covered","INTEGER NOT NULL DEFAULT 0"],
+    ["subscription_payments","advance_used","REAL NOT NULL DEFAULT 0"],
     // V038 — staff official ID number (Aadhaar / voter ID etc.), user request
     ["staff","id_number","TEXT"],
     // WhatsApp receipt privacy lock (V037): one send per receipt (+ one

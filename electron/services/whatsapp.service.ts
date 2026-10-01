@@ -681,15 +681,17 @@ export const whatsapp = {
     // ---- The caption tells the money story: cash in, where it went
     // (old arrears → this month → advance), and what is still due after it.
     const ledger = receipt.paymentId
-      ? (getDB().prepare("SELECT amount, arrears_cleared, advance_added FROM subscription_payments WHERE id = ?").get(receipt.paymentId) as any)
+      ? (getDB().prepare("SELECT amount, arrears_cleared, advance_added, advance_used FROM subscription_payments WHERE id = ?").get(receipt.paymentId) as any)
       : null;
     const cash = Number(ledger?.amount ?? s.amount_paid ?? 0);
     const arrearsCleared = Number(ledger?.arrears_cleared || 0);
     const advanceAdded = Number(ledger?.advance_added || 0);
+    const advanceUsed = Number(ledger?.advance_used || 0);
     const monthPart = Math.max(0, Math.min(cash - arrearsCleared, Number(s.amount || 0)));
     const allocLines: string[] = [];
     if (arrearsCleared > 0) allocLines.push(`- ${currency}${arrearsCleared.toLocaleString("en-IN")} cleared previous months' balance`);
     if (monthPart > 0) allocLines.push(`- ${currency}${monthPart.toLocaleString("en-IN")} for this month`);
+    if (advanceUsed > 0) allocLines.push(`- ${currency}${advanceUsed.toLocaleString("en-IN")} settled from advance balance`);
     if (advanceAdded > 0) allocLines.push(`- ${currency}${advanceAdded.toLocaleString("en-IN")} kept as advance for coming months`);
     const balance = Math.max(0, Number(s.arrears || 0) + Math.max(0, Number(s.amount || 0) - Number(s.amount_paid || 0)) - Number(s.advance || 0));
     const balanceLine = balance > 0
@@ -698,7 +700,12 @@ export const whatsapp = {
         ? `Fully paid — ${currency}${Number(s.advance).toLocaleString("en-IN")} advance will reduce next month's due.`
         : "Fully paid.";
     const who = s.house_name || s.family_number || "Family";
-    const text = `Assalamu Alaikum,\n\nPayment received — thank you.\n\nReceipt: ${s.receipt_number || receipt.receiptNumber}\nFamily: ${who}${s.family_number ? ` (${s.family_number})` : ""}\nMonth: ${monthLabel(String(s.period_start || ""))}\nAmount received: ${currency}${cash.toLocaleString("en-IN")}${allocLines.length ? `\n${allocLines.join("\n")}` : ""}\n${balanceLine}\nDate: ${fmtDdMmYyyy(String(s.payment_date || s.period_start || ""))}\n\nThe receipt (PDF) is attached.\n${settingsRow?.mahallu_name ? `\n${settingsRow.mahallu_name}` : ""}\n\nJazakallahu Khairan.`;
+    // An advance-settled month received NO cash — say so honestly instead
+    // of a bare "Amount received: ₹0".
+    const amountLine = advanceUsed > 0 && cash <= 0
+      ? `This month is settled from your advance balance (no cash due)`
+      : `Amount received: ${currency}${cash.toLocaleString("en-IN")}`;
+    const text = `Assalamu Alaikum,\n\nPayment received — thank you.\n\nReceipt: ${s.receipt_number || receipt.receiptNumber}\nFamily: ${who}${s.family_number ? ` (${s.family_number})` : ""}\nMonth: ${monthLabel(String(s.period_start || ""))}\n${amountLine}${allocLines.length ? `\n${allocLines.join("\n")}` : ""}\n${balanceLine}\nDate: ${fmtDdMmYyyy(String(s.payment_date || s.period_start || ""))}\n\nThe receipt (PDF) is attached.\n${settingsRow?.mahallu_name ? `\n${settingsRow.mahallu_name}` : ""}\n\nJazakallahu Khairan.`;
     // Soft mode (auto-send after a payment is recorded): report instead of
     // throwing — the payment itself must never fail because of messaging.
     if (soft) {
@@ -729,6 +736,53 @@ export const whatsapp = {
         ? "Delivered to the recipient — the receipt is now locked (one admin re-send remains available)."
         : "Sent — WhatsApp accepted the receipt and delivery is being confirmed. It is NOT locked yet: the lock flips by itself the moment the recipient's phone confirms, and the receipt can be sent again if it never arrives.",
     };
+  },
+  /** ONE click — receipts to every family whose month the ADVANCE settled
+   *  on its own (the Subscriptions-page popup). Families with a PARTIAL
+   *  month (credit ran out, cash still needed) are never included: their
+   *  receipt only exists once the month is actually completed. Each send
+   *  runs in soft mode — one family's failure never stops the rest, and a
+   *  family without a WhatsApp number still gets its receipt GENERATED and
+   *  saved in the app for printing. */
+  sendAdvanceReceiptsBulk: async () => {
+    ensureSchema();
+    const rows = getDB().prepare(
+      `SELECT s.id, s.family_id, f.house_name, f.family_number
+       FROM subscriptions s JOIN families f ON f.id = s.family_id
+       WHERE s.advance_covered = 1 AND s.status = 'Paid'
+         AND COALESCE(f.status, 'Active') = 'Active'
+         AND NOT EXISTS (
+           SELECT 1 FROM subscription_payments sp
+           WHERE sp.subscription_id = s.id AND sp.period_start = s.period_start
+             AND sp.status = 'Active' AND sp.receipt_sent_at IS NOT NULL
+         )
+       ORDER BY f.family_number`
+    ).all() as any[];
+    const result = {
+      total: rows.length, sent: 0, delivered: 0,
+      savedNotSent: 0, noPhone: 0, alreadySent: 0, failed: 0,
+      failures: [] as string[],
+    };
+    for (const row of rows) {
+      try {
+        const r = await whatsapp.sendSubscriptionReceipt(Number(row.id), { soft: true }) as any;
+        switch (r?.status) {
+          case "delivered": result.delivered++; result.sent++; break;
+          case "sent": result.sent++; break;
+          case "not-connected": result.savedNotSent++; break;
+          case "no-phone": result.noPhone++; break;
+          case "already-sent":
+          case "already-delivered": result.alreadySent++; break;
+          default:
+            result.failed++;
+            result.failures.push(`${row.house_name || row.family_number || "Family"}: ${r?.error || "unknown error"}`);
+        }
+      } catch (err: any) {
+        result.failed++;
+        result.failures.push(`${row.house_name || row.family_number || "Family"}: ${String(err?.message || err)}`);
+      }
+    }
+    return result;
   },
   createSubscriptionCampaign: async () => {
     ensureSchema();

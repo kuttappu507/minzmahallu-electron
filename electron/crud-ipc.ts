@@ -49,6 +49,7 @@ export function registerCrudIpc(getWindow: GetWindow): void {
   ipcMain.handle("subscriptions:totalPending", () => data.subscriptions.totalPending());
   ipcMain.handle("subscriptions:plans", () => data.subscriptions.plans());
   ipcMain.handle("subscriptions:ensureCurrentMonth", () => data.subscriptions.ensureCurrentMonth());
+  ipcMain.handle("subscriptions:advanceReady", () => data.subscriptions.advanceReady());
   ipcMain.handle("donations:list", (_e, filter) => data.donations.list(filter || {}));
   ipcMain.handle("donations:get", (_e, id) => data.donations.get(id));
   ipcMain.handle("donations:create", (_e, d) => data.donations.create(d));
