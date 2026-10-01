@@ -85,6 +85,8 @@ function newHiddenWindow(width: number, height: number): import("electron").Brow
       sandbox: true,
       webSecurity: true,
       allowRunningInsecureContent: false,
+      spellcheck: false,
+      backgroundThrottling: false,
     },
   });
 }

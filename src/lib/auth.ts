@@ -16,6 +16,38 @@ interface AuthState {
   logout: () => Promise<void>;
 }
 
+let cachedSetupRequired: boolean | null = null;
+let setupStatusPromise: Promise<boolean> | null = null;
+
+export function getCachedSetupStatus(): boolean | null {
+  return cachedSetupRequired;
+}
+
+export function preloadSetupStatus(timeoutMs = 3_000): Promise<boolean> {
+  if (cachedSetupRequired !== null) return Promise.resolve(cachedSetupRequired);
+  if (!setupStatusPromise) {
+    const work = (async () => {
+      try {
+        const r = await (window as any).mms?.auth?.setupStatus?.();
+        cachedSetupRequired = !!r?.required;
+      } catch {
+        cachedSetupRequired = false;
+      }
+      return cachedSetupRequired;
+    })();
+    setupStatusPromise = Promise.race([
+      work,
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(cachedSetupRequired ?? false), timeoutMs)),
+    ]);
+  }
+  return setupStatusPromise;
+}
+
+export function clearCachedSetupStatus(): void {
+  cachedSetupRequired = false;
+  setupStatusPromise = Promise.resolve(false);
+}
+
 // NO persist — user must log in every time the app starts (security requirement).
 // The user state is in-memory only, cleared on app restart.
 export const useAuth = create<AuthState>()((set) => ({

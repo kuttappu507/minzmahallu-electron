@@ -47,10 +47,12 @@ type DataModule = typeof import("./services/data.service.js");
 type DbModule = typeof import("./db/connection.js");
 type PdfModule = typeof import("./print/pdf-renderer.js");
 type UpdateModule = typeof import("./update-check.js");
+type CrudModule = typeof import("./crud-ipc.js");
 let dataMod: DataModule | null = null;
 let dbMod: DbModule | null = null;
 let pdfMod: PdfModule | null = null;
 let updateMod: UpdateModule | null = null;
+let crudMod: CrudModule | null = null;
 
 /** Thin local alias so the quit paths keep their guarded
  *  `try { closeDB(); } catch` shape while the real connection module is
@@ -399,6 +401,7 @@ function createWindow() {
   const win32 = process.platform === "win32";
   mainWindow = new BrowserWindow({
     width: 1600, height: 900, minWidth: 1024, minHeight: 640, show: false,
+    paintWhenInitiallyHidden: true,
     autoHideMenuBar: true,
     ...(win32 ? { backgroundColor: "#f6f8fa" } : { backgroundColor: "#00000000", transparent: true }),
     title: "MMS — Minz Mahallu Management System", frame: false, hasShadow: false,
@@ -414,6 +417,7 @@ function createWindow() {
       // Disabled app-wide; LoginPage additionally pins spellCheck={false}
       // per input as belt-and-braces.
       spellcheck: false,
+      backgroundThrottling: false,
     },
   });
   // Real window takes over only when BOTH are true: boot work has settled
@@ -691,7 +695,7 @@ app.whenReady().then(async () => {
       import("./db/connection.js"),
       import("./print/pdf-renderer.js"),
     ]);
-    updateMod = upd; dataMod = ds; dbMod = dbc; pdfMod = pdf;
+    updateMod = upd; dataMod = ds; dbMod = dbc; pdfMod = pdf; crudMod = crud;
     // Monthly GitHub release check (Settings → About can also check on demand).
     // The delayed network tick itself is started only after the window is
     // revealed (below) so it cannot hitch the first paint.
@@ -725,12 +729,18 @@ app.whenReady().then(async () => {
   const dataReady = (async () => {
     if (!dbMod || !dataMod || !pdfMod) throw new Error("core modules failed to load");
     const { prewarmPdfRenderer } = pdfMod;
+    const yieldMain = () => new Promise<void>((r) => setTimeout(r, 0));
     setSplashStatus("ഡാറ്റാബേസ് തുറക്കുന്നു · Opening database");
     try { dbMod.getDB(); bootLog("db:opened"); }
     catch (err) { bootLogError("db:open", err); console.warn("[boot] database open failed:", err); }
+    await yieldMain();
     setSplashStatus("ഈ മാസം തയ്യാറാക്കുന്നു · Preparing this month");
     try { dataMod.subscriptions.ensureCurrentMonth(); bootLog("subscriptions:month-ensured"); }
     catch (err) { console.warn("[subscriptions] monthly generation failed:", err); bootLog("subscriptions:month-failed", String((err as Error)?.message || err)); }
+    await yieldMain();
+    try { crudMod?.warmStartupData(); bootLog("data:prewarmed"); }
+    catch (err) { bootLog("data:prewarm-failed", String((err as Error)?.message || err)); }
+    await yieldMain();
     setSplashStatus("പ്രിന്റ് തയ്യാറാക്കുന്നു · Preparing print");
     try { prewarmPdfRenderer(); bootLog("pdf:prewarmed"); }
     catch (err) { bootLog("pdf:prewarm-failed", String((err as Error)?.message || err)); }

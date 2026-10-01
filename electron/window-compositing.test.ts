@@ -70,4 +70,12 @@ describe("main window compositing (occasional-freeze fix)", () => {
     // A reload must never fire for a clean teardown.
     expect(MAIN).toContain('details.reason === "clean-exit"');
   });
+
+  it("keeps the hidden main window painting and unthrottled while behind the splash", () => {
+    const createStart = MAIN.indexOf("function createWindow()");
+    const createEnd = MAIN.indexOf("ipcMain.handle(\"win:minimize\"", createStart);
+    const fn = MAIN.slice(createStart, createEnd);
+    expect(fn).toContain("paintWhenInitiallyHidden: true");
+    expect(fn).toContain("backgroundThrottling: false");
+  });
 });

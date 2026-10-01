@@ -19,6 +19,7 @@ const SEEDED_ADMIN_HASHES=[
 ];
 function parseStoredHash(stored:string){const p=stored.split("$");if(p.length!==4||p[0]!=="pbkdf2_sha256")return null;const iter=parseInt(p[1],10),salt=Buffer.from(p[2],"base64"),hash=Buffer.from(p[3],"base64");return Number.isFinite(iter)&&iter>0&&salt.length&&hash.length?{iter,salt,hash}:null;}
 function verifyPassword(plain:string,stored:string){const p=parseStoredHash(stored);if(!p)return false;try{const d=crypto.pbkdf2Sync(plain,p.salt,p.iter,p.hash.length,"sha256");return d.length===p.hash.length&&crypto.timingSafeEqual(d,p.hash);}catch{return false;}}
+function verifyPasswordAsync(plain:string,stored:string):Promise<boolean>{const p=parseStoredHash(stored);if(!p)return Promise.resolve(false);return new Promise((resolve)=>{crypto.pbkdf2(plain,p.salt,p.iter,p.hash.length,"sha256",(err,d)=>{if(err||!d||d.length!==p.hash.length){resolve(false);return;}try{resolve(crypto.timingSafeEqual(d,p.hash));}catch{resolve(false);}});});}
 /** Verify a plaintext password against a stored pbkdf2 hash. Exported for the
  *  uninstall guard, which must verify an admin password WITHOUT a logged-in
  *  session (the app runs headless-ish with just a verify window). */
@@ -32,6 +33,12 @@ export function hashPasswordForStorage(password:string){return hashPassword(pass
 export function needsInitialSetup(){
   const count=Number(scalar<number>("SELECT COUNT(*) FROM users")||0);
   return count===0 || (!!seededAdmin() && count===1);
+}
+/** Pre-warms OpenSSL PBKDF2-SHA256 and the users-table query under the splash
+ *  so the first login submission never pays cold-start crypto/SQLite costs. */
+export function warmAuthSubsystem():void{
+  try{crypto.pbkdf2Sync("mms-warm","mms-salt",1,32,"sha256");}catch{}
+  try{needsInitialSetup();}catch{}
 }
 export function createInitialAdministrator(username:string,fullName:string,password:string):AuthUser{
  if(!needsInitialSetup())throw new Error("Initial setup has already been completed");
@@ -49,6 +56,19 @@ export function login(username:string,password:string):AuthUser{
  if(!user)throw new Error("Invalid username or password"); if(!user.is_active)throw new Error("Account is inactive — contact administrator");
  if(user.is_locked){if(!user.locked_until)throw new Error("Account is locked — contact administrator");const until=new Date(user.locked_until.replace(" ","T")+ (user.locked_until.includes("Z")?"":"Z"));if(!Number.isNaN(until.getTime())&&until>new Date())throw new Error("Too many failed login attempts — try again later");run("UPDATE users SET is_locked=0,locked_until=NULL,failed_attempts=0 WHERE id=?",[user.id]);}
  if(!verifyPassword(password,user.password_hash)){const attempts=(user.failed_attempts||0)+1;if(attempts>=5)run("UPDATE users SET failed_attempts=?,is_locked=1,locked_until=datetime('now','+15 minutes'),updated_at=datetime('now') WHERE id=?",[attempts,user.id]);else run("UPDATE users SET failed_attempts=?,updated_at=datetime('now') WHERE id=?",[attempts,user.id]);throw new Error("Invalid username or password");}
+ run("UPDATE users SET last_login_at=datetime('now'),failed_attempts=0,is_locked=0,locked_until=NULL,updated_at=datetime('now') WHERE id=?",[user.id]);
+ currentActor={id:user.id,username:user.username,role:user.role}; currentUser={id:user.id,username:user.username,fullName:user.full_name,role:user.role,isActive:!!user.is_active,mustChangePwd:!!user.must_change_pwd,initials:makeInitials(user.full_name)}; return currentUser;
+}
+/** Async login for the IPC boundary: runs the 200,000-iteration PBKDF2
+ *  derivation on Node's libuv worker pool so the Electron main/UI thread is
+ *  never blocked while the login button transitions into the Dashboard. */
+export async function loginAsync(username:string,password:string):Promise<AuthUser>{
+ if(!username||!password)throw new Error("Username and password are required");
+ if(needsInitialSetup())throw new Error("Initial account setup is required");
+ const user=one<UserRow>(`SELECT id,username,full_name,password_hash,password_salt,role,is_active,is_locked,failed_attempts,locked_until,must_change_pwd FROM users WHERE username = ?`,[username.trim()]);
+ if(!user)throw new Error("Invalid username or password"); if(!user.is_active)throw new Error("Account is inactive — contact administrator");
+ if(user.is_locked){if(!user.locked_until)throw new Error("Account is locked — contact administrator");const until=new Date(user.locked_until.replace(" ","T")+ (user.locked_until.includes("Z")?"":"Z"));if(!Number.isNaN(until.getTime())&&until>new Date())throw new Error("Too many failed login attempts — try again later");run("UPDATE users SET is_locked=0,locked_until=NULL,failed_attempts=0 WHERE id=?",[user.id]);}
+ if(!(await verifyPasswordAsync(password,user.password_hash))){const attempts=(user.failed_attempts||0)+1;if(attempts>=5)run("UPDATE users SET failed_attempts=?,is_locked=1,locked_until=datetime('now','+15 minutes'),updated_at=datetime('now') WHERE id=?",[attempts,user.id]);else run("UPDATE users SET failed_attempts=?,updated_at=datetime('now') WHERE id=?",[attempts,user.id]);throw new Error("Invalid username or password");}
  run("UPDATE users SET last_login_at=datetime('now'),failed_attempts=0,is_locked=0,locked_until=NULL,updated_at=datetime('now') WHERE id=?",[user.id]);
  currentActor={id:user.id,username:user.username,role:user.role}; currentUser={id:user.id,username:user.username,fullName:user.full_name,role:user.role,isActive:!!user.is_active,mustChangePwd:!!user.must_change_pwd,initials:makeInitials(user.full_name)}; return currentUser;
 }

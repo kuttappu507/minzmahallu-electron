@@ -329,4 +329,34 @@ describe("the first appearance of the login page is fully painted", () => {
     expect(fn).toContain("powerMonitor.getSystemIdleTime()");
     expect(fn).toContain("grosslyOverdue");
   });
+
+  it("completes font preloading, setupStatus, and chunk warming BEFORE the final two-frame paint check and stops warming once revealed", () => {
+    const appSrc = readFileSync(
+      fileURLToPath(new URL("../src/App.tsx", import.meta.url)),
+      "utf8"
+    );
+    const goStart = appSrc.indexOf("const go = () => {");
+    const goBody = appSrc.slice(goStart);
+    const warmFontsIdx = goBody.indexOf("warmAppFonts()");
+    const setupIdx = goBody.indexOf("preloadSetupStatus()");
+    const warmChunksIdx = goBody.indexOf("warmAppChunks(");
+    const framesIdx = goBody.indexOf("await waitTwoFrames()");
+    const beatIdx = goBody.indexOf("beat = setTimeout(fire, 120)");
+    expect(warmFontsIdx).toBeGreaterThan(-1);
+    expect(setupIdx).toBeGreaterThan(-1);
+    expect(warmChunksIdx).toBeGreaterThan(setupIdx);
+    expect(framesIdx).toBeGreaterThan(warmChunksIdx);
+    expect(beatIdx).toBeGreaterThan(framesIdx);
+    expect(goBody).toContain("shouldStop: () => done");
+
+    // Pre-warms auth crypto + dashboard queries under the splash screen and
+    // verifies passwords off the main thread on login.
+    expect(MAIN).toContain("crudMod?.warmStartupData()");
+    const crudSrc = readFileSync(
+      fileURLToPath(new URL("./crud-ipc.ts", import.meta.url)),
+      "utf8"
+    );
+    expect(crudSrc).toContain("await loginAsync(username, password)");
+    expect(crudSrc).toContain("export function warmStartupData()");
+  });
 });

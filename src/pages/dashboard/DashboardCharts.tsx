@@ -56,7 +56,7 @@ export default function DashboardCharts({ collections, incomeExpense, displayLoc
               <XAxis dataKey="label" tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
               <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid var(--line)", background: "var(--panel)", fontSize: 12 }} />
-              <Area type="monotone" dataKey="amount" stroke="var(--c-em)" strokeWidth={2.6} fill="url(#g1)" dot={{ r: 2.5, fill: "var(--c-em)", strokeWidth: 0 }} activeDot={{ r: 4.5, stroke: "var(--panel)", strokeWidth: 2 }} />
+              <Area type="monotone" dataKey="amount" stroke="var(--c-em)" strokeWidth={2.6} fill="url(#g1)" dot={{ r: 2.5, fill: "var(--c-em)", strokeWidth: 0 }} activeDot={{ r: 4.5, stroke: "var(--panel)", strokeWidth: 2 }} isAnimationActive={false} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -90,8 +90,8 @@ export default function DashboardCharts({ collections, incomeExpense, displayLoc
               <XAxis dataKey="label" tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 9, fill: "var(--fnt)" }} stroke="var(--line)" tickLine={false} axisLine={false} />
               <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid var(--line)", background: "var(--panel)", fontSize: 12 }} cursor={{ fill: "var(--selbg)" }} />
-              <Bar dataKey="income" fill="url(#g2)" radius={[6, 6, 0, 0]} maxBarSize={28} />
-              <Bar dataKey="expense" fill="url(#g3)" radius={[6, 6, 0, 0]} maxBarSize={28} />
+              <Bar dataKey="income" fill="url(#g2)" radius={[6, 6, 0, 0]} maxBarSize={28} isAnimationActive={false} />
+              <Bar dataKey="expense" fill="url(#g3)" radius={[6, 6, 0, 0]} maxBarSize={28} isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         </div>

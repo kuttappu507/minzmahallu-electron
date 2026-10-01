@@ -892,6 +892,7 @@
   /* ===== Views ===== */
   .view { animation: viewIn 0.32s cubic-bezier(0.2, 0.8, 0.3, 1); }
   .view-enter { animation: viewEnter 0.28s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+  html.lowfx .view, html.lowfx .view-enter { animation: none !important; }
 
   /* ===== Islamic pattern for sidebar ===== */
   .islamic-pattern {
@@ -1321,7 +1322,7 @@ body:not(.app-loaded) #root > * { visibility: hidden; }
   .login-right { padding: 32px 22px; }
 }
 .login-right { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px; position: relative; }
-.login-form-wrap { width: 100%; max-width: 380px; }
+.login-form-wrap { width: 100%; max-width: 380px; -webkit-app-region: no-drag; }
 .login-mobile-logo-row { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; justify-content: center; }
 .login-form-title { font: 600 26px Poppins; letter-spacing: -0.01em; color: var(--tx); }
 .login-form-sub { font: 500 13px Poppins; color: var(--mut); margin-top: 6px; }
