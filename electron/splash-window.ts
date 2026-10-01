@@ -70,7 +70,7 @@ export function buildSplashHtml(opts: { version: string; logoDataUrl?: string | 
 <title>MMS</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { height: 100%; }
+  html, body { height: 100%; background-color: #0d9488; }
   body {
     display: flex; align-items: center; justify-content: center;
     /* background-color is the BrowserWindow's own brush tone (see
@@ -141,13 +141,46 @@ let splashWin: import("electron").BrowserWindow | null = null;
 let splashCloseAllowed = false;
 let splashShownResolve: (() => void) | null = null;
 let splashShown: Promise<void> = new Promise((resolve) => { splashShownResolve = resolve; });
+let splashSettleStarted = false;
 let pendingStatus: string | null = null;
 
 function markSplashShown(): void {
-  const resolve = splashShownResolve;
-  splashShownResolve = null;
-  resolve?.();
   applySplashStatus();
+  const w = splashWin;
+  // In unit tests (or if BrowserWindow creation failed), splashWin is null —
+  // resolve immediately so tests and headless fallbacks never wait on a timer.
+  if (!w || w.isDestroyed()) {
+    const resolve = splashShownResolve;
+    splashShownResolve = null;
+    resolve?.();
+    return;
+  }
+  if (splashSettleStarted) return;
+  splashSettleStarted = true;
+  injectSplashLogo();
+  // Wait for two painted animation frames inside the now-visible splash
+  // renderer plus an 80 ms Win32/DWM composition settle beat BEFORE releasing
+  // whenSplashShown(). Without this, main.ts starts heavy synchronous CJS /
+  // native module imports on the very same tick as ShowWindow(), freezing the
+  // Win32 UI thread while DWM is still binding the DirectComposition swapchain
+  // (which shows a bare frame / empty rectangle before the splash content).
+  const settleDone = () => {
+    const resolve = splashShownResolve;
+    splashShownResolve = null;
+    resolve?.();
+    applySplashStatus();
+  };
+  const fallbackTimer = setTimeout(settleDone, 220);
+  Promise.resolve()
+    .then(() => w.isDestroyed() ? undefined : w.webContents.executeJavaScript(
+      "new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(true))))"
+    ))
+    .catch(() => undefined)
+    .then(() => new Promise<void>((r) => setTimeout(r, 80)))
+    .finally(() => {
+      clearTimeout(fallbackTimer);
+      settleDone();
+    });
 }
 
 /** Resolves when the splash is on screen (or immediately if it could not be
@@ -207,14 +240,17 @@ export function createSplashWindow(): void {
   try {
     const { BrowserWindow } = electron();
     splashWin = new BrowserWindow({
-      width: 440, height: 480, show: false, frame: false, resizable: false,
+      width: 440, height: 480, show: false, paintWhenInitiallyHidden: true, frame: false, resizable: false,
       minimizable: false, maximizable: false, fullscreenable: false,
       skipTaskbar: true, autoHideMenuBar: true, hasShadow: false,
       // The brush matches the splash gradient's dominant tone (#0d9488 —
       // its 52% stop), so in the rare fallback case below the bare window
       // reads as the splash's own background, not as a foreign box.
       backgroundColor: "#0d9488", title: "MMS",
-      webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false },
+      webPreferences: {
+        contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false,
+        backgroundThrottling: false,
+      },
     });
     // Above everything while starting (the real window takes over when ready).
     splashWin.setAlwaysOnTop(true, "screen-saver");
@@ -270,6 +306,7 @@ export function createSplashWindow(): void {
 /** Destroys the splash (no-op when it never opened or already closed). */
 export function closeSplash(): void {
   splashCloseAllowed = true;
+  splashSettleStarted = false;
   const w = splashWin;
   splashWin = null;
   if (w && !w.isDestroyed()) {

@@ -181,4 +181,15 @@ describe("buildSplashHtml", () => {
     const src = readFileSync(fileURLToPath(new URL("./splash-window.ts", import.meta.url)), "utf8");
     expect(src).toContain("spellcheck: false");
   });
+
+  it("waits for two painted frames and a DWM settle beat after show() before releasing whenSplashShown", () => {
+    const src = readFileSync(fileURLToPath(new URL("./splash-window.ts", import.meta.url)), "utf8");
+    const markStart = src.indexOf("function markSplashShown()");
+    const markEnd = src.indexOf("export function whenSplashShown()", markStart);
+    const body = src.slice(markStart, markEnd);
+    expect(body).toContain("requestAnimationFrame(() => requestAnimationFrame");
+    expect(body).toContain("setTimeout(r, 80)");
+    expect(src).toContain("paintWhenInitiallyHidden: true");
+    expect(src).toContain("backgroundThrottling: false");
+  });
 });

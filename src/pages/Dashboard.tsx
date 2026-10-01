@@ -1,7 +1,7 @@
-import { lazy, Suspense } from "react";
-import { useAsync } from "@/hooks/useList";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/lib/auth";
+import { getWarmedComponent } from "@/lib/boot-warm";
 import { formatCurrency, formatTimeIST } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import {
@@ -13,7 +13,20 @@ import {
 
 // Charts (recharts ~300 kB) live in their own lazy chunk so the dashboard
 // paints before the chart library is parsed — faster startup on low-end PCs.
-const DashboardCharts = lazy(() => import("./dashboard/DashboardCharts"));
+// When warmAppChunks() has already resolved it behind the splash screen,
+// getWarmedComponent("DashboardCharts") returns the component synchronously
+// so the post-login mount never suspends or flashes a skeleton.
+const LazyDashboardCharts = lazy(() => import("./dashboard/DashboardCharts"));
+
+interface DashboardState {
+  summary: any;
+  balance: number | null;
+  collections: any[] | null;
+  incomeExpense: any[] | null;
+  recentActivity: any[] | null;
+  alerts: any[] | null;
+  glance: any;
+}
 
 export function Dashboard() {
   const { t, isMalayalam } = useI18n();
@@ -22,13 +35,35 @@ export function Dashboard() {
   const displayLocale = isMalayalam() ? "ml-IN" : "en-IN";
   const ml = (en: string, m: string) => (isMalayalam() ? m : en);
 
-  const { data: summary, refresh: refreshSummary } = useAsync(() => window.mms.dashboard.summary(), []);
-  const { data: balance } = useAsync(() => window.mms.dashboard.balance(), []);
-  const { data: collections } = useAsync(() => window.mms.dashboard.monthlyCollections(6), []);
-  const { data: incomeExpense } = useAsync(() => window.mms.dashboard.incomeVsExpense(6), []);
-  const { data: recentActivity, refresh: refreshActivity } = useAsync(() => window.mms.dashboard.recentActivity(8), []);
-  const { data: alerts } = useAsync(() => window.mms.dashboard.alerts(), []);
-  const { data: glance, refresh: refreshGlance } = useAsync(() => window.mms.dashboard.todayAtGlance(), []);
+  const [dash, setDash] = useState<DashboardState>({
+    summary: null,
+    balance: null,
+    collections: null,
+    incomeExpense: null,
+    recentActivity: null,
+    alerts: null,
+    glance: null,
+  });
+
+  const loadDashboard = useCallback(async () => {
+    const d = window.mms?.dashboard;
+    if (!d) return;
+    const [summary, balance, collections, incomeExpense, recentActivity, alerts, glance] = await Promise.all([
+      Promise.resolve(d.summary?.()).catch(() => null),
+      Promise.resolve(d.balance?.()).catch(() => null),
+      Promise.resolve(d.monthlyCollections?.(6)).catch(() => null),
+      Promise.resolve(d.incomeVsExpense?.(6)).catch(() => null),
+      Promise.resolve(d.recentActivity?.(8)).catch(() => null),
+      Promise.resolve(d.alerts?.()).catch(() => null),
+      Promise.resolve(d.todayAtGlance?.()).catch(() => null),
+    ]);
+    setDash({ summary, balance, collections, incomeExpense, recentActivity, alerts, glance });
+  }, []);
+
+  useEffect(() => { void loadDashboard(); }, [loadDashboard]);
+
+  const { summary, balance, collections, incomeExpense, recentActivity, alerts, glance } = dash;
+  const DashboardCharts = getWarmedComponent("DashboardCharts") || LazyDashboardCharts;
 
   // Compute real deltas from available data instead of using hardcoded strings.
   // For financial stats, compute month-over-month % change from the 6-month
@@ -201,7 +236,7 @@ export function Dashboard() {
               <div className="ch-title">{t("dash_recent_activity")}</div>
               <div className="ch-sub">{t("dash_last_audit")}</div>
             </div>
-            <button className="btn bs bg" onClick={() => { refreshSummary(); refreshActivity(); refreshGlance(); }}>
+            <button className="btn bs bg" onClick={() => { void loadDashboard(); }}>
               <RefreshCw size={13} /> {t("action_refresh")}
             </button>
           </div>

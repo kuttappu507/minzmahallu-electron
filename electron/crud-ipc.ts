@@ -10,13 +10,43 @@
  * the handlers below stay as the fail-closed fallbacks for those channels.
  */
 import { app, dialog, ipcMain } from "electron";
-import { login, changePassword, needsInitialSetup, createInitialAdministrator } from "./services/auth.service.js";
+import { login, loginAsync, changePassword, needsInitialSetup, createInitialAdministrator, warmAuthSubsystem } from "./services/auth.service.js";
 import * as data from "./services/data.service.js";
 import { listBackups } from "./services/backup.service.js";
 import { session, type GetWindow } from "./session.js";
 
+let cachedLastBackup: { at: number; time: string | null } | null = null;
+function getCachedLastBackupTime(): string | null {
+  const now = Date.now();
+  if (cachedLastBackup && now - cachedLastBackup.at < 15_000) return cachedLastBackup.time;
+  try {
+    const time = listBackups(app.getPath("userData"))[0]?.time ?? null;
+    cachedLastBackup = { at: now, time };
+    return time;
+  } catch {
+    return null;
+  }
+}
+
+/** Pre-warms auth crypto + initial-setup check + dashboard aggregates + backup
+ *  status under the splash screen so login and the post-login Dashboard render
+ *  with zero main-process stalls. */
+export function warmStartupData(): void {
+  try { warmAuthSubsystem(); } catch {}
+  try { data.dashboard.warmCache(); } catch {}
+  try { getCachedLastBackupTime(); } catch {}
+}
+
 export function registerCrudIpc(getWindow: GetWindow): void {
-  ipcMain.handle("auth:login", (_e, username: string, password: string) => { try { const user = login(username, password); session.user = { id: user.id, username: user.username, fullName: user.fullName, role: user.role }; try { data.audit.log(user.id, user.username, "LOGIN", "auth", user.id, "User logged in", ""); } catch {} return { success: true, user }; } catch (err: any) { return { success: false, error: err.message }; } });
+  ipcMain.handle("auth:login", async (_e, username: string, password: string) => {
+    try {
+      const user = await loginAsync(username, password);
+      session.user = { id: user.id, username: user.username, fullName: user.fullName, role: user.role };
+      try { data.audit.log(user.id, user.username, "LOGIN", "auth", user.id, "User logged in", ""); } catch {}
+      try { data.dashboard.refreshWarmStampAfterLogin(); } catch {}
+      return { success: true, user };
+    } catch (err: any) { return { success: false, error: err.message }; }
+  });
   ipcMain.handle("auth:logout", () => { if (session.user) { try { data.audit.log(session.user.id, session.user.username, "LOGOUT", "auth", session.user.id, "User logged out", ""); } catch {} } session.user = null; return { success: true }; });
   ipcMain.handle("auth:currentUser", () => session.user);
   ipcMain.handle("auth:setupStatus", () => ({ required: needsInitialSetup() }));
@@ -160,7 +190,7 @@ export function registerCrudIpc(getWindow: GetWindow): void {
     try {
       const settings = data.settings.load();
       backupEnabled = !!settings?.auto_backup;
-      lastBackup = listBackups(app.getPath("userData"))[0]?.time ?? null;
+      lastBackup = getCachedLastBackupTime();
       if (backupEnabled) {
         const intervalHours = Number(settings.backup_interval_hours || 24);
         if (intervalHours > 0) {

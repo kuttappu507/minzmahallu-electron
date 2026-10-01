@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type ComponentType } from "react";
 import { useTheme } from "@/lib/theme";
-import { useAuth } from "@/lib/auth";
+import { useAuth, preloadSetupStatus } from "@/lib/auth";
 import { useI18n } from "@/i18n";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
@@ -40,7 +40,13 @@ const Approvals = lazy(() => import("@/pages/Approvals").then(m => ({ default: m
 import { useEffect } from "react";
 import { transliterateMalayalam } from "@/lib/malayalamTransliteration";
 import { setCurrencySymbol } from "@/lib/utils";
-import { warmAppChunks } from "@/lib/boot-warm";
+import { getWarmedComponent, warmAppChunks, warmAppFonts } from "@/lib/boot-warm";
+
+function RoutePage({ name, Fallback }: { name: string; Fallback: ComponentType }) {
+  const Warmed = getWarmedComponent(name) as ComponentType | null;
+  const Comp = Warmed || Fallback;
+  return <Comp />;
+}
 
 /** Auto-capitalization lives in src/lib/auto-capitalize.ts (wired from
  *  main.tsx, v2.2.1): one document-level focusout listener with data-nocap
@@ -81,13 +87,43 @@ function ProtectedLayout() {
   const location = useLocation();
   useEffect(() => { document.body.classList.toggle("route-accounting", location.pathname === "/accounting"); return () => document.body.classList.remove("route-accounting"); }, [location.pathname]);
   return <div id="app" className="app-shell"><Topbar /><div className="app-body"><Sidebar /><div className="maincol"><div id="content"><Suspense fallback={<div className="flex items-center justify-center h-64"><div className="spinner-sm" /></div>}><Routes>
-    <Route path="/" element={<Dashboard />} /><Route path="/families" element={<Families />} /><Route path="/members" element={<Members />} /><Route path="/staff" element={<Staff />} /><Route path="/committee" element={<Committee />} /><Route path="/subscriptions" element={<Subscriptions />} /><Route path="/donations" element={<Donations />} /><Route path="/whatsapp" element={<WhatsApp />} /><Route path="/accounting" element={<Accounting />} /><Route path="/assets" element={<Assets />} /><Route path="/marriages" element={<Marriages />} /><Route path="/deaths" element={<Deaths />} /><Route path="/welfare" element={<Welfare />} /><Route path="/certificates" element={<Certificates />} /><Route path="/tokens" element={<TokenEvents />} /><Route path="/tokens/manage" element={<TokensWithPrint />} /><Route path="/reports" element={<Reports />} /><Route path="/approvals" element={<Approvals />} /><Route path="/settings" element={<Settings />} /><Route path="/users" element={<Users />} /><Route path="/audit" element={<AuditLog />} /><Route path="/backup" element={<Backup />} />
+    <Route path="/" element={<RoutePage name="Dashboard" Fallback={Dashboard} />} /><Route path="/families" element={<RoutePage name="Families" Fallback={Families} />} /><Route path="/members" element={<RoutePage name="Members" Fallback={Members} />} /><Route path="/staff" element={<RoutePage name="Staff" Fallback={Staff} />} /><Route path="/committee" element={<RoutePage name="Committee" Fallback={Committee} />} /><Route path="/subscriptions" element={<RoutePage name="Subscriptions" Fallback={Subscriptions} />} /><Route path="/donations" element={<RoutePage name="Donations" Fallback={Donations} />} /><Route path="/whatsapp" element={<RoutePage name="WhatsApp" Fallback={WhatsApp} />} /><Route path="/accounting" element={<RoutePage name="Accounting" Fallback={Accounting} />} /><Route path="/assets" element={<RoutePage name="Assets" Fallback={Assets} />} /><Route path="/marriages" element={<RoutePage name="Marriages" Fallback={Marriages} />} /><Route path="/deaths" element={<RoutePage name="Deaths" Fallback={Deaths} />} /><Route path="/welfare" element={<RoutePage name="Welfare" Fallback={Welfare} />} /><Route path="/certificates" element={<RoutePage name="Certificates" Fallback={Certificates} />} /><Route path="/tokens" element={<RoutePage name="TokenEvents" Fallback={TokenEvents} />} /><Route path="/tokens/manage" element={<RoutePage name="TokensWithPrint" Fallback={TokensWithPrint} />} /><Route path="/reports" element={<RoutePage name="Reports" Fallback={Reports} />} /><Route path="/approvals" element={<RoutePage name="Approvals" Fallback={Approvals} />} /><Route path="/settings" element={<RoutePage name="Settings" Fallback={Settings} />} /><Route path="/users" element={<RoutePage name="Users" Fallback={Users} />} /><Route path="/audit" element={<RoutePage name="AuditLog" Fallback={AuditLog} />} /><Route path="/backup" element={<RoutePage name="Backup" Fallback={Backup} />} />
   </Routes></Suspense></div></div></div></div>;
 }
 
 function LanguagePersistence() {
   const { lang } = useI18n();
-  useEffect(() => { let cancelled = false; (async () => { try { const current = await window.mms.settings.load(); if (!cancelled && current) { setCurrencySymbol(current.currency_symbol); if (current.language !== lang) await window.mms.settings.save({ mahalluName: current.mahallu_name, address: current.address, phone: current.phone, email: current.email, financialYearStart: current.financial_year_start, currencySymbol: current.currency_symbol, theme: current.theme, language: lang, autoBackup: !!current.auto_backup, backupIntervalHours: current.backup_interval_hours, receiptPrefix: current.receipt_prefix }); } } catch (err) { console.warn("Could not persist active language:", err); } })(); return () => { cancelled = true; }; }, [lang]);
+  const { user } = useAuth();
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const current = await window.mms.settings.load();
+        if (!cancelled && current) {
+          setCurrencySymbol(current.currency_symbol);
+          if (current.language !== lang) {
+            await window.mms.settings.save({
+              mahalluName: current.mahallu_name,
+              address: current.address,
+              phone: current.phone,
+              email: current.email,
+              financialYearStart: current.financial_year_start,
+              currencySymbol: current.currency_symbol,
+              theme: current.theme,
+              language: lang,
+              autoBackup: !!current.auto_backup,
+              backupIntervalHours: current.backup_interval_hours,
+              receiptPrefix: current.receipt_prefix,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Could not persist active language:", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [lang, user]);
   return null;
 }
 
@@ -136,21 +172,41 @@ export default function App() {
     let cap: ReturnType<typeof setTimeout> | null = null;
     let beat: ReturnType<typeof setTimeout> | null = null;
     const fire = () => { if (done) return; done = true; notify(); };
-    const go = () => {
+    const waitTwoFrames = () => new Promise<void>((resolve) => {
+      let settled = false;
+      const doneFrames = () => { if (!settled) { settled = true; resolve(); } };
+      const frameCap = setTimeout(doneFrames, 150);
       requestAnimationFrame(() => requestAnimationFrame(() => {
-        if (done) return;
-        void (async () => {
-          // Dev keeps lazy chunks lazy (vite serves them on demand and dev
-          // iteration values fast reloads); packaged builds warm everything.
-          if (!import.meta.env.DEV) {
-            try { await warmAppChunks({ budgetMs: 9_000 }); }
-            catch { /* best effort — a failed chunk lazy-loads on demand later */ }
-          }
-          if (done) return;
-          beat = setTimeout(fire, 120); // one beat past the second painted frame
-          if (cap) { clearTimeout(cap); cap = null; }
-        })();
+        clearTimeout(frameCap);
+        doneFrames();
       }));
+    });
+    const go = () => {
+      if (done) return;
+      void (async () => {
+        // 1. Pre-load font faces (Poppins + Anek Malayalam) and resolve
+        //    auth:setupStatus BEFORE warming chunks and measuring the final
+        //    paint, so LoginPage has already rendered the real login <form>
+        //    and <input> fields (not a setup-check wait state).
+        await Promise.allSettled([warmAppFonts(), preloadSetupStatus()]);
+        if (done) return;
+        // 2. Warm all lazy chunks BEFORE the final two-frame paint check.
+        //    Running warmAppChunks outside requestAnimationFrame guarantees
+        //    it cannot be stalled if a GPU driver throttles rAF on a hidden
+        //    window, and shouldStop ensures chunk parsing never continues
+        //    once the window is revealed.
+        if (!import.meta.env.DEV) {
+          try { await warmAppChunks({ budgetMs: 9_000, shouldStop: () => done }); }
+          catch { /* best effort — a failed chunk lazy-loads on demand later */ }
+        }
+        if (done) return;
+        // 3. Wait for two composited frames AFTER all preparatory work is
+        //    complete, then one 120 ms settle beat before revealing.
+        await waitTwoFrames();
+        if (done) return;
+        beat = setTimeout(fire, 120); // one beat past the second painted frame
+        if (cap) { clearTimeout(cap); cap = null; }
+      })();
     };
     cap = setTimeout(fire, 15_000);
     if (document.fonts?.ready) { document.fonts.ready.then(go, go); } else { go(); }

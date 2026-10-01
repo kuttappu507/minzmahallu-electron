@@ -23,8 +23,8 @@ import { persist } from "zustand/middleware";
 type FxPref = "auto" | "reduced" | "full";
 
 const weakHardware =
-  (typeof navigator !== "undefined" && (navigator.hardwareConcurrency ?? 8) <= 2) ||
-  (typeof navigator !== "undefined" && ((navigator as any).deviceMemory ?? 8) <= 2);
+  (typeof navigator !== "undefined" && (navigator.hardwareConcurrency ?? 8) <= 4) ||
+  (typeof navigator !== "undefined" && ((navigator as any).deviceMemory ?? 8) <= 4);
 
 interface FxState {
   pref: FxPref;

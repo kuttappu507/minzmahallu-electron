@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { LogIn, Loader2, Eye, EyeOff, ShieldCheck, Database, AlertTriangle, UserPlus } from "lucide-react";
-import { useAuth, type AuthUser } from "@/lib/auth";
+import { useAuth, getCachedSetupStatus, preloadSetupStatus, clearCachedSetupStatus, type AuthUser } from "@/lib/auth";
 import { useI18n } from "@/i18n";
 import { toast } from "@/lib/toast";
 import { friendlyAuthError, passwordPolicyError } from "@/lib/pwd";
@@ -11,7 +11,8 @@ export function LoginPage() {
   const { setUser } = useAuth();
   const navigate = useNavigate();
   const ml = lang === "ml";
-  const [setup, setSetup] = useState(false); const [checkedSetup, setCheckedSetup] = useState(false);
+  const initialSetup = getCachedSetupStatus();
+  const [setup, setSetup] = useState(initialSetup ?? false); const [checkedSetup, setCheckedSetup] = useState(initialSetup !== null);
   const [mustRotate, setMustRotate] = useState<AuthUser | null>(null);
   const [username, setUsername] = useState(""); const [fullName, setFullName] = useState(""); const [password, setPassword] = useState(""); const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false); const [loading, setLoading] = useState(false); const [error, setError] = useState<string | null>(null);
@@ -27,7 +28,13 @@ export function LoginPage() {
   // everything else (login lockout, inactive account, incorrect admin password)
   // resolves through the shared i18n dictionary.
   const pwdT = (key: string) => key === "pwd_policy_min" ? copy.pwdShort : key === "pwd_policy_complex" ? copy.pwdWeak : t(key);
-  useEffect(() => { (async () => { try { const r = await (window as any).mms?.auth?.setupStatus?.(); setSetup(!!r?.required); } catch {} finally { setCheckedSetup(true); } })(); }, []);
+  useEffect(() => {
+    let cancelled = false;
+    preloadSetupStatus().then((req) => {
+      if (!cancelled) { setSetup(req); setCheckedSetup(true); }
+    });
+    return () => { cancelled = true; };
+  }, []);
   const handleLogin = async (e: React.FormEvent) => { e.preventDefault(); setLoading(true); setError(null); if (!(window as any).mms) { setError(copy.bridge); setLoading(false); return; } try { const result = await (window as any).mms.auth.login(username, password); if (result.success && result.user) {
         // V035 rotation gate: accounts still carrying a publicly-committed demo
         // password are flagged must_change_pwd — force a new password first.
@@ -49,7 +56,7 @@ export function LoginPage() {
       setUser({ ...mustRotate!, mustChangePwd: false }); toast.success(copy.rotateSaved); navigate("/");
     } catch (err: any) { setError(friendlyAuthError(err, pwdT)); } finally { setLoading(false); }
   };
-  const handleSetup = async (e: React.FormEvent) => { e.preventDefault(); setLoading(true); setError(null); if (password !== confirmPassword) { setError(copy.mismatch); setLoading(false); return; } const policyKey = passwordPolicyError(password); if (policyKey) { setError(policyKey === "pwd_policy_min" ? copy.pwdShort : copy.pwdWeak); setLoading(false); return; } try { const result=await (window as any).mms.auth.createInitialAdministrator(username,fullName,password); if(result.success&&result.user){setUser(result.user);toast.success(copy.welcome);navigate("/");}else{setError(friendlyAuthError(result.error||copy.unexpected, pwdT));} } catch(err:any){setError(friendlyAuthError(err?.message||copy.unexpected, pwdT));} finally{setLoading(false);} };
+  const handleSetup = async (e: React.FormEvent) => { e.preventDefault(); setLoading(true); setError(null); if (password !== confirmPassword) { setError(copy.mismatch); setLoading(false); return; } const policyKey = passwordPolicyError(password); if (policyKey) { setError(policyKey === "pwd_policy_min" ? copy.pwdShort : copy.pwdWeak); setLoading(false); return; } try { const result=await (window as any).mms.auth.createInitialAdministrator(username,fullName,password); if(result.success&&result.user){clearCachedSetupStatus();setUser(result.user);toast.success(copy.welcome);navigate("/");}else{setError(friendlyAuthError(result.error||copy.unexpected, pwdT));} } catch(err:any){setError(friendlyAuthError(err?.message||copy.unexpected, pwdT));} finally{setLoading(false);} };
   return (
     <div className="login-wrap">
       <div className="login-win-controls">
@@ -92,9 +99,9 @@ export function LoginPage() {
             {error&&<div className="login-error"><AlertTriangle size={16} className="toast-ic-err flex-shrink-0 mt-1"/><p>{error}</p></div>}
             <form onSubmit={handleSetup} className="login-form">
               <div><label className="lbl">{copy.fullName}</label><input spellCheck={false} className="inp login-submit" value={fullName} onChange={e=>setFullName(e.target.value)} required autoFocus/></div>
-              <div><label className="lbl">{copy.username}</label><input spellCheck={false} className="inp login-submit" data-nocap="1" value={username} onChange={e=>setUsername(e.target.value)} minLength={3} maxLength={32} autoComplete="username" required/></div>
-              <div><label className="lbl">{copy.password}</label><input spellCheck={false} className="inp login-submit" type={showPassword?"text":"password"} value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password" required/></div>
-              <div><label className="lbl">{copy.confirm}</label><input spellCheck={false} className="inp login-submit" type="password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} autoComplete="new-password" required/></div>
+              <div><label className="lbl">{copy.username}</label><input spellCheck={false} className="inp login-submit" data-nocap="1" value={username} onChange={e=>setUsername(e.target.value)} minLength={3} maxLength={32} autoComplete="off" required/></div>
+              <div><label className="lbl">{copy.password}</label><input spellCheck={false} className="inp login-submit" type={showPassword?"text":"password"} value={password} onChange={e=>setPassword(e.target.value)} autoComplete="off" required/></div>
+              <div><label className="lbl">{copy.confirm}</label><input spellCheck={false} className="inp login-submit" type="password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} autoComplete="off" required/></div>
               <p className="text-xs opacity-70">{copy.requirements}</p>
               <button type="submit" className="btn bp bblock login-submit" disabled={loading}>{loading?<><Loader2 size={16} className="animate-spin"/>{copy.creating}</>:<><UserPlus size={16}/>{copy.create}</>}</button>
             </form>
@@ -102,8 +109,8 @@ export function LoginPage() {
             <div className="mb-4"><h2 className="login-form-title"><ShieldCheck size={21} className="inline mr-2 align-[-3px]"/>{copy.rotateTitle}</h2><p className="login-form-sub">{copy.rotateSub}</p></div>
             {error&&<div className="login-error"><AlertTriangle size={16} className="toast-ic-err flex-shrink-0 mt-1"/><p>{error}</p></div>}
             <form onSubmit={handleRotate} className="login-form">
-              <div><label className="lbl">{copy.rotateNew}</label><input spellCheck={false} className="inp login-submit" type={showPassword?"text":"password"} value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password" required autoFocus/></div>
-              <div><label className="lbl">{copy.confirm}</label><input spellCheck={false} className="inp login-submit" type="password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} autoComplete="new-password" required/></div>
+              <div><label className="lbl">{copy.rotateNew}</label><input spellCheck={false} className="inp login-submit" type={showPassword?"text":"password"} value={password} onChange={e=>setPassword(e.target.value)} autoComplete="off" required autoFocus/></div>
+              <div><label className="lbl">{copy.confirm}</label><input spellCheck={false} className="inp login-submit" type="password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} autoComplete="off" required/></div>
               <p className="text-xs opacity-70">{copy.requirements}</p>
               <button type="submit" className="btn bp bblock login-submit" disabled={loading}>{loading?<><Loader2 size={16} className="animate-spin"/>...</>:<><ShieldCheck size={16}/>{copy.rotate}</>}</button>
             </form>
@@ -111,8 +118,8 @@ export function LoginPage() {
             <div className="mb-4"><h2 className="login-form-title">{t("login_title")}</h2><p className="login-form-sub">{copy.welcomeBack}</p></div>
             {error&&<div className="login-error"><AlertTriangle size={16} className="toast-ic-err flex-shrink-0 mt-1"/><p>{error}</p></div>}
             <form onSubmit={handleLogin} className="login-form">
-              <div><label className="lbl">{t("login_username")}</label><input spellCheck={false} className="inp login-submit" data-nocap="1" value={username} onChange={e=>setUsername(e.target.value)} autoFocus autoComplete="username" required/></div>
-              <div><label className="lbl">{t("login_password")}</label><div className="login-pwd-wrap"><input spellCheck={false} className="inp login-submit" type={showPassword?"text":"password"} value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" required/><button type="button" onClick={()=>setShowPassword(!showPassword)} className="login-pwd-toggle">{showPassword?<EyeOff size={16}/>:<Eye size={16}/>}</button></div></div>
+              <div><label className="lbl">{t("login_username")}</label><input spellCheck={false} className="inp login-submit" data-nocap="1" value={username} onChange={e=>setUsername(e.target.value)} autoFocus autoComplete="off" required/></div>
+              <div><label className="lbl">{t("login_password")}</label><div className="login-pwd-wrap"><input spellCheck={false} className="inp login-submit" type={showPassword?"text":"password"} value={password} onChange={e=>setPassword(e.target.value)} autoComplete="off" required/><button type="button" onClick={()=>setShowPassword(!showPassword)} className="login-pwd-toggle">{showPassword?<EyeOff size={16}/>:<Eye size={16}/>}</button></div></div>
               <button type="submit" className="btn bp bblock login-submit" disabled={loading}>{loading?<><Loader2 size={16} className="animate-spin"/>{copy.signing}</>:<><LogIn size={16}/>{t("login_button")}</>}</button>
             </form>
           </> }
