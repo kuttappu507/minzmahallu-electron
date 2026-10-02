@@ -81,9 +81,11 @@ describe("boot-chain imports stay light (instant splash)", () => {
   it("does not statically await the heavy imports before the splash exists", () => {
     // `await import(...)` before createSplashWindow would bring back the
     // dead-desktop gap. The wait is on the already-started promises, after
-    // the splash is up.
+    // the splash is up. (A `typeof import(...)` TYPE reference — used for
+    // the lazy module handles since v2.6.11 — is compile-time only and runs
+    // nothing, so it is stripped before this check.)
     const splashCreate = mainSrc.indexOf("createSplashWindow()");
-    const beforeSplash = mainSrc.slice(0, splashCreate);
+    const beforeSplash = mainSrc.slice(0, splashCreate).replace(/typeof import\("[^"]+"\)/g, "");
     expect(beforeSplash).not.toContain('import("./whatsapp-ipc.js")');
     expect(beforeSplash).not.toContain('import("./auto-update.js")');
     expect(mainSrc).not.toContain('await import("./whatsapp-ipc.js")');
@@ -113,8 +115,10 @@ describe("boot-chain imports stay light (instant splash)", () => {
     // `await whenSplashShown()` gate in the whenReady body.
     const splashGate = mainSrc.indexOf("await whenSplashShown()");
     expect(splashGate).toBeGreaterThan(-1);
-    expect(mainSrc.indexOf('import("./whatsapp-ipc.js")')).toBeGreaterThan(splashGate);
-    expect(mainSrc.indexOf('import("./auto-update.js")')).toBeGreaterThan(splashGate);
+    // Search AFTER the gate so the compile-time-only `typeof import(...)`
+    // type references at the top of the file cannot satisfy this.
+    expect(mainSrc.indexOf('import("./whatsapp-ipc.js")', splashGate)).toBeGreaterThan(splashGate);
+    expect(mainSrc.indexOf('import("./auto-update.js")', splashGate)).toBeGreaterThan(splashGate);
   });
 
   it("reveals never mid-warm-up: alive renderers get the 30 s cap (v2.6.7)", () => {

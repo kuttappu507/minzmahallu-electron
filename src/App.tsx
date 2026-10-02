@@ -40,7 +40,7 @@ const Approvals = lazy(() => import("@/pages/Approvals").then(m => ({ default: m
 import { useEffect } from "react";
 import { transliterateMalayalam } from "@/lib/malayalamTransliteration";
 import { setCurrencySymbol } from "@/lib/utils";
-import { getWarmedComponent, warmAppChunks, warmAppFonts } from "@/lib/boot-warm";
+import { getWarmedComponent, warmAppChunksBackground, warmAppFonts } from "@/lib/boot-warm";
 
 function RoutePage({ name, Fallback }: { name: string; Fallback: ComponentType }) {
   const Warmed = getWarmedComponent(name) as ComponentType | null;
@@ -151,23 +151,29 @@ export default function App() {
     // warm-up below the ready signal now legitimately takes longer than that,
     // so the fallback must be able to tell "alive and warming" from "wedged".
     try { window.mms?.win?.rendererAlive?.(); } catch { /* bridge absent (browser dev preview) */ }
-    // v2.6.1 — FULL-PAINT signal (extended v2.6.3 — FULL-BOOT signal). The
-    // old "mount + 120 ms beat" fired before the fonts had swapped in on
-    // slower machines; the window is now revealed only after
-    //   1. fonts are ready AND two frames have composited, AND
-    //   2. warmAppChunks() has pre-parsed every lazy page chunk (recharts,
-    //      framer-motion, …) BEHIND the splash — that parse used to run
-    //      right after login and freeze typing/scrolling on mid-range PCs.
-    // Both halves are bounded so the reveal can NEVER land mid-warm-up
-    // (v2.6.7 — the reported "one time freeze when inputing login details"):
-    // the warm-up budget (9 s) only STARTS after fonts.ready, so a slow
-    // fonts phase used to push the chunk parses past the 15 s cap below —
-    // the cap fired, the window revealed, and the user typed into a renderer
-    // that was still parsing recharts. fonts (≤ ~4 s under an antivirus
-    // scan) + warm-up (≤ 9 s) now always finish inside the 15 s cap, and
-    // the main process's alive-renderer force fallback sits even further
-    // out at 30 s. A wedged fonts.ready or a pathological chunk can never
-    // strand the splash.
+    // v2.6.1 — FULL-PAINT signal (extended v2.6.3 — FULL-BOOT signal).
+    //
+    // v2.6.11 — REDESIGN. Field verdict on v2.6.5–v2.6.10: the splash still
+    // sat for seconds on mid-range machines and the first login keystrokes
+    // were still swallowed. Root causes, both fixed here:
+    //   • The old boot parsed ALL 23 lazy page chunks (recharts ≈ 386 kB,
+    //     framer-motion, …) BEFORE sending win:renderer-ready — pure splash
+    //     delay, because the login page is a STATIC import that needs zero
+    //     chunks. Under an antivirus scan that parse took 4–15 s of dead
+    //     splash.
+    //   • The 15 s fire cap could then land MID-parse: the window revealed
+    //     while the renderer's main thread was still busy parsing, and the
+    //     user's first keystrokes fell into the parse (the reported "words
+    //     will not come or after some words it stops").
+    // The reveal now needs only what the login screen actually uses —
+    //   1. fonts pre-decoded (bounded 1.8 s) + auth:setupStatus pre-resolved,
+    //   2. two composited frames + the 120 ms settle beat,
+    // and the full-app chunk warm moved AFTER the reveal signal
+    // (warmAppChunksBackground): one chunk per slice, paused while the user
+    // types/clicks/scrolls, so a parse can never again compete with input.
+    // Both halves stay bounded so the reveal can NEVER land mid-work: the
+    // 6 s cap below (fonts 1.8 s + frames + beat ≈ 2.5 s worst case) sits
+    // far inside the main process's 30 s force fallback.
     let done = false;
     let cap: ReturnType<typeof setTimeout> | null = null;
     let beat: ReturnType<typeof setTimeout> | null = null;
@@ -182,34 +188,48 @@ export default function App() {
       }));
     });
     const go = () => {
-      if (done) return;
       void (async () => {
-        // 1. Pre-load font faces (Poppins + Anek Malayalam) and resolve
-        //    auth:setupStatus BEFORE warming chunks and measuring the final
-        //    paint, so LoginPage has already rendered the real login <form>
-        //    and <input> fields (not a setup-check wait state).
-        await Promise.allSettled([warmAppFonts(), preloadSetupStatus()]);
-        if (done) return;
-        // 2. Warm all lazy chunks BEFORE the final two-frame paint check.
-        //    Running warmAppChunks outside requestAnimationFrame guarantees
-        //    it cannot be stalled if a GPU driver throttles rAF on a hidden
-        //    window, and shouldStop ensures chunk parsing never continues
-        //    once the window is revealed.
+        // 1. Pre-load the font faces the login screen paints with and
+        //    resolve auth:setupStatus, so the reveal shows the real login
+        //    <form> with real fonts — no setup-check wait state, no FOUT.
+        //    (Skipped if the 6 s cap already revealed — a hung fonts phase
+        //    must not skip the background warm-up below.)
+        if (!done) {
+          await Promise.allSettled([warmAppFonts(1_800), preloadSetupStatus()]);
+          // 2. Two composited frames + one settle beat. NO chunk parse may
+          //    sit before this point — the login page needs none.
+          if (!done) {
+            await waitTwoFrames();
+            if (!done) {
+              beat = setTimeout(fire, 120); // one beat past the second painted frame
+              if (cap) { clearTimeout(cap); cap = null; }
+            }
+          }
+        }
+        // 3. AFTER the reveal signal: background-warm every lazy page chunk
+        //    (Dashboard first, recharts at the first real idle gap). The
+        //    warmer pauses between chunks while the user is interacting, so
+        //    parsing never lands under typing again. Fire-and-forget: the
+        //    window is already usable, warming is pure upgrade. Runs on the
+        //    normal path AND after a cap reveal.
         if (!import.meta.env.DEV) {
-          try { await warmAppChunks({ budgetMs: 9_000, shouldStop: () => done }); }
+          try { void warmAppChunksBackground().catch(() => {}); }
           catch { /* best effort — a failed chunk lazy-loads on demand later */ }
         }
-        if (done) return;
-        // 3. Wait for two composited frames AFTER all preparatory work is
-        //    complete, then one 120 ms settle beat before revealing.
-        await waitTwoFrames();
-        if (done) return;
-        beat = setTimeout(fire, 120); // one beat past the second painted frame
-        if (cap) { clearTimeout(cap); cap = null; }
       })();
     };
-    cap = setTimeout(fire, 15_000);
-    if (document.fonts?.ready) { document.fonts.ready.then(go, go); } else { go(); }
+    cap = setTimeout(fire, 6_000);
+    // fonts.ready bound (v2.6.11): a font file locked mid-scan by an antivirus
+    // can hold fonts.ready open indefinitely — the old unbounded .then(go)
+    // then sat doing nothing until the cap fired and no background warm-up
+    // ever started. 2.5 s is plenty for a healthy local font load.
+    if (document.fonts?.ready) {
+      const fontsGate = Promise.race([
+        document.fonts.ready.catch(() => undefined),
+        new Promise<void>((resolve) => setTimeout(resolve, 2_500)),
+      ]);
+      fontsGate.then(go, go);
+    } else { go(); }
     return () => { done = true; if (cap) clearTimeout(cap); if (beat) clearTimeout(beat); };
   }, [isUninstallMode]);
   if (isUninstallMode) {

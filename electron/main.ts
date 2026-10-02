@@ -20,7 +20,7 @@
  * is the first visible pixel after the double-click and the main window is
  * revealed only after all preliminary work has settled (no freeze after).
  */
-import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, powerMonitor } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -39,20 +39,24 @@ import { runAutoBackup } from "./auto-backup.js";
 // the baileys-bearing whatsapp-ipc chain and electron-updater — loads
 // UNDER the splash via dynamic import, so the first visible pixel lands as
 // close to the double-click as Electron itself allows, and ALL preliminary
-// work (DB open, monthly subscriptions, print prewarm, engine handshake,
-// handler registration) settles behind the splash before the main window
-// is revealed — no freeze after it. The handles below reach those lazily
-// loaded modules from the quit paths and the boot gates.
+// work (DB open, monthly subscriptions, print prewarm, handler
+// registration) settles behind the splash before the main window is
+// revealed — no freeze after it. v2.6.11: the WhatsApp engine HANDSHAKE
+// (network) left the gate — it starts after the reveal, idle-gated. The
+// handles below reach those lazily loaded modules from the quit paths and
+// the boot gates.
 type DataModule = typeof import("./services/data.service.js");
 type DbModule = typeof import("./db/connection.js");
 type PdfModule = typeof import("./print/pdf-renderer.js");
 type UpdateModule = typeof import("./update-check.js");
 type CrudModule = typeof import("./crud-ipc.js");
+type WhatsAppModule = typeof import("./whatsapp-ipc.js");
 let dataMod: DataModule | null = null;
 let dbMod: DbModule | null = null;
 let pdfMod: PdfModule | null = null;
 let updateMod: UpdateModule | null = null;
 let crudMod: CrudModule | null = null;
+let whatsappMod: WhatsAppModule | null = null;
 
 /** Thin local alias so the quit paths keep their guarded
  *  `try { closeDB(); } catch` shape while the real connection module is
@@ -156,6 +160,7 @@ let autoBackupKick: ReturnType<typeof setTimeout> | null = null;
 function clearAutoBackupTimers(): void {
   if (autoBackupTimer) { clearInterval(autoBackupTimer); autoBackupTimer = null; }
   if (autoBackupKick) { clearTimeout(autoBackupKick); autoBackupKick = null; }
+  if (engineStartTimer) { clearTimeout(engineStartTimer); engineStartTimer = null; }
 }
 
 /** Hidden windows (warm PDF renderer, splash) must not outlive a Close.
@@ -281,6 +286,48 @@ function capStartupWork(work: Promise<unknown>, label: string, ms: number): Prom
       },
     );
   });
+}
+
+// ---------------------------------------------------------------------------
+// IDLE-GATED ENGINE START (v2.6.11 — the decisive splash fix).
+// v2.6.3 moved the WhatsApp engine HANDSHAKE under the splash and awaited it
+// in the reveal gate, because the v2.6.1 "+8 s after the reveal" timer fired
+// exactly while the office typed their password. But the handshake is
+// NETWORK work: startEngine() awaits fetchWaWebVersion() (an 8 s-bounded
+// live fetch) plus the full baileys socket connect + noise handshake — so
+// on a slow, capped or absent internet line the splash sat dead for 8–20 s+
+// on EVERY boot ("this much lite app why taking freeze"). Only the module
+// IMPORT belongs in the gate; the handshake itself now starts after the
+// window is revealed AND the machine has gone idle (≥ 4 s system idle —
+// typing/clicking keeps resetting it, so it can never land under the
+// user's keystrokes), or on demand when the WhatsApp page is opened (the
+// existing IPC paths). maybeStartEngine() is idempotent and never rejects.
+// ---------------------------------------------------------------------------
+let engineStartTimer: ReturnType<typeof setTimeout> | null = null;
+
+function armIdleEngineStart(): void {
+  // First attempt 20 s after the reveal — comfortably past the first login
+  // interaction window — then re-check every 5 s until the machine is idle.
+  // Bounded at 36 tries (~3 min): after that the on-demand paths (opening
+  // the WhatsApp page, sending a receipt) still start the engine.
+  if (engineStartTimer) return;
+  let tries = 0;
+  const tick = (): void => {
+    engineStartTimer = null;
+    if (tries++ >= 36) { bootLog("whatsapp:idle-autostart-gave-up"); return; }
+    let idle = 99;
+    try { idle = powerMonitor.getSystemIdleTime(); } catch { /* unavailable — treat as idle */ }
+    if (idle < 4) {
+      engineStartTimer = setTimeout(tick, 5_000);
+      engineStartTimer.unref?.();
+      return;
+    }
+    bootLog("whatsapp:idle-autostart", `idle=${idle}s`);
+    try { void whatsappMod?.autoStartEngine().catch(() => {}); }
+    catch { /* engine unavailable this session — on-demand paths still try */ }
+  };
+  engineStartTimer = setTimeout(tick, 20_000);
+  engineStartTimer.unref?.();
 }
 
 // ---------------------------------------------------------------------------
@@ -625,19 +672,17 @@ app.whenReady().then(async () => {
   // stranding the splash — capStartupWork below is the backstop if a load
   // wedges on antivirus.
   // The WhatsApp MODULE (baileys — the heaviest import in the app) loads
-  // here, under the splash, AND the engine socket start runs here too
-  // (v2.6.3 — user report: typing freezes at the login page on mid-range
-  // machines). v2.6.1 deferred the baileys handshake to 8 s after the reveal
-  // so it could not hitch the first paint — but on mid-range machines that
-  // timer landed exactly while the office was typing their password. The
-  // handshake (8 s-bounded version fetch + crypto bursts in THIS process)
-  // is precisely the kind of background work that must finish behind the
-  // splash: it is started now, and the reveal gate below AWAITS it (via
-  // whatsappReady → capStartupWork). maybeStartEngine() resolves instantly
-  // on unpaired machines and never rejects, so this cannot strand the boot.
+  // here, under the splash, so every handler exists before the window can
+  // call one. v2.6.11: the ENGINE HANDSHAKE is NOT started here anymore.
+  // autoStartEngine() is a NETWORK operation (8 s-bounded live version fetch
+  // + socket connect + noise handshake) — awaiting it gated the splash on
+  // the office's internet line and sat dead for 8–20 s+ whenever the line
+  // was slow or absent. The handshake now starts after the reveal, only
+  // when the machine is idle (armIdleEngineStart below) or on demand from
+  // the WhatsApp page — never under the user's typing, never gating boot.
   const whatsappReady = import("./whatsapp-ipc.js")
     .then((m) => m.registerWhatsAppIpc(getActor, () => mainWindow, { autoStart: false })
-      .then(() => { bootLog("whatsapp:registered"); bootLog("whatsapp:engine-autostart"); return m.autoStartEngine(); }))
+      .then(() => { bootLog("whatsapp:registered"); whatsappMod = m; }))
     .catch((err) => { console.warn("[whatsapp] engine unavailable this session:", (err as Error)?.message || err); bootLog("whatsapp:failed", String((err as Error)?.message || err)); });
 
   // In-app download + install (electron-updater) — engages when the user
@@ -758,18 +803,24 @@ app.whenReady().then(async () => {
   const splashHoldMs = 800 - (Date.now() - bootStartedAt);
   if (splashHoldMs > 0) await new Promise((r) => setTimeout(r, splashHoldMs));
   // The main-process work is done; the splash now stays up only while the
-  // hidden renderer mounts the login page and warms every lazy page chunk
-  // (v2.6.3 — the warm-up is what makes the post-login dashboard jank
-  // impossible). Say so instead of looking hung on the last data status.
+  // hidden renderer mounts the login page, decodes its fonts and composites
+  // two frames (v2.6.11 — page-chunk warming moved AFTER the reveal, paused
+  // while the user types, so the splash no longer waits for 23 parses).
+  // Say so instead of looking hung on the last data status.
   setSplashStatus("അവസാന സ്പർശം · Final touches");
   markStartupSettled("work-done");
   bootLog("boot:complete");
   updateMod?.scheduleMonthlyUpdateCheck(() => mainWindow);
-  // NOTE: the WhatsApp engine socket is started INSIDE the whatsappReady
-  // gate above (v2.6.3) — never on a post-reveal timer. The v2.6.1
-  // "+8 s after the window" deferral was the login-page typing freeze: on a
-  // mid-range machine that timer fired in the middle of the first minute of
-  // use. Nothing CPU-heavy may be scheduled into the post-reveal window.
+  // v2.6.11: the WhatsApp engine handshake is started HERE — after the
+  // reveal, and only when the machine goes idle (≥ 4 s system idle, polled
+  // every 5 s from +20 s). It can no longer delay the splash (network), and
+  // it can no longer land under the user's keystrokes (idle gate). The
+  // WhatsApp page's own on-demand start paths are unchanged.
+  armIdleEngineStart();
+  // NOTE: nothing CPU-heavy or network-bound may be scheduled into the
+  // post-reveal window without an idle gate — the v2.6.1 "+8 s timer" and
+  // the v2.6.3 under-the-splash handshake were both the login-page freeze
+  // in their day.
 
   // ===== Auto-backup timer =====
   // The runner lives in ./auto-backup.js (settings check, idle gate,

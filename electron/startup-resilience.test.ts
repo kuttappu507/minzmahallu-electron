@@ -121,10 +121,12 @@ describe("second-instance clicks are never dead (splash or revival)", () => {
 });
 
 describe("the boot can never wedge before the first window", () => {
-  it("starts the WhatsApp engine import under the splash, before the window is revealed", () => {
+  it("imports the WhatsApp module under the splash but never its network handshake (v2.6.11)", () => {
     const splashIdx = MAIN.indexOf("createSplashWindow();");
-    const bgIdx = MAIN.indexOf('import("./whatsapp-ipc.js")');
     expect(splashIdx).toBeGreaterThan(-1);
+    // The DYNAMIC import inside whenReady (not the typeof type reference at
+    // the top of the file) must sit after the splash creation.
+    const bgIdx = MAIN.indexOf('import("./whatsapp-ipc.js")', splashIdx);
     expect(bgIdx).toBeGreaterThan(splashIdx);
     // Registration happens inside the dynamic-import .then, and that
     // promise is part of the reveal gate (not fire-and-forget).
@@ -133,6 +135,12 @@ describe("the boot can never wedge before the first window", () => {
     const settledIdx = MAIN.indexOf('markStartupSettled("work-done")');
     expect(gateIdx).toBeGreaterThan(bgIdx);
     expect(settledIdx).toBeGreaterThan(gateIdx);
+    // v2.6.11 — the gate must await ONLY the module import + handler
+    // registration. The engine HANDSHAKE is network work (8 s version
+    // fetch + socket connect): awaiting it gated the splash on the office
+    // internet line (8–20 s+ dead splash on slow/absent internet).
+    const gateBody = MAIN.slice(bgIdx, settledIdx);
+    expect(gateBody).not.toContain("autoStartEngine()");
   });
 
   it("creates the hidden window in parallel, but does not reveal it until startup work settles", () => {
@@ -255,7 +263,7 @@ describe("the first appearance of the login page is fully painted", () => {
     expect(fn).not.toContain('armReveal("post-startup-fallback"); }, 4_000)');
   });
 
-  it("the renderer announces alive at mount, then signals FULL boot: fonts + two frames + all chunks warmed", () => {
+  it("the renderer announces alive at mount, then reveals on fonts + two frames with ZERO chunk parsing before the ready signal (v2.6.11)", () => {
     const appSrc = readFileSync(
       fileURLToPath(new URL("../src/App.tsx", import.meta.url)),
       "utf8"
@@ -263,20 +271,23 @@ describe("the first appearance of the login page is fully painted", () => {
     expect(appSrc).toContain("document.fonts?.ready");
     // Two rAFs = one full frame actually composited past the commit.
     expect(appSrc.match(/requestAnimationFrame\(\(\) => requestAnimationFrame/u)).toBeTruthy();
-    // v2.6.3: before win:renderer-ready the renderer pre-parses EVERY lazy
-    // page chunk behind the splash (that parse used to freeze the app for
-    // seconds right after login), and pings win:renderer-alive at mount so
-    // the main-process fallback can tell warming from wedged.
-    expect(appSrc).toContain("warmAppChunks(");
     expect(appSrc).toContain("rendererAlive");
-    // Bounded twice: the warm-up budget AND the overall fire cap (which must
-    // stay below the main process's 30 s fallback) can never strand the
-    // splash — and, v2.6.7, the budget (9 s, starting after fonts.ready)
-    // plus a slow fonts phase always finishes INSIDE the 15 s cap so the
-    // reveal can never land while chunks are still parsing.
-    expect(appSrc).toContain("budgetMs: 9_000");
-    expect(appSrc).not.toContain("budgetMs: 12_000");
-    expect(appSrc).toContain("setTimeout(fire, 15_000)");
+    // v2.6.11: the login page is a STATIC import — the ready signal must
+    // NOT wait for any lazy chunk parse (that was the 4–15 s dead splash),
+    // and the fire cap must be short enough that a mid-parse reveal is
+    // structurally impossible (nothing parses before fire anymore).
+    const goStart = appSrc.indexOf("const go = () => {");
+    const goBody = appSrc.slice(goStart, appSrc.indexOf("cap = setTimeout(fire"));
+    expect(goBody).not.toContain("warmAppChunks(");
+    expect(goBody).toContain("warmAppChunksBackground()");
+    expect(appSrc).toContain("setTimeout(fire, 6_000)");
+    // Background warm-up starts only AFTER the reveal beat, never before.
+    const bgIdx = appSrc.indexOf("warmAppChunksBackground()");
+    const beatIdx = appSrc.indexOf("beat = setTimeout(fire, 120)");
+    expect(bgIdx).toBeGreaterThan(beatIdx);
+    // fonts.ready itself is bounded — an AV-locked font file can hold it
+    // open indefinitely and the old unbounded .then(go) never fired.
+    expect(appSrc).toContain("setTimeout(resolve, 2_500)");
     // The warm-up orders the post-login landing FIRST (Dashboard + recharts).
     const warmSrc = readFileSync(
       fileURLToPath(new URL("../src/lib/boot-warm.ts", import.meta.url)),
@@ -286,25 +297,26 @@ describe("the first appearance of the login page is fully painted", () => {
     expect(warmSrc.indexOf('import("@/pages/dashboard/DashboardCharts")')).toBeGreaterThan(warmSrc.indexOf('import("@/pages/Dashboard")'));
   });
 
-  it("the WhatsApp engine socket start runs under the splash, awaited by the reveal gate", () => {
+  it("the WhatsApp engine handshake starts only AFTER the reveal, idle-gated (v2.6.11)", () => {
     // Registered WITHOUT the module-level autostart…
     expect(MAIN).toContain("{ autoStart: false }");
-    // …because main.ts starts the engine itself INSIDE the gated
-    // whatsappReady chain — the baileys handshake finishes (bounded) while
-    // the splash is up, so it can never again land in the login page's
-    // first minute (the v2.6.1 "+8 s after reveal" timer was the freeze).
-    const bgIdx = MAIN.indexOf('import("./whatsapp-ipc.js")');
-    const startIdx = MAIN.indexOf("m.autoStartEngine()");
-    const gateIdx = MAIN.indexOf('capStartupWork(whatsappReady, "whatsapp"');
+    // …and main.ts no longer starts the engine inside the gated whatsappReady
+    // chain (the handshake is network work — it gated the splash on the
+    // office internet line). It is armed AFTER markStartupSettled.
     const settledIdx = MAIN.indexOf('markStartupSettled("work-done")');
-    expect(bgIdx).toBeGreaterThan(-1);
-    expect(startIdx).toBeGreaterThan(bgIdx);
-    expect(startIdx).toBeLessThan(gateIdx);
-    expect(gateIdx).toBeLessThan(settledIdx);
-    // No post-reveal engine-start timer may survive anywhere.
-    const afterSettle = MAIN.slice(settledIdx);
-    expect(afterSettle).not.toContain("autoStartEngine()");
-    // And whatsapp-ipc exports the awaited splash-time start hook.
+    const armIdx = MAIN.indexOf("armIdleEngineStart();", settledIdx);
+    expect(armIdx).toBeGreaterThan(-1);
+    // The idle gate: the engine waits for ≥ 4 s of SYSTEM idle before the
+    // handshake — typing/clicking keeps resetting it, so the baileys crypto
+    // bursts can never land under the user's keystrokes again (the v2.6.1
+    // "+8 s timer” freeze class), and it can never delay the splash either
+    // (the v2.6.3 under-the-splash await).
+    const fn = MAIN.slice(MAIN.indexOf("function armIdleEngineStart"), MAIN.indexOf("// ---------------------------------------------------------------------------\n// Single-instance lock"));
+    expect(fn).toContain("powerMonitor.getSystemIdleTime()");
+    expect(fn).toContain("idle < 4");
+    expect(fn).toContain("setTimeout(tick, 5_000)");
+    expect(fn).toContain("setTimeout(tick, 20_000)");
+    // The on-demand hook stays exported for the page paths.
     const ipcSrc = readFileSync(
       fileURLToPath(new URL("./whatsapp-ipc.ts", import.meta.url)),
       "utf8"
@@ -330,24 +342,34 @@ describe("the first appearance of the login page is fully painted", () => {
     expect(fn).toContain("grosslyOverdue");
   });
 
-  it("completes font preloading, setupStatus, and chunk warming BEFORE the final two-frame paint check and stops warming once revealed", () => {
+  it("reveals after fonts + setupStatus + two frames, THEN background-warms with interaction pausing (v2.6.11)", () => {
     const appSrc = readFileSync(
       fileURLToPath(new URL("../src/App.tsx", import.meta.url)),
       "utf8"
     );
     const goStart = appSrc.indexOf("const go = () => {");
     const goBody = appSrc.slice(goStart);
-    const warmFontsIdx = goBody.indexOf("warmAppFonts()");
+    const warmFontsIdx = goBody.indexOf("warmAppFonts(");
     const setupIdx = goBody.indexOf("preloadSetupStatus()");
-    const warmChunksIdx = goBody.indexOf("warmAppChunks(");
     const framesIdx = goBody.indexOf("await waitTwoFrames()");
     const beatIdx = goBody.indexOf("beat = setTimeout(fire, 120)");
+    const bgIdx = goBody.indexOf("warmAppChunksBackground()");
     expect(warmFontsIdx).toBeGreaterThan(-1);
     expect(setupIdx).toBeGreaterThan(-1);
-    expect(warmChunksIdx).toBeGreaterThan(setupIdx);
-    expect(framesIdx).toBeGreaterThan(warmChunksIdx);
+    expect(framesIdx).toBeGreaterThan(warmFontsIdx);
     expect(beatIdx).toBeGreaterThan(framesIdx);
-    expect(goBody).toContain("shouldStop: () => done");
+    expect(bgIdx).toBeGreaterThan(beatIdx);
+    expect(goBody).not.toContain("warmAppChunks(");
+
+    // The background warmer pauses while the user interacts — a chunk parse
+    // can never land under an active keystroke again.
+    const warmSrc = readFileSync(
+      fileURLToPath(new URL("../src/lib/boot-warm.ts", import.meta.url)),
+      "utf8"
+    );
+    expect(warmSrc).toContain("export async function warmAppChunksBackground(");
+    expect(warmSrc).toContain("userRecentlyInteracted");
+    expect(warmSrc).toContain('window.addEventListener("keydown", mark');
 
     // Pre-warms auth crypto + dashboard queries under the splash screen and
     // verifies passwords off the main thread on login.
