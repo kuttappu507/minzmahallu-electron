@@ -1,7 +1,7 @@
 import { app, ipcMain } from "electron";
 import { whatsapp, setReceiptDeliveryPush } from "./services/whatsapp.service.js";
 import { recipientStats } from "./services/whatsapp-recipient.service.js";
-import { flushAuthWrites, maybeStartEngine, stopEngine, drainAuthWrites, snapshotAuthNow } from "./services/whatsapp-engine.service.js";
+import { flushAuthWrites, maybeStartEngine, stopEngine, drainAuthWrites, snapshotAuthNow } from "./services/whatsapp-engine-bridge.js";
 import type { Actor } from "./services/security.service.js";
 
 // WhatsApp IPC — auth-gated exactly like the rest of the app. The actor
@@ -129,29 +129,27 @@ export function registerWhatsAppIpc(
     })();
   });
 
-  // The WhatsApp engine lives in-process — nothing to spawn. When a paired
-  // session exists on disk it logs back in silently with the app; an
-  // unpaired machine stays idle until the user presses Connect (no QR
-  // handshake churn). main.ts passes { autoStart:false } at boot and calls
-  // autoStartEngine() itself, INSIDE the startup gate (v2.6.3): the socket
-  // start (version fetch + baileys handshake, CPU-heavy) used to run when
-  // the login page appeared — first at reveal (v2.6.0), then 8 s after it
-  // (v2.6.1) — and the office reported typing lag at exactly that moment.
-  // It now runs UNDER the splash with the reveal gated on it, so the burst
-  // is over before the user can type. The WhatsApp page ALSO auto-starts on
-  // demand via status polling, so nothing user-visible needs the socket earlier.
+  // The WhatsApp engine runs in a WORKER THREAD since v2.6.12 (see
+  // whatsapp-engine-bridge.ts) — nothing user-visible to spawn from here.
+  // When a paired session exists on disk it logs back in silently with the
+  // app; an unpaired machine stays idle until the user presses Connect (no
+  // QR handshake churn). main.ts passes { autoStart:false } at boot and arms
+  // the start itself after the boot work settles: with the engine isolated
+  // on its own thread the handshake can run BEHIND the splash (the user's
+  // ask — pairing is done by the time they reach the app) without a single
+  // blocked IPC handler, which was the reason every earlier version had to
+  // postpone or idle-gate it.
   if (opts.autoStart === false) return Promise.resolve();
   return maybeStartEngine();
 }
 
-/** Splash-time engine start (v2.6.3) — called by main.ts from INSIDE the
- *  startup gate, and awaited (bounded by capStartupWork) so the baileys
- *  connect burst finishes while the splash is up instead of landing in the
- *  middle of the login page's first minute. maybeStartEngine() self-bounds
- *  (8 s version-fetch race; unpaired machines resolve instantly) and never
- *  rejects. Resolves early when the module was never registered (import
- *  failed) — WhatsApp simply stays unavailable this session, exactly like
- *  any other failed import. */
+/** Behind-the-splash engine start — called by main.ts once the boot work has
+ *  settled. Fire-and-forget: the handshake (8 s-bounded version fetch + socket
+ *  connect + noise handshake) runs entirely inside the engine worker thread,
+ *  so nothing gates on it and nothing user-visible can freeze while it runs.
+ *  maybeStartEngine() self-bounds and never rejects. Resolves early when the
+ *  module was never registered (import failed) — WhatsApp simply stays
+ *  unavailable this session, exactly like any other failed import. */
 export function autoStartEngine(): Promise<void> {
   if (!registered) return Promise.resolve();
   return maybeStartEngine();

@@ -5,7 +5,7 @@ import {
   requireConnectedSocket, resolveJid, engineSendText, engineSendDocument,
   clearLegacyWahaData, onDelivery, isDelivered, waitForDelivery, whatsappStoreDir,
   requestPairingCode,
-} from "./whatsapp-engine.service.js";
+} from "./whatsapp-engine-bridge.js";
 import { SendThrottle } from "./whatsapp-throttle.js";
 import {
   generateDonationReceiptPdf, generateSubscriptionReceiptPdf,

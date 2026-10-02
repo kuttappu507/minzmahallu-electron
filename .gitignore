@@ -50,3 +50,6 @@ scripts/brand-out/
 
 # E2E screenshot artifacts
 qa-screens/
+
+# Never commit WhatsApp session material (test runs can create it at the repo root)
+/whatsapp/

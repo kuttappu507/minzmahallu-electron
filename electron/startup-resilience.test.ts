@@ -297,32 +297,39 @@ describe("the first appearance of the login page is fully painted", () => {
     expect(warmSrc.indexOf('import("@/pages/dashboard/DashboardCharts")')).toBeGreaterThan(warmSrc.indexOf('import("@/pages/Dashboard")'));
   });
 
-  it("the WhatsApp engine handshake starts only AFTER the reveal, idle-gated (v2.6.11)", () => {
+  it("the WhatsApp engine runs OFF the main process and starts behind the splash (v2.6.12)", () => {
     // Registered WITHOUT the module-level autostart…
     expect(MAIN).toContain("{ autoStart: false }");
-    // …and main.ts no longer starts the engine inside the gated whatsappReady
-    // chain (the handshake is network work — it gated the splash on the
-    // office internet line). It is armed AFTER markStartupSettled.
+    // …and the start is armed only AFTER the boot work settles, fire-and-
+    // forget — nothing gates the reveal on the network handshake any more.
     const settledIdx = MAIN.indexOf('markStartupSettled("work-done")');
-    const armIdx = MAIN.indexOf("armIdleEngineStart();", settledIdx);
+    const armIdx = MAIN.indexOf("armBehindSplashEngineStart();", settledIdx);
     expect(armIdx).toBeGreaterThan(-1);
-    // The idle gate: the engine waits for ≥ 4 s of SYSTEM idle before the
-    // handshake — typing/clicking keeps resetting it, so the baileys crypto
-    // bursts can never land under the user's keystrokes again (the v2.6.1
-    // "+8 s timer” freeze class), and it can never delay the splash either
-    // (the v2.6.3 under-the-splash await).
-    const fn = MAIN.slice(MAIN.indexOf("function armIdleEngineStart"), MAIN.indexOf("// ---------------------------------------------------------------------------\n// Single-instance lock"));
-    expect(fn).toContain("powerMonitor.getSystemIdleTime()");
-    expect(fn).toContain("idle < 4");
-    expect(fn).toContain("setTimeout(tick, 5_000)");
-    expect(fn).toContain("setTimeout(tick, 20_000)");
+    const armFn = MAIN.slice(MAIN.indexOf("function armBehindSplashEngineStart"), MAIN.indexOf("// ---------------------------------------------------------------------------\n// Uninstall verification mode"));
+    expect(armFn).toContain("autoStartEngine()");
+    expect(armFn).not.toContain("await");
+    // ROOT-CAUSE FIX for the "window freezes while WhatsApp checks and pairs"
+    // report: the Baileys engine no longer runs on the main process at all.
+    // The service layer and the IPC layer talk to the BRIDGE; only the worker
+    // entry imports the engine module (and through it Baileys).
+    const read = (f: string) => readFileSync(fileURLToPath(new URL(f, import.meta.url)), "utf8");
+    const svcSrc = read("./services/whatsapp.service.ts");
+    expect(svcSrc).toContain('from "./whatsapp-engine-bridge.js"');
+    expect(svcSrc).not.toContain('from "./whatsapp-engine.service.js"');
+    const ipcSrc = read("./whatsapp-ipc.ts");
+    expect(ipcSrc).toContain('from "./services/whatsapp-engine-bridge.js"');
+    expect(ipcSrc).not.toContain('from "./services/whatsapp-engine.service.js"');
+    const bridgeSrc = read("./services/whatsapp-engine-bridge.ts");
+    expect(bridgeSrc).toContain('process as any).type === "browser"'); // worker is the default IN Electron
+    expect(bridgeSrc).toContain('new Worker(new URL("./whatsapp-engine.worker.js", import.meta.url))');
+    // The engine module (and through it Baileys) is loaded ONLY inside the
+    // worker via the bridge's lazy import — never statically by main code.
+    expect(bridgeSrc).toContain('import("./whatsapp-engine.service.js")');
+    const workerSrc = read("./services/whatsapp-engine.worker.ts");
+    expect(workerSrc).toContain("parentPort");
+    expect(workerSrc).toContain("createEngineWorkerSide");
     // The on-demand hook stays exported for the page paths.
-    const ipcSrc = readFileSync(
-      fileURLToPath(new URL("./whatsapp-ipc.ts", import.meta.url)),
-      "utf8"
-    );
     expect(ipcSrc).toContain("export function autoStartEngine(): Promise<void>");
-    expect(ipcSrc).toContain("return maybeStartEngine();");
     expect(ipcSrc).toContain("opts.autoStart === false");
   });
 

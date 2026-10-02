@@ -184,14 +184,22 @@ export function whatsappStoreDir(): string | null {
   const base = userDataDir();
   return base ? path.join(base, "whatsapp") : null;
 }
-// Test seam — vitest runs OUTSIDE Electron, where app.getPath("userData")
-// throws and no auth folder can be resolved at all. Tests point the engine at
-// a temp directory so the real persistence + recovery logic (paired-session
-// detection, backup restore, aborted-pairing cleanup) is exercised as it runs
-// in the app. `undefined` = no override (normal Electron resolution).
+// Test/worker seam — vitest runs OUTSIDE Electron, where
+// app.getPath("userData") throws and no auth folder can be resolved at all.
+// Tests point the engine at a temp directory so the real persistence +
+// recovery logic (paired-session detection, backup restore, aborted-pairing
+// cleanup) is exercised as it runs in the app. The engine WORKER (v2.6.12 —
+// the whole Baileys engine runs on its own thread so a pairing burst can
+// never freeze the window) resolves the same way: the main process hands the
+// real auth folder over the init message and the worker pins it here.
+// `undefined` = no override (normal Electron resolution).
 let authDirOverride: string | null | undefined;
-export function setAuthDirForTests(dir: string | null | undefined): void {
+export function setAuthDir(dir: string | null | undefined): void {
   authDirOverride = dir;
+  integrityMemo.delete(String(dir));
+}
+export function setAuthDirForTests(dir: string | null | undefined): void {
+  setAuthDir(dir);
 }
 function authDir(): string | null {
   if (authDirOverride !== undefined) return authDirOverride;
@@ -354,11 +362,25 @@ function sweepStrayTempFiles(dir: string): void {
   } catch { /* folder may not exist yet */ }
 }
 
+// State-change subscribers. The engine runs behind an RPC bridge inside a
+// worker thread (v2.6.12): the main process holds a synchronous CACHE of the
+// engine snapshot (engineState() there must stay sync for the service layer),
+// so every state transition is announced here and the worker wrapper pushes
+// a fresh snapshot across the bridge.
+const stateListeners = new Set<() => void>();
+export function onEngineStateChange(cb: () => void): () => void {
+  stateListeners.add(cb);
+  return () => { stateListeners.delete(cb); };
+}
+
 function setState(next: EngineState, error = "") {
   state = next;
   stateSince = Date.now();
   if (error !== undefined && error !== "") lastError = error;
   else if (error === "") lastError = "";
+  for (const cb of stateListeners) {
+    try { cb(); } catch { /* a broken subscriber never breaks the engine */ }
+  }
 }
 
 /** Does this creds object describe a COMPLETED pairing?
