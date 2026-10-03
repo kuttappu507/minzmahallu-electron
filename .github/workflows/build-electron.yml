@@ -36,7 +36,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # Electron 44 requires Node >= 22.12 for its tooling (electron-builder 26).
+          node-version: "22"
 
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'

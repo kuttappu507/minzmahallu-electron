@@ -1,6 +1,22 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 /**
+ * DEFENCE-IN-DEPTH CHANNEL GUARD (v2.7.0): every method below hardcodes its
+ * channel — the renderer can never choose an arbitrary one. This namespace
+ * allowlist is the second layer: even if a future edit wired a method to a
+ * wrong/typo channel, the invoke refuses instead of reaching the main
+ * process with an unreviewed name. The set must list every IPC namespace the
+ * api object actually uses (kept in sync with the main-process handlers).
+ */
+const CHANNEL_NAMESPACES = new Set([
+  "auth", "families", "members", "subscriptions", "donations", "whatsapp",
+  "accounting", "assets", "marriages", "deaths", "welfare", "certificates",
+  "pdf", "receipts", "users", "audit", "approvals", "settings", "app",
+  "updates", "dashboard", "backup", "dialog", "win", "uninstall", "tokens",
+  "staff", "committee", "security",
+]);
+
+/**
  * Electron wraps EVERY rejected ipcMain.handle as
  *   "Error invoking remote method '<channel>': Error: <actual message>"
  * That technical, English-only wrapper used to leak verbatim into user-facing
@@ -10,6 +26,10 @@ import { contextBridge, ipcRenderer } from "electron";
  * so every renderer catch site only ever sees the actionable sentence.
  */
 async function invoke(channel: string, ...args: unknown[]): Promise<any> {
+  const namespace = String(channel).split(":", 1)[0];
+  if (!CHANNEL_NAMESPACES.has(namespace)) {
+    throw new Error(`Blocked IPC channel: ${channel}`);
+  }
   try {
     return await ipcRenderer.invoke(channel, ...args);
   } catch (e: unknown) {

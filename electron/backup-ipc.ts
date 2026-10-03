@@ -14,6 +14,35 @@ import { closeDB } from "./db/connection.js";
 import { createBackup, verifyBackup, extractVerifiedBackup, listBackups, mirrorBackup } from "./services/backup.service.js";
 import { session, type GetWindow } from "./session.js";
 
+// PATH VALIDATION (v2.7.0 security audit): verify/restore receive a backup
+// path from the renderer. A tampered renderer must not be able to point the
+// verified-backup machinery at an arbitrary file (hash/size oracle) or at an
+// arbitrary overwrite target. A path is honoured only when it is absolute,
+// really exists, carries the verified-backup extension, and resolves inside
+// the app's data folder or the configured backup mirror folder — exactly the
+// two places backup:list offers and the mirror flow writes to.
+function isInside(root: string, target: string): boolean {
+  const rel = path.relative(root, target);
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+function validateBackupPath(input: unknown): string {
+  const raw = String(input ?? "").trim();
+  if (!raw || !path.isAbsolute(raw)) throw new Error("Invalid backup path");
+  const resolved = path.resolve(raw);
+  if (path.extname(resolved).toLowerCase() !== ".mmbak") throw new Error("Not a verified MMS backup file (.mmbak)");
+  let real: string;
+  try { real = fs.realpathSync(resolved); } catch { throw new Error("Backup file not found"); }
+  let mirrorDir = "";
+  try { mirrorDir = String((data.settings.load() as any)?.backup_mirror_dir || "").trim(); } catch { /* settings unavailable — data folder rule still applies */ }
+  let mirrorReal = "";
+  if (mirrorDir) { try { mirrorReal = fs.realpathSync(mirrorDir); } catch { mirrorReal = ""; } }
+  const userData = app.getPath("userData");
+  if (!isInside(userData, real) && !(mirrorReal && isInside(mirrorReal, real))) {
+    throw new Error("Backup file is outside the allowed backup folders");
+  }
+  return real;
+}
+
 export function registerBackupIpc(getWindow: GetWindow): void {
   ipcMain.handle("backup:create", async () => {
     if (!session.user) return { success: false, error: "Authentication required" };
@@ -71,8 +100,8 @@ export function registerBackupIpc(getWindow: GetWindow): void {
   ipcMain.handle("backup:verify", (_e, backupPath: string) => {
     if (!session.user) throw new Error("Authentication required");
     try {
-      if (!backupPath || !fs.existsSync(backupPath)) throw new Error("Backup file not found");
-      const result = verifyBackup(backupPath);
+      const safePath = validateBackupPath(backupPath);
+      const result = verifyBackup(safePath);
       return { success: true, ...result };
     } catch (err: any) {
       throw new Error(err.message);
@@ -84,9 +113,10 @@ export function registerBackupIpc(getWindow: GetWindow): void {
     // record) — administrator-only (audit finding A6).
     if (session.user.role !== "Administrator") return { success: false, error: "Administrator permission is required" };
     try {
-      if (!backupPath || !fs.existsSync(backupPath)) return { success: false, error: "Backup file not found" };
+      // 0. Validate the renderer-supplied path BEFORE anything destructive.
+      const safePath = validateBackupPath(backupPath);
       // 1. Verify the target backup integrity before doing anything destructive.
-      verifyBackup(backupPath);
+      verifyBackup(safePath);
       // 2. Make a safety pre-restore backup of the current live DB.
       const userData = app.getPath("userData");
       const safetyPath = path.join(userData, `backup-pre-restore-${new Date().toISOString().slice(0,19).replace(/[:T]/g,"-")}.mmbak`);
@@ -95,7 +125,7 @@ export function registerBackupIpc(getWindow: GetWindow): void {
       try { closeDB(); } catch {}
       // 4. Extract the verified backup into the live DB path.
       const liveDbPath = path.join(userData, "mms.db");
-      extractVerifiedBackup(backupPath, liveDbPath);
+      extractVerifiedBackup(safePath, liveDbPath);
       // 5. Relaunch the app so the new DB is loaded cleanly.
       setTimeout(() => { app.relaunch(); app.exit(0); }, 250);
       return { success: true, restarted: true };

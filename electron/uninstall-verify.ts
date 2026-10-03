@@ -14,6 +14,7 @@ import { app, BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
+import { hardenWebContents } from "./window-hardening.js";
 
 // INSTANT-SPLASH PASS (v2.7.0): the db/connection (better-sqlite3 native
 // binding) and uninstall-guard (→ auth.service → db/connection) modules
@@ -37,8 +38,11 @@ function createUninstallVerifyWindow() {
     width: 470, height: 540, show: false, resizable: false, minimizable: false,
     maximizable: false, fullscreenable: false, autoHideMenuBar: true, frame: false,
     backgroundColor: "#0d9488", title: "MMS — Uninstall protection", hasShadow: true,
-    webPreferences: { preload: path.join(__dirname, "preload.mjs"), contextIsolation: true, nodeIntegration: false, sandbox: false, zoomFactor: 1.0 },
+    webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false, sandbox: true, zoomFactor: 1.0 },
   });
+  // Same lockdown as the main window (v2.7.0): no popups, no page-initiated
+  // navigation, no webviews — this gate loads the local dist UI only.
+  hardenWebContents(win.webContents);
   win.setAlwaysOnTop(true, "screen-saver");
   win.once("ready-to-show", () => { win.show(); win.focus(); });
   // The ?uninstall=1 query makes App.tsx render ONLY the UninstallConfirm page.

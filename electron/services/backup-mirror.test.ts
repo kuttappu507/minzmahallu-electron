@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { mirrorBackup, verifyBackup, createBackup } from "./backup.service.js";
+import { mirrorBackup, verifyBackup, createBackup, extractVerifiedBackup } from "./backup.service.js";
 
 // mirrorBackup is pure-filesystem (no DB), so it can be tested directly.
 // createBackup touches the DB — the mock lives in scripts/ and is wired via
@@ -128,5 +128,70 @@ describe("backup mirror", () => {
     // our fake manifest sha256 is "x", so it must FAIL integrity (proving the
     // mirror kept the exact bytes rather than rewriting the file).
     expect(() => verifyBackup(r.path!)).toThrow(/integrity/i);
+  });
+});
+
+describe("verified backup roundtrip (create → verify → restore)", () => {
+  // createBackup reads the LIVE database file through the electron stub's
+  // per-PID userData — the same environment the vitest setup seeds with a
+  // real (empty) mms.db, so the roundtrip below exercises the production
+  // format end to end: MMSB container + manifest sha256 + payload.
+  it("creates a backup of the live DB, verifies it, and restores byte-identical data", async () => {
+    const { app } = await import("electron");
+    const userData = app.getPath("userData");
+    const dbPath = path.join(userData, "mms.db");
+    // The vitest setup guarantees a live DB; write a marker row into it so
+    // the restore target provably carries the original bytes.
+    let marker = "";
+    try {
+      const Database = (await import("better-sqlite3")).default;
+      const db = new Database(dbPath);
+      marker = `marker-${Date.now()}`;
+      db.exec("CREATE TABLE IF NOT EXISTS backup_roundtrip_probe (marker TEXT)");
+      db.prepare("INSERT INTO backup_roundtrip_probe (marker) VALUES (?)").run(marker);
+      db.close();
+    } catch { /* DB unavailable — roundtrip still validates the container format */ }
+
+    const dest = path.join(userData, `test-roundtrip-${Date.now()}.mmbak`);
+    const meta = await createBackup(dest);
+    expect(fs.existsSync(dest)).toBe(true);
+    // meta.size counts the database payload; the .mmbak container adds the
+    // MMSB header + manifest on top, so the file is at least that big.
+    expect(meta.size).toBeGreaterThan(0);
+    expect(fs.statSync(dest).size).toBeGreaterThanOrEqual(meta.size);
+    expect(meta.sha256).toMatch(/^[0-9a-f]{64}$/);
+
+    // Verify passes on the freshly created file.
+    const v = verifyBackup(dest);
+    expect(v.valid).toBe(true);
+    expect(v.manifest.sha256).toBe(meta.sha256);
+
+    // Extract (the restore path) and confirm the bytes landed.
+    const targetDb = path.join(userData, `restored-${Date.now()}.db`);
+    extractVerifiedBackup(dest, targetDb);
+    expect(fs.existsSync(targetDb)).toBe(true);
+    if (marker) {
+      const Database = (await import("better-sqlite3")).default;
+      const db = new Database(targetDb);
+      const row = db.prepare("SELECT marker FROM backup_roundtrip_probe ORDER BY rowid DESC LIMIT 1").get() as { marker: string };
+      expect(row?.marker).toBe(marker);
+      db.close();
+    }
+    fs.rmSync(dest, { force: true });
+    fs.rmSync(targetDb, { force: true });
+  });
+
+  it("refuses to extract a tampered backup", async () => {
+    const { app } = await import("electron");
+    const userData = app.getPath("userData");
+    const dest = path.join(userData, `test-tampered-${Date.now()}.mmbak`);
+    await createBackup(dest);
+    const bytes = fs.readFileSync(dest);
+    bytes[bytes.length - 5] ^= 0xff; // flip one payload byte
+    fs.writeFileSync(dest, bytes);
+    const targetDb = path.join(userData, `never-${Date.now()}.db`);
+    expect(() => extractVerifiedBackup(dest, targetDb)).toThrow(/integrity|corrupt|mismatch/i);
+    expect(fs.existsSync(targetDb)).toBe(false);
+    fs.rmSync(dest, { force: true });
   });
 });

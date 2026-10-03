@@ -30,6 +30,7 @@ import { getActor } from "./session.js";
 import { ensureShortDataDir } from "./data-dir.js";
 import { isUninstallVerify, runUninstallVerifyMode } from "./uninstall-verify.js";
 import { runAutoBackup } from "./auto-backup.js";
+import { hardenWebContents } from "./window-hardening.js";
 
 // INSTANT-SPLASH PASS (v2.7.0): ONLY genuinely light modules stay in the
 // static import chain above — this file, splash-window, boot-log, session,
@@ -447,7 +448,13 @@ function createWindow() {
     ...(win32 ? { backgroundColor: "#f6f8fa" } : { backgroundColor: "#00000000", transparent: true }),
     title: "MMS — Minz Mahallu Management System", frame: false, hasShadow: false,
     webPreferences: {
-      preload: path.join(__dirname, "preload.mjs"), contextIsolation: true, nodeIntegration: false, sandbox: false, zoomFactor: 1.0,
+      // SECURITY MODEL (v2.7.0): contextIsolation ON, nodeIntegration OFF,
+      // sandbox ON — the renderer process runs without Node, and the preload
+      // (preload.cjs, CommonJS as sandboxed preloads require) exposes only the
+      // explicit window.mms method list over validated IPC. Main-process
+      // privileges (SQLite, filesystem, PDF, WhatsApp worker, dialogs) are
+      // reachable exclusively through those whitelisted channels.
+      preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false, sandbox: true, zoomFactor: 1.0,
       // v2.6.6 — the office report "one time freeze when inputing login
       // details" is Chromium's spellchecking service spinning up on the
       // FIRST keystroke of the first focused input (Electron's spellcheck
@@ -460,6 +467,17 @@ function createWindow() {
       spellcheck: false,
       backgroundThrottling: false,
     },
+  });
+  // NAVIGATION / WINDOW-OPEN LOCKDOWN (v2.7.0): the production UI is the
+  // local dist/index.html and the app never legitimately opens a second
+  // window or navigates elsewhere. Deny every renderer-initiated popup and
+  // every page-initiated navigation (main-process loadFile/loadURL is not
+  // affected); in dev the Vite server origin is the only allowed target.
+  hardenWebContents(mainWindow.webContents, {
+    allowUrl: (url) => !app.isPackaged
+      && process.env.NODE_ENV === "development"
+      && !!process.env.VITE_DEV_SERVER_URL
+      && url.startsWith(process.env.VITE_DEV_SERVER_URL),
   });
   // Real window takes over only when BOTH are true: boot work has settled
   // (markStartupSettled) AND the renderer has painted (win:renderer-ready,
@@ -547,8 +565,15 @@ function createWindow() {
       setImmediate(() => { try { w.close(); } catch { /* gone */ } });
     }
   });
-  if (process.env.NODE_ENV === "development" || process.env.VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL || "http://localhost:5174");
+  // DEV-ONLY LOADING (v2.7.0 tightened): the dev server and DevTools are
+  // opted into by BOTH a non-packaged runtime AND NODE_ENV=development AND
+  // an explicit VITE_DEV_SERVER_URL. A production (packaged) app loads the
+  // local dist bundle only — a stray env var can no longer redirect the
+  // window, and DevTools can never open in a distributed build.
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+  const isDevRuntime = !app.isPackaged && process.env.NODE_ENV === "development";
+  if (isDevRuntime && devServerUrl) {
+    mainWindow.loadURL(devServerUrl);
     mainWindow.webContents.openDevTools({ mode: "detach" });
   } else mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
 }

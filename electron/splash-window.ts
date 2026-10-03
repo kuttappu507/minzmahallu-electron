@@ -24,6 +24,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { hardenWebContents } from "./window-hardening.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -254,6 +255,9 @@ export function createSplashWindow(): void {
     });
     // Above everything while starting (the real window takes over when ready).
     splashWin.setAlwaysOnTop(true, "screen-saver");
+    // Lockdown (v2.7.0): the splash loads a generated data: URL and has no
+    // reason to ever navigate, open a window or embed a webview.
+    hardenWebContents(splashWin.webContents);
     // CONTENT-FIRST REVEAL (v2.6.8 — the field report changed shape again:
     // "one outer frame comes before splash, then splash come"). v2.6.5-2.6.7
     // showed the window the moment it existed, BEFORE its HTML loaded — the

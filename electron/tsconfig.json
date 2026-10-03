@@ -16,5 +16,9 @@
     "lib": ["ES2022"]
   },
   "include": ["./**/*.ts", "./**/*.mts"],
-  "exclude": ["**/*.test.ts", "**/*.test.mts"]
+  // preload.mts is compiled SEPARATELY by scripts/build-preload.mjs into a
+  // CommonJS preload.cjs — sandboxed renderers cannot load ESM preloads, so
+  // it must never emit here as preload.mjs (tsconfig.preload.json typechecks
+  // it).
+  "exclude": ["**/*.test.ts", "**/*.test.mts", "./preload.mts"]
 }

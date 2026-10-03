@@ -28,6 +28,7 @@ import { writeFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
+import { hardenWebContents } from "../window-hardening.js";
 
 const require = createRequire(import.meta.url);
 function electron(): typeof import("electron") {
@@ -68,7 +69,7 @@ function newHiddenWindow(width: number, height: number): import("electron").Brow
   // app (receipts, certificates, statements, registers) now depends on.
   if (windowFactoryOverride) return windowFactoryOverride(width, height) as import("electron").BrowserWindow;
   const { BrowserWindow } = electron();
-  return new BrowserWindow({
+  const win = new BrowserWindow({
     show: false,
     // A show:false window still counts for window-all-closed and, without
     // skipTaskbar, can leave a taskbar button after the user has "closed"
@@ -89,6 +90,11 @@ function newHiddenWindow(width: number, height: number): import("electron").Brow
       backgroundThrottling: false,
     },
   });
+  // The renderer hosts generated document HTML only: deny popups, page-
+  // initiated navigation and webviews (v2.7.0 — same lockdown as the UI
+  // windows; main-process loadURL/loadFile are unaffected).
+  hardenWebContents(win.webContents);
+  return win;
 }
 
 const PDF_OPTIONS = {
