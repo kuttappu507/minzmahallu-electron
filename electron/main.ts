@@ -138,6 +138,11 @@ let rendererReloadTimestamps: number[] = [];
 // button and the taskbar "Close window" all show the same styled dialog.
 // ---------------------------------------------------------------------------
 let closeConfirmed = false;
+// v2.7.1 — when the close gate last asked the renderer to confirm (0 = no
+// pending ask). Drives the force-close escape hatch in the close gate;
+// cleared by win:cancel-close when the dialog is dismissed.
+let closeAskAt = 0;
+const CLOSE_FORCE_MS = 2_500;
 
 // ---------------------------------------------------------------------------
 // Startup gate. The splash stays on screen until this is set. The hidden
@@ -543,6 +548,15 @@ function createWindow() {
   // Close gate: ask the renderer to confirm before the window goes away.
   // Once the close is real, drop hidden windows FIRST so they cannot keep
   // the process (and the single-instance lock) alive after the UI is gone.
+  //
+  // v2.7.1 ESCAPE HATCH (user report: Close dead on the login window): a
+  // window whose renderer cannot answer must never be trapped. If close
+  // arrives twice within CLOSE_FORCE_MS — the way real users hammer the ✕
+  // button / Alt+F4 when nothing responds — the renderer is judged unable
+  // to show the dialog and the close goes through for real. A single ask
+  // still shows the confirm dialog exactly as before, and a dismissal (the
+  // dialog's "Keep open" path) calls win:cancel-close to clear the mark, so
+  // a LATER single click re-opens the dialog instead of force-closing.
   mainWindow.on("close", (e) => {
     // Local alias: TS cannot narrow the captured module-level `mainWindow`
     // through the `crashed` predicate below (tsc -p electron: TS18047).
@@ -556,6 +570,18 @@ function createWindow() {
       return;
     }
     e.preventDefault();
+    const now = Date.now();
+    if (closeAskAt && now - closeAskAt < CLOSE_FORCE_MS) {
+      // Second close attempt while the first ask is still fresh: the
+      // renderer is not answering (wedged mid-boot, dialog failed to
+      // mount) — force the real close instead of asking a third time.
+      bootLog("close:force-unanswered");
+      closeConfirmed = true;
+      releaseHiddenWindows();
+      setImmediate(() => { try { w.close(); } catch { /* gone */ } });
+      return;
+    }
+    closeAskAt = now;
     try { w.webContents.send("win:ask-close-confirm"); }
     catch {
       // Renderer can't show the dialog — don't trap a window the user can
@@ -581,9 +607,37 @@ function createWindow() {
 // Window-control IPC. Registered ONCE here (not inside createWindow) so a
 // second createWindow() call — the macOS "activate" re-open path — cannot
 // crash with "Attempted to register a second handler".
-ipcMain.handle("win:minimize", () => mainWindow?.minimize());
-ipcMain.handle("win:maximize", () => { if (mainWindow?.isMaximized()) mainWindow.unmaximize(); else mainWindow?.maximize(); });
-ipcMain.handle("win:close", () => mainWindow?.close());
+//
+// v2.7.1 (user report: login-window minimize/close dead): every handler now
+// (a) resolves the SENDER window first and only falls back to the module
+// `mainWindow` alias, so the command can never land on the wrong window;
+// (b) is wrapped so a throw degrades to a log line instead of a rejected
+// invoke the renderer has to surface; and (c) writes a boot.log line, so a
+// future "buttons do nothing" report tells us from the user's own log
+// whether the handler ran at all (renderer/bridge problem) or never fired
+// (click/drag-region problem).
+function winFromSender(e: Electron.IpcMainInvokeEvent): Electron.BrowserWindow | null {
+  try { return BrowserWindow.fromWebContents(e.sender) ?? mainWindow; }
+  catch { return mainWindow; }
+}
+ipcMain.handle("win:minimize", (e) => {
+  bootLog("win:minimize");
+  try { winFromSender(e)?.minimize(); } catch (err) { bootLogError("win:minimize", err); }
+});
+ipcMain.handle("win:maximize", (e) => {
+  bootLog("win:maximize");
+  try { const w = winFromSender(e); if (!w) return; if (w.isMaximized()) w.unmaximize(); else w.maximize(); }
+  catch (err) { bootLogError("win:maximize", err); }
+});
+ipcMain.handle("win:close", (e) => {
+  bootLog("win:close");
+  try { (winFromSender(e) ?? mainWindow)?.close(); } catch (err) { bootLogError("win:close", err); }
+});
+// Sent by the close-confirm dialog when the user dismisses it ("Keep open",
+// Escape, click-outside): clears the pending-ask mark so a LATER close
+// attempt shows the dialog again instead of being read as "renderer never
+// answered". v2.7.1, see the close gate below.
+ipcMain.handle("win:cancel-close", () => { closeAskAt = 0; });
 // Called by the close-confirm dialog after the user picks "Close app".
 // Closing the window is not enough: a hidden print window used to keep the
 // process running in the background. confirm-close always starts a real quit
@@ -828,7 +882,11 @@ app.whenReady().then(async () => {
   // Say so instead of looking hung on the last data status.
   setSplashStatus("അവസാന സ്പർശം · Final touches");
   markStartupSettled("work-done");
-  bootLog("boot:complete");
+  // v2.7.1: one line with the TOTAL main-process boot time — with the
+  // per-step uptime stamps above, a slow cold start on the user's machine
+  // (antivirus rescan, cold disk) is now directly readable from boot.log
+  // without subtracting timestamps by hand.
+  bootLog("boot:complete", `main-process boot took ${((Date.now() - bootStartedAt) / 1000).toFixed(1)}s`);
   updateMod?.scheduleMonthlyUpdateCheck(() => mainWindow);
   // v2.6.12: the WhatsApp engine start is armed HERE — behind the splash on
   // the common path, running on its own worker thread. The splash stays up

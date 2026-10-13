@@ -21,7 +21,6 @@ import {
   makeCacheableSignalKeyStore,
   fetchLatestWaWebVersion,
   DisconnectReason,
-  Browsers,
   proto,
   initAuthCreds,
   BufferJSON,
@@ -718,10 +717,18 @@ async function connectInternal(): Promise<void> {
       keys: makeCacheableSignalKeyStore(authState.keys, silentLogger),
     },
     logger: silentLogger,
-    // macOS/Chrome fingerprint pairs most reliably with the current WA Web
-    // protocol — the Ubuntu fingerprint used before was being rejected
-    // outright by some servers (user report: "pairing is failing").
-    browser: Browsers.macOS("Chrome"),
+    // LINKED-DEVICE NAME (user report v2.7.0: the phone's WhatsApp → Linked
+    // devices showed this session as "Mac OS …" instead of the app's name).
+    // Baileys sends browser[0] verbatim as the `os` field of DeviceProps at
+    // registration, and that field is what WhatsApp displays as the device
+    // name — Browsers.baileys() shipping ['Baileys', …] proves a non-OS
+    // string is accepted. Keep browser[1] = "Chrome" so platformType still
+    // maps to CHROME — the exact fingerprint the macOS declaration used and
+    // the one pairing is known-reliable with (the earlier Ubuntu variant was
+    // rejected by some servers). Only the DISPLAYED name changes.
+    // NOTE: the name is fixed at pairing time — an ALREADY-paired session
+    // keeps showing the old label until it is unlinked and linked once more.
+    browser: ["Minz Mahallu", "Chrome", "14.4.1"] as [string, string, string],
     version,
     markOnlineOnConnect: false,
     generateHighQualityLinkPreview: false,

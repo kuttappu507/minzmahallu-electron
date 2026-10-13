@@ -523,6 +523,10 @@
   .avbtn .chev { color: var(--fnt); }
 
   .win-controls { display: flex; gap: 2px; margin-left: 6px; }
+  /* v2.7.1 belt-and-braces: the no-drag lives on the BUTTONS themselves, not
+     only on their container — a Chromium app-region hit-test quirk (or a
+     future rule reorder) must never swallow clicks on the window controls. */
+  .win-controls .win-btn, .win-controls { -webkit-app-region: no-drag; pointer-events: auto; }
   .win-btn { width: 36px; height: 30px; border: 0; background: none; color: var(--fnt); display: grid; place-items: center; border-radius: 9px; transition: 0.12s; cursor: pointer; }
   .win-btn:hover { background: var(--selbg); color: var(--em); }
   .win-close:hover { background: var(--rose-bg); color: var(--c-rose); }
@@ -1279,8 +1283,8 @@ body:not(.app-loaded) #root > * { visibility: hidden; }
 /* ===== Login page ===== */
 .login-wrap { height: 100vh; display: flex; position: relative; background: var(--bg); background-image: var(--dot); -webkit-app-region: drag; }
 .login-wrap input, .login-wrap button, .login-wrap .login-win-controls { -webkit-app-region: no-drag; }
-.login-win-controls { position: fixed; top: 0; right: 0; z-index: 10000; display: flex; gap: 2px; -webkit-app-region: no-drag; }
-.login-win-controls .win-btn { width: 40px; height: 32px; border: 0; background: none; color: var(--fnt); display: grid; place-items: center; border-radius: 0; transition: 0.12s; cursor: pointer; }
+.login-win-controls { position: fixed; top: 0; right: 0; z-index: 10000; display: flex; gap: 2px; -webkit-app-region: no-drag; pointer-events: auto; }
+.login-win-controls .win-btn { width: 40px; height: 32px; border: 0; background: none; color: var(--fnt); display: grid; place-items: center; border-radius: 0; transition: 0.12s; cursor: pointer; -webkit-app-region: no-drag; pointer-events: auto; }
 .login-win-controls .win-btn:hover { background: var(--selbg); color: var(--em); }
 .login-win-controls .win-close:hover { background: var(--rose-bg); color: var(--c-rose); }
 .login-left { flex: 0 0 45%; position: relative; overflow: hidden; background: linear-gradient(135deg, #0d9488 0%, #0b7e74 45%, #0a5f5a 100%); }

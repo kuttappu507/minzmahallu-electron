@@ -24,6 +24,15 @@ export function CloseConfirmDialog() {
     return unsubscribe;
   }, []);
 
+  // Dismiss WITHOUT confirming ("Keep open", Escape, click-outside): tell
+  // the main process the ask was answered, so a later single ✕ click shows
+  // this dialog again instead of tripping the rapid-second-click force
+  // close. v2.7.1 — before this, only the timing separated those two cases.
+  const dismiss = () => {
+    setOpen(false);
+    try { void window.mms?.win?.cancelClose?.(); } catch { /* best effort */ }
+  };
+
   const confirmClose = async () => {
     setClosing(true);
     try { await window.mms.win.confirmClose(); } catch { /* window already gone */ }
@@ -33,7 +42,7 @@ export function CloseConfirmDialog() {
 
   if (!open) return null;
   return (
-    <Dialog open={open} onClose={() => setOpen(false)} title={t("close_confirm_title")} className="modal-sm">
+    <Dialog open={open} onClose={dismiss} title={t("close_confirm_title")} className="modal-sm">
       <div className="dlg-pad">
         <div className="dlg-hero t-em">
           <div className="dlg-hero-ic"><PowerOff size={18} /></div>
@@ -46,7 +55,7 @@ export function CloseConfirmDialog() {
           <p className="text-xs font-medium text-red-600 dark:text-red-400 bg-red-500/10 dark:bg-red-400/10 border border-red-500/30 rounded-full px-3 py-1 text-center">{t("close_feedback")}</p>
         </div>
         <div className="dlg-actions">
-          <Button variant="secondary" onClick={() => setOpen(false)}>{t("close_confirm_no")}</Button>
+          <Button variant="secondary" onClick={dismiss}>{t("close_confirm_no")}</Button>
           <Button variant="primary" onClick={confirmClose} disabled={closing}>{t("close_confirm_yes")}</Button>
         </div>
       </div>
