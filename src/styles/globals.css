@@ -1281,7 +1281,17 @@ html.lang-ml .global-search input { font-size: 14px; }
 body:not(.app-loaded) #root > * { visibility: hidden; }
 
 /* ===== Login page ===== */
-.login-wrap { height: 100vh; display: flex; position: relative; background: var(--bg); background-image: var(--dot); -webkit-app-region: drag; }
+/* v2.7.2 — .login-wrap used to carry -webkit-app-region: drag on the WHOLE
+   viewport, with per-button no-drag subtraction keeping the ✕/min/max
+   controls clickable. That subtraction is exactly what failed in the field
+   (Windows drag-region hit-test): "close button dead on the login window".
+   The drag region now lives ONLY in .login-drag-strip below — a titlebar
+   strip that STOPS 124px short of the right edge (3 × 40px buttons + 2px
+   gaps), so no drag region exists under the controls at all and no
+   subtraction is ever needed. Interactive layers keep their explicit
+   no-drag below (belt and suspenders; see app-region.test.ts). */
+.login-wrap { height: 100vh; display: flex; position: relative; background: var(--bg); background-image: var(--dot); }
+.login-drag-strip { position: fixed; top: 0; left: 0; right: 124px; height: 34px; z-index: 1; -webkit-app-region: drag; }
 .login-wrap input, .login-wrap button, .login-wrap .login-win-controls { -webkit-app-region: no-drag; }
 .login-win-controls { position: fixed; top: 0; right: 0; z-index: 10000; display: flex; gap: 2px; -webkit-app-region: no-drag; pointer-events: auto; }
 .login-win-controls .win-btn { width: 40px; height: 32px; border: 0; background: none; color: var(--fnt); display: grid; place-items: center; border-radius: 0; transition: 0.12s; cursor: pointer; -webkit-app-region: no-drag; pointer-events: auto; }

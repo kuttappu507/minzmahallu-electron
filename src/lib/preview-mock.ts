@@ -108,6 +108,7 @@ export function installPreviewMock() {
     close: () => ({}),
     confirmClose: () => ({}),
     cancelClose: () => ({}),
+    dialogShown: () => ({}),
     rendererReady: () => ({}),
     onAskClose: (_cb: () => void) => () => ({}),
   };

@@ -18,6 +18,13 @@ export function CloseConfirmDialog() {
   useEffect(() => {
     if (!window.mms?.win?.onAskClose) return;
     const unsubscribe = window.mms.win.onAskClose(() => {
+      // v2.7.2 — ACK FIRST, before even opening: the main process runs a
+      // 2 s fail-open watchdog on every ask (close gate in main.ts). If the
+      // ack never lands there, it force-closes on the assumption that this
+      // dialog cannot be shown. Telling main "the dialog IS up" cancels the
+      // watchdog and hands the decision to the user — however long they
+      // take to answer.
+      try { window.mms?.win?.dialogShown?.(); } catch { /* best effort */ }
       setOpen(true);
       setClosing(false);
     });

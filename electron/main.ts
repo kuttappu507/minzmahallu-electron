@@ -26,7 +26,7 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { createSplashWindow, closeSplash, showSplash, setSplashStatus, whenSplashShown } from "./splash-window.js";
 import { bootLog, bootLogError } from "./boot-log.js";
-import { getActor } from "./session.js";
+import { getActor, session } from "./session.js";
 import { ensureShortDataDir } from "./data-dir.js";
 import { isUninstallVerify, runUninstallVerifyMode } from "./uninstall-verify.js";
 import { runAutoBackup } from "./auto-backup.js";
@@ -143,6 +143,21 @@ let closeConfirmed = false;
 // cleared by win:cancel-close when the dialog is dismissed.
 let closeAskAt = 0;
 const CLOSE_FORCE_MS = 2_500;
+// v2.7.2 — ACK-based fail-open for the close gate (the real fix for the
+// reported "Close button dead on the login window"). The 2.7.1 escape hatch
+// required a SECOND ✕ click within 2.5 s — real users click once, wait
+// several seconds, click again, and the gate just re-asks forever. Now the
+// renderer must ACKNOWLEDGE the ask (win:dialog-shown, sent by the confirm
+// dialog the moment the ask arrives). If no ack lands within CLOSE_ACK_MS
+// the renderer is judged unable to show the dialog and the close proceeds
+// for real — the window can never be trapped, whatever the renderer does.
+let closeDialogAckAt = 0;
+let closeAckTimer: ReturnType<typeof setTimeout> | null = null;
+const CLOSE_ACK_MS = 2_000;
+
+function clearCloseAckTimer(): void {
+  if (closeAckTimer) { clearTimeout(closeAckTimer); closeAckTimer = null; }
+}
 
 // ---------------------------------------------------------------------------
 // Startup gate. The splash stays on screen until this is set. The hidden
@@ -549,14 +564,23 @@ function createWindow() {
   // Once the close is real, drop hidden windows FIRST so they cannot keep
   // the process (and the single-instance lock) alive after the UI is gone.
   //
-  // v2.7.1 ESCAPE HATCH (user report: Close dead on the login window): a
-  // window whose renderer cannot answer must never be trapped. If close
-  // arrives twice within CLOSE_FORCE_MS — the way real users hammer the ✕
-  // button / Alt+F4 when nothing responds — the renderer is judged unable
-  // to show the dialog and the close goes through for real. A single ask
-  // still shows the confirm dialog exactly as before, and a dismissal (the
-  // dialog's "Keep open" path) calls win:cancel-close to clear the mark, so
-  // a LATER single click re-opens the dialog instead of force-closing.
+  // v2.7.2 ROOT-CAUSE FIX (user report, THIRD time: "Close button still dead
+  // on the login window"): the ask-the-renderer dialog is exactly the part
+  // that never worked on the user's Windows machine, and the 2.7.1 escape
+  // hatch (second click within 2.5 s) does not match how humans click — a
+  // second click usually lands AFTER the hatch expired and just re-asks.
+  // Two changes close every failure path:
+  //
+  //   1. LOGGED OUT = NO GATE AT ALL. At the login screen there is nothing
+  //      to save, so ✕ / Alt+F4 / taskbar-close closes natively — the exact
+  //      same renderer-independent path as minimize (which the user confirms
+  //      works). No dialog, no ask, no timing games, nothing that CAN fail.
+  //   2. LOGGED IN = GATE WITH ACK FAIL-OPEN. The gate still asks, but the
+  //      renderer must acknowledge (win:dialog-shown) within CLOSE_ACK_MS.
+  //      No ack → the dialog cannot be shown → close proceeds for real.
+  //      Ack → the user decides, with no timeout on their answer.
+  // The v2.7.1 double-click hatch and the send-failure quit path remain as
+  // final backstops.
   mainWindow.on("close", (e) => {
     // Local alias: TS cannot narrow the captured module-level `mainWindow`
     // through the `crashed` predicate below (tsc -p electron: TS18047).
@@ -569,6 +593,19 @@ function createWindow() {
       releaseHiddenWindows();
       return;
     }
+    // (1) Nobody is signed in — the login screen. There is no unsaved state
+    // behind this window, and the confirm dialog depends on the very renderer
+    // path that failed in the field. Close natively, like any normal app:
+    // window-all-closed then quits the process (win/linux) exactly as the
+    // confirm-close path does.
+    if (!session.user) {
+      bootLog("close:login-instant");
+      closeConfirmed = true;
+      closeAskAt = 0;
+      clearCloseAckTimer();
+      releaseHiddenWindows();
+      return; // do NOT preventDefault — the close happens natively
+    }
     e.preventDefault();
     const now = Date.now();
     if (closeAskAt && now - closeAskAt < CLOSE_FORCE_MS) {
@@ -577,19 +614,39 @@ function createWindow() {
       // mount) — force the real close instead of asking a third time.
       bootLog("close:force-unanswered");
       closeConfirmed = true;
+      clearCloseAckTimer();
       releaseHiddenWindows();
       setImmediate(() => { try { w.close(); } catch { /* gone */ } });
       return;
     }
     closeAskAt = now;
+    closeDialogAckAt = 0;
     try { w.webContents.send("win:ask-close-confirm"); }
     catch {
       // Renderer can't show the dialog — don't trap a window the user can
       // never close. Quit.
+      bootLog("close:ask-send-failed");
       closeConfirmed = true;
+      clearCloseAckTimer();
       releaseHiddenWindows();
       setImmediate(() => { try { w.close(); } catch { /* gone */ } });
+      return;
     }
+    // (2) Fail-open watchdog: if the dialog never acknowledges, the gate
+    // must not hold the window hostage. On ack the timer is cancelled and
+    // the user's answer (confirm-close / cancel-close) decides — however
+    // long they take to read the dialog.
+    clearCloseAckTimer();
+    closeAckTimer = setTimeout(() => {
+      closeAckTimer = null;
+      const w2 = mainWindow;
+      if (!w2 || w2.isDestroyed()) return;
+      if (closeDialogAckAt || closeConfirmed) return;
+      bootLog("close:no-ack-force");
+      closeConfirmed = true;
+      releaseHiddenWindows();
+      setImmediate(() => { try { w2.close(); } catch { /* gone */ } });
+    }, CLOSE_ACK_MS);
   });
   // DEV-ONLY LOADING (v2.7.0 tightened): the dev server and DevTools are
   // opted into by BOTH a non-packaged runtime AND NODE_ENV=development AND
@@ -636,8 +693,21 @@ ipcMain.handle("win:close", (e) => {
 // Sent by the close-confirm dialog when the user dismisses it ("Keep open",
 // Escape, click-outside): clears the pending-ask mark so a LATER close
 // attempt shows the dialog again instead of being read as "renderer never
-// answered". v2.7.1, see the close gate below.
-ipcMain.handle("win:cancel-close", () => { closeAskAt = 0; });
+// answered". v2.7.1, see the close gate below. v2.7.2 also cancels the
+// ack-watchdog: the dialog HAS answered, the user just chose to stay.
+ipcMain.handle("win:cancel-close", () => { closeAskAt = 0; clearCloseAckTimer(); });
+// v2.7.2 ACK — fire-and-forget reply from the close-confirm dialog the
+// moment the "Close MMS?" ask arrives and the dialog is actually shown.
+// This is the signal the gate's fail-open watchdog waits for: ack received
+// → the user is looking at a live dialog and THEIR answer decides; no ack
+// within CLOSE_ACK_MS → the renderer cannot show the dialog → close for
+// real (see the close gate in createWindow). A plain .on (not .handle):
+// the dialog must not await this.
+ipcMain.on("win:dialog-shown", () => {
+  closeDialogAckAt = Date.now();
+  clearCloseAckTimer();
+  bootLog("close:dialog-ack");
+});
 // Called by the close-confirm dialog after the user picks "Close app".
 // Closing the window is not enough: a hidden print window used to keep the
 // process running in the background. confirm-close always starts a real quit
@@ -647,6 +717,7 @@ ipcMain.handle("win:confirm-close", () => {
   // Set before close() so a second click during teardown cannot revive a
   // window inside the process that is about to exit.
   quitRequested = true;
+  clearCloseAckTimer();
   releaseHiddenWindows();
   try { mainWindow?.close(); } catch { /* already gone */ }
   if (process.platform !== "darwin") {

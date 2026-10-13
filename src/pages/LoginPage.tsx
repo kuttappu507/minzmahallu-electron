@@ -59,6 +59,15 @@ export function LoginPage() {
   const handleSetup = async (e: React.FormEvent) => { e.preventDefault(); setLoading(true); setError(null); if (password !== confirmPassword) { setError(copy.mismatch); setLoading(false); return; } const policyKey = passwordPolicyError(password); if (policyKey) { setError(policyKey === "pwd_policy_min" ? copy.pwdShort : copy.pwdWeak); setLoading(false); return; } try { const result=await (window as any).mms.auth.createInitialAdministrator(username,fullName,password); if(result.success&&result.user){clearCachedSetupStatus();setUser(result.user);toast.success(copy.welcome);navigate("/");}else{setError(friendlyAuthError(result.error||copy.unexpected, pwdT));} } catch(err:any){setError(friendlyAuthError(err?.message||copy.unexpected, pwdT));} finally{setLoading(false);} };
   return (
     <div className="login-wrap">
+      {/* v2.7.2 — the ONLY drag region on the login screen, and it stops
+          124px short of the right edge so the ✕/min/max buttons never sit
+          above ANY drag region. The old whole-viewport drag (.login-wrap)
+          depended on per-button no-drag subtraction surviving every
+          Chromium hit-test quirk; on the user's Windows machine it did not.
+          With the strip, there is simply no drag region under the buttons
+          to fight with — and the window still drags normally by its top
+          edge, exactly like a standard titlebar. */}
+      <div className="login-drag-strip" aria-hidden="true" />
       <div className="login-win-controls">
         <button className="win-btn" onClick={()=>window.mms.win.minimize()} title={copy.minimize}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M5 12h14"/></svg></button>
         <button className="win-btn" onClick={()=>window.mms.win.maximize()} title={copy.maximize}><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="5" y="5" width="14" height="14" rx="2"/></svg></button>
