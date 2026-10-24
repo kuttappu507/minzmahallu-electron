@@ -97,8 +97,11 @@ dependencies {
 
     implementation(libs.androidx.exifinterface)
 
-    // PDF output — receipts, certificates, the audit pack.
-    implementation(libs.androidx.pdf)
+    // No androidx.pdf here, deliberately. That artifact is a PDF *viewer*
+    // widget and declares minSdk 35, which would break the manifest merge for
+    // an app whose minSdk is 26. Generating receipts and certificates uses the
+    // framework's android.graphics.pdf.PdfDocument, available since API 19 —
+    // see app/src/main/kotlin/app/minzmahallu/print/PdfRenderer.kt.
 
     // Barcode scanning for token check-in and certificate verification.
     implementation(libs.camerax.core)
