@@ -185,10 +185,15 @@ data class Period(
 )
 
 /** How often the mahallu bills a household. Mirrors `settings.subscription_frequency`. */
-enum class SubscriptionFrequency {
+enum class SubscriptionFrequency : WireEnum {
     Monthly,
     Quarterly,
     ;
+
+    // Stored in SQLite exactly as the entry name, which is what `from` below
+    // already compares against, so making the wire value the name keeps every
+    // existing database readable.
+    override val wire: String get() = name
 
     companion object {
         fun from(raw: String?): SubscriptionFrequency =
