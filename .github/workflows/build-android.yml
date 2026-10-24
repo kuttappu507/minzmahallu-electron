@@ -151,7 +151,10 @@ jobs:
           # failure is invisible to anyone who cannot open the job log.
           if [ "$errors" = "0" ]; then
             echo "No Kotlin compiler errors; treating this as a Gradle-level failure."
+          else
+            echo "Kotlin compiler errors: $errors"
           fi
+          echo "----- what went wrong -----"
           grep -A 25 'What went wrong' /tmp/build.log | head -60 | while IFS= read -r line; do
             case "$line" in
               '') continue ;;

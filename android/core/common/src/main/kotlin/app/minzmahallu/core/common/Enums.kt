@@ -13,7 +13,7 @@ interface WireEnum {
     val wire: String
 }
 
-inline fun <reified T : WireEnum> wireTo(value: String?, default: T): T =
+inline fun <reified T> wireTo(value: String?, default: T): T where T : Enum<T>, T : WireEnum =
     enumValues<T>().firstOrNull { it.wire.equals(value?.trim(), ignoreCase = true) } ?: default
 
 fun WireEnum?.orDash(): String = this?.wire ?: "—"

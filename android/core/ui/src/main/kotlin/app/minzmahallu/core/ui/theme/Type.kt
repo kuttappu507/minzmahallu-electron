@@ -28,19 +28,29 @@ val PoppinsFamily = FontFamily(
     Font(R.font.poppins_bold, FontWeight.Bold),
 )
 
-val MalayalamFamily = FontFamily(
-    Font(R.font.anek_malayalam_regular, FontWeight.Normal),
-    Font(R.font.anek_malayalam_medium, FontWeight.Medium),
-    Font(R.font.anek_malayalam_semibold, FontWeight.SemiBold),
-    Font(R.font.anek_malayalam_bold, FontWeight.Bold),
-)
+/**
+ * Malayalam falls back to the platform's own Malayalam face.
+ *
+ * The desktop ships Anek Malayalam, but only as a variable WOFF2, and Android
+ * cannot consume WOFF2 — it needs TTF/OTF. Rather than bundle nothing and
+ * pretend, this points at the system family, which on every Android that
+ * supports Malayalam is a Noto face designed for the script. Dropping the four
+ * static Anek TTFs into `res/font/` and restoring them here is a drop-in
+ * upgrade; see core/ui/FONTS.md.
+ */
+val MalayalamFamily = FontFamily.Default
 
-/** Malayalam first, Poppins as the Latin/numeral face. */
+/**
+ * Poppins for Latin, numerals and codes, with Malayalam resolved by font
+ * fallback: Compose walks the list per run of text, so a Poppins face that
+ * carries no Malayalam glyphs hands those characters to the platform face.
+ *
+ * The desktop had to invert this order to defeat Chromium's per-character
+ * matching. Android does not need that, and keeping Poppins first is what
+ * preserves the look — Latin text stays in the brand face instead of being
+ * rendered by whichever system font happens to come first.
+ */
 val AppFontFamily = FontFamily(
-    Font(R.font.anek_malayalam_regular, FontWeight.Normal),
-    Font(R.font.anek_malayalam_medium, FontWeight.Medium),
-    Font(R.font.anek_malayalam_semibold, FontWeight.SemiBold),
-    Font(R.font.anek_malayalam_bold, FontWeight.Bold),
     Font(R.font.poppins_regular, FontWeight.Normal),
     Font(R.font.poppins_medium, FontWeight.Medium),
     Font(R.font.poppins_semibold, FontWeight.SemiBold),
