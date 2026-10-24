@@ -338,20 +338,18 @@ fun DashboardScreen(
                             Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
+                            val slices = listOf(
+                                DonutSlice("Income", income, colors.accent),
+                                DonutSlice("Expense", expense, colors.danger),
+                            )
                             DonutChart(
-                                slices = listOf(
-                                    DonutSlice(income, colors.accent),
-                                    DonutSlice(expense, colors.danger),
-                                ),
+                                slices = slices,
                                 size = 110.dp,
-                                strokeWidth = 14.dp,
+                                thickness = 14.dp,
                             )
                             Spacer(Modifier.width(20.dp))
                             DonutLegend(
-                                items = listOf(
-                                    Triple("Income", income, colors.accent),
-                                    Triple("Expense", expense, colors.danger),
-                                ),
+                                slices = slices,
                                 modifier = Modifier.weight(1f),
                             )
                         }
@@ -372,7 +370,7 @@ fun DashboardScreen(
         }
 
         // Recent Audit Activity
-        if (state.recentActivity.isNotEmpty()) {
+        if (state.recent.isNotEmpty()) {
             item {
                 Card {
                     Row(
@@ -389,7 +387,7 @@ fun DashboardScreen(
                         )
                     }
                     Spacer(Modifier.height(12.dp))
-                    state.recentActivity.take(4).forEachIndexed { index, entry ->
+                    state.recent.take(4).forEachIndexed { index, entry ->
                         if (index > 0) Hairline(Modifier.padding(vertical = 8.dp))
                         RecordRow(
                             primary = entry.description.ifBlank { entry.action },
