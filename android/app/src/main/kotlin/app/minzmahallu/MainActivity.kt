@@ -60,8 +60,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         // Draw under both bars; the palette below is re-applied on theme change.
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.auto(Color.Transparent, Color.Transparent),
-            navigationBarStyle = SystemBarStyle.auto(Color.Transparent, Color.Transparent),
+            statusBarStyle = SystemBarStyle.auto(
+                android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.TRANSPARENT,
+            ),
+            navigationBarStyle = SystemBarStyle.auto(
+                android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.TRANSPARENT,
+            ),
         )
         super.onCreate(savedInstanceState)
 

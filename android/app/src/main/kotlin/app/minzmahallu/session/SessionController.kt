@@ -10,7 +10,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import app.minzmahallu.core.common.Role
 import app.minzmahallu.core.common.wireTo
-import app.minzmahallu.core.domain.Session
+import app.minzmahallu.core.domain.auth.Session
 import app.minzmahallu.i18n.Language
 import app.minzmahallu.i18n.stringsFor
 import app.minzmahallu.i18n.Strings
