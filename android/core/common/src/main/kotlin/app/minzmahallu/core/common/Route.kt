@@ -9,7 +9,14 @@ package app.minzmahallu.core.common
  * deep links and process-death restore both work without a bundle dance.
  */
 enum class Route(val path: String) {
-    Dashboard(""),
+    /**
+     * The desktop app serves the dashboard at `/`. Jetpack Navigation rejects an
+     * empty route outright — `NavDestination.setRoute` throws
+     * "Cannot have an empty route" — so the root is spelled `home` here. The
+     * path is an internal navigation key, never shown to a user, and every
+     * consumer reads it through `Route.Dashboard.path`.
+     */
+    Dashboard("home"),
     Families("families"),
     FamilyDetail("family/{familyId}"),
     Members("members"),
