@@ -42,6 +42,7 @@ import app.minzmahallu.core.ui.foundation.animatePressScale
 import app.minzmahallu.core.ui.foundation.pressHighlight
 import app.minzmahallu.core.ui.foundation.rememberPressState
 import app.minzmahallu.core.ui.theme.MahalluTheme
+import app.minzmahallu.core.ui.theme.Motion
 import app.minzmahallu.core.ui.theme.ModuleTint
 import app.minzmahallu.core.ui.theme.Shapes
 import app.minzmahallu.core.ui.theme.tint
@@ -294,13 +295,17 @@ fun ScreenHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (back != null) {
-            IconButton(onClick = back, size = 38.dp) {
-                AppText(
-                    text = "back",
-                    style = MahalluTheme.type.label,
-                    color = colors.textSecondary,
-                )
-            }
+            IconButton(
+                onClick = back,
+                size = 38.dp,
+                icon = {
+                    AppText(
+                        text = "back",
+                        style = MahalluTheme.type.label,
+                        color = colors.textSecondary,
+                    )
+                },
+            )
             Spacer(Modifier.width(8.dp))
         }
         Column(Modifier.weight(1f)) {

@@ -217,7 +217,7 @@ fun Pill(
     Row(
         modifier
             .clip(RoundedCornerShape(Shapes.pill))
-            .background(if (filled) color else tint.copy(alpha = if (colors.isDark) 0.18f else 0.12f))
+            .background(if (filled) tint else tint.copy(alpha = if (colors.isDark) 0.18f else 0.12f))
             .padding(horizontal = 10.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
