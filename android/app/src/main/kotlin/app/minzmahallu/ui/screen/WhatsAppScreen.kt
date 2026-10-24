@@ -25,10 +25,10 @@ import app.minzmahallu.core.ui.component.MahalluButton
 import app.minzmahallu.core.ui.component.MahalluButtonSize
 import app.minzmahallu.core.ui.component.MahalluButtonVariant
 import app.minzmahallu.core.ui.component.Card
-import app.minzmahallu.core.ui.component.DetailRow
+import app.minzmahallu.ui.common.DetailRow
 import app.minzmahallu.core.ui.component.MahalluTextField
 import app.minzmahallu.core.ui.component.Pill
-import app.minzmahallu.core.ui.component.RecordRow
+import app.minzmahallu.ui.common.RecordRow
 import app.minzmahallu.core.ui.foundation.AppText
 import app.minzmahallu.core.ui.foundation.Eyebrow
 import app.minzmahallu.core.ui.theme.MahalluTheme

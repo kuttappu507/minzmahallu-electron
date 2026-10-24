@@ -15,7 +15,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import app.minzmahallu.AuthRoutes
+import app.minzmahallu.core.common.AuthRoutes
 import app.minzmahallu.MainIntent
 import app.minzmahallu.MainUiState
 import app.minzmahallu.core.common.Route

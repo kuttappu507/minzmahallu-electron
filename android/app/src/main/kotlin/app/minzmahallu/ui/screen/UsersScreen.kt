@@ -23,7 +23,7 @@ import app.minzmahallu.core.ui.component.BottomSheet
 import app.minzmahallu.core.ui.component.MahalluTextField
 import app.minzmahallu.core.ui.component.PasswordField
 import app.minzmahallu.core.ui.component.PhoneField
-import app.minzmahallu.core.ui.component.RecordRow
+import app.minzmahallu.ui.common.RecordRow
 import app.minzmahallu.core.ui.component.SheetFooter
 import app.minzmahallu.core.ui.component.Toggle
 import app.minzmahallu.session.SessionController

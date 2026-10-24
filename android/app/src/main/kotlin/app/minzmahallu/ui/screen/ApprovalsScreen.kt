@@ -22,11 +22,11 @@ import app.minzmahallu.core.domain.approvals.ApprovalsRepository
 import app.minzmahallu.core.domain.approvals.PendingEntry
 import app.minzmahallu.core.ui.component.BottomSheet
 import app.minzmahallu.core.ui.component.Card
-import app.minzmahallu.core.ui.component.DetailRow
+import app.minzmahallu.ui.common.DetailRow
 import app.minzmahallu.core.ui.component.EmptyState
 import app.minzmahallu.core.ui.component.ListSkeleton
 import app.minzmahallu.core.ui.component.MahalluTextField
-import app.minzmahallu.core.ui.component.RecordRow
+import app.minzmahallu.ui.common.RecordRow
 import app.minzmahallu.core.ui.component.ScreenHeader
 import app.minzmahallu.core.ui.component.SheetFooter
 import app.minzmahallu.core.ui.foundation.Amount

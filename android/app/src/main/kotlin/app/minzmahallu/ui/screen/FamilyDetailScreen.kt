@@ -21,14 +21,14 @@ import app.minzmahallu.MainIntent
 import app.minzmahallu.core.common.IstDate
 import app.minzmahallu.core.common.Phone
 import app.minzmahallu.core.ui.component.Card
-import app.minzmahallu.core.ui.component.DetailRow
+import app.minzmahallu.ui.common.DetailRow
 import app.minzmahallu.core.ui.component.HeroPanel
 import app.minzmahallu.core.ui.component.IconButton
 import app.minzmahallu.core.ui.component.ListSkeleton
 import app.minzmahallu.core.ui.component.Pill
-import app.minzmahallu.core.ui.component.RecordRow
+import app.minzmahallu.ui.common.RecordRow
 import app.minzmahallu.core.ui.component.ScreenHeader
-import app.minzmahallu.core.ui.component.SectionTitle
+import app.minzmahallu.ui.common.SectionTitle
 import app.minzmahallu.core.ui.component.StatusPill
 import app.minzmahallu.core.ui.component.chart.StackedBar
 import app.minzmahallu.core.ui.foundation.Amount

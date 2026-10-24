@@ -22,9 +22,9 @@ import app.minzmahallu.core.domain.certificate.CertificateRepository
 import app.minzmahallu.core.model.CertificateWithRefs
 import app.minzmahallu.core.ui.component.BottomSheet
 import app.minzmahallu.core.ui.component.Card
-import app.minzmahallu.core.ui.component.DetailRow
+import app.minzmahallu.ui.common.DetailRow
 import app.minzmahallu.core.ui.component.MahalluTextField
-import app.minzmahallu.core.ui.component.RecordRow
+import app.minzmahallu.ui.common.RecordRow
 import app.minzmahallu.core.ui.component.SheetFooter
 import app.minzmahallu.session.SessionController
 import app.minzmahallu.ui.common.ModuleListScreen

@@ -29,7 +29,7 @@ import app.minzmahallu.core.domain.subscription.SubscriptionRepository
 import app.minzmahallu.core.ui.component.MahalluButton
 import app.minzmahallu.core.ui.component.MahalluButtonVariant
 import app.minzmahallu.core.ui.component.Card
-import app.minzmahallu.core.ui.component.DetailRow
+import app.minzmahallu.ui.common.DetailRow
 import app.minzmahallu.core.ui.component.FilterChip
 import app.minzmahallu.core.ui.component.ScreenHeader
 import app.minzmahallu.core.ui.component.chart.BarChart

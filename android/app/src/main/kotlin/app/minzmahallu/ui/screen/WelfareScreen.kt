@@ -28,9 +28,9 @@ import app.minzmahallu.core.ui.component.MahalluButton
 import app.minzmahallu.core.ui.component.MahalluButtonSize
 import app.minzmahallu.core.ui.component.MahalluButtonVariant
 import app.minzmahallu.core.ui.component.Card
-import app.minzmahallu.core.ui.component.DetailRow
+import app.minzmahallu.ui.common.DetailRow
 import app.minzmahallu.core.ui.component.MahalluTextField
-import app.minzmahallu.core.ui.component.RecordRow
+import app.minzmahallu.ui.common.RecordRow
 import app.minzmahallu.core.ui.component.SecureActionDialog
 import app.minzmahallu.core.ui.component.SheetFooter
 import app.minzmahallu.core.ui.foundation.AppText

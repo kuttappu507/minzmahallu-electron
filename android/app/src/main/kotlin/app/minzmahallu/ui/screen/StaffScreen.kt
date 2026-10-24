@@ -28,11 +28,11 @@ import app.minzmahallu.core.model.StaffPaymentWithStaff
 import app.minzmahallu.core.ui.component.AmountField
 import app.minzmahallu.core.ui.component.BottomSheet
 import app.minzmahallu.core.ui.component.Card
-import app.minzmahallu.core.ui.component.DetailRow
+import app.minzmahallu.ui.common.DetailRow
 import app.minzmahallu.core.ui.component.MahalluTextField
 import app.minzmahallu.core.ui.component.PhoneField
-import app.minzmahallu.core.ui.component.RecordRow
-import app.minzmahallu.core.ui.component.SectionTitle
+import app.minzmahallu.ui.common.RecordRow
+import app.minzmahallu.ui.common.SectionTitle
 import app.minzmahallu.core.ui.component.SheetFooter
 import app.minzmahallu.session.SessionController
 import app.minzmahallu.ui.common.ModuleListScreen

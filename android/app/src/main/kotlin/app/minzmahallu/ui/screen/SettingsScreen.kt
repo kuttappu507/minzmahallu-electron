@@ -30,7 +30,7 @@ import app.minzmahallu.core.ui.component.AmountField
 import app.minzmahallu.core.ui.component.MahalluButton
 import app.minzmahallu.core.ui.component.MahalluButtonVariant
 import app.minzmahallu.core.ui.component.Card
-import app.minzmahallu.core.ui.component.DetailRow
+import app.minzmahallu.ui.common.DetailRow
 import app.minzmahallu.core.ui.component.ListSkeleton
 import app.minzmahallu.core.ui.component.MahalluTextField
 import app.minzmahallu.core.ui.component.PasswordField

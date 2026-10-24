@@ -28,7 +28,7 @@ import app.minzmahallu.core.ui.component.MahalluButtonSize
 import app.minzmahallu.core.ui.component.MahalluButtonVariant
 import app.minzmahallu.core.ui.component.Card
 import app.minzmahallu.core.ui.component.MahalluTextField
-import app.minzmahallu.core.ui.component.RecordRow
+import app.minzmahallu.ui.common.RecordRow
 import app.minzmahallu.core.ui.component.SearchBar
 import app.minzmahallu.core.ui.component.StatusPill
 import app.minzmahallu.core.ui.component.chart.StackedBar

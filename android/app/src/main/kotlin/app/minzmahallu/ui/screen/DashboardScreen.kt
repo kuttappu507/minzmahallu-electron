@@ -31,7 +31,7 @@ import app.minzmahallu.core.ui.component.HeroPanel
 import app.minzmahallu.core.ui.component.IconPlate
 import app.minzmahallu.core.ui.component.ListSkeleton
 import app.minzmahallu.core.ui.component.ModuleTile
-import app.minzmahallu.core.ui.component.RecordRow
+import app.minzmahallu.ui.common.RecordRow
 import app.minzmahallu.core.ui.component.ScreenHeader
 import app.minzmahallu.core.ui.component.Surface
 import app.minzmahallu.core.ui.component.chart.ChartPoint

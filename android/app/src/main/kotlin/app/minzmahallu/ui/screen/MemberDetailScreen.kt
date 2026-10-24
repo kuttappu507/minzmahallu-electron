@@ -29,12 +29,12 @@ import app.minzmahallu.core.domain.member.MemberRepository
 import app.minzmahallu.core.model.CertificateEntity
 import app.minzmahallu.core.model.MemberEntity
 import app.minzmahallu.core.ui.component.Card
-import app.minzmahallu.core.ui.component.DetailRow
+import app.minzmahallu.ui.common.DetailRow
 import app.minzmahallu.core.ui.component.HeroPanel
 import app.minzmahallu.core.ui.component.ListSkeleton
-import app.minzmahallu.core.ui.component.RecordRow
+import app.minzmahallu.ui.common.RecordRow
 import app.minzmahallu.core.ui.component.ScreenHeader
-import app.minzmahallu.core.ui.component.SectionTitle
+import app.minzmahallu.ui.common.SectionTitle
 import app.minzmahallu.core.ui.component.StatusPill
 import app.minzmahallu.core.ui.foundation.Amount
 import app.minzmahallu.core.ui.foundation.AppText
