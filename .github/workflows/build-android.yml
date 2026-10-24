@@ -15,7 +15,11 @@ name: Build Android APK
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      # The port lives on its own branch until it is merged, and a workflow that
+      # only fires on main cannot verify the code it is meant to build.
+      - "arena/**"
     tags: ["v*"]
   pull_request:
     branches: [main]
