@@ -122,7 +122,10 @@ jobs:
             echo "No build log was produced."
             exit 0
           fi
-          errors=$(grep -c '^e: ' /tmp/build.log || true)
+          # Kotlin reports `e: path:line:col: message`; javac, which compiles
+          # the sources KSP generates, reports `path:line: error: message`.
+          # Both have to be surfaced or a generated-code failure is invisible.
+          errors=$(grep -cE '^e: |: error: ' /tmp/build.log || true)
           echo "Compiler errors found: $errors"
           # A Kotlin diagnostic can span several lines: the candidate list that
           # explains an "unresolved reference" is indented beneath the `e:` line.
@@ -138,6 +141,7 @@ jobs:
               buf = ""
             }
             /^e: /    { flush(); buf = $0; next }
+            /: error: / { flush(); buf = $0; next }
             /^[ew]: / { flush(); next }
             # Only an indented continuation belongs to the open error; anything
             # else ("> Task ...", "BUILD FAILED") closes it.
@@ -150,9 +154,9 @@ jobs:
           # wrong" section. That has to reach the annotations too, or the
           # failure is invisible to anyone who cannot open the job log.
           if [ "$errors" = "0" ]; then
-            echo "No Kotlin compiler errors; treating this as a Gradle-level failure."
+            echo "No Kotlin or javac errors; treating this as a Gradle-level failure."
           else
-            echo "Kotlin compiler errors: $errors"
+            echo "Compiler errors (Kotlin + javac): $errors"
           fi
           echo "----- what went wrong -----"
           grep -A 25 'What went wrong' /tmp/build.log | head -60 | while IFS= read -r line; do
