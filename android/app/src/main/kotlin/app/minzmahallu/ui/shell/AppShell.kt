@@ -177,7 +177,7 @@ private fun DrawerItem(
         animationSpec = Motion.emphasized(240),
         label = "drawer-bg",
     )
-    val shape = RoundedCornerShape(0, 18.dp, 18.dp, 0)
+    val shape = RoundedCornerShape(0.dp, 18.dp, 18.dp, 0.dp)
 
     Row(
         Modifier
