@@ -233,7 +233,7 @@ fun StaffScreen(
                 salaries.take(8).forEach { payment ->
                     DetailRow(
                         label = "${payment.payment.periodMonth}/${payment.payment.periodYear}",
-                        value = "${payment.staff?.name.orEmpty()} · ₹" +
+                        value = "${payment.staffName.orEmpty()} · ₹" +
                             app.minzmahallu.core.common.IndianGrouping.formatAmount(payment.payment.amount),
                     )
                 }

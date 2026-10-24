@@ -159,7 +159,7 @@ fun FamilyDetailScreen(
                         "disabled"
                     },
                 )
-                if (!family.notes.isNullOrBlank()) DetailRow("Notes", family.notes)
+                family.notes?.takeIf { it.isNotBlank() }?.let { DetailRow("Notes", it) }
                 DetailRow("Registered", IstDate.fmtDdMmYyyy(family.createdAt))
             }
         }

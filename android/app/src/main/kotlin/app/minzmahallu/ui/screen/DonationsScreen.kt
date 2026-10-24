@@ -83,7 +83,7 @@ fun DonationsScreen(
             ).joinToString(" · "),
             status = when {
                 row.donation.receiptGeneratedAt != null -> "Receipt"
-                else -> row.donation.status
+                else -> row.donation.approvalStatus
             },
             amount = row.donation.amount,
             dimmed = row.donation.receiptGeneratedAt != null,

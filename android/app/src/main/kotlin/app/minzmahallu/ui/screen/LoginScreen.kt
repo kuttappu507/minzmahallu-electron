@@ -141,7 +141,7 @@ fun LoginScreen(
                         AppText(
                             text = "Too many failed attempts. Try again in " +
                                 "${state.lockedMinutes} minute" +
-                                if (state.lockedMinutes == 1) "" else "s" + ".",
+                                if (state.lockedMinutes == 1L) "" else "s" + ".",
                             style = MahalluTheme.type.caption,
                             color = colors.textSecondary,
                         )
@@ -159,7 +159,7 @@ fun LoginScreen(
                     loading = state.busy,
                     enabled = state.username.isNotBlank() &&
                         state.password.isNotEmpty() &&
-                        state.lockedMinutes == 0,
+                        state.lockedMinutes == 0L,
                 )
             }
             Spacer(Modifier.height(40.dp))

@@ -94,11 +94,26 @@ fun CommitteeScreen(
                     primaryLabel = if (d.id == null) "Create" else "Save",
                     onPrimary = viewModel::save,
                     onSecondary = viewModel::closeEditor,
-                    primaryEnabled = d.name.isNotBlank(),
+                    primaryEnabled = d.name.isNotBlank() &&
+                        (d.id == null || (d.adminPassword.isNotEmpty() && d.reason.isNotBlank())),
                     busy = state.busy,
                 )
             },
         ) {
+            if (d.id != null) {
+                MahalluTextField(
+                    value = d.adminPassword,
+                    onValueChange = { viewModel.edit { copy(adminPassword = it) } },
+                    label = "Your password",
+                    singleLine = true,
+                )
+                MahalluTextField(
+                    value = d.reason,
+                    onValueChange = { viewModel.edit { copy(reason = it) } },
+                    label = "Reason for this edit",
+                    singleLine = false,
+                )
+            }
             MahalluTextField(
                 value = d.name,
                 onValueChange = { viewModel.edit { copy(name = it) } },
@@ -156,6 +171,10 @@ data class CommitteeDraft(
     val phone: String = "",
     val termStart: String = IstDate.today(),
     val termEnd: String = "",
+    // CommitteeRepository.update verifies the actor's password and records why
+    // the record changed, so an edit cannot be saved without both.
+    val adminPassword: String = "",
+    val reason: String = "",
 )
 
 @HiltViewModel
@@ -236,7 +255,8 @@ class CommitteeViewModel @Inject constructor(
                 termEnd = d.termEnd.ifBlank { null },
             )
             runCatching {
-                if (d.id == null) committee.create(input) else committee.update(d.id, input)
+                if (d.id == null) committee.create(input)
+                else committee.update(d.id, input, d.adminPassword, d.reason.trim())
             }.onSuccess {
                 patch { copy(busy = false) }
                 _editor.value = Editor()

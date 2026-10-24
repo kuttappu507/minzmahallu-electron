@@ -48,6 +48,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -273,9 +274,9 @@ fun SettingsScreen(
                     enabled = PasswordPolicy.isValid(state.newPassword),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                if (state.fingerprint != null) {
+                state.fingerprint?.let { fingerprint ->
                     Spacer(Modifier.height(18.dp))
-                    DetailRow("Device fingerprint", state.fingerprint)
+                    DetailRow("Device fingerprint", fingerprint)
                     AppText(
                         text = "Certificate QR codes are signed with a key held on this device. " +
                             "Changing devices invalidates codes already issued.",

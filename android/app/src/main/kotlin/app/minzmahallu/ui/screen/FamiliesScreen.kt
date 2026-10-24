@@ -95,7 +95,7 @@ fun FamiliesScreen(
             title = action.title,
             reason = action.reason,
             error = state.secureError,
-            loading = state.busy,
+            busy = state.busy,
         )
     }
 
