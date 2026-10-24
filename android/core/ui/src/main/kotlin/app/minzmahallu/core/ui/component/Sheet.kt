@@ -241,3 +241,150 @@ fun Dialog(
         )
     }
 }
+
+/**
+ * The confirm-delete dialog. It carries the record's name into the message so
+ * the operator can see exactly what they are about to remove.
+ */
+@Composable
+fun ConfirmDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+    title: String,
+    message: String,
+    confirmLabel: String = "Delete",
+    modifier: Modifier = Modifier,
+    destructive: Boolean = true,
+) {
+    val colors = MahalluTheme.colors
+    Dialog(
+        onDismiss = onDismiss,
+        modifier = modifier,
+    ) {
+        if (destructive) {
+            Eyebrow("cannot be undone", color = colors.danger)
+            Spacer(Modifier.height(4.dp))
+        }
+        AppText(
+            text = title,
+            style = MahalluTheme.type.title,
+            color = colors.textPrimary,
+        )
+        Spacer(Modifier.height(8.dp))
+        AppText(
+            text = message,
+            style = MahalluTheme.type.body,
+            color = colors.textSecondary,
+        )
+        Spacer(Modifier.height(20.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MahalluButton(
+                onClick = onDismiss,
+                variant = ButtonVariant.Ghost,
+                text = "Cancel",
+            )
+            MahalluButton(
+                onClick = onConfirm,
+                variant = if (destructive) ButtonVariant.Danger else ButtonVariant.Primary,
+                text = confirmLabel,
+            )
+        }
+    }
+}
+
+/**
+ * The secure-action dialog: destructive master-data operations require the
+ * administrator's password to be re-entered first.
+ */
+@Composable
+fun SecureActionDialog(
+    onDismiss: () -> Unit,
+    onVerify: (String) -> Unit,
+    title: String,
+    reason: String,
+    modifier: Modifier = Modifier,
+    error: String? = null,
+    busy: Boolean = false,
+) {
+    var password by remember { androidx.compose.runtime.mutableStateOf("") }
+    val colors = MahalluTheme.colors
+    Dialog(
+        onDismiss = onDismiss,
+        modifier = modifier,
+    ) {
+        Eyebrow("administrator re-authentication", color = colors.danger)
+        Spacer(Modifier.height(4.dp))
+        AppText(
+            text = title,
+            style = MahalluTheme.type.title,
+            color = colors.textPrimary,
+        )
+        Spacer(Modifier.height(8.dp))
+        AppText(
+            text = reason,
+            style = MahalluTheme.type.body,
+            color = colors.textSecondary,
+        )
+        Spacer(Modifier.height(16.dp))
+        PasswordField(
+            value = password,
+            onValueChange = { password = it },
+            label = "Your password",
+            error = error,
+        )
+        Spacer(Modifier.height(20.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MahalluButton(onClick = onDismiss, variant = ButtonVariant.Ghost, text = "Cancel")
+            MahalluButton(
+                onClick = { onVerify(password) },
+                variant = ButtonVariant.Danger,
+                text = "Confirm",
+                enabled = password.isNotEmpty() && !busy,
+            )
+        }
+    }
+}
+
+/** Helper for two-button footers in edit sheets. */
+@Composable
+fun SheetFooter(
+    primaryLabel: String,
+    onPrimary: () -> Unit,
+    modifier: Modifier = Modifier,
+    secondaryLabel: String = "Cancel",
+    onSecondary: (() -> Unit)? = null,
+    primaryEnabled: Boolean = true,
+    busy: Boolean = false,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (onSecondary != null) {
+            MahalluButton(
+                onClick = onSecondary,
+                variant = ButtonVariant.Ghost,
+                text = secondaryLabel,
+                modifier = Modifier.weight(1f),
+                size = ButtonSize.Large,
+            )
+        }
+        MahalluButton(
+            onClick = onPrimary,
+            text = primaryLabel,
+            enabled = primaryEnabled,
+            loading = busy,
+            modifier = Modifier.weight(1.4f),
+            size = ButtonSize.Large,
+        )
+    }
+}

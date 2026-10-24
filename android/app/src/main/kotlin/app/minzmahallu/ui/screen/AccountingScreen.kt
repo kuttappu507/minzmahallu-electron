@@ -30,6 +30,7 @@ import app.minzmahallu.core.ui.component.AmountField
 import app.minzmahallu.core.ui.component.BottomSheet
 import app.minzmahallu.core.ui.component.Card
 import app.minzmahallu.ui.common.DetailRow
+import app.minzmahallu.core.ui.component.SheetFooter
 import app.minzmahallu.core.ui.component.MahalluTextField
 import app.minzmahallu.core.ui.component.PasswordField
 import app.minzmahallu.ui.common.RecordRow
@@ -68,12 +69,13 @@ fun AccountingScreen(
     val summary by viewModel.summary.collectAsStateWithLifecycle()
     val editor by viewModel.editor.collectAsStateWithLifecycle()
     val voidPrompt by viewModel.voidPrompt.collectAsStateWithLifecycle()
+    val presetValue by viewModel.preset.collectAsStateWithLifecycle()
     val colors = MahalluTheme.colors
 
     Column(Modifier.fillMaxWidth()) {
         Card(
             title = "Unified ledger",
-            eyebrow = viewModel.preset.value,
+            eyebrow = presetValue,
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp),
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -126,7 +128,7 @@ fun AccountingScreen(
                     onClick = viewModel::cyclePreset,
                     variant = app.minzmahallu.core.ui.component.ButtonVariant.Secondary,
                     size = app.minzmahallu.core.ui.component.ButtonSize.Small,
-                    text = viewModel.preset.value.replace('_', ' '),
+                    text = presetValue.replace('_', ' '),
                 )
             },
             onRefresh = {
