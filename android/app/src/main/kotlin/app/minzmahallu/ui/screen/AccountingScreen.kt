@@ -166,7 +166,7 @@ fun AccountingScreen(
                     onPrimary = viewModel::save,
                     onSecondary = viewModel::closeEditor,
                     primaryEnabled = (d.amount.toDoubleOrNull() ?: 0.0) > 0.0 && d.accountId != null,
-                    loading = state.busy,
+                    busy = state.busy,
                 )
             },
         ) {
@@ -251,7 +251,7 @@ fun AccountingScreen(
                     onPrimary = viewModel::submitVoid,
                     onSecondary = viewModel::closeVoid,
                     primaryEnabled = prompt.reason.isNotBlank() && prompt.password.isNotEmpty(),
-                    loading = state.busy,
+                    busy = state.busy,
                 )
             },
         ) {
@@ -373,7 +373,7 @@ class AccountingViewModel @Inject constructor(
         patch { copy(error = null) }
     }
 
-    inline fun edit(crossinline transform: LedgerDraft.() -> LedgerDraft) {
+    fun edit(transform: LedgerDraft.() -> LedgerDraft) {
         _editor.update { it.copy(draft = transform(it.draft)) }
     }
 

@@ -128,7 +128,7 @@ fun AssetsScreen(
                     onPrimary = viewModel::save,
                     onSecondary = viewModel::closeEditor,
                     primaryEnabled = d.name.isNotBlank(),
-                    loading = state.busy,
+                    busy = state.busy,
                 )
             },
         ) {

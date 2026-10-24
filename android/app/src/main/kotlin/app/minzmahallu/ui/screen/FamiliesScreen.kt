@@ -125,7 +125,7 @@ private fun FamilyEditorSheet(state: FamiliesUiState, viewModel: FamiliesViewMod
                 onPrimary = viewModel::save,
                 onSecondary = viewModel::closeEditor,
                 primaryEnabled = draft.houseName.isNotBlank(),
-                loading = state.busy,
+                busy = state.busy,
             )
         },
     ) {

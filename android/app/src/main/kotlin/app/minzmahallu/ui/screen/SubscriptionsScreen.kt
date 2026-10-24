@@ -141,7 +141,7 @@ private fun PaymentSheet(
                 onPrimary = viewModel::submitPayment,
                 onSecondary = viewModel::closePayment,
                 primaryEnabled = (state.payAmount.toDoubleOrNull() ?: 0.0) > 0.0,
-                loading = state.busy,
+                busy = state.busy,
             )
         },
     ) {

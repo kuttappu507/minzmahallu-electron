@@ -102,7 +102,7 @@ fun UsersScreen(
                     onSecondary = viewModel::closeEditor,
                     primaryEnabled = d.username.isNotBlank() && d.fullName.isNotBlank() &&
                         (d.id != null || PasswordPolicy.isValid(d.password)),
-                    loading = state.busy,
+                    busy = state.busy,
                 )
             },
         ) {

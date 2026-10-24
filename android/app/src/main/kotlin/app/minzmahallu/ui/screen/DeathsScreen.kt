@@ -90,7 +90,7 @@ fun DeathsScreen(
                     onPrimary = viewModel::save,
                     onSecondary = viewModel::closeEditor,
                     primaryEnabled = d.deceasedName.isNotBlank(),
-                    loading = state.busy,
+                    busy = state.busy,
                 )
             },
         ) {

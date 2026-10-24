@@ -89,7 +89,7 @@ fun MarriagesScreen(
                     onPrimary = viewModel::save,
                     onSecondary = viewModel::closeEditor,
                     primaryEnabled = draft.brideName.isNotBlank() && draft.groomName.isNotBlank(),
-                    loading = state.busy,
+                    busy = state.busy,
                 )
             },
         ) {

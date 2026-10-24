@@ -104,7 +104,7 @@ fun DonationsScreen(
                         onPrimary = viewModel::save,
                         onSecondary = viewModel::closeEditor,
                         primaryEnabled = (state.draft.amount.toDoubleOrNull() ?: 0.0) > 0.0,
-                        loading = state.busy,
+                        busy = state.busy,
                     )
                 }
             },

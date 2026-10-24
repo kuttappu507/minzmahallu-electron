@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -86,14 +88,14 @@ fun ApprovalsScreen(
             state.loading -> ListSkeleton(rows = 4, modifier = Modifier.padding(Gutters.screen))
 
             !state.canApprove -> EmptyState(
-                title = "Read only for your role",
-                body = "Only an Administrator or Secretary can approve or reject pending entries.",
+                headline = "Read only for your role",
+                detail = "Only an Administrator or Secretary can approve or reject pending entries.",
                 modifier = Modifier.fillMaxWidth().padding(Gutters.screen),
             )
 
             state.entries.isEmpty() -> EmptyState(
-                title = "Queue is clear",
-                body = "Entries raised by Member and Staff accounts appear here.",
+                headline = "Queue is clear",
+                detail = "Entries raised by Member and Staff accounts appear here.",
                 modifier = Modifier.fillMaxWidth().padding(Gutters.screen),
             )
 
@@ -150,7 +152,7 @@ fun ApprovalsScreen(
                     onPrimary = viewModel::submitReject,
                     onSecondary = viewModel::closeReject,
                     primaryEnabled = prompt.reason.isNotBlank(),
-                    loading = state.busy,
+                    busy = state.busy,
                 )
             },
         ) {

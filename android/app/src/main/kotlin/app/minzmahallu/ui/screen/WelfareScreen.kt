@@ -111,7 +111,7 @@ fun WelfareScreen(
                     onSecondary = viewModel::closeEditor,
                     primaryEnabled = d.applicantName.isNotBlank() &&
                         (d.amountRequested.toDoubleOrNull() ?: 0.0) > 0.0,
-                    loading = state.busy,
+                    busy = state.busy,
                 )
             },
         ) {
@@ -159,7 +159,7 @@ fun WelfareScreen(
                     },
                     onPrimary = viewModel::submitDecision,
                     onSecondary = viewModel::closeDecision,
-                    loading = state.busy,
+                    busy = state.busy,
                 )
             },
         ) {

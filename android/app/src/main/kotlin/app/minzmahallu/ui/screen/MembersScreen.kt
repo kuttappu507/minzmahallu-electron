@@ -102,7 +102,7 @@ fun MembersScreen(
                     onPrimary = viewModel::save,
                     onSecondary = viewModel::closeEditor,
                     primaryEnabled = state.draft.name.isNotBlank() && state.draft.familyId != null,
-                    loading = state.busy,
+                    busy = state.busy,
                 )
             },
         ) {

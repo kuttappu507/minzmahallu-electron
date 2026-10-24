@@ -118,7 +118,7 @@ fun StaffScreen(
                     onPrimary = viewModel::save,
                     onSecondary = viewModel::closeEditor,
                     primaryEnabled = d.name.isNotBlank(),
-                    loading = state.busy,
+                    busy = state.busy,
                 )
             },
         ) {
@@ -189,7 +189,7 @@ fun StaffScreen(
                     onSecondary = viewModel::closePayroll,
                     primaryEnabled = payroll.staffId != null &&
                         (payroll.amount.toDoubleOrNull() ?: 0.0) > 0.0,
-                    loading = state.busy,
+                    busy = state.busy,
                 )
             },
         ) {

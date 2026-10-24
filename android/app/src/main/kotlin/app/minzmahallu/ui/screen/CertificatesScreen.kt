@@ -108,7 +108,7 @@ fun CertificatesScreen(
                     onPrimary = viewModel::submitIssue,
                     onSecondary = viewModel::closeIssue,
                     primaryEnabled = prompt.reference.isNotBlank(),
-                    loading = state.busy,
+                    busy = state.busy,
                 )
             },
         ) {
@@ -154,7 +154,7 @@ fun CertificatesScreen(
                     onPrimary = viewModel::submitVerify,
                     onSecondary = viewModel::closeVerify,
                     primaryEnabled = prompt.code.isNotBlank(),
-                    loading = state.busy,
+                    busy = state.busy,
                 )
             },
         ) {
