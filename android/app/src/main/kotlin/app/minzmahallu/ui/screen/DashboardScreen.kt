@@ -156,7 +156,7 @@ fun DashboardScreen(
                     Box(
                         Modifier
                             .clip(RoundedCornerShape(Shapes.pill))
-                            .background(colors.accentWash)
+                            .background(colors.accentSoft)
                             .padding(horizontal = 10.dp, vertical = 4.dp),
                     ) {
                         AppText(

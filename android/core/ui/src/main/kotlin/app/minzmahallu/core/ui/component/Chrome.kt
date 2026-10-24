@@ -90,7 +90,7 @@ fun FilterChip(
                 Modifier
                     .size(18.dp)
                     .clip(CircleShape)
-                    .background(if (selected) colors.onAccent.copy(alpha = 0.22f) else colors.accentWash),
+                    .background(if (selected) colors.onAccent.copy(alpha = 0.22f) else colors.accentSoft),
                 contentAlignment = Alignment.Center,
             ) {
                 AppText(

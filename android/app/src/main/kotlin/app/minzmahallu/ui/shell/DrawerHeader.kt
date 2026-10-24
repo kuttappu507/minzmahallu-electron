@@ -105,7 +105,7 @@ fun DrawerHeader(
                 Modifier
                     .size(28.dp)
                     .clip(CircleShape)
-                    .background(colors.accentWash),
+                    .background(colors.accentSoft),
                 contentAlignment = Alignment.Center,
             ) {
                 AppText(
