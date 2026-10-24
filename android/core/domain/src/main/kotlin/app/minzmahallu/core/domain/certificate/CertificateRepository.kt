@@ -221,7 +221,7 @@ class CertificateRepository @Inject constructor(
     private suspend fun findReceipt(code: String, number: String): CertificateEntity? {
         // Money receipts are verified from the money tables; the shape returned
         // is normalised to the certificate one so the UI has a single path.
-        val donation = donations.page(number, null, null, null, null, 1, 0).rows.firstOrNull()
+        val donation = donations.page(number, null, null, null, null, 1, 0).firstOrNull()
         if (donation != null && donation.donation.verificationCode == code) {
             return CertificateEntity(
                 certificateNumber = donation.donation.receiptNumber.orEmpty(),
@@ -232,7 +232,7 @@ class CertificateRepository @Inject constructor(
                 verificationCode = code,
             )
         }
-        val sub = subscriptionPayments.page(number, null, null, 1, 0).rows.firstOrNull()
+        val sub = subscriptionPayments.page(number, null, null, 1, 0).firstOrNull()
         if (sub != null) {
             return CertificateEntity(
                 certificateNumber = sub.subscription.receiptNumber.orEmpty(),
