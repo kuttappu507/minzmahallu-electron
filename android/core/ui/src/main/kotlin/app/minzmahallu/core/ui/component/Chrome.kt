@@ -4,8 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,12 +21,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import kotlinx.coroutines.delay
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import app.minzmahallu.core.ui.foundation.AppIcon
 import app.minzmahallu.core.ui.foundation.AppText
 import app.minzmahallu.core.ui.foundation.Eyebrow
 import app.minzmahallu.core.ui.foundation.animatePressScale
@@ -48,41 +48,95 @@ import app.minzmahallu.core.ui.theme.Shapes
 import app.minzmahallu.core.ui.theme.tint
 
 /**
- * The app chrome: the search field every list opens with, the toast that
- * confirms each write, and the navigation items.
+ * Filter chip — pill-shaped toggle for status/category filters.
  */
+@Composable
+fun FilterChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    badge: Int = 0,
+) {
+    val colors = MahalluTheme.colors
+    val interaction = remember { MutableInteractionSource() }
+    val press = rememberPressState(interaction)
+    val scale = animatePressScale(press.pressed)
+    val shape = RoundedCornerShape(Shapes.pill)
+    Row(
+        modifier = modifier
+            .scale(scale)
+            .clip(shape)
+            .background(if (selected) colors.accent else colors.surfaceRaised)
+            .border(1.dp, if (selected) colors.accent else colors.line, shape)
+            .pressHighlight(press, shape, colors.accentSoft)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick,
+            )
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AppText(
+            text = label,
+            style = MahalluTheme.type.label,
+            color = if (selected) colors.onAccent else colors.textPrimary,
+            maxLines = 1,
+        )
+        if (badge > 0) {
+            Spacer(Modifier.width(6.dp))
+            Box(
+                Modifier
+                    .size(18.dp)
+                    .clip(CircleShape)
+                    .background(if (selected) colors.onAccent.copy(alpha = 0.22f) else colors.accentWash),
+                contentAlignment = Alignment.Center,
+            ) {
+                AppText(
+                    text = badge.toString(),
+                    style = MahalluTheme.type.micro,
+                    color = if (selected) colors.onAccent else colors.accent,
+                )
+            }
+        }
+    }
+}
 
-/** The search field. Debouncing belongs to the ViewModel, not here. */
+/**
+ * Search input field with search icon and clear button.
+ */
 @Composable
 fun SearchBar(
     value: String,
-    onValueChange: (String) -> Unit,
+    onSearchChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     placeholder: String = "Search…",
     onClear: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val colors = MahalluTheme.colors
-    val shape = RoundedCornerShape(Shapes.pill)
+    val shape = RoundedCornerShape(14.dp)
     Row(
         modifier
             .fillMaxWidth()
             .clip(shape)
             .background(colors.surfaceRaised)
             .border(1.dp, colors.line, shape)
-            .padding(start = 16.dp, end = 6.dp, top = 11.dp, bottom = 11.dp),
+            .padding(start = 14.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier
-                .size(16.dp)
-                .background(colors.textFaint.copy(alpha = 0.35f), CircleShape),
+        AppIcon(
+            imageVector = Icons.Filled.Search,
+            contentDescription = "Search",
+            size = 18.dp,
+            tint = colors.textFaint,
         )
-        Spacer(Modifier.width(11.dp))
+        Spacer(Modifier.width(10.dp))
         Box(Modifier.weight(1f)) {
             androidx.compose.foundation.text.BasicTextField(
                 value = value,
-                onValueChange = onValueChange,
+                onValueChange = onSearchChange,
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 textStyle = MahalluTheme.type.body.copy(color = colors.textPrimary),
@@ -100,137 +154,94 @@ fun SearchBar(
                 },
             )
         }
-        if (value.isNotEmpty() && onClear != null) {
+        if (value.isNotEmpty()) {
             IconButton(
-                onClick = onClear,
-                size = 32.dp,
+                onClick = {
+                    onSearchChange("")
+                    onClear?.invoke()
+                },
+                size = 28.dp,
                 icon = {
-                    AppText(
-                        text = "clear",
-                        style = MahalluTheme.type.micro,
-                        color = colors.textFaint,
+                    AppIcon(
+                        imageVector = Icons.Filled.Clear,
+                        contentDescription = "Clear search",
+                        size = 16.dp,
+                        tint = colors.textFaint,
                     )
                 },
             )
         }
-        if (trailing != null) trailing()
+        if (trailing != null) {
+            Spacer(Modifier.width(6.dp))
+            trailing()
+        }
     }
 }
 
 /**
- * Toasts.
- *
- * The desktop app's toasts slide up from the bottom-right; on a phone they
- * slide up from above the navigation bar and stack. Each one carries its
- * lifetime in [Toast] and dismisses itself.
+ * Beautiful ScreenHeader with Drawer Menu icon and proper hierarchy.
  */
-data class Toast(
-    val message: String,
-    val tone: ToastTone = ToastTone.Info,
-    val id: Long = System.nanoTime(),
-    val detail: String? = null,
-    val actionLabel: String? = null,
-    val onAction: (() -> Unit)? = null,
-)
-
-enum class ToastTone { Info, Success, Warning, Danger }
-
 @Composable
-fun ToastTone.color(): Color = when (this) {
-    ToastTone.Info -> MahalluTheme.colors.info
-    ToastTone.Success -> MahalluTheme.colors.accent
-    ToastTone.Warning -> MahalluTheme.colors.warning
-    ToastTone.Danger -> MahalluTheme.colors.danger
-}
-
-/** The toast stack. [toasts] is oldest-first; the newest sits at the bottom. */
-@Composable
-fun ToastStack(
-    toasts: List<Toast>,
-    onDismiss: (Long) -> Unit,
+fun ScreenHeader(
+    title: String,
     modifier: Modifier = Modifier,
+    eyebrow: String? = null,
+    subtitle: String? = null,
+    trailing: (@Composable () -> Unit)? = null,
+    back: (() -> Unit)? = null,
+    isDrawer: Boolean = true,
 ) {
-    Column(
-        modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        toasts.takeLast(3).forEach { toast ->
-            ToastCard(toast = toast, onDismiss = { onDismiss(toast.id) })
-        }
-    }
-}
-
-@Composable
-private fun ToastCard(toast: Toast, onDismiss: () -> Unit) {
     val colors = MahalluTheme.colors
-    val tone = toast.tone.color()
-    var visible by remember(toast.id) { mutableStateOf(true) }
-    LaunchedEffect(toast.id) {
-        delay(3600)
-        visible = false
-        delay(260)
-        onDismiss()
-    }
-    AnimatedVisibility(
-        visible = visible,
-        enter = slideInVertically(Motion.emphasized(360)) { it } + fadeIn(),
-        exit = slideOutVertically(Motion.emphasized(220)) { it / 2 } + fadeOut(),
+    Row(
+        modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(Shapes.lg))
-                .background(colors.surfaceRaised)
-                .border(1.dp, tone.copy(alpha = 0.35f), RoundedCornerShape(Shapes.lg))
-                .padding(start = 4.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(Modifier.width(4.dp).height(38.dp).background(tone))
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                AppText(
-                    text = toast.message,
-                    style = MahalluTheme.type.bodyStrong,
-                    color = colors.textPrimary,
-                )
-                if (toast.detail != null) {
-                    Spacer(Modifier.height(2.dp))
-                    AppText(
-                        text = toast.detail,
-                        style = MahalluTheme.type.caption,
-                        color = colors.textSecondary,
+        if (back != null) {
+            IconButton(
+                onClick = back,
+                size = 40.dp,
+                icon = {
+                    AppIcon(
+                        imageVector = if (isDrawer) Icons.Filled.Menu else Icons.Filled.ArrowBack,
+                        contentDescription = if (isDrawer) "Open menu" else "Back",
+                        size = 22.dp,
+                        tint = colors.textPrimary,
                     )
-                }
+                },
+            )
+            Spacer(Modifier.width(10.dp))
+        }
+        Column(Modifier.weight(1f)) {
+            if (eyebrow != null) {
+                Eyebrow(eyebrow, color = colors.accent)
+                Spacer(Modifier.height(2.dp))
             }
-            if (toast.actionLabel != null && toast.onAction != null) {
-                Spacer(Modifier.width(12.dp))
-                MahalluButton(
-                    onClick = toast.onAction,
-                    variant = ButtonVariant.Ghost,
-                    size = ButtonSize.Small,
-                    text = toast.actionLabel,
+            AppText(
+                text = title,
+                style = MahalluTheme.type.headline,
+                color = colors.textPrimary,
+                maxLines = 1,
+            )
+            if (subtitle != null) {
+                Spacer(Modifier.height(2.dp))
+                AppText(
+                    text = subtitle,
+                    style = MahalluTheme.type.caption,
+                    color = colors.textSecondary,
+                    maxLines = 1,
                 )
             }
+        }
+        if (trailing != null) {
+            Spacer(Modifier.width(10.dp))
+            trailing()
         }
     }
 }
 
 /**
- * A navigation destination — the home grid, the drawer and the overflow menu
- * all read from the same list so a module can never appear in one and not the
- * other.
+ * Dashboard & module shortcut card.
  */
-data class NavItem(
-    val route: String,
-    val title: String,
-    val titleMl: String,
-    val tint: ModuleTint,
-    val glyph: String,
-    val badge: Int = 0,
-)
-
-/** A tile in the module grid on Home. */
 @Composable
 fun ModuleTile(
     item: NavItem,
@@ -241,8 +252,8 @@ fun ModuleTile(
     val colors = MahalluTheme.colors
     val interaction = remember { MutableInteractionSource() }
     val press = rememberPressState(interaction)
-    val scale = animatePressScale(press.pressed, held = 0.93f)
-    val shape = RoundedCornerShape(Shapes.lg)
+    val scale = animatePressScale(press.pressed)
+    val shape = RoundedCornerShape(18.dp)
     Column(
         modifier
             .scale(scale)
@@ -255,79 +266,45 @@ fun ModuleTile(
                 indication = null,
                 onClick = onClick,
             )
-            .padding(14.dp),
+            .padding(16.dp),
     ) {
-        IconPlate(tint = item.tint, size = 42.dp) {
-            AppText(
-                text = item.glyph,
-                style = MahalluTheme.type.title,
-                color = colors.tint(item.tint),
-                maxLines = 1,
-            )
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconPlate(tint = item.tint, size = 36.dp) {
+                AppText(
+                    text = item.glyph,
+                    style = MahalluTheme.type.bodyStrong,
+                    color = colors.tint(item.tint),
+                )
+            }
+            if (item.badge > 0) {
+                Pill(text = "${item.badge} pending", color = colors.warning)
+            }
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(14.dp))
         AppText(
             text = if (malayalam) item.titleMl else item.title,
             style = MahalluTheme.type.bodyStrong,
             color = colors.textPrimary,
-            maxLines = 2,
+            maxLines = 1,
         )
-        if (item.badge > 0) {
-            Spacer(Modifier.height(8.dp))
-            Pill(text = "${item.badge} pending", color = colors.warning)
-        }
+        AppText(
+            text = item.route.replaceFirstChar { it.uppercase() },
+            style = MahalluTheme.type.micro,
+            color = colors.textFaint,
+            maxLines = 1,
+        )
     }
 }
 
-/** The screen header: eyebrow, title, and a trailing slot. */
-@Composable
-fun ScreenHeader(
-    title: String,
-    modifier: Modifier = Modifier,
-    eyebrow: String? = null,
-    subtitle: String? = null,
-    trailing: (@Composable () -> Unit)? = null,
-    back: (() -> Unit)? = null,
-) {
-    val colors = MahalluTheme.colors
-    Row(
-        modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (back != null) {
-            IconButton(
-                onClick = back,
-                size = 38.dp,
-                icon = {
-                    AppText(
-                        text = "back",
-                        style = MahalluTheme.type.label,
-                        color = colors.textSecondary,
-                    )
-                },
-            )
-            Spacer(Modifier.width(8.dp))
-        }
-        Column(Modifier.weight(1f)) {
-            if (eyebrow != null) Eyebrow(eyebrow)
-            AppText(
-                text = title,
-                style = MahalluTheme.type.headline,
-                color = colors.textPrimary,
-                maxLines = 2,
-            )
-            if (subtitle != null) {
-                Spacer(Modifier.height(4.dp))
-                AppText(
-                    text = subtitle,
-                    style = MahalluTheme.type.body,
-                    color = colors.textSecondary,
-                )
-            }
-        }
-        if (trailing != null) {
-            Spacer(Modifier.width(12.dp))
-            trailing()
-        }
-    }
-}
+data class NavItem(
+    val route: String,
+    val title: String,
+    val titleMl: String,
+    val tint: ModuleTint,
+    val glyph: String,
+    val badge: Int = 0,
+)

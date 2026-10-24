@@ -108,6 +108,9 @@ object Navigation {
 
     fun itemFor(route: String): NavItem? =
         sections.flatMap { it.second }.firstOrNull { it.route == route }
+
+    fun allNavItems(): List<NavItem> =
+        sections.flatMap { it.second }
 }
 
 /**

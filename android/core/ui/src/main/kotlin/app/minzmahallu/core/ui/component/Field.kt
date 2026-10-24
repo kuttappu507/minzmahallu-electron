@@ -2,6 +2,7 @@ package app.minzmahallu.core.ui.component
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -11,15 +12,22 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,19 +41,24 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import app.minzmahallu.core.ui.foundation.AppIcon
 import app.minzmahallu.core.ui.foundation.AppText
 import app.minzmahallu.core.ui.theme.MahalluTheme
 import app.minzmahallu.core.ui.theme.Motion
 import app.minzmahallu.core.ui.theme.Shapes
+import kotlinx.coroutines.launch
 
 /**
  * The app's text field.
  *
  * Built on `BasicTextField`, so nothing about its shape, focus ring or label
- * behaviour comes from Material. The label sits above the box and tightens
- * toward the accent on focus; the border thickens and colours at the same
- * moment, so focus reads as one change rather than three.
+ * behaviour comes from Material.
+ *
+ * Equipped with automatic [BringIntoViewRequester] so when focused, the field
+ * smoothly scrolls above the soft keyboard without overflowing or clipping
+ * beyond the screen.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MahalluTextField(
     value: String,
@@ -62,12 +75,14 @@ fun MahalluTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
-    shape: Shape = RoundedCornerShape(Shapes.md),
+    shape: Shape = RoundedCornerShape(14.dp),
     textStyle: TextStyle? = null,
 ) {
     val colors = MahalluTheme.colors
     val resolvedStyle = textStyle ?: MahalluTheme.type.body
     var focused by remember { mutableStateOf(false) }
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
 
     val borderColor by animateColorAsState(
         targetValue = when {
@@ -89,17 +104,19 @@ fun MahalluTextField(
         label = "field-label",
     )
     val borderWidth by animateFloatAsState(
-        targetValue = if (focused || error != null) 1.6f else 1f,
+        targetValue = if (focused || error != null) 1.8f else 1f,
         animationSpec = Motion.emphasized(240),
         label = "field-border-width",
     )
 
-    Column(modifier) {
+    Column(
+        modifier = modifier.bringIntoViewRequester(bringIntoViewRequester),
+    ) {
         AppText(
             text = label,
             style = MahalluTheme.type.label,
             color = labelColor,
-            modifier = Modifier.padding(start = 4.dp, bottom = 7.dp),
+            modifier = Modifier.padding(start = 4.dp, bottom = 6.dp),
             maxLines = 1,
         )
         Row(
@@ -110,9 +127,9 @@ fun MahalluTextField(
                 .border(borderWidth.dp, borderColor.copy(alpha = if (enabled) 1f else 0.5f), shape)
                 .padding(
                     start = if (leading != null) 12.dp else 16.dp,
-                    end = if (trailing != null) 12.dp else 16.dp,
-                    top = 14.dp,
-                    bottom = 14.dp,
+                    end = if (trailing != null) 10.dp else 16.dp,
+                    top = 13.dp,
+                    bottom = 13.dp,
                 ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -126,7 +143,14 @@ fun MahalluTextField(
                     onValueChange = onValueChange,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .onFocusChanged { state -> focused = state.isFocused },
+                        .onFocusChanged { state ->
+                            focused = state.isFocused
+                            if (state.isFocused) {
+                                scope.launch {
+                                    bringIntoViewRequester.bringIntoView()
+                                }
+                            }
+                        },
                     enabled = enabled,
                     singleLine = singleLine,
                     minLines = minLines,
@@ -140,7 +164,7 @@ fun MahalluTextField(
                             AppText(
                                 text = label,
                                 style = resolvedStyle,
-                                color = colors.textFaint.copy(alpha = 0.75f),
+                                color = colors.textFaint.copy(alpha = 0.65f),
                                 maxLines = 1,
                             )
                         }
@@ -149,7 +173,7 @@ fun MahalluTextField(
                 )
             }
             if (trailing != null) {
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(8.dp))
                 Box(contentAlignment = Alignment.Center) { trailing() }
             }
         }
@@ -168,7 +192,7 @@ private fun FieldNote(text: String, color: Color) {
         text = text,
         style = MahalluTheme.type.caption,
         color = color,
-        modifier = Modifier.padding(start = 4.dp, top = 6.dp),
+        modifier = Modifier.padding(start = 4.dp, top = 5.dp),
     )
 }
 
@@ -198,7 +222,7 @@ fun AmountField(
             AppText(
                 text = currencySymbol,
                 style = MahalluTheme.type.subtitle,
-                color = MahalluTheme.colors.textFaint,
+                color = MahalluTheme.colors.accent,
             )
         },
     )
@@ -228,7 +252,7 @@ fun PhoneField(
     )
 }
 
-/** Password field with a reveal toggle and the animated strength meter. */
+/** Password field with clean vector show/hide toggle and the animated strength meter. */
 @Composable
 fun PasswordField(
     value: String,
@@ -253,12 +277,13 @@ fun PasswordField(
             trailing = {
                 IconButton(
                     onClick = { revealed = !revealed },
-                    size = 34.dp,
+                    size = 36.dp,
                     icon = {
-                        AppText(
-                            text = if (revealed) "hide" else "show",
-                            style = MahalluTheme.type.micro,
-                            color = MahalluTheme.colors.textFaint,
+                        AppIcon(
+                            imageVector = if (revealed) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                            contentDescription = if (revealed) "Hide password" else "Show password",
+                            size = 18.dp,
+                            tint = MahalluTheme.colors.textSecondary,
                         )
                     },
                 )
