@@ -124,9 +124,27 @@ jobs:
           fi
           errors=$(grep -c '^e: ' /tmp/build.log || true)
           echo "Compiler errors found: $errors"
-          grep '^e: ' /tmp/build.log | head -150 | while IFS= read -r line; do
-            echo "::error::${line}"
-          done
+          # A Kotlin diagnostic can span several lines: the candidate list that
+          # explains an "unresolved reference" is indented beneath the `e:` line.
+          # Emitting only the first line throws the explanation away, so join
+          # each block into one annotation and escape the characters Actions
+          # would otherwise read as command separators.
+          awk '
+            function flush() {
+              if (buf != "") {
+                gsub(/%/, "%25", buf); gsub(/\r/, " ", buf); gsub(/\n/, " ", buf)
+                print "::error::" buf
+              }
+              buf = ""
+            }
+            /^e: /    { flush(); buf = $0; next }
+            /^[ew]: / { flush(); next }
+            # Only an indented continuation belongs to the open error; anything
+            # else ("> Task ...", "BUILD FAILED") closes it.
+            buf != "" && /^[ \t][ \t]+[^ \t]/ { sub(/^[ \t]+/, " "); buf = buf " | " $0; next }
+            { flush() }
+            END       { flush() }
+          ' /tmp/build.log | head -150
           echo "----- what went wrong -----"
           grep -A 12 'What went wrong' /tmp/build.log | head -40 || true
           echo "----- last 40 lines -----"

@@ -22,6 +22,11 @@ dependencyResolutionManagement {
 
 rootProject.name = "MinzMahalluMobile"
 
+// The `projects.core.database` style used in the module build files is Gradle's
+// type-safe project accessors, which are still incubating and must be switched
+// on here or those references do not resolve.
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+
 include(":app")
 include(":core:common")
 include(":core:model")
