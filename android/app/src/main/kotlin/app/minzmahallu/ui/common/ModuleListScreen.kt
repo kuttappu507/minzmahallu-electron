@@ -2,7 +2,7 @@ package app.minzmahallu.ui.common
 
 import androidx.compose.animation.core.animateFloatAsState
 import kotlinx.coroutines.delay
-import androidx.compose.ui.draw.offset
+import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.draw.alpha
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,7 +36,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.unit.dp
 import app.minzmahallu.core.ui.component.FloatingActionButton
 import app.minzmahallu.core.ui.component.FilterChip
-import app.minzmahallu.core.ui.component.Icon
 import app.minzmahallu.core.ui.component.IconButton
 import app.minzmahallu.core.ui.component.ListSkeleton
 import app.minzmahallu.core.ui.component.EmptyState
@@ -115,13 +114,17 @@ fun <T : Any> ModuleListScreen(
                     )
                     if (onRefresh != null) {
                         Spacer(Modifier.width(8.dp))
-                        IconButton(onClick = onRefresh, size = 42.dp) {
-                            AppText(
-                                text = "refresh",
-                                style = MahalluTheme.type.micro,
-                                color = colors.textFaint,
-                            )
-                        }
+                        IconButton(
+                            onClick = onRefresh,
+                            size = 42.dp,
+                            icon = {
+                                AppText(
+                                    text = "refresh",
+                                    style = MahalluTheme.type.micro,
+                                    color = colors.textFaint,
+                                )
+                            },
+                        )
                     }
                 }
                 if (filters.isNotEmpty() && onFilterChange != null) {
@@ -146,8 +149,8 @@ fun <T : Any> ModuleListScreen(
                 loading -> ListSkeleton(rows = 6, modifier = Modifier.padding(Gutters.screen))
 
                 items.isEmpty() -> EmptyState(
-                    title = emptyTitle,
-                    body = emptyBody,
+                    headline = emptyTitle,
+                    detail = emptyBody,
                     modifier = Modifier.fillMaxSize(),
                 )
 
@@ -176,7 +179,13 @@ fun <T : Any> ModuleListScreen(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(end = 20.dp, bottom = 28.dp),
-                icon = { Icon("add", size = 22.dp) },
+                icon = {
+                    AppText(
+                        text = "add",
+                        style = MahalluTheme.type.title,
+                        color = MahalluTheme.colors.onAccent,
+                    )
+                },
                 expandedLabel = createLabel,
             )
         }
