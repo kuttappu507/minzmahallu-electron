@@ -82,7 +82,7 @@ interface FamilyDao {
 
     @Query(
         """
-        SELECT family_number, house_name, id FROM families
+        SELECT * FROM families
         WHERE status = 'Active'
           AND (:search IS NULL OR house_name LIKE '%' || :search || '%'
                OR family_number LIKE '%' || :search || '%')
@@ -193,7 +193,7 @@ interface MemberDao {
     /** The single-head rule: another member of this family is already head. */
     @Query(
         """
-        SELECT id, name FROM members
+        SELECT * FROM members
         WHERE family_id = :familyId AND archive_state = 0
           AND (is_head = 1 OR relationship = 'Head') AND id != :excludeId
         ORDER BY CASE WHEN is_head = 1 THEN 0 ELSE 1 END, id LIMIT 1
@@ -203,7 +203,7 @@ interface MemberDao {
 
     @Query(
         """
-        SELECT member_code, name, id, family_id FROM members
+        SELECT * FROM members
         WHERE archive_state = 0 AND (:search IS NULL OR name LIKE '%' || :search || '%'
                OR member_code LIKE '%' || :search || '%' OR mobile LIKE '%' || :search || '%')
         ORDER BY name ASC LIMIT :limit

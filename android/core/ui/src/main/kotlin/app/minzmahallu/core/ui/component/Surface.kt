@@ -243,6 +243,7 @@ fun Pill(
  * The status colour mapping shared by every register, so "Paid" is green in
  * Subscriptions, Welfare and the ledger alike.
  */
+@Composable
 fun statusColor(status: String?): Color {
     val colors = MahalluTheme.colors
     return when (status?.lowercase()) {

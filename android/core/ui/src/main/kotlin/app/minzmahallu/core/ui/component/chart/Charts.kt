@@ -444,6 +444,9 @@ fun Sparkline(
     color: Color? = null,
 ) {
     if (values.size < 2) return
+    // Resolved here, in composition, because the draw lambda cannot read the
+    // theme.
+    val tint = color ?: MahalluTheme.colors.accent
     val peak = max(values.max(), 1.0)
     val floor = values.min()
     val span = (peak - floor).takeIf { it > 0 } ?: 1.0

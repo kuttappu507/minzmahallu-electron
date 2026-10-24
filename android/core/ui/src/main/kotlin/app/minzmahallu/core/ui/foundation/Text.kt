@@ -43,10 +43,11 @@ fun AppText(
     BasicText(
         text = text,
         modifier = modifier,
-        style = (style ?: theme.body).merge(
-            color = color ?: colors.textPrimary,
-            textAlign = align,
-        ),
+        style = (style ?: theme.body)
+            .merge(color = color ?: colors.textPrimary)
+            // merge() rejects a null TextAlign, and null here means "inherit
+            // whatever the style already says", so leave it out entirely.
+            .let { base -> if (align != null) base.merge(textAlign = align) else base },
         maxLines = maxLines,
         overflow = overflow,
         softWrap = softWrap,
@@ -70,7 +71,9 @@ fun AppText(
     BasicText(
         text = text,
         modifier = modifier,
-        style = (style ?: theme.body).merge(color = color ?: colors.textPrimary, textAlign = align),
+        style = (style ?: theme.body)
+            .merge(color = color ?: colors.textPrimary)
+            .let { base -> if (align != null) base.merge(textAlign = align) else base },
         maxLines = maxLines,
         overflow = overflow,
     )

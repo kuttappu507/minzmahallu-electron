@@ -120,7 +120,7 @@ val AppTypography = MahalluTypography(
     caption = style(12.sp, FontWeight.Normal, 16.sp),
     micro = style(11.sp, FontWeight.Medium, 14.sp),
     amount = style(30.sp, FontWeight.Bold, 34.sp, (-0.6).sp, NumericFontFamily),
-    amountSmall = style(17.sp, FontWeight.SemiBold, 22.sp, NumericFontFamily),
+    amountSmall = style(17.sp, FontWeight.SemiBold, 22.sp, family = NumericFontFamily),
     code = style(13.sp, FontWeight.Medium, 18.sp, (0.4).sp, NumericFontFamily),
     eyebrow = style(11.sp, FontWeight.SemiBold, 14.sp, (1.4).sp),
 )
