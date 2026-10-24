@@ -25,8 +25,8 @@ import app.minzmahallu.core.model.WelfareWithFamily
 import app.minzmahallu.core.ui.component.AmountField
 import app.minzmahallu.core.ui.component.BottomSheet
 import app.minzmahallu.core.ui.component.MahalluButton
-import app.minzmahallu.core.ui.component.MahalluButtonSize
-import app.minzmahallu.core.ui.component.MahalluButtonVariant
+import app.minzmahallu.core.ui.component.ButtonSize
+import app.minzmahallu.core.ui.component.ButtonVariant
 import app.minzmahallu.core.ui.component.Card
 import app.minzmahallu.ui.common.DetailRow
 import app.minzmahallu.core.ui.component.MahalluTextField
@@ -306,7 +306,7 @@ class WelfareViewModel @Inject constructor(
         patch { copy(error = null) }
     }
 
-    inline fun edit(crossinline transform: WelfareDraft.() -> WelfareDraft) {
+    fun edit(transform: WelfareDraft.() -> WelfareDraft) {
         _editor.update { it.copy(draft = transform(it.draft)) }
     }
 

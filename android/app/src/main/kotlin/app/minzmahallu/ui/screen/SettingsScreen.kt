@@ -28,7 +28,7 @@ import app.minzmahallu.core.domain.settings.SettingsRepository
 import app.minzmahallu.core.model.SettingsEntity
 import app.minzmahallu.core.ui.component.AmountField
 import app.minzmahallu.core.ui.component.MahalluButton
-import app.minzmahallu.core.ui.component.MahalluButtonVariant
+import app.minzmahallu.core.ui.component.ButtonVariant
 import app.minzmahallu.core.ui.component.Card
 import app.minzmahallu.ui.common.DetailRow
 import app.minzmahallu.core.ui.component.ListSkeleton

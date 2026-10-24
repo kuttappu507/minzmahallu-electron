@@ -218,7 +218,7 @@ class CommitteeViewModel @Inject constructor(
         _editor.value = Editor()
     }
 
-    inline fun edit(crossinline transform: CommitteeDraft.() -> CommitteeDraft) {
+    fun edit(transform: CommitteeDraft.() -> CommitteeDraft) {
         _editor.update { it.copy(draft = transform(it.draft)) }
     }
 

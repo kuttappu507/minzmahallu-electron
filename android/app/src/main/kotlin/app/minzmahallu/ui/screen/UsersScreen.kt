@@ -1,6 +1,7 @@
 package app.minzmahallu.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -285,7 +286,7 @@ class UsersViewModel @Inject constructor(
         _state.update { it.copy(error = null) }
     }
 
-    inline fun edit(crossinline transform: UserDraft.() -> UserDraft) {
+    fun edit(transform: UserDraft.() -> UserDraft) {
         _editor.update { it.copy(draft = transform(it.draft)) }
     }
 

@@ -248,7 +248,7 @@ class DeathsViewModel @Inject constructor(
         _editor.value = Editor()
     }
 
-    inline fun edit(crossinline transform: DeathDraft.() -> DeathDraft) {
+    fun edit(transform: DeathDraft.() -> DeathDraft) {
         _editor.update { it.copy(draft = transform(it.draft)) }
     }
 

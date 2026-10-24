@@ -24,8 +24,8 @@ import app.minzmahallu.core.model.TokenEvent
 import app.minzmahallu.core.model.TokenStats
 import app.minzmahallu.core.model.TokenWithFamily
 import app.minzmahallu.core.ui.component.MahalluButton
-import app.minzmahallu.core.ui.component.MahalluButtonSize
-import app.minzmahallu.core.ui.component.MahalluButtonVariant
+import app.minzmahallu.core.ui.component.ButtonSize
+import app.minzmahallu.core.ui.component.ButtonVariant
 import app.minzmahallu.core.ui.component.Card
 import app.minzmahallu.core.ui.component.MahalluTextField
 import app.minzmahallu.ui.common.RecordRow
@@ -325,7 +325,7 @@ class TokenEventsViewModel @Inject constructor(
         _editor.value = Editor()
     }
 
-    inline fun edit(crossinline transform: TokenEventDraft.() -> TokenEventDraft) {
+    fun edit(transform: TokenEventDraft.() -> TokenEventDraft) {
         _editor.update { it.copy(draft = transform(it.draft)) }
     }
 

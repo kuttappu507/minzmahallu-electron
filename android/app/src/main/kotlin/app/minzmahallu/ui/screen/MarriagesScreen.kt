@@ -262,7 +262,7 @@ class MarriagesViewModel @Inject constructor(
         _editor.value = Editor()
     }
 
-    inline fun edit(crossinline transform: MarriageDraft.() -> MarriageDraft) {
+    fun edit(transform: MarriageDraft.() -> MarriageDraft) {
         _editor.update { it.copy(draft = transform(it.draft)) }
     }
 

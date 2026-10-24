@@ -317,7 +317,7 @@ class MembersViewModel @Inject constructor(
 
     fun closeEditor() = _state.update { it.copy(editorOpen = false, error = null) }
 
-    inline fun onDraft(crossinline transform: MemberDraft.() -> MemberDraft) {
+    fun onDraft(transform: MemberDraft.() -> MemberDraft) {
         _state.update { it.copy(draft = transform(it.draft), error = null) }
     }
 

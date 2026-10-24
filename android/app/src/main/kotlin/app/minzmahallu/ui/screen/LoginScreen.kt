@@ -34,8 +34,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.minzmahallu.MainIntent
 import app.minzmahallu.core.common.PasswordPolicy
 import app.minzmahallu.core.ui.component.MahalluButton
-import app.minzmahallu.core.ui.component.MahalluButtonSize
-import app.minzmahallu.core.ui.component.MahalluButtonVariant
+import app.minzmahallu.core.ui.component.ButtonSize
+import app.minzmahallu.core.ui.component.ButtonVariant
 import app.minzmahallu.core.ui.component.ConfirmDialog
 import app.minzmahallu.core.ui.component.IndeterminateBar
 import app.minzmahallu.core.ui.component.MahalluTextField

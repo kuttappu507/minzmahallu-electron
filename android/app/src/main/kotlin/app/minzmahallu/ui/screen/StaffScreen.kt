@@ -329,7 +329,7 @@ class StaffViewModel @Inject constructor(
         _editor.value = Editor()
     }
 
-    inline fun edit(crossinline transform: StaffDraft.() -> StaffDraft) {
+    fun edit(transform: StaffDraft.() -> StaffDraft) {
         _editor.update { it.copy(draft = transform(it.draft)) }
     }
 
@@ -358,7 +358,7 @@ class StaffViewModel @Inject constructor(
         }
     }
 
-    inline fun onPayroll(crossinline transform: PayrollPrompt.() -> PayrollPrompt) {
+    fun onPayroll(transform: PayrollPrompt.() -> PayrollPrompt) {
         _payroll.update(transform)
     }
 

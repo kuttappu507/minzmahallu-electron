@@ -160,7 +160,7 @@ class FamiliesViewModel @Inject constructor(
 
     fun closeEditor() = _state.update { it.copy(editorOpen = false, error = null) }
 
-    inline fun onDraft(crossinline transform: FamilyDraft.() -> FamilyDraft) {
+    fun onDraft(transform: FamilyDraft.() -> FamilyDraft) {
         _state.update { it.copy(draft = transform(it.draft), error = null) }
     }
 

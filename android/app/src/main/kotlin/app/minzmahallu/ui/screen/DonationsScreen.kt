@@ -294,7 +294,7 @@ class DonationsViewModel @Inject constructor(
 
     fun closeEditor() = _state.update { it.copy(editorOpen = false, error = null) }
 
-    inline fun onDraft(crossinline transform: DonationDraft.() -> DonationDraft) {
+    fun onDraft(transform: DonationDraft.() -> DonationDraft) {
         _state.update { it.copy(draft = transform(it.draft), error = null) }
     }
 

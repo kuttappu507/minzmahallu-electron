@@ -22,8 +22,8 @@ import app.minzmahallu.core.domain.finance.DonationRepository
 import app.minzmahallu.core.domain.subscription.SubscriptionRepository
 import app.minzmahallu.core.model.SubscriptionWithFamily
 import app.minzmahallu.core.ui.component.MahalluButton
-import app.minzmahallu.core.ui.component.MahalluButtonSize
-import app.minzmahallu.core.ui.component.MahalluButtonVariant
+import app.minzmahallu.core.ui.component.ButtonSize
+import app.minzmahallu.core.ui.component.ButtonVariant
 import app.minzmahallu.core.ui.component.Card
 import app.minzmahallu.ui.common.DetailRow
 import app.minzmahallu.core.ui.component.MahalluTextField
