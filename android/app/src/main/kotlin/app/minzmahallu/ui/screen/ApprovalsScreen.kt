@@ -63,6 +63,7 @@ fun ApprovalsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val reject by viewModel.reject.collectAsStateWithLifecycle()
+    val rejectReason by viewModel.rejectReasonState.collectAsStateWithLifecycle()
     val colors = MahalluTheme.colors
 
     Column(Modifier.fillMaxWidth()) {
@@ -151,7 +152,7 @@ fun ApprovalsScreen(
                     primaryLabel = "Reject",
                     onPrimary = viewModel::submitReject,
                     onSecondary = viewModel::closeReject,
-                    primaryEnabled = prompt.reason.isNotBlank(),
+                    primaryEnabled = rejectReason.isNotBlank(),
                     busy = state.busy,
                 )
             },
@@ -160,13 +161,13 @@ fun ApprovalsScreen(
                 DetailRow("Module", prompt.kind.wire)
                 DetailRow("Detail", prompt.detail)
                 DetailRow("Raised", IstDate.fmtDateTime(prompt.createdAt))
-                if (prompt.amount != null) {
-                    Amount(value = prompt.amount, style = MahalluTheme.type.amountSmall)
+                prompt.amount?.let { value ->
+                    Amount(value = value, style = MahalluTheme.type.amountSmall)
                 }
             }
             Spacer(Modifier.height(16.dp))
             MahalluTextField(
-                value = prompt.reason,
+                value = rejectReason,
                 onValueChange = viewModel::onRejectReason,
                 label = "Reason",
                 singleLine = false,
@@ -198,7 +199,8 @@ class ApprovalsViewModel @Inject constructor(
     private val _reject = MutableStateFlow<PendingEntry?>(null)
     val reject: StateFlow<PendingEntry?> = _reject.asStateFlow()
 
-    private var rejectReason = MutableStateFlow("")
+    private val rejectReason = MutableStateFlow("")
+    val rejectReasonState: StateFlow<String> = rejectReason.asStateFlow()
 
     init {
         viewModelScope.launch {

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -348,7 +349,7 @@ class AssetsViewModel @Inject constructor(
         _editor.value = Editor()
     }
 
-    inline fun edit(crossinline transform: AssetDraft.() -> AssetDraft) {
+    fun edit(transform: AssetDraft.() -> AssetDraft) {
         _editor.update { it.copy(draft = transform(it.draft)) }
     }
 
