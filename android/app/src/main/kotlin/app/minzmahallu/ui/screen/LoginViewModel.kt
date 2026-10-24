@@ -3,6 +3,7 @@ package app.minzmahallu.ui.screen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.minzmahallu.core.domain.auth.AuthRepository
+import app.minzmahallu.i18n.localizedError
 import app.minzmahallu.core.domain.auth.lockMinutesRemaining
 import app.minzmahallu.session.SessionController
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -62,7 +63,7 @@ class LoginViewModel @Inject constructor(
                     _state.update { it.copy(busy = false, signedIn = true) }
                 }
                 .onFailure { error ->
-                    val message = error.message.orEmpty()
+                    val message = localizedError(error)
                     _state.update { it.copy(busy = false, error = message) }
                     // A fresh lock is reported by the repository; start the
                     // countdown so the operator sees it tick down.

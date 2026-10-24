@@ -1,6 +1,7 @@
 package app.minzmahallu.ui.common
 
 import androidx.lifecycle.ViewModel
+import app.minzmahallu.i18n.localizedError
 import androidx.lifecycle.viewModelScope
 import app.minzmahallu.core.common.RoleAccess
 import app.minzmahallu.core.domain.PagedList
@@ -110,7 +111,7 @@ abstract class RegisterListViewModel<Row : Any>(
                 }
             }.onFailure { error ->
                 _state.update {
-                    it.copy(loading = false, error = error.message?.takeIf(String::isNotBlank))
+                    it.copy(loading = false, error = localizedError(error).takeIf(String::isNotBlank))
                 }
             }
         }

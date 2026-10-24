@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -93,6 +94,12 @@ class MainActivity : ComponentActivity() {
                 state.session.followSystemTheme -> ThemeMode.System
                 state.session.darkTheme -> ThemeMode.Dark
                 else -> ThemeMode.Light
+            }
+
+            // View models localize outside composition, so the process-wide
+            // language has to follow the session one.
+            LaunchedEffect(state.session.language) {
+                app.minzmahallu.i18n.Localizer.update(state.session.language)
             }
 
             MahalluTheme(mode = mode, motionScale = state.session.motionScale) {

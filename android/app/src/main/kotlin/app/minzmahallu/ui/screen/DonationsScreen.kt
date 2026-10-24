@@ -13,6 +13,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.minzmahallu.MainIntent
+import app.minzmahallu.i18n.localizedError
 import app.minzmahallu.core.common.IstDate
 import app.minzmahallu.core.common.RoleAccess
 import app.minzmahallu.core.domain.finance.DonationInput
@@ -334,7 +335,7 @@ class DonationsViewModel @Inject constructor(
                 _state.update { current -> current.copy(busy = false, editorOpen = false) }
                 load()
             }.onFailure { error ->
-                _state.update { current -> current.copy(busy = false, error = error.message.orEmpty()) }
+                _state.update { current -> current.copy(busy = false, error = localizedError(error)) }
             }
         }
     }

@@ -20,6 +20,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.minzmahallu.MainIntent
+import app.minzmahallu.i18n.localizedError
 import app.minzmahallu.core.common.IstDate
 import app.minzmahallu.core.common.PasswordPolicy
 import app.minzmahallu.core.common.SubscriptionFrequency
@@ -483,7 +484,7 @@ class SettingsViewModel @Inject constructor(
                 .onSuccess { _state.update { it.copy(newPassword = "", passwordError = null) } }
                 .onFailure { error ->
                     _state.update { current ->
-                        current.copy(passwordError = error.message?.takeIf(String::isNotBlank))
+                        current.copy(passwordError = localizedError(error)?.takeIf(String::isNotBlank))
                     }
                 }
         }

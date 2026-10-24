@@ -20,6 +20,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.minzmahallu.MainIntent
+import app.minzmahallu.i18n.localizedError
 import app.minzmahallu.core.common.IstDate
 import app.minzmahallu.core.common.IndianGrouping
 import app.minzmahallu.core.domain.dashboard.DashboardRepository
@@ -276,7 +277,7 @@ class ReportsViewModel @Inject constructor(
                 }
             }.onFailure { error ->
                 _state.update {
-                    it.copy(exporting = false, exportNote = error.message ?: "export failed")
+                    it.copy(exporting = false, exportNote = localizedError(error) ?: "export failed")
                 }
             }
         }

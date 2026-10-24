@@ -20,6 +20,12 @@ import javax.inject.Inject
 data class MainUiState(
     val session: SessionController.State = SessionController.State(),
     val pendingApprovals: Int = 0,
+    /**
+     * True when no administrator exists yet (or only the desktop's seeded
+     * placeholder). The nav graph sends a first run to Setup instead of Login,
+     * because there is no account to sign into.
+     */
+    val needsSetup: Boolean = false,
     val toasts: List<app.minzmahallu.core.ui.component.Toast> = emptyList(),
     /** Tablets and landscape keep the drawer open as a permanent rail. */
     val showDrawerAsRail: Boolean = false,
@@ -54,14 +60,17 @@ class MainViewModel @Inject constructor(
 
     private val pending = MutableStateFlow(0)
 
+    private val setup = MutableStateFlow(false)
+
     val uiState: StateFlow<MainUiState> =
-        combine(sessions.state, pending, rail, toasts) { session, count, isRail, queue ->
+        combine(sessions.state, pending, rail, toasts, setup) { session, count, isRail, queue, first ->
             MainUiState(
                 session = session,
                 pendingApprovals = count,
                 toasts = queue,
                 showDrawerAsRail = isRail,
                 signedIn = session.actor != null,
+                needsSetup = first,
             )
         }.stateIn(
             scope = viewModelScope,
@@ -70,6 +79,13 @@ class MainViewModel @Inject constructor(
         )
 
     init {
+        viewModelScope.launch {
+            // A failure here must not stop the app opening; Login remains a
+            // usable fallback if the database is briefly unavailable.
+            runCatching { auth.needsInitialSetup() }
+                .onSuccess { setup.value = it }
+        }
+
         // The badge drives the Approvals tile and the drawer, so it is polled
         // rather than read once: another operator can post a pending entry at
         // any moment on the shared database.

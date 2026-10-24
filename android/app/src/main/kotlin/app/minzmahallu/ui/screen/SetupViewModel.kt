@@ -3,6 +3,7 @@ package app.minzmahallu.ui.screen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.minzmahallu.core.common.DocNumber
+import app.minzmahallu.i18n.localizedError
 import app.minzmahallu.core.common.PasswordPolicy
 import app.minzmahallu.core.domain.auth.AuthRepository
 import app.minzmahallu.core.domain.settings.SettingsRepository
@@ -173,7 +174,7 @@ class SetupViewModel @Inject constructor(
                 sessions.setMahalluName(snapshot.mahalluName, snapshot.mahalluNameMl)
                 _state.update { it.copy(busy = false, done = true) }
             }.onFailure { error ->
-                _state.update { it.copy(busy = false, error = error.message.orEmpty()) }
+                _state.update { it.copy(busy = false, error = localizedError(error)) }
             }
         }
     }

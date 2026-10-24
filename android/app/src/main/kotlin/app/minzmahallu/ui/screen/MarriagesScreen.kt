@@ -14,6 +14,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.minzmahallu.MainIntent
+import app.minzmahallu.i18n.localizedError
 import app.minzmahallu.core.common.IstDate
 import app.minzmahallu.core.common.RoleAccess
 import app.minzmahallu.core.domain.PagedList
@@ -291,7 +292,7 @@ class MarriagesViewModel @Inject constructor(
                 _editor.value = Editor()
                 refresh()
             }.onFailure { error ->
-                patch { copy(busy = false, error = error.message?.takeIf(String::isNotBlank)) }
+                patch { copy(busy = false, error = localizedError(error)?.takeIf(String::isNotBlank)) }
             }
         }
     }

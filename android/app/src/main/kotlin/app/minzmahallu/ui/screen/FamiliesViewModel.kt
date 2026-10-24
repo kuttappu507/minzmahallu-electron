@@ -3,6 +3,7 @@ package app.minzmahallu.ui.screen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.minzmahallu.core.common.RoleAccess
+import app.minzmahallu.i18n.localizedError
 import app.minzmahallu.core.domain.family.FamilyInput
 import app.minzmahallu.core.domain.family.FamilyRepository
 import app.minzmahallu.core.model.FamilyWithStats
@@ -191,7 +192,7 @@ class FamiliesViewModel @Inject constructor(
                 _state.update { it.copy(busy = false, editorOpen = false) }
                 load()
             }.onFailure { error ->
-                _state.update { it.copy(busy = false, error = error.message.orEmpty()) }
+                _state.update { it.copy(busy = false, error = localizedError(error)) }
             }
         }
     }
@@ -215,7 +216,7 @@ class FamiliesViewModel @Inject constructor(
                                 load()
                             }.onFailure { error ->
                                 _state.update { c ->
-                                    c.copy(busy = false, secureError = error.message.orEmpty())
+                                    c.copy(busy = false, secureError = localizedError(error))
                                 }
                             }
                         }

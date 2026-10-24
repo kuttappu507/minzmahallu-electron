@@ -14,6 +14,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.minzmahallu.MainIntent
+import app.minzmahallu.i18n.localizedError
 import app.minzmahallu.core.common.CertificateType
 import app.minzmahallu.core.common.IstDate
 import app.minzmahallu.core.common.RoleAccess
@@ -287,7 +288,7 @@ class CertificatesViewModel @Inject constructor(
                 _issue.value = null
                 refresh()
             }.onFailure { error ->
-                patch { copy(busy = false, error = error.message?.takeIf(String::isNotBlank)) }
+                patch { copy(busy = false, error = localizedError(error)?.takeIf(String::isNotBlank)) }
             }
         }
     }

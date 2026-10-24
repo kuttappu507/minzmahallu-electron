@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.minzmahallu.MainIntent
+import app.minzmahallu.i18n.localizedError
 import app.minzmahallu.core.common.IstDate
 import app.minzmahallu.core.ui.component.BottomSheet
 import app.minzmahallu.core.ui.component.MahalluTextField
@@ -350,7 +351,7 @@ class MembersViewModel @Inject constructor(
                 _state.update { current -> current.copy(busy = false, editorOpen = false) }
                 load()
             }.onFailure { error ->
-                _state.update { current -> current.copy(busy = false, error = error.message.orEmpty()) }
+                _state.update { current -> current.copy(busy = false, error = localizedError(error)) }
             }
         }
     }

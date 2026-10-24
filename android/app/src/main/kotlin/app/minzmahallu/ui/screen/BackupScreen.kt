@@ -21,6 +21,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.minzmahallu.MainIntent
+import app.minzmahallu.i18n.localizedError
 import app.minzmahallu.core.common.IstDate
 import app.minzmahallu.core.domain.settings.SettingsPatch
 import app.minzmahallu.core.domain.settings.SettingsRepository
@@ -292,14 +293,14 @@ class BackupViewModel @Inject constructor(
                 runCatching {
                     notifications.push(
                         title = "Backup failed",
-                        message = error.message,
+                        message = localizedError(error),
                         severity = "error",
                     )
                 }
                 _state.update {
                     it.copy(
                         busy = false,
-                        result = error.message ?: "could not write the copy",
+                        result = localizedError(error) ?: "could not write the copy",
                         resultSuccess = false,
                         history = runCatching { notifications.recent(12) }.getOrDefault(it.history),
                     )

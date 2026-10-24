@@ -1,6 +1,5 @@
 package app.minzmahallu.ui.nav
 
-import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -8,18 +7,22 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import app.minzmahallu.core.common.AuthRoutes
 import app.minzmahallu.MainIntent
 import app.minzmahallu.MainUiState
+import app.minzmahallu.core.common.AuthRoutes
 import app.minzmahallu.core.common.Route
 import app.minzmahallu.ui.screen.AccountingScreen
+import app.minzmahallu.ui.screen.AnimatedSplashScreen
 import app.minzmahallu.ui.screen.ApprovalsScreen
 import app.minzmahallu.ui.screen.AssetsScreen
 import app.minzmahallu.ui.screen.AuditScreen
@@ -47,13 +50,11 @@ import app.minzmahallu.ui.screen.WelfareScreen
 import app.minzmahallu.ui.screen.WhatsAppScreen
 
 /**
- * The navigation graph — 22 module routes plus the two auth screens, matching
- * `src/App.tsx` route for route.
+ * Route graph.
  *
- * Transitions are directional: pushing a detail screen slides it in from the
- * right, popping slides it back out. That is the one cue a phone user needs to
- * know which way they are moving through the data, and it replaces the
- * desktop's sidebar-highlight feedback.
+ * One destination per screen. Every module route maps to the same name the
+ * Electron app uses so that deep links, exports and shared knowledge between
+ * the desktop and Android versions stay identical.
  */
 @Composable
 fun AppNavGraph(
@@ -63,17 +64,27 @@ fun AppNavGraph(
     onOpenDrawer: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Unauthenticated users are pushed to login (or first-run setup); a
-    // back-gesture from there would otherwise leave an empty shell on screen.
+    var splashDismissed by remember { mutableStateOf(false) }
+
+    if (!splashDismissed) {
+        AnimatedSplashScreen(
+            onDismiss = { splashDismissed = true },
+        )
+        return
+    }
+
     val signedIn = state.signedIn
-    LaunchedEffect(signedIn) {
+    val needsSetup = state.needsSetup
+
+    LaunchedEffect(signedIn, needsSetup) {
         val current = navController.currentDestination?.route
-        val onAuth = current == AuthRoutes.LOGIN || current == AuthRoutes.SETUP
-        when {
-            !signedIn && !onAuth -> navController.navigate(AuthRoutes.LOGIN) {
-                popUpTo(0) { inclusive = true }
-            }
-            signedIn && onAuth -> navController.navigate(Route.Dashboard.path) {
+        val target = when {
+            signedIn -> Route.Dashboard.path
+            needsSetup -> AuthRoutes.SETUP
+            else -> AuthRoutes.LOGIN
+        }
+        if (current != target && current != null) {
+            navController.navigate(target) {
                 popUpTo(0) { inclusive = true }
             }
         }
@@ -81,18 +92,28 @@ fun AppNavGraph(
 
     NavHost(
         navController = navController,
-        startDestination = if (signedIn) Route.Dashboard.path else AuthRoutes.LOGIN,
+        startDestination = when {
+            signedIn -> Route.Dashboard.path
+            needsSetup -> AuthRoutes.SETUP
+            else -> AuthRoutes.LOGIN
+        },
         modifier = modifier,
-        enterTransition = { slideIn() },
+        enterTransition = { slideInHorizontally(tween(260)) { it / 4 } + fadeIn(tween(260)) },
         exitTransition = { fadeOut(tween(160)) },
         popEnterTransition = { fadeIn(tween(200)) },
-        popExitTransition = { slideOut() },
+        popExitTransition = { slideOutHorizontally(tween(240)) { it / 4 } + fadeOut(tween(200)) },
     ) {
         composable(AuthRoutes.LOGIN) {
-            LoginScreen(onSignedIn = { onIntent(MainIntent.ShowToast("Welcome back")) })
+            LoginScreen(
+                onSignedIn = { onIntent(MainIntent.ShowToast("Welcome back")) },
+                onNavigateSetup = { navController.navigate(AuthRoutes.SETUP) },
+            )
         }
         composable(AuthRoutes.SETUP) {
-            SetupScreen(onComplete = { onIntent(MainIntent.ShowToast("Administrator created")) })
+            SetupScreen(
+                onComplete = { onIntent(MainIntent.ShowToast("Administrator created")) },
+                onBackToLogin = { navController.navigate(AuthRoutes.LOGIN) },
+            )
         }
 
         composable(Route.Dashboard.path) {
@@ -114,8 +135,9 @@ fun AppNavGraph(
             route = Route.FamilyDetail.path,
             arguments = listOf(navArgument("familyId") { type = NavType.LongType }),
         ) { entry ->
+            val familyId = entry.arguments?.getLong("familyId") ?: 0L
             FamilyDetailScreen(
-                familyId = entry.longArg("familyId"),
+                familyId = familyId,
                 onBack = { navController.popBackStack() },
                 onOpenMember = { id -> navController.navigate(Route.memberDetail(id)) },
                 onIntent = onIntent,
@@ -133,8 +155,9 @@ fun AppNavGraph(
             route = Route.MemberDetail.path,
             arguments = listOf(navArgument("memberId") { type = NavType.LongType }),
         ) { entry ->
+            val memberId = entry.arguments?.getLong("memberId") ?: 0L
             MemberDetailScreen(
-                memberId = entry.longArg("memberId"),
+                memberId = memberId,
                 onBack = { navController.popBackStack() },
                 onOpenFamily = { id -> navController.navigate(Route.familyDetail(id)) },
                 onIntent = onIntent,
@@ -211,12 +234,3 @@ fun AppNavGraph(
         }
     }
 }
-
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.slideIn() =
-    slideInHorizontally(tween(320)) { it / 5 } + fadeIn(tween(260))
-
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.slideOut() =
-    slideOutHorizontally(tween(260)) { it / 5 } + fadeOut(tween(200))
-
-private fun NavBackStackEntry.longArg(key: String): Long =
-    arguments?.getLong(key) ?: 0L

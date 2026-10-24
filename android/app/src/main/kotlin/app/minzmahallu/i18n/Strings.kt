@@ -36,11 +36,25 @@ data class Strings(
     val statuses: Map<String, String>,
     val roles: Map<String, String>,
     val common: Map<String, String>,
+    val errors: Map<String, String> = emptyMap(),
 ) {
     fun module(key: String): String = modules[key] ?: key
     fun status(key: String): String = statuses[key] ?: key
     fun role(key: String): String = roles[key] ?: key
     fun t(key: String): String = common[key] ?: key
+
+    /**
+     * Resolves a repository failure to something an operator can read.
+     *
+     * Repositories throw `DomainException(SimpleError(key))`, whose `message` is
+     * the bare key — `error_bad_credentials`. Showing that was the "unusual
+     * text" on the login screen. An unmapped key still falls back to English
+     * and then to the key itself, so a new rule can never crash the UI.
+     */
+    fun error(key: String): String =
+        errors[key]
+            ?: EnglishStrings.errors[key]
+            ?: key.replace('_', ' ').removePrefix("error ").replaceFirstChar { it.uppercase() }
 }
 
 val LocalStrings = staticCompositionLocalOf { EnglishStrings }
@@ -111,6 +125,31 @@ val EnglishStrings = Strings(
         "noResults" to "Nothing here yet",
         "pendingApproval" to "Pending approval",
     ),
+    errors = mapOf(
+        "error_not_found" to "That record could not be found.",
+        "error_validation" to "Some of the details are not valid.",
+        "error_duplicate" to "That entry already exists.",
+        "error_receipt_frozen" to "A receipt has already been issued, so this entry can no longer be changed.",
+        "error_awaiting_approval" to "This entry is waiting for approval and cannot be edited yet.",
+        "error_role_denied" to "Your role does not allow this action.",
+        "error_admin_password" to "The administrator password is not correct.",
+        "error_single_head" to "Another member of this family is already the head.",
+        "error_one_subscription_per_family" to "This family already has a subscription.",
+        "error_event_not_over" to "The token event has not ended yet.",
+        "error_reason_required" to "A reason is required.",
+        "error_voided" to "This entry has been voided.",
+        "error_locked" to "Too many failed attempts. This account is temporarily locked.",
+        "error_inactive" to "This account is not active.",
+        "error_bad_credentials" to "The username or password is not correct.",
+        "error_pwd_policy" to "The password needs at least 8 characters with an uppercase letter, a lowercase letter, a digit and a symbol.",
+        "error_username_policy" to "Use 3–32 letters, digits, dot, dash or underscore.",
+        "error_setup_done" to "Initial setup has already been completed.",
+        "error_category_in_use" to "That category is still used by existing records.",
+        "error_asset_missing" to "That asset could not be found.",
+        "error_duplicate_salary" to "Salary for this period has already been paid.",
+        "error_token_not_found" to "That token could not be found.",
+        "error_cancelled_token" to "That token has been cancelled.",
+    ),
 )
 
 /** The Malayalam table. Same keys, translated values. */
@@ -174,6 +213,31 @@ val MalayalamStrings = Strings(
         "search" to "തിരയുക",
         "noResults" to "ഒന്നുമില്ല",
         "pendingApproval" to "അംഗീകാരത്തിനായി കാത്തിരിക്കുന്നു",
+    ),
+    errors = mapOf(
+        "error_not_found" to "ആ രേഖ കണ്ടെത്താന്‍ കഴിഞ്ഞില്ല.",
+        "error_validation" to "നൽകിയ വിവരങ്ങൾ ശരിയല്ല.",
+        "error_duplicate" to "ആ എന്‍ട്രി നിന്നുമുപ്പ് ഉണ്ട്.",
+        "error_receipt_frozen" to "രസീത് നൽകികഴിഞ്ഞു; ഈ എന്‍ട്രി മാറ്റാന്‍ കഴിയഇ.",
+        "error_awaiting_approval" to "ഈ എന്‍ട്രി അനുമതിക്കാനുള്ള കാത്തിരിക്കുന്നു.",
+        "error_role_denied" to "നിങ്ങൾക്ക് ഈ പ്രവർത്തി അനുവദിച്ചിട്ടില്ല.",
+        "error_admin_password" to "അഡ്മിനിസ്ട്രേറ്റർ പാസ്സ്വേഡ് തെറ്റാണ്.",
+        "error_single_head" to "ഈ കുടുംബത്തിലെ മറ്റൊരു അംഗം നിന്നുമുപ്പ് തലവന്‍ ആണ്.",
+        "error_one_subscription_per_family" to "ഈ കുടുംബത്തിന് ഇതിനകം വരിസംഖ്യ ഉണ്ട്.",
+        "error_event_not_over" to "ടോകൺ ഇവന്റ് ഇത്രവരെ അവസാനിച്ചിട്ടില്ല.",
+        "error_reason_required" to "കാരണം ആവശ്യമാണ്.",
+        "error_voided" to "ഈ എന്‍ട്രി റദ്ദാക്കി.",
+        "error_locked" to "പല തവണ തെറ്റായി ശ്രമിച്ചു. അക്കൗണ്ട് താത്കാലികമായി പൂട്ടിയിരിക്കുന്നു.",
+        "error_inactive" to "ഈ അക്കൗണ്ട് സജീവമല്ല.",
+        "error_bad_credentials" to "ഉപയോക്തൃനാമം അല്ലെങ്കിൽ പാസ്സ്വേഡ് തെറ്റാണ്.",
+        "error_pwd_policy" to "പാസ്സ്വേഡിന് ചുര്ക്കം 8 അക്കങ്ങ൳ വേണം: വലിയ അക്കരം, ചെറിയ അക്കരം, അകം, ചിന്ന്ഹ എന്നിവ.",
+        "error_username_policy" to "3–32 അക്കരങ്ങൾ, അകങ്ങൾ, ഡോട്, ഡാഷ് അല്ലെങ്കിൽ അണടസ്കോർ ഉപയോഗിക്കുക.",
+        "error_setup_done" to "ആദ്യ സജ്ജീകരണം നിന്നുമുപ്പ് പൂർത്തിയായി.",
+        "error_category_in_use" to "ആ വിഭാഗം നിലവിൽ രേഖകളിൽ ഉപയോഗിക്കുന്നു.",
+        "error_asset_missing" to "ആ ആസ്ഥി കണ്ടെത്താന്‍ കഴിഞ്ഞില്ല.",
+        "error_duplicate_salary" to "ഈ കാലയളവിലെ ശംബളം നൽകികഴിഞ്ഞു.",
+        "error_token_not_found" to "ആ ടോകൺ കണ്ടെത്താന്‍ കഴിഞ്ഞില്ല.",
+        "error_cancelled_token" to "ആ ടോകൺ റദ്ദാക്കി.",
     ),
 )
 
