@@ -278,7 +278,7 @@ class WelfareViewModel @Inject constructor(
                 requested = r.amountApproved ?: r.amountRequested,
                 action = when (r.status) {
                     "Approved" -> "disburse"
-                    else -> "view",
+                    else -> "view"
                 },
                 amount = (r.amountApproved ?: r.amountRequested).toString(),
             )
