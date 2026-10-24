@@ -575,7 +575,7 @@ interface AssetDao {
     @Query("SELECT * FROM assets WHERE id = :id")
     suspend fun byId(id: Long): AssetEntity?
 
-    @Query("SELECT id, asset_code, name FROM assets ORDER BY asset_code ASC")
+    @Query("SELECT * FROM assets ORDER BY asset_code ASC")
     suspend fun options(): List<AssetEntity>
 
     @Query("SELECT COALESCE(SUM(acquisition_cost),0) FROM assets")
