@@ -390,10 +390,16 @@ fun DashboardScreen(
                     state.recent.take(4).forEachIndexed { index, entry ->
                         if (index > 0) Hairline(Modifier.padding(vertical = 8.dp))
                         RecordRow(
-                            primary = entry.description.ifBlank { entry.action },
-                            secondary = "${entry.username} • ${entry.module}",
-                            trailing = entry.createdAt.takeLast(8),
-                            tint = ModuleTint.Teal,
+                            title = entry.description?.ifBlank { entry.action } ?: entry.action,
+                            subtitle = "${entry.username} • ${entry.module}",
+                            onClick = { onNavigate(Route.Audit.path) },
+                            trailing = {
+                                AppText(
+                                    text = entry.createdAt.takeLast(8),
+                                    style = MahalluTheme.type.micro,
+                                    color = colors.textFaint,
+                                )
+                            },
                         )
                     }
                 }
