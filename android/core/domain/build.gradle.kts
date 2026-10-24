@@ -13,10 +13,13 @@
 // with no emulator and no Android runtime. What would cost that property is
 // depending on Room's generated DAO implementations from a JVM module, which is
 // the thing that never worked.
+// No Hilt plugin here, deliberately. The plugin exists to bytecode-transform
+// @AndroidEntryPoint classes and it insists on a hilt-compiler dependency being
+// present; this module declares neither. Its 19 @Inject constructors are plain
+// javax.inject, which Dagger resolves when it processes :app.
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.hilt)
 }
 
 android {
@@ -47,8 +50,6 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.javax.inject)
-
-    implementation(libs.hilt.android)
 
     testImplementation(libs.junit)
     testImplementation(libs.truth)
