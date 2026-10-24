@@ -311,7 +311,7 @@ data class SettingsUiState(
     val draft: SettingsDraft = SettingsDraft(),
     val language: Language = Language.English,
     val darkTheme: Boolean = false,
-    val followSystemTheme: Boolean = true,
+    val followSystemTheme: Boolean = false,
     val motionReduced: Boolean = false,
     val newPassword: String = "",
     val passwordError: String? = null,

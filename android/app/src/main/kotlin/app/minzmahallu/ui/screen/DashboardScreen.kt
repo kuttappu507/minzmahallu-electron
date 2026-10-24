@@ -49,20 +49,13 @@ import app.minzmahallu.core.ui.component.Card
 import app.minzmahallu.core.ui.component.HeroPanel
 import app.minzmahallu.core.ui.component.IconPlate
 import app.minzmahallu.core.ui.component.ListSkeleton
-import app.minzmahallu.core.ui.component.ModuleTile
 import app.minzmahallu.core.ui.component.ScreenHeader
-import app.minzmahallu.core.ui.component.chart.ChartPoint
-import app.minzmahallu.core.ui.component.chart.DonutChart
-import app.minzmahallu.core.ui.component.chart.DonutLegend
-import app.minzmahallu.core.ui.component.chart.DonutSlice
-import app.minzmahallu.core.ui.component.chart.LineChart
 import app.minzmahallu.core.ui.foundation.Amount
 import app.minzmahallu.core.ui.foundation.AppIcon
 import app.minzmahallu.core.ui.foundation.AppText
 import app.minzmahallu.core.ui.foundation.CountedInt
 import app.minzmahallu.core.ui.foundation.Eyebrow
 import app.minzmahallu.core.ui.foundation.Gutters
-import app.minzmahallu.core.ui.foundation.Hairline
 import app.minzmahallu.core.ui.foundation.VerticalHairline
 import app.minzmahallu.core.ui.foundation.animatePressScale
 import app.minzmahallu.core.ui.foundation.pressHighlight
@@ -72,12 +65,15 @@ import app.minzmahallu.core.ui.theme.ModuleTint
 import app.minzmahallu.core.ui.theme.Shapes
 import app.minzmahallu.core.ui.theme.leaf
 import app.minzmahallu.core.ui.theme.tint
-import app.minzmahallu.ui.common.RecordRow
-import app.minzmahallu.ui.shell.Navigation
 
 /**
- * Modern fluid Dashboard with official brand header, quick action shortcuts,
- * dynamic metrics counter animations, collection charts and unified ledger totals.
+ * Focused Executive Dashboard:
+ * Presents only essential data cleanly without clutter:
+ * - Mahallu name & friendly greeting header
+ * - Net Fund Balance & monthly collections / pending dues summary
+ * - Primary quick actions (Collect dues, New receipt)
+ * - 4 core register metrics (Families, Members, Welfare, Marriages)
+ * - High-priority alerts if any
  */
 @Composable
 fun DashboardScreen(
@@ -96,7 +92,7 @@ fun DashboardScreen(
                 .statusBarsPadding()
                 .padding(Gutters.screen),
         ) {
-            ListSkeleton(rows = 6)
+            ListSkeleton(rows = 4)
         }
         return
     }
@@ -107,7 +103,7 @@ fun DashboardScreen(
             start = Gutters.screen,
             end = Gutters.screen,
             top = 10.dp,
-            bottom = 110.dp,
+            bottom = 90.dp,
         ),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -228,7 +224,7 @@ fun DashboardScreen(
             }
         }
 
-        // 4 Primary Register Counters
+        // Essential Core Register Counters
         item {
             Row(
                 Modifier.fillMaxWidth(),
@@ -272,7 +268,7 @@ fun DashboardScreen(
             }
         }
 
-        // Today At A Glance
+        // Today At A Glance (Essential daily metrics)
         state.glance?.let { glance ->
             item {
                 Card {
@@ -295,144 +291,12 @@ fun DashboardScreen(
             }
         }
 
-        // Collection Trend Line Chart
-        if (state.collections.isNotEmpty()) {
-            item {
-                Card {
-                    Eyebrow("COLLECTION TREND")
-                    Spacer(Modifier.height(6.dp))
-                    AppText(
-                        text = "Trailing 6 Months",
-                        style = MahalluTheme.type.title,
-                        color = colors.textPrimary,
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    LineChart(
-                        points = state.collections.map {
-                            ChartPoint(it.month, it.amount)
-                        },
-                        lineColor = colors.accent,
-                        modifier = Modifier.fillMaxWidth(),
-                        height = 140.dp,
-                    )
-                }
-            }
-        }
-
-        // Income vs Expense Donut Chart
-        if (state.incomeExpense.isNotEmpty()) {
-            val income = state.incomeExpense.sumOf { it.income }
-            val expense = state.incomeExpense.sumOf { it.expense }
-            if (income > 0 || expense > 0) {
-                item {
-                    Card {
-                        Eyebrow("FINANCIAL BREAKDOWN")
-                        Spacer(Modifier.height(6.dp))
-                        AppText(
-                            text = "Income vs Expense",
-                            style = MahalluTheme.type.title,
-                            color = colors.textPrimary,
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            val slices = listOf(
-                                DonutSlice("Income", income, colors.accent),
-                                DonutSlice("Expense", expense, colors.danger),
-                            )
-                            DonutChart(
-                                slices = slices,
-                                size = 110.dp,
-                                thickness = 14.dp,
-                            )
-                            Spacer(Modifier.width(20.dp))
-                            DonutLegend(
-                                slices = slices,
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // System Alerts Banner
+        // Actionable System Alerts Banner
         if (state.alerts.isNotEmpty()) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     state.alerts.forEach { alert ->
                         AlertStrip(alert = alert, onNavigate = onNavigate)
-                    }
-                }
-            }
-        }
-
-        // Recent Audit Activity
-        if (state.recent.isNotEmpty()) {
-            item {
-                Card {
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Eyebrow("RECENT ACTIVITY")
-                        AppText(
-                            text = "View Audit →",
-                            style = MahalluTheme.type.caption,
-                            color = colors.accent,
-                            modifier = Modifier.clickable { onNavigate(Route.Audit.path) },
-                        )
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    state.recent.take(4).forEachIndexed { index, entry ->
-                        if (index > 0) Hairline(Modifier.padding(vertical = 8.dp))
-                        RecordRow(
-                            title = entry.description?.ifBlank { entry.action } ?: entry.action,
-                            subtitle = "${entry.username} • ${entry.module}",
-                            onClick = { onNavigate(Route.Audit.path) },
-                            trailing = {
-                                AppText(
-                                    text = entry.createdAt.takeLast(8),
-                                    style = MahalluTheme.type.micro,
-                                    color = colors.textFaint,
-                                )
-                            },
-                        )
-                    }
-                }
-            }
-        }
-
-        // All Modules Grid Header
-        item {
-            Spacer(Modifier.height(8.dp))
-            Eyebrow("ALL MODULES & REGISTERS")
-        }
-
-        // Quick Modules Grid (2 Columns)
-        items((Navigation.allNavItems().size + 1) / 2) { rowIndex ->
-            val items = Navigation.allNavItems()
-            val first = items[rowIndex * 2]
-            val second = items.getOrNull(rowIndex * 2 + 1)
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Box(Modifier.weight(1f)) {
-                    ModuleTile(
-                        item = first,
-                        onClick = { onNavigate(first.route) },
-                    )
-                }
-                Box(Modifier.weight(1f)) {
-                    if (second != null) {
-                        ModuleTile(
-                            item = second,
-                            onClick = { onNavigate(second.route) },
-                        )
                     }
                 }
             }
