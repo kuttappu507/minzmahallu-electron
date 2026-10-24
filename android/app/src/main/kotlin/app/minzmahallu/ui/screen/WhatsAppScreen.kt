@@ -111,12 +111,12 @@ fun WhatsAppScreen(
             emptyBody = "Receipts generated from the Subscriptions screen appear here.",
         ) { row, _ ->
             val s = row.subscription
-            val number = Phone.toWhatsApp(row.whatsappPhone ?: s.receiptNumber)
+            val number = Phone.toWhatsApp(row.memberName ?: s.receiptNumber)
             RecordRow(
                 title = row.houseName.orEmpty().ifBlank { row.familyNumber.orEmpty() },
                 code = s.receiptNumber,
                 subtitle = listOfNotNull(
-                    Phone.pretty10(row.whatsappPhone),
+                    row.memberName,
                     IstDate.monthLabel(s.periodStart),
                 ).joinToString(" · ").ifBlank { null },
                 status = when {
@@ -231,7 +231,7 @@ class WhatsAppViewModel @Inject constructor(
      */
     fun send(row: SubscriptionWithFamily) {
         val message = compose(row)
-        val number = Phone.toWhatsApp(row.whatsappPhone)
+        val number = Phone.toWhatsApp(row.memberName)
         _state.update { it.copy(messageTemplate = _state.value.messageTemplate) }
         markSent(row)
         // `message` and `number` are what the share sheet needs; the host

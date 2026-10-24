@@ -199,6 +199,10 @@ class SubscriptionRepository @Inject constructor(
 
     suspend fun byFamily(familyId: Long): SubscriptionEntity? = dao.byFamily(familyId)
 
+    /** Stamps the receipt as sent on WhatsApp; see SubscriptionDao. */
+    suspend fun markReceiptSent(subscriptionId: Long, msgId: String? = null) =
+        dao.markSubscriptionReceiptSent(subscriptionId, IstDate.dateTimeStr(), msgId)
+
     suspend fun paymentsHistory(familyId: Long, limit: Int = 60): List<SubscriptionPaymentWithFamily> =
         dao.paymentHistory(familyId, limit)
 

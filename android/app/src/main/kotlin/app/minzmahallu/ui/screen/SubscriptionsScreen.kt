@@ -30,7 +30,7 @@ import app.minzmahallu.core.ui.component.MahalluTextField
 import app.minzmahallu.ui.common.RecordRow
 import app.minzmahallu.ui.common.SectionTitle
 import app.minzmahallu.core.ui.component.SheetFooter
-import app.minzmahallu.core.ui.component.StackedBar
+import app.minzmahallu.core.ui.component.chart.StackedBar
 import app.minzmahallu.core.ui.foundation.Amount
 import app.minzmahallu.core.ui.foundation.AppText
 import app.minzmahallu.core.ui.foundation.Eyebrow

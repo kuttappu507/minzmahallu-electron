@@ -182,12 +182,14 @@ fun AmountField(
     currencySymbol: String = "₹",
     error: String? = null,
     enabled: Boolean = true,
+    supporting: String? = null,
 ) {
     MahalluTextField(
         value = value,
         onValueChange = { raw -> onValueChange(sanitizeAmount(raw)) },
         label = label,
         modifier = modifier,
+        supporting = supporting,
         error = error,
         enabled = enabled,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -235,6 +237,7 @@ fun PasswordField(
     modifier: Modifier = Modifier,
     error: String? = null,
     showStrength: Boolean = false,
+    supporting: String? = null,
 ) {
     var revealed by remember { mutableStateOf(false) }
     Column(modifier) {
@@ -243,6 +246,7 @@ fun PasswordField(
             onValueChange = onValueChange,
             label = label,
             error = error,
+            supporting = supporting,
             visualTransformation = if (revealed) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             textStyle = MahalluTheme.type.bodyStrong,

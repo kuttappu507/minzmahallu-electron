@@ -115,6 +115,23 @@ interface SubscriptionDao {
     @Query("SELECT receipt_number FROM subscription_payments WHERE receipt_number IS NOT NULL AND receipt_number != ''")
     suspend fun ledgerReceiptNumbers(): List<String>
 
+    /**
+     * Records that a subscription receipt went out on WhatsApp.
+     *
+     * The list on the WhatsApp screen reads `wa_sent_at`, which is a correlated
+     * subquery over this column, so without this write the queue could never
+     * move from "not sent" to "sent". It targets the payment the receipt
+     * belongs to, identified through the subscription.
+     */
+    @Query(
+        """
+        UPDATE subscription_payments
+        SET receipt_sent_at = :at, whatsapp_msg_id = :msgId
+        WHERE subscription_id = :subscriptionId AND status = 'Active'
+        """,
+    )
+    suspend fun markSubscriptionReceiptSent(subscriptionId: Long, at: String, msgId: String?)
+
     @Query("SELECT receipt_number FROM subscriptions WHERE receipt_number IS NOT NULL AND receipt_number != ''")
     suspend fun legacyReceiptNumbers(): List<String>
 
