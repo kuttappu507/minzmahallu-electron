@@ -79,26 +79,26 @@ dependencies {
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.foundation)
     implementation(libs.compose.animation)
-    implementation(libs.material.icons.extended)
+    implementation(libs.compose.material.icons)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
-    implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.splashscreen)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
-    implementation(libs.androidx.hilt.navigation.compose)
-    implementation(libs.datastore.preferences)
+    implementation(libs.hilt.navigation.compose)
+    implementation(libs.androidx.datastore.preferences)
 
     implementation(libs.room.runtime)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
 
-    implementation(libs.androidx.data.exifinterface)
+    implementation(libs.androidx.exifinterface)
 
     // PDF output — receipts, certificates, the audit pack.
-    implementation(libs.android.pdf)
+    implementation(libs.androidx.pdf)
 
     // Barcode scanning for token check-in and certificate verification.
     implementation(libs.camerax.core)
@@ -115,5 +115,5 @@ dependencies {
     testImplementation(libs.truth)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockito.core)
-    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.junit)
 }
