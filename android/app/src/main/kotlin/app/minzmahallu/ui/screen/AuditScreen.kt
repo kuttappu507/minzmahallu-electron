@@ -197,14 +197,15 @@ private fun AuditRow(entry: AuditEntry) {
                     maxLines = 1,
                 )
             }
-            if (entry.entryHash != null) {
+            entry.entryHash?.let { hash ->
                 Spacer(Modifier.height(0.dp))
-                CodeText(text = entry.entryHash.take(8))
+                CodeText(text = hash.take(8))
             }
         }
     }
 }
 
+@Composable
 private fun actionColor(action: String): androidx.compose.ui.graphics.Color =
     when (action.uppercase()) {
         "CREATE" -> MahalluTheme.colors.accent

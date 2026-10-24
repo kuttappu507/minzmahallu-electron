@@ -250,6 +250,11 @@ class CertificatesViewModel @Inject constructor(
         patch { copy(error = null) }
     }
 
+    /** Opens the verify sheet with a blank code, for the toolbar action. */
+    fun openVerify() {
+        _verify.value = VerifyPrompt(code = "", result = null)
+    }
+
     fun closeVerify() {
         _verify.value = null
     }

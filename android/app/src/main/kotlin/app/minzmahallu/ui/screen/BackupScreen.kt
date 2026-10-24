@@ -281,7 +281,7 @@ class BackupViewModel @Inject constructor(
                 }
                 _state.update {
                     it.copy(
-                        loading = false,
+                        busy = false,
                         latest = file.absolutePath,
                         result = "${file.name} · ${file.length() / 1024} KB",
                         resultSuccess = true,
@@ -298,7 +298,7 @@ class BackupViewModel @Inject constructor(
                 }
                 _state.update {
                     it.copy(
-                        loading = false,
+                        busy = false,
                         result = error.message ?: "could not write the copy",
                         resultSuccess = false,
                         history = runCatching { notifications.recent(12) }.getOrDefault(it.history),
