@@ -531,7 +531,10 @@ interface LedgerDao {
         WHERE id = :id
         """,
     )
-    suspend fun void(id: Long, reason: String, at: String, by: Long?)
+    // Named markVoid, not void: Room writes this DAO's implementation in Java,
+    // where `void` is a keyword, so a method by that name cannot be overridden
+    // and javac rejects the generated class.
+    suspend fun markVoid(id: Long, reason: String, at: String, by: Long?)
 }
 
 data class DuplicateBill(

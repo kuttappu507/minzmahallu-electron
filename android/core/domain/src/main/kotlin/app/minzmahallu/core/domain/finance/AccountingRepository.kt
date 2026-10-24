@@ -188,7 +188,7 @@ class AccountingRepository @Inject constructor(
         val actor = auth.verifyAdminPassword(adminPassword, "LEDGER_VOID", reason)
         val existing = ledger.byId(id) ?: fail(ErrorKeys.NOT_FOUND)
         if (existing.status == LedgerEntryStatus.Void.wire) fail(ErrorKeys.VOIDED)
-        ledger.void(id, reason.trim(), IstDate.dateTimeStr(), actor.id)
+        ledger.markVoid(id, reason.trim(), IstDate.dateTimeStr(), actor.id)
         auth.log(actor.id, actor.username, "VOID", "accounting", id, "Entry ${existing.receiptNumber} voided: ${reason.trim()}")
     }
 
