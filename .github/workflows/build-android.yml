@@ -83,9 +83,24 @@ jobs:
       # :core:domain and catch logic regressions without waiting for the whole
       # APK. SubscriptionAllocation in particular is real money arithmetic.
       # ---------------------------------------------------------------------
+      # ---------------------------------------------------------------------
+      # Debug APK. Signed with the runner's debug keystore, so it installs on a
+      # real device with no secret management at all.
+      # ---------------------------------------------------------------------
+      # `--continue` keeps compiling the remaining modules after the first one
+      # fails, so one run reports every module's errors instead of just the
+      # first. `--stacktrace` is for the Gradle-internal failures that a bare
+      # compiler listing does not explain.
+      - name: Assemble debug APK
+        id: assemble
+        working-directory: ${{ env.ANDROID_ROOT }}
+        run: |
+          set -o pipefail
+          ./gradlew assembleDebug --continue --stacktrace 2>&1 | tee /tmp/build.log
+
       - name: Unit tests
         working-directory: ${{ env.ANDROID_ROOT }}
-        run: ./gradlew testDebugUnitTest --stacktrace --no-daemon
+        run: ./gradlew testDebugUnitTest --continue --stacktrace 2>&1 | tee -a /tmp/build.log
 
       - name: Upload unit test results
         if: always()
@@ -95,13 +110,35 @@ jobs:
           path: android/**/build/reports/tests/
           if-no-files-found: ignore
 
-      # ---------------------------------------------------------------------
-      # Debug APK. Signed with the runner's debug keystore, so it installs on a
-      # real device with no secret management at all.
-      # ---------------------------------------------------------------------
-      - name: Assemble debug APK
-        working-directory: ${{ env.ANDROID_ROOT }}
-        run: ./gradlew assembleDebug --stacktrace --no-daemon
+      # Kotlin's `e: path:line:col: message` format is exactly what Actions
+      # parses into an annotation, so re-emitting the compiler output turns
+      # every error into something the check-runs API returns. That matters
+      # because the job log itself lives on a blob host that is not always
+      # reachable from wherever the results are being read.
+      - name: Report compiler errors
+        if: always()
+        run: |
+          if [ ! -f /tmp/build.log ]; then
+            echo "No build log was produced."
+            exit 0
+          fi
+          errors=$(grep -c '^e: ' /tmp/build.log || true)
+          echo "Compiler errors found: $errors"
+          grep '^e: ' /tmp/build.log | head -150 | while IFS= read -r line; do
+            echo "::error::${line}"
+          done
+          echo "----- what went wrong -----"
+          grep -A 12 'What went wrong' /tmp/build.log | head -40 || true
+          echo "----- last 40 lines -----"
+          tail -40 /tmp/build.log
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: /tmp/build.log
+          if-no-files-found: ignore
 
       - name: Rename debug APK
         working-directory: ${{ env.ANDROID_ROOT }}
