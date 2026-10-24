@@ -7,6 +7,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import app.minzmahallu.core.ui.foundation.AppText
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -70,6 +76,15 @@ class MainActivity : ComponentActivity() {
             ),
         )
         super.onCreate(savedInstanceState)
+
+        // A previous run that died leaves its stack trace behind. Showing it is
+        // the only way an operator without adb can report what actually broke.
+        val crash = CrashLog.read(this)
+        if (crash != null) {
+            CrashLog.clear(this)
+            setContent { CrashReportScreen(crash) }
+            return
+        }
 
         setContent {
             val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -232,5 +247,60 @@ class DrawerState {
 
     fun close() {
         isOpen = false
+    }
+}
+
+/**
+ * Shown instead of the app when the previous run crashed.
+ *
+ * Built on the same design system as the rest of the app rather than a system
+ * dialog, because the whole point is that the operator can read and copy the
+ * trace on the device itself — there is no adb on the office phone, and no
+ * error reporting service this app talks to.
+ */
+@Composable
+private fun CrashReportScreen(trace: String) {
+    val colors = app.minzmahallu.core.ui.theme.MahalluTheme.colors
+    val type = app.minzmahallu.core.ui.theme.MahalluTheme.type
+
+    MahalluTheme(mode = ThemeMode.Light) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(colors.canvas)
+                .statusBarsPadding()
+                .padding(20.dp),
+        ) {
+            AppText(
+                text = "The app stopped unexpectedly",
+                style = type.headline,
+                color = colors.danger,
+            )
+            Spacer(Modifier.height(6.dp))
+            AppText(
+                text = "The last run wrote this report. Screenshot it or copy it and send it " +
+                    "to whoever maintains the app — it says exactly what failed.",
+                style = type.body,
+                color = colors.textSecondary,
+            )
+            Spacer(Modifier.height(16.dp))
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.surfaceSunken)
+                    .padding(12.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                SelectionContainer {
+                    AppText(
+                        text = trace,
+                        style = type.code,
+                        color = colors.textPrimary,
+                    )
+                }
+            }
+        }
     }
 }

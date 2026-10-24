@@ -12,4 +12,12 @@ import dagger.hilt.android.HiltAndroidApp
  * nothing to do at process start.
  */
 @HiltAndroidApp
-class MahalluApplication : Application()
+class MahalluApplication : Application() {
+
+    override fun onCreate() {
+        // Before super, so a failure inside Hilt's own bootstrap is still
+        // captured rather than vanishing with the process.
+        CrashLog.install(this)
+        super.onCreate()
+    }
+}
