@@ -13,8 +13,15 @@ interface WireEnum {
     val wire: String
 }
 
-inline fun <reified T> wireTo(value: String?, default: T): T where T : Enum<T>, T : WireEnum =
-    enumValues<T>().firstOrNull { it.wire.equals(value?.trim(), ignoreCase = true) } ?: default
+inline fun <reified T : WireEnum> wireTo(value: String?, default: T): T {
+    val wanted = value?.trim()
+    // Reflected over `default`'s own class rather than enumValues<T>(), which
+    // would require a `T : Enum<T>` bound that a `where` clause cannot add to
+    // an inline reified function without breaking inference at every call site.
+    @Suppress("UNCHECKED_CAST")
+    val constants = default.javaClass.enumConstants as? Array<T> ?: return default
+    return constants.firstOrNull { it.wire.equals(wanted, ignoreCase = true) } ?: default
+}
 
 fun WireEnum?.orDash(): String = this?.wire ?: "—"
 

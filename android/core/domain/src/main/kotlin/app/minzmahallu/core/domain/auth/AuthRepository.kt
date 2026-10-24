@@ -62,7 +62,7 @@ class AuthRepository @Inject constructor(
     suspend fun createInitialAdministrator(username: String, fullName: String, password: String): Session {
         if (!needsInitialSetup()) fail(ErrorKeys.SETUP_DONE)
         val name = username.trim()
-        PasswordPolicy.usernameError(name)?.let { fail(ErrorKeys.USERNAME_POLICY, it.name) }
+        PasswordPolicy.usernameError(name)?.let { fail(ErrorKeys.USERNAME_POLICY, it::class.simpleName) }
         if (fullName.isBlank()) fail(ErrorKeys.VALIDATION, "full name")
         PasswordPolicy.violation(password)?.let { fail(ErrorKeys.PWD_POLICY, it::class.simpleName) }
 
@@ -217,7 +217,7 @@ class AuthRepository @Inject constructor(
         val actor = requireActor()
         if (actor.role != Role.Administrator) fail(ErrorKeys.ROLE_DENIED)
         val name = username.trim()
-        PasswordPolicy.usernameError(name)?.let { fail(ErrorKeys.USERNAME_POLICY, it.name) }
+        PasswordPolicy.usernameError(name)?.let { fail(ErrorKeys.USERNAME_POLICY, it::class.simpleName) }
         PasswordPolicy.violation(password)?.let { fail(ErrorKeys.PWD_POLICY, it::class.simpleName) }
         if (users.byUsername(name) != null) fail(ErrorKeys.DUPLICATE, name)
         val (hash, salt) = hashPassword(password)

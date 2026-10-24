@@ -11,7 +11,7 @@ data class PagedList<T>(
     val isEmpty: Boolean get() = rows.isEmpty()
 
     companion object {
-        fun <T> empty(page: Int = 1, pageSize: Int = 20) = PagedList(emptyList(), 0, page, pageSize)
+        fun <T> empty(page: Int = 1, pageSize: Int = 20): PagedList<T> = PagedList(emptyList(), 0, page, pageSize)
     }
 }
 

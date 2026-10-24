@@ -108,7 +108,7 @@ class CertificateRepository @Inject constructor(
 
     suspend fun issueDeath(deathNumber: String): Long {
         val all = deaths.page(deathNumber, null, null, null, 20, 0)
-        val death = all.rows.firstOrNull { it.death.deathNumber == deathNumber }
+        val death = all.firstOrNull { it.death.deathNumber == deathNumber }
             ?: fail(ErrorKeys.NOT_FOUND, "death $deathNumber")
         requireApproved(death.death.approvalStatus, "death record")
         return issue(
