@@ -145,8 +145,23 @@ jobs:
             { flush() }
             END       { flush() }
           ' /tmp/build.log | head -150
-          echo "----- what went wrong -----"
-          grep -A 12 'What went wrong' /tmp/build.log | head -40 || true
+          # When there are no `e:` lines the failure is Gradle-level (KSP, Hilt,
+          # AGP, a missing SDK), and the only explanation is the "What went
+          # wrong" section. That has to reach the annotations too, or the
+          # failure is invisible to anyone who cannot open the job log.
+          if [ "$errors" = "0" ]; then
+            echo "No Kotlin compiler errors; treating this as a Gradle-level failure."
+          fi
+          grep -A 25 'What went wrong' /tmp/build.log | head -60 | while IFS= read -r line; do
+            case "$line" in
+              '') continue ;;
+            esac
+            line=${line//%/%25}
+            line=${line//$'\r'/ }
+            echo "::error::[gradle] ${line}"
+          done
+          echo "----- failing tasks -----"
+          grep -E '^> Task .* FAILED|^FAILURE:|Execution failed for task' /tmp/build.log | head -20 || true
           echo "----- last 40 lines -----"
           tail -40 /tmp/build.log
 
