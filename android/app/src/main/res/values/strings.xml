@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Minz Mahallu</string>
+
+    <!--
+      Only strings the framework itself needs live here (the launcher label and
+      anything read before Compose is up). Every in-app label is in
+      i18n/Strings.kt, because the labels that matter switch language at
+      runtime and several of them are computed from data.
+    -->
+    <string name="fileprovider_authority">app.minzmahallu.fileprovider</string>
+</resources>

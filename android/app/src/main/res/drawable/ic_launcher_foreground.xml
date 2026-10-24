@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The launcher mark: the same "leaf" silhouette the app uses for its hero
+  panels and FAB, carrying the mahallu initial. Drawn as a vector so it stays
+  sharp at every density the Play Store asks for.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Leaf plate: two opposite corners hard, two soft. -->
+    <path
+        android:fillColor="#0E9C8D"
+        android:pathData="M30,10 L78,10 A20,20 0 0 1 98,30 L98,78 A20,20 0 0 1 78,98 L30,98 A20,20 0 0 1 10,78 L10,30 Z" />
+
+    <!-- Crescent, the mahallu's own mark. -->
+    <path
+        android:fillColor="#F4F7F9"
+        android:pathData="M62,34 A22,22 0 1 0 62,74 A18,18 0 1 1 62,34 Z" />
+
+    <!-- Star. -->
+    <path
+        android:fillColor="#F4F7F9"
+        android:pathData="M72,50 l2.6,5.4 5.9,0.8 -4.3,4.1 1.1,5.8 -5.3,-2.8 -5.3,2.8 1.1,-5.8 -4.3,-4.1 5.9,-0.8 Z" />
+</vector>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A mahallu's records must never end up in a cloud backup: member names, phone
+  numbers and donation history are personal data held in trust. The desktop app
+  keeps its SQLite file in a local userData directory and backs up only where
+  the operator explicitly points it, and the Android build does the same —
+  both cloud and device-to-device transfer are excluded, and the Backup screen
+  is the only supported way to move the data.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+        <exclude domain="file" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+        <exclude domain="file" />
+    </device-transfer>
+</data-extraction-rules>

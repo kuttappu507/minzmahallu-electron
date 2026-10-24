@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!--
+      PDFs and .xlsx exports are shared with WhatsApp, the printer service and
+      the system share sheet through a FileProvider, which is what lets those
+      apps read the file without this app holding a storage permission.
+    -->
+    <external-files-path
+        name="documents"
+        path="documents/" />
+    <external-cache-path
+        name="exports"
+        path="." />
+    <cache-path
+        name="cache"
+        path="." />
+</paths>

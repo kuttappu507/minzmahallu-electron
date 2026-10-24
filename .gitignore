@@ -53,3 +53,13 @@ qa-screens/
 
 # Never commit WhatsApp session material (test runs can create it at the repo root)
 /whatsapp/
+
+# Android (android/) — added for the Kotlin/Jetpack port
+android/.gradle/
+android/build/
+android/*/build/
+android/local.properties
+android/.idea/
+android/captures/
+android/*.iml
+android/*/*.iml
