@@ -52,12 +52,14 @@ import app.minzmahallu.core.ui.theme.tint
  */
 @Composable
 fun FilterChip(
-    label: String,
+    label: String = "",
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    text: String = label,
     badge: Int = 0,
 ) {
+    val displayLabel = text.ifBlank { label }
     val colors = MahalluTheme.colors
     val interaction = remember { MutableInteractionSource() }
     val press = rememberPressState(interaction)
@@ -79,7 +81,7 @@ fun FilterChip(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AppText(
-            text = label,
+            text = displayLabel,
             style = MahalluTheme.type.label,
             color = if (selected) colors.onAccent else colors.textPrimary,
             maxLines = 1,
@@ -109,12 +111,14 @@ fun FilterChip(
 @Composable
 fun SearchBar(
     value: String,
-    onSearchChange: (String) -> Unit,
+    onSearchChange: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     placeholder: String = "Search…",
     onClear: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
+    onValueChange: (String) -> Unit = onSearchChange,
 ) {
+    val onTextChange = if (onValueChange !== onSearchChange && onValueChange != {}) onValueChange else onSearchChange
     val colors = MahalluTheme.colors
     val shape = RoundedCornerShape(14.dp)
     Row(
@@ -136,7 +140,7 @@ fun SearchBar(
         Box(Modifier.weight(1f)) {
             androidx.compose.foundation.text.BasicTextField(
                 value = value,
-                onValueChange = onSearchChange,
+                onValueChange = onTextChange,
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 textStyle = MahalluTheme.type.body.copy(color = colors.textPrimary),

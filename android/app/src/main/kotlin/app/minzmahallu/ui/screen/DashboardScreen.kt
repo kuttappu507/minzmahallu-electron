@@ -296,7 +296,7 @@ fun DashboardScreen(
         }
 
         // Collection Trend Line Chart
-        if (state.collectionTrend.isNotEmpty()) {
+        if (state.collections.isNotEmpty()) {
             item {
                 Card {
                     Eyebrow("COLLECTION TREND")
@@ -308,20 +308,21 @@ fun DashboardScreen(
                     )
                     Spacer(Modifier.height(16.dp))
                     LineChart(
-                        points = state.collectionTrend.map {
+                        points = state.collections.map {
                             ChartPoint(it.month, it.amount)
                         },
-                        color = colors.accent,
-                        modifier = Modifier.fillMaxWidth().height(140.dp),
+                        lineColor = colors.accent,
+                        modifier = Modifier.fillMaxWidth(),
+                        height = 140.dp,
                     )
                 }
             }
         }
 
         // Income vs Expense Donut Chart
-        if (state.incomeExpenseTotal != null) {
-            val income = state.incomeExpenseTotal.first
-            val expense = state.incomeExpenseTotal.second
+        if (state.incomeExpense.isNotEmpty()) {
+            val income = state.incomeExpense.sumOf { it.income }
+            val expense = state.incomeExpense.sumOf { it.expense }
             if (income > 0 || expense > 0) {
                 item {
                     Card {
