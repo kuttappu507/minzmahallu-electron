@@ -53,6 +53,7 @@ import app.minzmahallu.core.ui.component.ScreenHeader
 import app.minzmahallu.core.ui.foundation.Amount
 import app.minzmahallu.core.ui.foundation.AppIcon
 import app.minzmahallu.core.ui.foundation.AppText
+import app.minzmahallu.core.ui.foundation.AuroraBackground
 import app.minzmahallu.core.ui.foundation.CountedInt
 import app.minzmahallu.core.ui.foundation.Eyebrow
 import app.minzmahallu.core.ui.foundation.Gutters
@@ -97,16 +98,18 @@ fun DashboardScreen(
         return
     }
 
-    LazyColumn(
-        Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = Gutters.screen,
-            end = Gutters.screen,
-            top = 10.dp,
-            bottom = 90.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
+    Box(Modifier.fillMaxSize()) {
+        AuroraBackground(intensity = 0.65f)
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = Gutters.screen,
+                end = Gutters.screen,
+                top = 10.dp,
+                bottom = 90.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
         // Official Brand Top Bar
         item {
             Column(Modifier.statusBarsPadding()) {
@@ -302,6 +305,7 @@ fun DashboardScreen(
             }
         }
     }
+    }
 }
 
 @Composable
@@ -423,6 +427,7 @@ private fun StatCard(
             value = count,
             style = MahalluTheme.type.display,
             color = colors.textPrimary,
+            stopMotion = true,
         )
         Spacer(Modifier.height(2.dp))
         AppText(

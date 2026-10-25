@@ -129,8 +129,9 @@ fun CountedInt(
     style: TextStyle? = null,
     color: Color? = null,
     suffix: String = "",
+    stopMotion: Boolean = false,
 ) {
-    val shown = rememberCountUp(value.toDouble())
+    val shown = if (stopMotion) stopMotionInt(value) else rememberCountUp(value.toDouble()).toInt()
     AppText(
         text = IndianGrouping.format(shown.toLong()) + suffix,
         style = style ?: MahalluTheme.type.amount,
