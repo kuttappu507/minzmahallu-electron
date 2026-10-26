@@ -96,7 +96,7 @@ jobs:
         working-directory: ${{ env.ANDROID_ROOT }}
         run: |
           set -o pipefail
-          ./gradlew assembleDebug --continue --stacktrace 2>&1 | tee /tmp/build.log
+          ./gradlew clean assembleDebug --continue --stacktrace 2>&1 | tee /tmp/build.log
 
       - name: Unit tests
         working-directory: ${{ env.ANDROID_ROOT }}
