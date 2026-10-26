@@ -82,11 +82,17 @@ fun Surface(
         label = "surface-border",
     )
 
+    val bgBrush = when {
+        selected -> androidx.compose.ui.graphics.SolidColor(colors.accentSoft)
+        color != null -> androidx.compose.ui.graphics.SolidColor(fill)
+        else -> Brush.verticalGradient(listOf(colors.surfaceRaised, colors.surface))
+    }
+
     Column(
         modifier
             .scale(scale)
             .clip(shape)
-            .background(if (selected) colors.accentSoft else fill)
+            .background(bgBrush)
             .then(
                 if (border != Color.Unspecified) Modifier.border(
                     width = if (selected) 1.6.dp else 1.dp,
@@ -167,18 +173,28 @@ fun HeroPanel(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = MahalluTheme.colors
+    val shape = leaf(flipped = flipped)
     Column(
         modifier
-            .clip(leaf(flipped = flipped))
+            .clip(shape)
             .background(
                 Brush.linearGradient(
                     listOf(
                         colors.tintBed(tint),
-                        colors.surface.copy(alpha = if (colors.isDark) 0.9f else 1f),
+                        colors.surfaceRaised.copy(alpha = if (colors.isDark) 0.95f else 1f),
                     ),
                 ),
             )
-            .border(1.dp, colors.tint(tint).copy(alpha = 0.28f), leaf(flipped = flipped))
+            .border(
+                1.dp,
+                Brush.linearGradient(
+                    listOf(
+                        colors.tint(tint).copy(alpha = 0.38f),
+                        colors.line,
+                    ),
+                ),
+                shape,
+            )
             .padding(22.dp),
         content = content,
     )

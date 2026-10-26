@@ -349,8 +349,24 @@ private fun QuickActionButton(
         modifier = modifier
             .scale(scale)
             .clip(shape)
-            .background(colors.surface)
-            .border(1.dp, colors.line, shape)
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        colors.surfaceRaised,
+                        colors.surface,
+                    ),
+                ),
+            )
+            .border(
+                1.dp,
+                Brush.linearGradient(
+                    listOf(
+                        colors.tint(tint).copy(alpha = 0.35f),
+                        colors.line,
+                    ),
+                ),
+                shape,
+            )
             .pressHighlight(press, shape, colors.tint(tint))
             .clickable(
                 interactionSource = interaction,
@@ -397,8 +413,24 @@ private fun StatCard(
         modifier = modifier
             .scale(scale)
             .clip(shape)
-            .background(colors.surface)
-            .border(1.dp, colors.line, shape)
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        colors.surfaceRaised,
+                        colors.surface,
+                    ),
+                ),
+            )
+            .border(
+                1.dp,
+                Brush.linearGradient(
+                    listOf(
+                        colors.tint(tint).copy(alpha = 0.35f),
+                        colors.line,
+                    ),
+                ),
+                shape,
+            )
             .pressHighlight(press, shape, colors.tint(tint))
             .clickable(
                 interactionSource = interaction,
