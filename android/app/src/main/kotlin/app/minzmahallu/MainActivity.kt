@@ -48,6 +48,7 @@ import app.minzmahallu.core.ui.theme.LocalMalayalam
 import app.minzmahallu.session.SessionController
 import app.minzmahallu.ui.nav.AppNavGraph
 import app.minzmahallu.ui.shell.DrawerHeader
+import app.minzmahallu.ui.shell.ModernBottomBar
 import app.minzmahallu.ui.shell.ModuleDrawer
 import app.minzmahallu.ui.shell.Navigation
 import dagger.hilt.android.AndroidEntryPoint
@@ -158,13 +159,32 @@ private fun AppRoot(
             }
 
             Column(Modifier.weight(1f).fillMaxSize()) {
-                AppNavGraph(
-                    navController = navController,
-                    state = state,
-                    onIntent = events,
-                    onOpenDrawer = { drawerState.open() },
-                    modifier = Modifier.weight(1f),
-                )
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    AppNavGraph(
+                        navController = navController,
+                        state = state,
+                        onIntent = events,
+                        onOpenDrawer = { drawerState.open() },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+
+                // Show modern dock navigation bar on phones when user is authenticated
+                if (!state.showDrawerAsRail && state.signedIn && currentRoute != "setup" && currentRoute != "login") {
+                    ModernBottomBar(
+                        currentRoute = currentRoute,
+                        onNavigate = { route ->
+                            events(MainIntent.Navigate(route))
+                            navController.navigate(route) {
+                                popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                        onOpenMenu = { drawerState.open() },
+                        modifier = Modifier.navigationBarsPadding(),
+                    )
+                }
 
                 // Toasts sit above the content and above the navigation bar,
                 // which is where the desktop puts them (bottom-right).
