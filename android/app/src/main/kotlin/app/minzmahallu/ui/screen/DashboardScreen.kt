@@ -159,7 +159,7 @@ fun DashboardScreen(
                             .padding(horizontal = 10.dp, vertical = 4.dp),
                     ) {
                         AppText(
-                            text = "LIVE LEDGER",
+                            text = "LIVE LEDGER • v2.7.3",
                             style = MahalluTheme.type.micro,
                             color = colors.accent,
                         )

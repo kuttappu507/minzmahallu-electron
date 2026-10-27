@@ -131,10 +131,26 @@ fun LoginScreen(
             Column(
                 Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(colors.surface)
-                    .border(1.dp, colors.line, RoundedCornerShape(22.dp))
-                    .padding(24.dp),
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                colors.surfaceRaised,
+                                colors.surface,
+                            ),
+                        ),
+                    )
+                    .border(
+                        1.dp,
+                        Brush.verticalGradient(
+                            listOf(
+                                colors.accent.copy(alpha = 0.35f),
+                                colors.line,
+                            ),
+                        ),
+                        RoundedCornerShape(26.dp),
+                    )
+                    .padding(26.dp),
             ) {
                 Eyebrow("SIGN IN")
                 Spacer(Modifier.height(6.dp))

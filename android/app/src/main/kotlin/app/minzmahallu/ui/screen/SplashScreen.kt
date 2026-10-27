@@ -202,7 +202,7 @@ fun AnimatedSplashScreen(
                 .alpha(textAlpha.value),
         ) {
             AppText(
-                text = "v2.7.2 • Secure Offline System",
+                text = "v2.7.3 • Modern Mobile Edition",
                 style = MahalluTheme.type.caption,
                 color = colors.textFaint,
             )
