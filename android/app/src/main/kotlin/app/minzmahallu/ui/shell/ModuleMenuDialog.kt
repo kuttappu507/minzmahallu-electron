@@ -372,7 +372,7 @@ private fun MenuTile(
                 contentAlignment = Alignment.Center,
             ) {
                 AppText(
-                    text = item.short,
+                    text = item.glyph,
                     style = MahalluTheme.type.title.copy(fontSize = 17.sp),
                     color = colors.tint(item.tint),
                 )
@@ -397,7 +397,7 @@ private fun MenuTile(
         Spacer(Modifier.height(8.dp))
 
         AppText(
-            text = if (malayalam) item.malayalam else item.label,
+            text = if (malayalam) item.titleMl else item.title,
             style = MahalluTheme.type.caption,
             color = if (selected) colors.tint(item.tint) else colors.textPrimary,
             maxLines = 1,
