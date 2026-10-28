@@ -15,8 +15,8 @@ android {
         applicationId = "app.minzmahallu"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "2.8.0-modern"
+        versionCode = 4
+        versionName = "2.8.1-dialog-native"
         resourceConfigurations += listOf("en", "ml")
     }
 

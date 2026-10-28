@@ -50,6 +50,7 @@ import app.minzmahallu.ui.nav.AppNavGraph
 import app.minzmahallu.ui.shell.DrawerHeader
 import app.minzmahallu.ui.shell.ModernBottomBar
 import app.minzmahallu.ui.shell.ModuleDrawer
+import app.minzmahallu.ui.shell.ModuleMenuDialog
 import app.minzmahallu.ui.shell.Navigation
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -204,56 +205,31 @@ private fun AppRoot(
             }
         }
 
-        // The phone drawer slides over the content.
-        androidx.compose.animation.AnimatedVisibility(
-            visible = drawerState.isOpen,
-            enter = androidx.compose.animation.fadeIn() +
-                androidx.compose.animation.slideInHorizontally { -it / 3 },
-            exit = androidx.compose.animation.fadeOut() +
-                androidx.compose.animation.slideOutHorizontally { -it / 3 },
-        ) {
-            Row(Modifier.fillMaxSize()) {
-                Column(
-                    Modifier
-                        .width(292.dp)
-                        .fillMaxSize()
-                        .navigationBarsPadding(),
-                ) {
-                    DrawerHeader(
-                        mahalluName = state.session.displayName,
-                        operatorName = state.session.actor?.fullName.orEmpty(),
-                        role = state.session.actor?.role?.wire.orEmpty(),
-                        onSignOut = {
-                            drawerState.close()
-                            events(MainIntent.SignOut)
-                        },
-                    )
-                    ModuleDrawer(
-                        currentRoute = currentRoute,
-                        pendingApprovals = state.pendingApprovals,
-                        malayalam = state.session.language == app.minzmahallu.i18n.Language.Malayalam,
-                        onNavigate = { route ->
-                            drawerState.close()
-                            navController.navigate(route) {
-                                popUpTo(navController.graph.startDestinationId) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .fillMaxSize()
-                        .background(colors.scrim)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                        ) { drawerState.close() },
-                )
-            }
+        // On phones, More menu opens as a native modal card popup dialog instead of an old side drawer
+        if (!state.showDrawerAsRail) {
+            ModuleMenuDialog(
+                visible = drawerState.isOpen,
+                onDismiss = { drawerState.close() },
+                currentRoute = currentRoute,
+                mahalluName = state.session.displayName,
+                operatorName = state.session.actor?.fullName.orEmpty(),
+                role = state.session.actor?.role?.wire.orEmpty(),
+                pendingApprovals = state.pendingApprovals,
+                malayalam = state.session.language == app.minzmahallu.i18n.Language.Malayalam,
+                onNavigate = { route ->
+                    drawerState.close()
+                    events(MainIntent.Navigate(route))
+                    navController.navigate(route) {
+                        popUpTo(navController.graph.startDestinationId) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                onSignOut = {
+                    drawerState.close()
+                    events(MainIntent.SignOut)
+                },
+            )
         }
     }
 }
